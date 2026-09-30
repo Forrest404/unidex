@@ -52,11 +52,12 @@ Two buttons: **A** = BOOT, **B** = PWR.
 | B long | app-specific extra |
 
 The home screen is a 2×2 grid: A moves the highlight, B opens. After 10 seconds without a press the board goes
-into deep sleep. The screen keeps showing what it last drew (e-ink needs no power for that); press either button
-to wake it and it carries on where you were.
+into deep sleep. The screen keeps showing what it last drew (e-ink needs no power for that). The press that
+wakes it also counts: tap A on a sleeping home screen and it wakes and moves the highlight in one go; hold a
+button and it's a long press. Powering on with PWR (from off, on battery) doesn't count, so it can't open an app.
 
 The top right of the home screen shows the time and battery level, e.g. `14:32  87%`. They update when the
-screen redraws (a button press or a wake), never on a timer. The percentage is an estimate from the battery
+screen redraws (any button press; B long on home refreshes them), never on a timer. The percentage is an estimate from the battery
 voltage, and reads high while charging over USB. A small lightning bolt before it means USB power is present (it can't tell charging from full). The time is
 left out until the clock has been set.
 

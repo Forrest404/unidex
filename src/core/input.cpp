@@ -1,5 +1,6 @@
 #include "input.h"
 #include <Arduino.h>
+#include <esp_sleep.h>
 
 static const uint32_t DEBOUNCE_MS = 30;  // no bounce seen at this value in STEP 0
 static const uint32_t LONG_MS = 300;     // tuned on the device in STEP 2
@@ -17,12 +18,20 @@ static Button buttons[] = {
   {0, Event::AShort, Event::ALong, false, false, 0},
   {18, Event::BShort, Event::BLong, false, false, 0},
 };
+static Event pending = Event::None;  // a wake tap that was over before we could see it
 
 void inputInit() {
+  // After a deep-sleep wake the press that woke us counts as input. After power-on it doesn't:
+  // holding PWR to switch on would otherwise open an app.
+  const bool buttonWake = esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT1;
+  const uint64_t wokeBy = buttonWake ? esp_sleep_get_ext1_wakeup_status() : 0;
   for (Button &b : buttons) {
     pinMode(b.pin, INPUT_PULLUP);
-    // Treat it as down with its event already sent, so the release produces nothing.
-    b.down = b.longSent = digitalRead(b.pin) == LOW;
+    const bool held = digitalRead(b.pin) == LOW;
+    b.down = held;
+    b.longSent = held && !buttonWake;  // power-on press: its release produces nothing
+    b.changedAt = 0;                   // a held wake press started at about boot time
+    if (!held && (wokeBy & (1ULL << b.pin))) pending = b.shortEv;  // tapped and released during boot
   }
 }
 
@@ -33,6 +42,11 @@ bool inputAnyDown() {
 }
 
 Event inputPoll() {
+  if (pending != Event::None) {
+    Event e = pending;
+    pending = Event::None;
+    return e;
+  }
   uint32_t now = millis();
   for (Button &b : buttons) {
     bool pressed = digitalRead(b.pin) == LOW;

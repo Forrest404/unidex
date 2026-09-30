@@ -77,10 +77,7 @@ static void drawSplash() {
 }
 
 void launcherBegin(bool woke) {
-  if (woke) {
-    if (current == HOME) displayShow(drawHome, false);  // the clock and battery in the header would be stale
-    return;
-  }
+  if (woke) return;  // the screen still shows where you were; the wake press itself redraws
   displayShow(drawSplash, true);
   delay(1200);
   displayShow(drawHome, false);
@@ -95,6 +92,8 @@ void launcherHandle(Event e) {
       current = e == Event::ALong ? SETTINGS : selected;
       app(current)->onEnter();
       displayShow(app(current)->draw, true);
+    } else {
+      displayShow(drawHome, false);  // B long: refresh the clock and battery in the header
     }
     return;
   }
