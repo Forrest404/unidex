@@ -8,7 +8,7 @@
 #include "../../core/storage.h"
 #include "../../core/theme.h"
 
-static const int MIN_N = 2, MAX_N = 6, MIN_HOPS = 12;
+static const int MIN_N = 2, MAX_N = 6, MIN_HOPS = 6;
 static const int16_t GAP = 4, GRID_TOP = CONTENT_TOP + 6, TEXT_Y = CONTENT_BOTTOM - 14;
 
 enum Screen : uint8_t { COUNT, RESULT, TALLY };

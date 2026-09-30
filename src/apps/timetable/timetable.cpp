@@ -268,19 +268,13 @@ static void drawDay(const struct tm &now) {
     display.print(hm);
     drawRight(c.room, baseline);
 
-    // Shorten the module name until it fits between the time and the room.
+    // The module name gets whatever fits between the time and the room.
     int16_t x, y;
-    uint16_t w, h, roomW;
+    uint16_t h, roomW;
     display.getTextBounds(c.room, 0, 0, &x, &y, &roomW, &h);
     const int16_t left = MARGIN + 54, room = display.width() - MARGIN - roomW - 6;
-    String name = c.module;
-    display.getTextBounds(name.c_str(), 0, 0, &x, &y, &w, &h);
-    while (name.length() > 1 && left + w > room) {
-      name.remove(name.length() - 1);
-      display.getTextBounds(name.c_str(), 0, 0, &x, &y, &w, &h);
-    }
     display.setCursor(left, baseline);
-    display.print(name);
+    display.print(fitText(c.module, room - left));
     display.setTextColor(GxEPD_BLACK);
   }
   drawFooter("scroll", "back");

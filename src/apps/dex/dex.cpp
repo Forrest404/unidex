@@ -56,26 +56,27 @@ static void loadSalt() {
   for (int i = 0; i < 16; i++) salt[i] = strtoul(hex.substring(2 * i, 2 * i + 2).c_str(), nullptr, 16);
 }
 
-// Salted, because a BSSID is only 48 bits with known vendor prefixes: a plain hash could be reversed.
-static uint64_t hashBssid(const uint8_t *bssid) {
-  uint8_t in[22], out[32];
-  memcpy(in, salt, 16);
-  memcpy(in + 16, bssid, 6);
-  mbedtls_sha256_ret(in, sizeof in, out, 0);
+// First 8 bytes of SHA-256.
+static uint64_t sha64(const uint8_t *data, size_t len) {
+  uint8_t out[32];
+  mbedtls_sha256_ret(data, len, out, 0);
   uint64_t h = 0;
   for (int i = 0; i < 8; i++) h = h << 8 | out[i];
   return h;
 }
 
+// Salted, because a BSSID is only 48 bits with known vendor prefixes: a plain hash could be reversed.
+static uint64_t hashBssid(const uint8_t *bssid) {
+  uint8_t in[22];
+  memcpy(in, salt, 16);
+  memcpy(in + 16, bssid, 6);
+  return sha64(in, sizeof in);
+}
+
 // Named networks are keyed by their name, so extra access points with the same name don't count
 // again; hidden ones have no name, so they're keyed by their BSSID hash.
 static uint64_t keyOf(const char *ssid, uint64_t bssidHash) {
-  if (!*ssid) return bssidHash;
-  uint8_t out[32];
-  mbedtls_sha256_ret((const uint8_t *)ssid, strlen(ssid), out, 0);
-  uint64_t k = 0;
-  for (int i = 0; i < 8; i++) k = k << 8 | out[i];
-  return k;
+  return *ssid ? sha64((const uint8_t *)ssid, strlen(ssid)) : bssidHash;
 }
 
 static bool isKnown(uint64_t h) {
@@ -92,22 +93,30 @@ static void remember(uint64_t bssidHash, const char *ssid, uint8_t rarity) {
   newest.tag = bssidHash >> 48;
 }
 
+// One dex.csv row (hash,ssid,rssi,enc,rarity,first_seen). False for the header or a damaged row.
+static bool parseRow(const String &row, Find &out, uint64_t &hash) {
+  int c1 = row.indexOf(','), c2 = row.indexOf(',', c1 + 1), c3 = row.indexOf(',', c2 + 1);
+  int c4 = row.indexOf(',', c3 + 1), c5 = row.indexOf(',', c4 + 1);
+  if (c1 != 16 || c5 < 0) return false;
+  hash = strtoull(row.substring(0, 16).c_str(), nullptr, 16);
+  strlcpy(out.ssid, row.substring(c1 + 1, c2).c_str(), sizeof out.ssid);
+  out.tag = hash >> 48;
+  String rarity = row.substring(c4 + 1, c5);
+  out.rarity = COMMON;
+  for (int i = 0; i < 4; i++)
+    if (rarity == RARITY[i]) out.rarity = i;
+  return true;
+}
+
 static void load() {
   knownCount = 0;
   memset(perRarity, 0, sizeof perRarity);
   loadSalt();
   fs::File f = storageOpen(DEX);
-  while (f && f.available()) {
-    String row = f.readStringUntil('\n');  // hash,ssid,rssi,enc,rarity,first_seen
-    int c1 = row.indexOf(','), c2 = row.indexOf(',', c1 + 1), c3 = row.indexOf(',', c2 + 1);
-    int c4 = row.indexOf(',', c3 + 1), c5 = row.indexOf(',', c4 + 1);
-    if (c1 != 16 || c5 < 0) continue;  // header or damaged row
-    String rarity = row.substring(c4 + 1, c5);
-    uint8_t r = COMMON;
-    for (int i = 0; i < 4; i++)
-      if (rarity == RARITY[i]) r = i;
-    remember(strtoull(row.substring(0, 16).c_str(), nullptr, 16), row.substring(c1 + 1, c2).c_str(), r);
-  }
+  Find entry;
+  uint64_t hash;
+  while (f && f.available())
+    if (parseRow(f.readStringUntil('\n'), entry, hash)) remember(hash, entry.ssid, entry.rarity);
 }
 
 static void ensureLoaded() {
@@ -244,19 +253,12 @@ static int readPage(Find *out) {
   const int first = knownCount - 1 - page * PAGE;  // file row index of the page's newest entry
   int row = 0, n = 0;
   fs::File f = storageOpen(DEX);
+  Find entry;
+  uint64_t hash;
   while (f && f.available()) {
-    String line = f.readStringUntil('\n');
-    int c1 = line.indexOf(','), c2 = line.indexOf(',', c1 + 1);
-    if (c1 != 16) continue;  // header or damaged row
+    if (!parseRow(f.readStringUntil('\n'), entry, hash)) continue;  // counted exactly as load() does
     if (row > first - PAGE && row <= first) {
-      int c4 = line.indexOf(',', line.indexOf(',', c2 + 1) + 1), c5 = line.indexOf(',', c4 + 1);
-      Find &f2 = out[first - row];
-      strlcpy(f2.ssid, line.substring(c1 + 1, c2).c_str(), sizeof f2.ssid);
-      f2.tag = strtoul(line.substring(0, 4).c_str(), nullptr, 16);
-      String rarity = line.substring(c4 + 1, c5);
-      f2.rarity = COMMON;
-      for (int i = 0; i < 4; i++)
-        if (rarity == RARITY[i]) f2.rarity = i;
+      out[first - row] = entry;
       n++;
     }
     row++;
@@ -276,17 +278,10 @@ static void drawList() {
     const int16_t baseline = CONTENT_TOP + 22 + i * 26;
     drawRight(RARITY[rows[i].rarity], baseline);
     int16_t x, y;
-    uint16_t w, h, tagW;
+    uint16_t h, tagW;
     display.getTextBounds(RARITY[rows[i].rarity], 0, 0, &x, &y, &tagW, &h);
-    const int16_t room = display.width() - 2 * MARGIN - tagW - 8;
-    String name = shown(rows[i]);
-    display.getTextBounds(name.c_str(), 0, 0, &x, &y, &w, &h);
-    while (name.length() > 1 && w > room) {  // shorten until it fits beside the rarity
-      name.remove(name.length() - 1);
-      display.getTextBounds(name.c_str(), 0, 0, &x, &y, &w, &h);
-    }
     display.setCursor(MARGIN, baseline);
-    display.print(name);
+    display.print(fitText(shown(rows[i]), display.width() - 2 * MARGIN - tagW - 8));  // beside the rarity
   }
   if (n == 0) drawCentered("nothing yet", (CONTENT_TOP + CONTENT_BOTTOM) / 2);
   drawFooter("more", "back");

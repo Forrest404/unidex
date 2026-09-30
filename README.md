@@ -1,370 +1,309 @@
-# unidex — tiny e-ink OS for the Waveshare ESP32-S3-ePaper-1.54
+# unidex
 
-PlatformIO + Arduino firmware: a launcher with four apps (Timetable, Name Badge, WiFi Pokédex, Chooser).
+A tiny pocket OS for a 1.54" e-ink board: a home screen and four small apps, driven by two buttons,
+running for days on a battery because it sleeps whenever you aren't pressing something.
 
-## Status
+| App | What it does |
+|---|---|
+| **Timetable** | Shows your next class or calendar event with a countdown. Reads a weekly CSV and, optionally, your Apple Calendar (synced from a Mac over USB). |
+| **Name Badge** | Flips through full-screen 1-bit images: name tags, logos, photos. Includes a drag-and-drop converter. |
+| **Dex** | A WiFi Pokédex. Scan, and every new network name you hear is logged with a rarity. |
+| **Chooser** | Pick 2–6 squares, spin, get a random winner. Keeps a tally. |
 
-| Step | What | State |
-|---|---|---|
-| 0 | Identify board + button serial test | done |
-| 1 | Project setup + display "hello" | done |
-| 2 | Button input (short/long) | done |
-| 3 | Power management + deep sleep | done |
-| 4 | Storage layer + theme | done |
-| 5 | Launcher, splash, icons | done |
-| 6 | Name Badge | done |
-| 7 | Timetable + NTP | done (NTP untested: no WiFi yet; clock set from the Mac) |
-| 7b | Apple Calendar sync from the Mac over USB | done |
-| 8 | Chooser | done |
-| 9 | WiFi Pokédex | done |
-| 10 | Polish + battery audit | done |
+Built with PlatformIO + Arduino (ESP32-S3). WiFi is never used unless you ask for it (a Dex scan, or an NTP time sync).
 
-## Hardware
+## What you need
 
-Legend: **confirmed** = read from the chip itself or seen working on the device;
-**vendor** = taken from Waveshare's own example code/docs, not yet seen working here;
-**assumed** = inferred, needs checking.
+- **Board:** [Waveshare ESP32-S3-ePaper-1.54](https://docs.waveshare.com/ESP32-S3-ePaper-1.54), **V2**
+  (ESP32-S3-PICO-1, 8 MB flash, 8 MB PSRAM, 200×200 black/white e-paper, BOOT + PWR buttons, PCF85063 clock chip).
+  Other boards would need different pins and a different display driver.
+- A USB-C data cable.
+- Optional: a 3.7 V LiPo on the board's battery connector, to use it untethered.
+- [PlatformIO](https://platformio.org/install) (CLI or the VS Code extension).
+- Optional: a Mac for the calendar sync; Python 3 + [Pillow](https://pillow.readthedocs.io) for the badge script.
 
-### Board
+## Quick start
 
-| Item | Value | Source |
-|---|---|---|
-| Board | Waveshare ESP32-S3-ePaper-1.54 **V2** | vendor (the V2 is the only version with this chip) |
-| Chip | ESP32-S3-PICO-1 (LGA56), revision v0.2 | confirmed (esptool) |
-| Flash | 8 MB, GD (mfr 0xC8, dev 0x4017), quad, 3.3 V | confirmed (esptool) |
-| PSRAM | 8 MB embedded, octal (OPI) → `memory_type = qio_opi` | confirmed (vendor sdkconfig says octal; 8 MB PSRAM detected at runtime with qio_opi) |
-| Crystal | 40 MHz | confirmed (esptool) |
-| MAC | 14:c1:9f:d4:69:b0 | confirmed (esptool) |
-| USB | Native USB-Serial/JTAG, VID:PID 303A:1001 (no UART bridge) | confirmed |
-| Extras on board | PCF85063 RTC, SHTC3 temp/humidity, ES8311 audio codec, TF slot, mic, speaker header | vendor |
+```sh
+git clone https://github.com/Forrest404/unisex.git && cd unisex
 
-### Display
+# Optional, only for NTP time sync over WiFi (git-ignored, never committed):
+cp src/secrets.example.h src/secrets.h   # then fill in WIFI_SSID / WIFI_PASS
 
-| Item | Value | Source |
-|---|---|---|
-| Panel | 1.54" black/white e-paper, 200 × 200 | confirmed (STEP 1) |
-| Controller | SSD1681 | vendor code |
-| GxEPD2 class | `GxEPD2_154_D67` (SSD1681 200×200), GxEPD2 1.6.9 | confirmed (STEP 1) |
-| Rotation | 0 = upright | confirmed (STEP 1) |
+pio run -t upload       # build and flash the firmware
+pio run -t uploadfs     # upload data/ (badges, timetable) to the board's filesystem
+```
 
-### Pins
+Run the two uploads as separate commands, and do both: the firmware doesn't contain your badges or timetable,
+and without the filesystem image the apps show "no badges" / "nothing coming up".
 
-| Function | GPIO | Notes | Source |
-|---|---|---|---|
-| EPD SCK | 12 | SPI | confirmed (STEP 1) |
-| EPD MOSI | 13 | SPI (no MISO) | confirmed (STEP 1) |
-| EPD CS | 11 | | confirmed (STEP 1) |
-| EPD DC | 10 | | confirmed (STEP 1) |
-| EPD RST | 9 | | confirmed (STEP 1) |
-| EPD BUSY | 8 | | confirmed (STEP 1) |
-| EPD power enable | 6 | **active LOW** (LOW = panel powered); external pull-up (R71) turns the panel off if the pin floats | confirmed (STEP 1) |
-| Audio power enable | 42 | active LOW, keep HIGH (off) | vendor |
-| Battery power latch | 17 | **HIGH = stay on**; has a pull-down, so it must be held HIGH through deep sleep | confirmed (STEP 3) |
-| BOOT button | 0 | active LOW, RTC GPIO, external 10k pull-up (R1) | confirmed (STEP 0 test) |
-| PWR button | 18 | active LOW, RTC GPIO, external 10k pull-up (R58) | confirmed (STEP 0 test) |
-| RTC interrupt (PCF85063) | 5 | active LOW | vendor |
-| I2C SDA / SCL | 47 / 48 | RTC + SHTC3, 4.7k pull-ups | confirmed (STEP 7, PCF85063) |
-| Battery voltage | 4 (ADC1 ch3) | ×2 divider | vendor |
-| LED | 3 | only used in one vendor example | assumed |
+If upload can't connect: the USB port disappears while the board sleeps, so press a button and start the
+upload within 10 seconds. Still stuck: hold BOOT, tap RESET (or re-plug USB), release BOOT, retry.
 
-### Buttons and power: how they work
+## Using it
 
-- **PWR (GPIO18)** is a normal readable input, not only a power switch. On battery,
-  pressing PWR powers the board through the button. Firmware then drives **GPIO17 HIGH**
-  to latch power on. If firmware never latches, the board dies as soon as PWR is released.
-  To power off, firmware sets GPIO17 LOW. The vendor example does this when PWR wakes it.
-  On USB the board is always powered, so the latch makes no difference there.
-  *Readable: confirmed (STEP 0 test, on USB; holding PWR 2.4 s did not cut power).*
-- **PWR as a wake source**: the vendor sleep example uses `ext1` wake, ANY_LOW, on
-  GPIO0 + GPIO5 + GPIO18. So both buttons can wake from deep sleep, as long as GPIO17
-  is held HIGH during sleep. *confirmed (STEP 3, on USB and battery).*
-- **BOOT (GPIO0)** is a strapping pin. Holding it at reset or power-on enters download
-  mode. After boot it's a normal input. Strapping pins are latched only on a chip reset,
-  not on a deep-sleep wake, so it's safe as a wake button. *confirmed (STEP 3).*
+Two buttons: **A** = BOOT, **B** = PWR.
 
-### Controls
-
-A = BOOT (next/scroll), B = PWR (select/action). Both buttons read cleanly, alone and together,
-with no bounce seen at 30 ms debounce in STEP 0. Quick taps measured 145–300 ms, deliberate holds 1.6–3.8 s.
-
-| Event | Meaning |
+| Press | Meaning |
 |---|---|
 | A short | next / scroll |
-| A long | back to home |
+| A long (hold ~0.3 s) | back to the home screen |
 | B short | select / action |
 | B long | app-specific extra |
 
-Timing (`src/core/input.cpp`): debounce 30 ms; long press = held 300 ms (tuned by hand). The long event fires
-while the button is still held, and the release after it is ignored. Presses aren't read while a
-screen refresh is running (about 0.3–0.5 s).
+The home screen is a 2×2 grid: A moves the highlight, B opens. After 10 seconds without a press the board goes
+into deep sleep. The screen keeps showing what it last drew (e-ink needs no power for that); press either button
+to wake it and it carries on where you were.
 
-### Power
+### Timetable
 
-- Deep sleep after 10 s idle (`IDLE_MS` in `src/core/power.cpp`), never while a button is held
-  (a held button would wake it straight back up).
-- Wake: ext1 ANY_LOW on GPIO0 + GPIO18. The waking press is ignored until released.
-- In sleep: GPIO17 held HIGH, GPIO6 held LOW, and panel RST/CS held HIGH. So the panel stays in its
-  own deep sleep with its RAM kept, and the first refresh after a wake is partial (no flash).
-  At boot each level is set before its hold is released; a floating pin would cut power.
-- While awake, the loop light-sleeps between polls and wakes on BOOT/PWR (GPIO wake) or at the
-  10 s deep-sleep deadline (timer). By the datasheet this cuts the awake draw from about 20 mA to about 2 mA.
-  It's skipped while a button is held (release and long-press timing need polling) and while a
-  USB host is connected (light sleep pauses USB, which the Mac sync needs). Every wake source is
-  cleared before deep sleep, so the light-sleep timer can't wake the board from deep sleep.
-- CPU at 80 MHz (240 MHz only during a Dex scan). WiFi/BT are never started unless an app starts
-  them, and they're turned off straight after.
-- Battery audit (STEP 10, no meter; datasheet figures): ESP32-S3 deep sleep ~10 µA, panel in its own
-  sleep ~1 µA, PCF85063 ~0.3 µA, SHTC3 idle ~0.3 µA, audio amp switched off in hardware (GPIO42).
-  Worth measuring with a meter one day.
-- `RTC_DATA_ATTR` variables survive deep sleep but not power loss.
+Shows the next class in large type, then "in 42 min", "now, ends in 20 min" or "Tue 09:00", then time and room.
 
-### Sources
+- **A**: next upcoming item (up to 5)
+- **B long**: the rest of today (A scrolls, B returns)
+- **B short**: sync the clock over WiFi (needs `secrets.h`)
 
-- Waveshare wiki: https://docs.waveshare.com/ESP32-S3-ePaper-1.54
-- Waveshare code: https://github.com/waveshareteam/ESP32-S3-ePaper-1.54
-  (`02_Example/Arduino/*/user_config.h`, `src/power/board_power_bsp.cpp`,
-  `src/display/epaper_driver_bsp.cpp`, `01_ADC_Test/adc_bsp.cpp`, ESP-IDF V2 `sdkconfig`,
-  `04_Hardware/Schematics/ESP32-S3-Touch-ePaper-1.54-Schematic.pdf`)
-- Community note on the PWR/GPIO17 latch: https://www.espboards.dev/blog/waveshare-esp32-s3-epaper-esphome-climate/
+The countdown updates when you press a button, never on a timer, to save power.
+Edit `data/timetable.csv` for weekly classes:
 
-## Storage
-
-All file and NVS access goes through `src/core/storage.h`. Apps never touch LittleFS or
-Preferences directly, so moving files to an SD card later only changes `storage.cpp`.
-
-- Files: LittleFS on internal flash (the 1.5 MB `spiffs` partition in `default_8MB.csv`).
-  Sources live in `/data` and are uploaded as a filesystem image. The mount never auto-formats;
-  if no image was uploaded, `storageInit()` returns false.
-- `storageOpen(path, mode)` returns a standard `fs::File` ("r", "w", "a"; also opens folders for
-  `openNextFile()`).
-- NVS (namespace `unidex`): `storageGet/PutInt`, `storageGet/PutString`. Puts skip unchanged values.
-- Flash wear: open a file once, write everything, close it. Never write inside a loop.
-
-| NVS key | Type | Used by |
-|---|---|---|
-| `badge` | string | Badge: filename of the last badge shown |
-| `events_crc` | int | Mac sync: crc32 of the saved `/events.csv` |
-| `ch_w1`…`ch_w6` | int | Chooser: wins per square number |
-| `dex_salt` | string | Dex: 16-byte random salt (hex) for hashing BSSIDs |
-
-## Theme
-
-`src/core/theme.h`: `FONT_SMALL` (FreeSans 9 pt: header, footer, secondary text) and `FONT_LARGE`
-(FreeSans 18 pt: the one focal element). Margin 8 px, header 24 px (title + 1 px rule), footer
-22 px (1 px rule + "A …" left, "B …" right). Helpers: `drawHeader`, `drawFooter`, `drawCentered`.
-Icons: 40×40, stored as rows of `#`/`.` in `theme.cpp` (2 px strokes, no anti-aliasing), drawn with `drawIcon`.
-
-## File formats
-
-### Badges (`data/badges/*.bmp`)
-
-- 1-bit (monochrome), uncompressed BMP, up to 200×200. Smaller images are centred.
-- Either palette order works (index 0 black or white), and bottom-up or top-down rows.
-- Shown in filename order, so prefix them: `01-hello.bmp`, `02-…`. Up to 32 files.
-- Upload with `pio run -t uploadfs`.
-
-Easiest: open `tools/badge-maker.html` in a browser (double-click it). Drop in an image, adjust the
-preview, click Download BMP, move the file into `data/badges/`, then `pio run -t uploadfs`.
-HEIC only opens in Safari; use the script below for those.
-
-Or from the command line, any image (photo, logo, screenshot; PNG, JPG, HEIC, …):
-
-```sh
-python3 tools/badges.py ~/Downloads/photo.jpg      # -> data/badges/04-photo.bmp (next free number)
-python3 tools/badges.py --crop selfie.heic         # fill the screen, cutting the edges
-```
-
-It fits the image inside 200×200 (scaling small images up), turns transparency white, and picks
-dithering for photos or clean black/white edges for line art (`--dither` / `--no-dither` to force).
-Rename the BMP to change its place in the order.
-
-Making one in Illustrator (sources live in `art/badges/`):
-
-1. Open `art/badges/template.svg` (blank 200×200 px artboard) or one of the existing badges
-   (`01-hello.svg` etc., text still editable). Use pure black and white; thin lines under 1 px vanish.
-2. File → Export → Export As… → PNG, resolution **72 ppi** (= 200×200 px), into `art/badges/`,
-   named like `04-whatever.png`. Save the `.ai`/`.svg` there too so you can edit it later.
-   Export for Screens also works; a `@1x`/`@2x` suffix is dropped and larger exports are scaled down.
-3. `python3 tools/badges.py` (no arguments) turns every PNG in `art/badges/` into `data/badges/<name>.bmp`
-   (grey → nearest of black/white, transparent → white). Add `--dither` for photos or gradients.
-4. `pio run -t uploadfs`.
-
-To remove a badge, delete both its PNG and its BMP.
-
-In the app: A = next, B = previous; the badge fills the screen with no header or footer. Each
-flip is a full refresh (no ghosting); the last one shown is saved in NVS.
-
-### Timetable (`data/timetable.csv`)
-
-```
+```csv
 day,start,end,module,room
 Mon,09:00,10:00,Maths,B12
 Wed,18:00,19:30,Robotics Club,Lab 1
 ```
 
-The committed file has only the header row: real events come from Apple Calendar (below).
+`day` is `Mon`…`Sun`; times are 24 h `HH:MM`. The header row is optional, and unparseable rows are skipped.
+Names are cut at 23 characters and rooms at 11. Up to 96 entries in total (classes + calendar events).
+Then run `pio run -t uploadfs`.
 
-- `day` is `Mon`…`Sun` (case-insensitive, first 3 letters count); times are 24 h `HH:MM`.
-- The header row is optional; rows that don't parse are skipped.
-- Limits: 64 rows, module 23 characters, room 11 characters. Repeats weekly.
+#### Apple Calendar sync (macOS)
 
-### Calendar events (`/events.csv`, written by the device)
-
-Not uploaded: the device writes it when the Mac sync sends events. `uploadfs` wipes it until the
-next sync.
-
-```
-2026-10-01,14:00,15:00,Dentist,High St
-2026-10-03,,,Mum's birthday,
-```
-
-`YYYY-MM-DD,start,end,title,location`; empty times = all day. Titles are cut to 23 characters and
-locations to 11, and they're converted to plain ASCII (the display font has nothing else).
-
-In the app: the next class in the large font, then "in 42 min" / "now, ends in 20 min" / "Tue 09:00",
-then time span and room. A short = next upcoming class (up to 5), B long = rest of today
-(A scrolls, B back), B short = sync the time over WiFi. The countdown updates on each button
-press; nothing redraws on a timer.
-
-## Clock
-
-- Time lives on the onboard **PCF85063** clock chip (I2C 0x51, SDA 47 / SCL 48), stored as UTC.
-  It has its own crystal (~2 s/day) and is powered from the battery through a diode, so it keeps
-  counting through deep sleep and power-off. Confirmed in STEP 7.
-- The Timetable reads the chip once per boot into system time. The timezone is London:
-  `GMT0BST,M3.5.0/1,M10.5.0` (summer time is automatic).
-- If the chip's "oscillator stopped" flag is set (never set, or battery lost), the Timetable shows
-  "time not set".
-- Setting it: every Mac sync (below) writes the Mac's time. NTP over WiFi (B in Timetable) is the
-  backup. WiFi goes off straight after.
-
-### WiFi (only for NTP)
+`tools/calsync/` is a small LaunchAgent. Whenever the board is plugged into your Mac **and awake**, it sends the
+current time and the next 7 days of events from all your calendars (repeats expanded).
 
 ```sh
-cp src/secrets.example.h src/secrets.h   # git-ignored; never committed
-# edit WIFI_SSID / WIFI_PASS, then rebuild and flash
-```
-
-## Mac calendar sync (`tools/calsync/`)
-
-A LaunchAgent on the Mac pushes the time and the next 7 days of Apple Calendar events (all
-calendars, repeating events expanded) whenever the device is **plugged in and awake**. Plugging in
-doesn't wake the board, so press a button; the sync takes about 2 s.
-
-```sh
-tools/calsync/install.sh             # builds UnidexSync.app, asks for Calendar access, starts the agent
+tools/calsync/install.sh              # builds UnidexSync.app, asks for Calendar access, starts the agent
 tools/calsync/install.sh uninstall
 ```
 
-- Installed to `~/Library/Application Support/UnidexSync/`; log: `sync.log` there.
-  A good line: `time set, 15 events: OK E <crc>`.
-- Calendar access: System Settings → Privacy & Security → Calendars → UnidexSync.
-- Each time the port appears the agent syncs once. The device skips the flash write if the events
-  haven't changed (crc matches NVS `events_crc`), and writes a temp file then renames it, so a cut
-  transfer never leaves a broken file.
-- **Stop the agent before flashing** so it doesn't grab the port:
-  `launchctl bootout gui/$(id -u)/com.forrest.unidex-sync`, then afterwards
-  `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.forrest.unidex-sync.plist`.
+Plugging in doesn't wake the board, so press a button; the sync takes about 2 seconds. Log:
+`~/Library/Application Support/UnidexSync/sync.log`. Calendar permission lives in
+System Settings → Privacy & Security → Calendars.
 
-Protocol (text lines over USB serial, Mac → device; `src/core/usbsync.cpp`):
+**Stop the agent before flashing** so it doesn't grab the serial port:
+`launchctl bootout gui/$(id -u)/com.forrest.unidex-sync`, and afterwards
+`launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.forrest.unidex-sync.plist`.
+
+Synced events are stored in `/events.csv` on the board (not in `data/`, so `uploadfs` wipes them until the next
+sync). Titles and locations are converted to plain ASCII because the display font has nothing else.
+
+#### Timezone
+
+The timezone is hard-coded to London. To change it, edit `TZ_LONDON` (a POSIX TZ string) in
+`src/core/clock.cpp` and `Europe/London` in `tools/calsync/calsync.swift`.
+
+### Name Badge
+
+**A** next, **B** previous. The badge fills the screen with no header. Each flip is a full refresh (no ghosting),
+and the last badge shown is remembered across sleep and power loss.
+
+Badges are 1-bit, uncompressed BMPs up to 200×200 (smaller ones are centred) in `data/badges/`. They're shown in
+filename order, up to 32, so number them: `01-hello.bmp`, `02-…`.
+
+To make one from any image:
+
+- **In the browser:** open `tools/badge-maker.html` (double-click it). Drop in an image, pick fit or fill, photo
+  or line art, adjust the lightness, and download the BMP. Put it in `data/badges/`. Nothing is uploaded anywhere.
+- **From the command line** (PNG, JPG, HEIC, …; needs Pillow):
+
+  ```sh
+  python3 tools/badges.py ~/Downloads/photo.jpg    # -> data/badges/<next number>-photo.bmp
+  python3 tools/badges.py --crop selfie.heic       # fill the screen, cutting the edges
+  ```
+
+  Photos are dithered, line art gets clean black-and-white edges (`--dither` / `--no-dither` to force), and
+  transparency becomes white.
+- **In Illustrator, Figma or anything else:** design at 200×200 px in pure black and white (lines thinner than
+  1 px vanish; `tools/badge-template.svg` is a blank artboard), export a PNG at 72 ppi, then run it through the
+  script above.
+
+Then run `pio run -t uploadfs`. Everything in `data/` is copied to the board's 1.5 MB filesystem, so keep large
+source images elsewhere.
+
+### Dex
+
+A WiFi Pokédex. **B** scans (about 2 seconds): you get "NEW!" plus the best new find, or "nothing new".
+
+- **A**: list of everything found, newest first, 5 per page (A pages, B goes back)
+- **B long**: counts per rarity. Hold **B** again there to clear the dex (then B = yes, A = no)
+
+Each network **name** is logged once, however many access points share it. Rarity, first match wins:
+`eduroam` = starter; hidden or weaker than −80 dBm = rare; open = common; everything else = uncommon.
+
+It only listens for beacons and never connects to anything. Finds are appended to `/dex.csv` on the board
+(`hash,ssid,rssi,enc,rarity,first_seen`). The raw BSSID (the access point's MAC) is never stored, only the first
+8 bytes of SHA-256(salt + BSSID) with a random per-device salt, because a MAC with a known vendor prefix could
+be brute-forced back from a plain hash. Wiping the board's NVS changes the salt and makes everything new again.
+
+### Chooser
+
+Opens on 2 squares; **A** cycles 2 → 6. **B** spins: the highlight walks the grid, slowing down, and lands on a
+winner that was picked up front with the hardware random number generator. The reveal inverts the winning square
+("You got #3"). **B** = spin again, **A** = back to the count, **B long** = tally of wins per square.
+
+## Project layout
+
+```
+src/
+  main.cpp              setup/loop: input -> launcher -> sleep
+  apps/                 one folder per app (timetable, badge, dex, chooser) + apps.cpp (launcher order)
+  core/
+    launcher.*          splash, home grid, routes buttons to the open app
+    display.*           GxEPD2 wrapper and the refresh rule
+    input.*             debounce + short/long press events
+    power.*             deep sleep, light sleep between polls, wake, pin holds
+    storage.*           LittleFS files + NVS key/value (apps never touch either directly)
+    clock.*             PCF85063 clock chip, NTP
+    usbsync.*           serial protocol for the Mac calendar sync
+    theme.*             fonts, header/footer helpers, 40x40 pixel icons
+data/                   uploaded to the board with `pio run -t uploadfs`
+  badges/  timetable.csv
+tools/                  badge-maker.html, badges.py, badge-template.svg, calsync/ (macOS)
+```
+
+### Adding an app
+
+1. Create `src/apps/<name>/<name>.cpp`. Define static `onEnter`, `onButton`, `draw` and `onExit`, then export
+   `extern const App <name>App = {"Name", ICON_X, onEnter, onButton, draw, onExit};`
+   (any existing app is a template; the interface is in `src/core/app.h`).
+2. Add `<name>App` to the `extern` line and to `APPS[]` in `src/apps/apps.cpp`. That sets the launcher order.
+3. Add a 40×40 icon in `src/core/theme.cpp` / `theme.h` (rows of `#` and `.`).
+
+Rules that keep it fast and cheap on battery:
+
+- **`draw()` paints the whole screen**; the launcher does the refresh. Return `Redraw::Partial` (small change),
+  `Redraw::Full` (whole new image) or `Redraw::None` from `onButton`.
+- **RAM is lost in deep sleep** and `onEnter` isn't called again after a wake. Keep state in `RTC_DATA_ATTR`
+  variables (survive sleep) or NVS via `storage.h` (survives power loss), and rebuild caches lazily on first use
+  (see `ensureList()` in the badge app).
+- **Turn radios on only inside the app and off again** before returning. Nothing redraws on a timer.
+- Flash wear: open a file once, write everything, close it. Never write inside a loop.
+- The home grid fits 4 apps; a fifth needs a second page or a smaller grid.
+
+### The refresh rule
+
+E-ink ghosts. `displayShow()` uses a fast partial refresh by default and a full (flashing) refresh when switching
+apps, when an app asks for one, and after every 10 partials (the counter survives sleep). Animations use
+`displayFrame()` (partials that don't count toward the 10) and must end with a full `displayShow()`.
+
+### Build options
+
+`platformio.ini` sets `-DDEBUG=0`. Set it to `1` for serial logs (`pio device monitor`, 115200) and a short wait
+for USB on cold boot; with it on, a missing filesystem prints "run pio run -t uploadfs". The filesystem is never
+auto-formatted on mount, so a failed mount can't erase your files.
+
+## Hardware notes
+
+Everything here was read from the chip, seen working on the device, or taken from Waveshare's own example code
+(marked *vendor*, not independently verified).
+
+<details>
+<summary><b>Chip, display and pins</b></summary>
+
+| Item | Value | Source |
+|---|---|---|
+| Chip | ESP32-S3-PICO-1 (LGA56), rev v0.2, 40 MHz crystal | esptool |
+| Flash / PSRAM | 8 MB quad (GD) / 8 MB octal (`memory_type = qio_opi`) | esptool, runtime |
+| USB | Native USB-Serial/JTAG (`303A:1001`), no UART bridge | confirmed |
+| Panel | 1.54" black/white e-paper, 200×200, SSD1681 | confirmed |
+| Driver | GxEPD2 1.6.9, class `GxEPD2_154_D67`, rotation 0 | confirmed |
+| Also on board | SHTC3 temp/humidity, ES8311 audio codec, TF slot, mic, speaker header | vendor (unused here) |
+
+| Function | GPIO | Notes |
+|---|---|---|
+| EPD SCK / MOSI | 12 / 13 | SPI, no MISO |
+| EPD CS / DC / RST / BUSY | 11 / 10 / 9 / 8 | |
+| EPD power enable | 6 | **active LOW**; an external pull-up turns the panel off if the pin floats |
+| Audio power enable | 42 | active LOW; kept HIGH (off) |
+| Battery power latch | 17 | **HIGH = stay on**; has a pull-down, so it must be held HIGH, including through deep sleep |
+| BOOT button (A) | 0 | active LOW, RTC GPIO, external 10k pull-up |
+| PWR button (B) | 18 | active LOW, RTC GPIO, external 10k pull-up |
+| I2C SDA / SCL | 47 / 48 | PCF85063 clock (0x51), SHTC3 |
+| RTC interrupt | 5 | active LOW (vendor, unused) |
+| Battery voltage | 4 (ADC1 ch3) | ×2 divider (vendor, unused) |
+
+</details>
+
+<details>
+<summary><b>Buttons and power latch</b></summary>
+
+- **PWR (GPIO18)** is a normal readable input as well as the power button. On battery, pressing it powers the
+  board through the button; firmware must then drive **GPIO17 HIGH** to latch power on, or the board dies the
+  moment you let go. On USB the board is always powered, so the latch makes no difference there.
+- **BOOT (GPIO0)** is a strapping pin: held at reset it enters download mode, but afterwards it's a normal input.
+  Strapping is only sampled on a chip reset, not on a deep-sleep wake, so it's safe as a wake button.
+- Both buttons wake the board from deep sleep (ext1, any-low) as long as GPIO17 is held HIGH.
+- Timing: 30 ms debounce, long press = held 300 ms. The long event fires while still held (so you know when to
+  let go) and the release afterwards is ignored. Presses aren't read during a screen refresh (~0.3–0.5 s).
+
+</details>
+
+<details>
+<summary><b>Power and battery</b></summary>
+
+- Deep sleep after 10 s idle (`IDLE_MS` in `src/core/power.cpp`), never while a button is held.
+- In sleep, GPIO17 stays HIGH, GPIO6 LOW, and the panel's RST/CS HIGH, so the panel sits in its own deep sleep
+  with its RAM intact and the first refresh after a wake is a partial (no flash). At boot each level is set
+  *before* its hold is released; a floating pin would cut battery or panel power.
+- While awake, the main loop light-sleeps between polls and wakes on a button or at the 10 s deadline. It skips
+  light sleep while a button is held and while USB is connected (light sleep pauses USB, which the Mac sync needs).
+- The CPU runs at 80 MHz (240 MHz only during a Dex scan). WiFi is off except inside the Dex scan and the NTP sync.
+- Datasheet estimates, **not measured** with a meter: about 2 mA awake with light sleep (vs about 20 mA), and
+  tens of µA in deep sleep. Real battery life depends on how often you press things.
+
+</details>
+
+<details>
+<summary><b>Clock and storage</b></summary>
+
+- Time lives on the onboard **PCF85063** (own crystal, battery-backed through a diode), stored as UTC, so it
+  keeps counting through deep sleep and power-off. It's read once per boot. If its "oscillator stopped" flag is
+  set (never set, or battery lost) the Timetable says "time not set". Every Mac sync writes the Mac's time;
+  NTP over WiFi (B short in Timetable) is the backup.
+- Files live in LittleFS on the 1.5 MB `spiffs` partition of `default_8MB.csv`, built from `data/`. Small
+  settings live in NVS (namespace `unidex`):
+
+| NVS key | Used by |
+|---|---|
+| `badge` | Badge: filename of the last badge shown |
+| `events_crc` | Mac sync: crc32 of the saved `/events.csv`, to skip identical writes |
+| `ch_w1`…`ch_w6` | Chooser: wins per square |
+| `dex_salt` | Dex: random salt for hashing BSSIDs |
+
+</details>
+
+<details>
+<summary><b>Mac sync protocol</b></summary>
+
+Text lines over USB serial, Mac → device (`src/core/usbsync.cpp`, `tools/calsync/calsync.swift`):
 
 | Mac sends | Device replies |
 |---|---|
 | `?` | `unidex 1` |
 | `T <unix seconds>` | `OK T` (clock chip set) |
-| `E <count> <crc32>` + `count` event lines | `OK E <crc>` or `ERR` (crc32 as in zlib, over each line + `\n`) |
+| `E <count> <crc32>` + `count` lines `YYYY-MM-DD,HH:MM,HH:MM,title,location` | `OK E <crc>` or `ERR` |
 
-Gotchas found on the way:
-- The ESP32-S3 resets if RTS is on while DTR is off. Opening the port turns both on, so clear
-  **RTS first, then DTR**.
-- The device answers with `\r\n`. Swift treats that as one Character, so the agent strips `\r`.
-- After a cold boot the device is busy with the splash for about 3.5 s, so the agent keeps asking for 6 s.
+The crc32 (zlib) covers each line plus `\n`. The device writes a temp file and renames it only if the crc matches,
+so a cut transfer never leaves a broken file. Empty times mean an all-day event. Gotchas: the ESP32-S3 resets if
+RTS is asserted while DTR is not, so the sender clears RTS first, then DTR; replies end in `\r\n`; and a cold
+boot keeps the board busy with the splash for about 3.5 s, so the sender waits up to 6 s.
 
-### Chooser
+</details>
 
-- Always opens on 2 squares; A short cycles 2 → 6 → 2 with a numbered grid preview.
-- B short spins. The winner is picked first (`esp_random()` with the hardware entropy source
-  switched on briefly, because the radios are off). The highlight then walks the squares in reading
-  order, slowing each hop, starting (hops − 1) cells before the winner so it lands exactly on it.
-- The reveal is a full refresh (clears the spin's ghosting): the winner is inverted, with "You got #N".
-  B = spin again, A = back to the count.
-- B long = tally: the grid shows each square's win count. One NVS write per spin, after it lands.
+## Sources
 
-### WiFi Pokédex (`/dex.csv`, written by the device)
-
-```
-hash,ssid,rssi,enc,rarity,first_seen
-3f9a0c1d2b4e5f60,eduroam,-67,WPA2-E,starter,1790783100
-```
-
-- One row per network **name**: access points sharing a name (e.g. many eduroam APs) count once,
-  including repeats within a scan. Hidden networks have no name, so each one is its own row and
-  shows as `(hidden xxxx)` (the first 4 hex digits of its hash). New rows are appended in one write per scan.
-- `hash` = the first 8 bytes of SHA-256(salt + BSSID), as hex. The raw BSSID is never stored. The
-  salt is random per device (NVS `dex_salt`), because a 48-bit BSSID with a known vendor prefix could
-  be brute-forced back from a plain hash. Wiping NVS makes old hashes unmatchable (everything is new again).
-- SSIDs: commas → space, non-ASCII → `?`, max 32 characters; empty = hidden. `enc`: open, WEP, WPA,
-  WPA2, WPA2-E, WPA3. `first_seen` is Unix time (0 if the clock wasn't set).
-- Rarity, first match wins: `eduroam` = starter; hidden or RSSI below −80 dBm = rare;
-  open = common; anything else = uncommon.
-- Scanning turns WiFi on and the CPU to 240 MHz for about 2 s, then WiFi off and the CPU back to 80 MHz.
-
-In the app: B = scan ("NEW!" plus the best new find, or "nothing new"); A = list of all finds, newest
-first, 5 per page (A pages and wraps, B back); B long = counts per rarity; hold B there = clear the
-dex (then B yes / A no).
-
-## Launcher and apps
-
-- Cold boot: splash (full refresh), then home (partial). After a deep-sleep wake nothing is
-  redrawn: the panel still shows where you were.
-- Home: 2×2 grid, the selected app inverted. A short = next, B short = open.
-- In an app: A long = back home. A short, B short and B long go to the app.
-- The open app and the home selection are `RTC_DATA_ATTR`, so they survive sleep.
-
-### Refresh rule (`displayShow` in `src/core/display.cpp`)
-
-Every screen is drawn whole by a `draw()` function. Partial refresh normally; full refresh when
-switching apps/home and after every 10 partials (the counter survives sleep), to clear ghosting.
-Nothing redraws on a timer: only on input. The one exception is the Chooser spin, which uses
-`displayFrame()`: partial frames that don't count toward the 10 and don't hibernate. An animation
-must always end with a full `displayShow()` to clear its ghosting.
-
-### App interface (`src/core/app.h`)
-
-```cpp
-struct App {
-  const char *name;
-  const char *const *icon;    // 40x40 pixel art from theme.h
-  void (*onEnter)();
-  Redraw (*onButton)(Event e);  // None, Partial (small change) or Full (whole image changed)
-  void (*draw)();             // draw the whole screen; the launcher refreshes the panel
-  void (*onExit)();
-};
-```
-
-### How to add an app
-
-1. Create `src/apps/<name>/<name>.cpp`. Define static `onEnter`, `onButton`, `draw` and `onExit`,
-   then `extern const App <name>App = {"Name", ICON_X, onEnter, onButton, draw, onExit};`
-   (see any existing app).
-2. Add `<name>App` to the `extern` line and to `APPS[]` in `src/apps/apps.cpp` (sets launcher order).
-3. Add a 40×40 icon to `theme.cpp`/`theme.h`.
-4. Keep state in `RTC_DATA_ATTR` variables (survives sleep) or NVS via `storage.h` (survives power
-   loss). Plain RAM is lost in deep sleep and `onEnter` isn't called again after a wake, so rebuild
-   RAM caches lazily (see `ensureList()` in the badge app). Use `drawHeader`/`drawFooter` and the two
-   theme fonts. Return `Redraw::None` from `onButton` when nothing changed, `Full` when the whole
-   image changes. Turn radios on only inside the app and off before returning.
-
-The home grid fits 4 apps; a 5th needs a second page or a smaller grid.
-
-## Build and flash
-
-```sh
-pio run -t upload        # build + flash firmware (DEBUG=0 in platformio.ini; set 1 for serial logs)
-pio run -t uploadfs      # upload /data as the LittleFS image
-pio device monitor       # serial at 115200 (native USB)
-```
-
-Run the two uploads separately: `-t upload -t uploadfs` in one command only wrote the filesystem.
-The USB port disappears while the board is asleep: press a button, then upload within 10 s.
-If upload still can't connect: hold BOOT, tap RESET (or re-plug USB), release BOOT, retry.
+- Waveshare wiki: https://docs.waveshare.com/ESP32-S3-ePaper-1.54
+- Waveshare example code: https://github.com/waveshareteam/ESP32-S3-ePaper-1.54
+  (`user_config.h` pin definitions, `board_power_bsp.cpp`, `epaper_driver_bsp.cpp`, the V2 schematic)
+- PWR/GPIO17 latch behaviour: https://www.espboards.dev/blog/waveshare-esp32-s3-epaper-esphome-climate/
+- Display library: [GxEPD2](https://github.com/ZinggJM/GxEPD2)

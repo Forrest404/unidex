@@ -36,6 +36,18 @@ void drawFooter(const char *aHint, const char *bHint) {
   }
 }
 
+String fitText(const char *text, int16_t maxWidth) {
+  String s = text;
+  int16_t x, y;
+  uint16_t w, h;
+  display.getTextBounds(s.c_str(), 0, 0, &x, &y, &w, &h);
+  while (s.length() > 1 && w > maxWidth) {
+    s.remove(s.length() - 1);
+    display.getTextBounds(s.c_str(), 0, 0, &x, &y, &w, &h);
+  }
+  return s;
+}
+
 void drawRight(const char *text, int16_t baseline) {
   int16_t x, y;
   uint16_t w, h;

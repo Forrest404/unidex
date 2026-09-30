@@ -15,6 +15,7 @@ void drawHeader(const char *title);
 void drawFooter(const char *aHint, const char *bHint);  // e.g. "next", "select"; "" hides one
 void drawCentered(const char *text, int16_t cy);        // centred horizontally, cy = vertical centre
 void drawRight(const char *text, int16_t baseline);     // right-aligned to the margin
+String fitText(const char *text, int16_t maxWidth);     // cut from the end to fit the current font
 
 // 40x40 launcher icons, one string per row, '#' = ink.
 const int16_t ICON_SIZE = 40;
