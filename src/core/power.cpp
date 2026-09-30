@@ -56,6 +56,22 @@ void powerSleepIfIdle() {
   gpio_hold_en(PIN_EPD_CS);
   gpio_deep_sleep_hold_en();
 
+  esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);  // drop powerNap's timer and GPIO sources
   esp_sleep_enable_ext1_wakeup(WAKE_MASK, ESP_EXT1_WAKEUP_ANY_LOW);
   esp_deep_sleep_start();
+}
+
+void powerNap() {
+  // Light sleep pauses USB, so skip it while a host is connected (the Mac sync needs the port).
+  // Also skip while a button is held: its release and long-press timing need polling.
+  const uint32_t idle = millis() - lastActivity;
+  if (HWCDC::isPlugged() || inputAnyDown() || idle >= IDLE_MS) {
+    delay(5);
+    return;
+  }
+  esp_sleep_enable_timer_wakeup((uint64_t)(IDLE_MS - idle) * 1000);  // wake for the deep-sleep check
+  gpio_wakeup_enable(GPIO_NUM_0, GPIO_INTR_LOW_LEVEL);
+  gpio_wakeup_enable(GPIO_NUM_18, GPIO_INTR_LOW_LEVEL);
+  esp_sleep_enable_gpio_wakeup();
+  esp_light_sleep_start();
 }

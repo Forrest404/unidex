@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Unidex badge maker</title>
+<style>
+  :root { --bg: #f4f4f2; --fg: #111; --muted: #666; --card: #fff; --line: #d8d8d4; --accent: #111; }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #161616; --fg: #eee; --muted: #999; --card: #222; --line: #3a3a3a; --accent: #eee; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--fg);
+         font: 15px/1.4 -apple-system, system-ui, sans-serif; }
+  main { max-width: 760px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 0 0 4px; }
+  p.sub { margin: 0 0 20px; color: var(--muted); }
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+  #drop { border: 2px dashed var(--line); border-radius: 10px; padding: 28px 12px; text-align: center;
+          color: var(--muted); cursor: pointer; margin-bottom: 16px; }
+  #drop.over { border-color: var(--accent); color: var(--fg); }
+  label { display: block; margin: 12px 0 4px; font-weight: 600; font-size: 13px; }
+  .row { display: flex; gap: 8px; align-items: center; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg label { margin: 0; flex: 1; font-weight: 500; text-align: center; }
+  .seg input { position: absolute; opacity: 0; }
+  .seg span { display: block; padding: 7px 4px; cursor: pointer; }
+  .seg input:checked + span { background: var(--accent); color: var(--bg); }
+  .seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  input[type=text], input[type=number] { font: inherit; padding: 6px 8px; border: 1px solid var(--line);
+    border-radius: 6px; background: var(--bg); color: var(--fg); width: 100%; }
+  input[type=number] { width: 70px; }
+  .check { display: flex; gap: 8px; align-items: center; font-weight: 500; margin-top: 12px; }
+  .check input { margin: 0; }
+  #stage { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  #frame { background: #c9c9c4; padding: 14px; border-radius: 8px; line-height: 0; }
+  canvas { width: 300px; height: 300px; image-rendering: pixelated; background: #fff; }
+  button { font: inherit; font-weight: 600; padding: 10px 18px; border-radius: 8px; border: 0;
+           background: var(--accent); color: var(--bg); cursor: pointer; width: 100%; }
+  button:disabled { opacity: .35; cursor: default; }
+  #hint { color: var(--muted); font-size: 13px; margin: 0; text-align: center; }
+  #err { color: #c33; font-size: 13px; margin: 8px 0 0; min-height: 1em; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Unidex badge maker</h1>
+  <p class="sub">Drop in an image, tweak it, download a 200×200 1-bit BMP for <code>data/badges/</code>.</p>
+
+  <div class="grid">
+    <div class="card">
+      <div id="drop" tabindex="0">Drop an image here, paste one, or click to choose</div>
+      <input id="file" type="file" accept="image/*" hidden>
+
+      <label>Fit</label>
+      <div class="seg" id="fit">
+        <label><input type="radio" name="fit" value="contain" checked><span>Fit inside</span></label>
+        <label><input type="radio" name="fit" value="cover"><span>Fill (crop)</span></label>
+      </div>
+
+      <label>Style</label>
+      <div class="seg" id="style">
+        <label><input type="radio" name="style" value="auto" checked><span>Auto</span></label>
+        <label><input type="radio" name="style" value="photo"><span>Photo</span></label>
+        <label><input type="radio" name="style" value="line"><span>Line art</span></label>
+      </div>
+
+      <label for="light">Lightness <span id="lightVal" style="color:var(--muted);font-weight:400">0</span></label>
+      <input id="light" type="range" min="-100" max="100" value="0">
+
+      <label class="check"><input id="invert" type="checkbox"> Invert (swap black and white)</label>
+
+      <label for="name">File name</label>
+      <div class="row">
+        <input id="num" type="number" min="1" max="99" value="4" aria-label="Badge number">
+        <input id="name" type="text" value="badge" aria-label="Badge name">
+      </div>
+      <p id="err" role="alert"></p>
+    </div>
+
+    <div class="card" id="stage">
+      <div id="frame"><canvas id="out" width="200" height="200"></canvas></div>
+      <p id="hint">Preview at 1.5×, as it will look on the panel.</p>
+      <button id="save" disabled>Download BMP</button>
+    </div>
+  </div>
+</main>
+
+<script>
+// ---- conversion (no DOM below this line until the marker) ----
+const SIZE = 200;
+
+// Grey values (0-255, one per pixel) -> bits, 1 = white. Line art is the source's own black/white
+// with anti-aliasing snapped; photos get Floyd-Steinberg dithering after a contrast stretch.
+function looksLikePhoto(gray) {
+  let mid = 0;
+  for (const v of gray) if (v >= 32 && v < 224) mid++;
+  return mid > 0.15 * gray.length;
+}
+
+function stretch(gray) {  // like Pillow's autocontrast(cutoff=1)
+  const hist = new Array(256).fill(0);
+  for (const v of gray) hist[v | 0]++;
+  const cut = gray.length * 0.01;
+  let lo = 0, hi = 255, acc = 0;
+  for (; lo < 255; lo++) { acc += hist[lo]; if (acc > cut) break; }
+  acc = 0;
+  for (; hi > 0; hi--) { acc += hist[hi]; if (acc > cut) break; }
+  if (hi <= lo) return gray;
+  return gray.map(v => Math.max(0, Math.min(255, (v - lo) * 255 / (hi - lo))));
+}
+
+function binarize(gray, dither) {
+  const bits = new Uint8Array(gray.length);
+  if (!dither) {
+    for (let i = 0; i < gray.length; i++) bits[i] = gray[i] >= 128 ? 1 : 0;
+    return bits;
+  }
+  const g = Float32Array.from(stretch(gray)), w = SIZE, h = gray.length / SIZE;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x, old = g[i], nv = old >= 128 ? 255 : 0, err = old - nv;
+    bits[i] = nv ? 1 : 0;
+    if (x + 1 < w) g[i + 1] += err * 7 / 16;
+    if (y + 1 < h) {
+      if (x > 0) g[i + w - 1] += err * 3 / 16;
+      g[i + w] += err * 5 / 16;
+      if (x + 1 < w) g[i + w + 1] += err * 1 / 16;
+    }
+  }
+  return bits;
+}
+
+// 200x200 bits (1 = white) -> uncompressed 1-bit BMP, bottom-up, palette 0 = black, 1 = white.
+function encodeBmp(bits) {
+  const stride = ((SIZE + 31) >> 5) << 2, pixelBytes = stride * SIZE, offset = 62;
+  const buf = new Uint8Array(offset + pixelBytes), dv = new DataView(buf.buffer);
+  buf[0] = 0x42; buf[1] = 0x4D;
+  dv.setUint32(2, buf.length, true);
+  dv.setUint32(10, offset, true);
+  dv.setUint32(14, 40, true);
+  dv.setInt32(18, SIZE, true); dv.setInt32(22, SIZE, true);
+  dv.setUint16(26, 1, true); dv.setUint16(28, 1, true);
+  dv.setUint32(34, pixelBytes, true);
+  dv.setUint32(38, 3780, true); dv.setUint32(42, 3780, true);
+  dv.setUint32(46, 2, true); dv.setUint32(50, 2, true);
+  buf.set([255, 255, 255, 0], 58);  // palette entry 1 = white (entry 0 = black stays zero)
+  for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++)
+    if (bits[y * SIZE + x]) buf[offset + (SIZE - 1 - y) * stride + (x >> 3)] |= 0x80 >> (x & 7);
+  return buf;
+}
+// ---- end of pure conversion code ----
+
+if (typeof document !== 'undefined') {
+  const $ = id => document.getElementById(id);
+  const out = $('out'), ctx = out.getContext('2d', { willReadFrequently: true });
+  let img = null, bits = null;
+
+  const radio = name => document.querySelector(`input[name=${name}]:checked`).value;
+
+  function render() {
+    if (!img) return;
+    // Draw onto white so transparency becomes white, then remember where the image sits.
+    ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, SIZE, SIZE);
+    const iw = img.naturalWidth, ih = img.naturalHeight;
+    const scale = radio('fit') === 'cover' ? Math.max(SIZE / iw, SIZE / ih) : Math.min(SIZE / iw, SIZE / ih);
+    const dw = Math.round(iw * scale), dh = Math.round(ih * scale);
+    const dx = Math.round((SIZE - dw) / 2), dy = Math.round((SIZE - dh) / 2);
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, dx, dy, dw, dh);
+
+    const px = ctx.getImageData(0, 0, SIZE, SIZE).data;
+    const light = +$('light').value, inv = $('invert').checked;
+    const gray = new Float32Array(SIZE * SIZE);
+    for (let i = 0; i < gray.length; i++) {
+      let v = 0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2] + light;
+      v = Math.max(0, Math.min(255, v));
+      gray[i] = inv ? 255 - v : v;
+    }
+    const style = radio('style');
+    bits = binarize(gray, style === 'photo' || (style === 'auto' && looksLikePhoto(gray)));
+
+    // Padding stays white (or black when inverted), whatever the dither did near the edge.
+    const pad = inv ? 0 : 1;
+    for (let y = 0; y < SIZE; y++) for (let x = 0; x < SIZE; x++)
+      if (x < dx || x >= dx + dw || y < dy || y >= dy + dh) bits[y * SIZE + x] = pad;
+
+    const outData = ctx.createImageData(SIZE, SIZE);
+    for (let i = 0; i < bits.length; i++) {
+      const v = bits[i] ? 255 : 0;
+      outData.data.set([v, v, v, 255], i * 4);
+    }
+    ctx.putImageData(outData, 0, 0);
+    $('save').disabled = false;
+  }
+
+  function load(file) {
+    $('err').textContent = '';
+    if (!file) return;
+    const url = URL.createObjectURL(file), im = new Image();
+    im.onload = () => {
+      img = im;
+      const slug = file.name.replace(/\.[^.]+$/, '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      $('name').value = (slug || 'badge').slice(0, 24);
+      $('drop').textContent = file.name + '  (click to change)';
+      render();
+    };
+    im.onerror = () => {
+      $('err').textContent = "Can't read that image. HEIC only opens in Safari; convert it to PNG/JPG first (or use tools/badges.py).";
+    };
+    im.src = url;
+  }
+
+  const drop = $('drop');
+  drop.onclick = () => $('file').click();
+  drop.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('file').click(); } };
+  $('file').onchange = e => load(e.target.files[0]);
+  drop.ondragover = e => { e.preventDefault(); drop.classList.add('over'); };
+  drop.ondragleave = () => drop.classList.remove('over');
+  drop.ondrop = e => { e.preventDefault(); drop.classList.remove('over'); load(e.dataTransfer.files[0]); };
+  window.addEventListener('dragover', e => e.preventDefault());
+  window.addEventListener('drop', e => { e.preventDefault(); load(e.dataTransfer.files[0]); });
+  window.addEventListener('paste', e => {
+    const f = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith('image/'));
+    if (f) load(f);
+  });
+
+  for (const el of document.querySelectorAll('input[name=fit], input[name=style], #invert')) el.onchange = render;
+  $('light').oninput = () => { $('lightVal').textContent = $('light').value; render(); };
+
+  $('save').onclick = () => {
+    const n = String(Math.max(1, Math.min(99, +$('num').value || 1))).padStart(2, '0');
+    const slug = $('name').value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'badge';
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([encodeBmp(bits)], { type: 'image/bmp' }));
+    a.download = `${n}-${slug}.bmp`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+    $('num').value = +$('num').value + 1;  // next badge gets the next number
+  };
+}
+</script>
+</body>
+</html>

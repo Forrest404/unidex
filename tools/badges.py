@@ -1,5 +1,5 @@
 # Makes the 1-bit BMPs in data/badges/. Needs Pillow; works from any folder.
-#   python3 tools/badges.py                   rebuild from the PNG exports in art/badges/
+#   python3 tools/badges.py                   rebuild data/badges/*.bmp from PNG exports sitting next to them
 #   python3 tools/badges.py photo.jpg [...]   add any image(s) as new badges (next number, name from file)
 # Options:
 #   --crop                  fill the whole screen, cutting the edges (added images only; default fits inside)
@@ -9,7 +9,7 @@ from pathlib import Path
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 ROOT = Path(__file__).resolve().parent.parent
-SRC, DST, SIZE, MAX_BADGES = ROOT / 'art/badges', ROOT / 'data/badges', 200, 32
+DST, SIZE, MAX_BADGES = ROOT / 'data/badges', 200, 32
 
 def load(path):
     try:
@@ -41,8 +41,8 @@ def save(im, name, src):
     print(f'{src} -> data/badges/{name}.bmp{note}')
 
 def rebuild(dither):
-    sources = sorted(p for p in SRC.iterdir() if p.suffix.lower() in ('.png', '.jpg', '.jpeg'))
-    if not sources: sys.exit('no PNGs in art/badges/ - export your artboards there first')
+    sources = sorted(p for p in DST.iterdir() if p.suffix.lower() == '.png')
+    if not sources: sys.exit('no PNGs in data/badges/ - export your artboards there first')
     made = set()
     for src in sources:
         name = re.sub(r'@\d+(\.\d+)?x$', '', src.stem)  # Export for Screens adds "@1x" etc.
@@ -52,7 +52,7 @@ def rebuild(dither):
         save(to_1bit(im, dither), name, src.name)
         made.add(name)
     for old in sorted(DST.glob('*.bmp')):
-        if old.stem not in made: print(f'{old.name}: no source in art/badges/, left as is')
+        if old.stem not in made: print(f'{old.name}: no PNG source, left as is')
 
 def add(paths, crop, dither):
     existing = list(DST.glob('*.bmp'))

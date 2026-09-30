@@ -12,7 +12,7 @@ enum Rarity : uint8_t { COMMON, UNCOMMON, STARTER, RARE };  // ascending: RARE i
 static const char *RARITY[] = {"common", "uncommon", "starter", "rare"};
 
 static const char *DEX = "/dex.csv";
-static const int MAX_KNOWN = 2000, LAST = 5, PAGE = 5;
+static const int MAX_KNOWN = 2000, PAGE = 5;
 static const int WEAK_RSSI = -80;
 
 struct Find {
@@ -24,8 +24,7 @@ struct Find {
 static uint64_t known[MAX_KNOWN];
 static int knownCount = -1;  // -1 = not loaded yet
 static int perRarity[4];
-static Find last[LAST];      // newest first
-static int lastCount;
+static Find newest;          // the last row in the file
 static uint8_t salt[16];
 static bool scanned;         // the last scan's summary below is valid
 static int nearby, newCount;
@@ -70,14 +69,12 @@ static bool isKnown(uint64_t h) {
 static void remember(uint64_t h, const char *ssid, uint8_t rarity) {
   if (knownCount < MAX_KNOWN) known[knownCount++] = h;
   perRarity[rarity]++;
-  memmove(last + 1, last, sizeof(Find) * (LAST - 1));
-  strlcpy(last[0].ssid, ssid, sizeof last[0].ssid);
-  last[0].rarity = rarity;
-  if (lastCount < LAST) lastCount++;
+  strlcpy(newest.ssid, ssid, sizeof newest.ssid);
+  newest.rarity = rarity;
 }
 
 static void load() {
-  knownCount = lastCount = 0;
+  knownCount = 0;
   memset(perRarity, 0, sizeof perRarity);
   loadSalt();
   fs::File f = storageOpen(DEX);
@@ -150,7 +147,7 @@ static void scan() {
              RARITY[r], (long)time(nullptr));
     rows += row;
     remember(h, ssid, r);
-    if (newCount++ == 0 || r > best.rarity) best = last[0];
+    if (newCount++ == 0 || r > best.rarity) best = newest;
   }
   WiFi.scanDelete();
   WiFi.mode(WIFI_OFF);
@@ -217,7 +214,7 @@ static void drawMain() {
     drawCentered(count, 78);
     display.setFont(FONT_SMALL);
     drawCentered("networks found", 106);
-    snprintf(line, sizeof line, "last: %s", shown(last[0].ssid));
+    snprintf(line, sizeof line, "last: %s", shown(newest.ssid));
     drawCentered(line, 140);
   }
   drawFooter("list", "scan");
@@ -230,11 +227,10 @@ static int readPage(Find *out) {
   fs::File f = storageOpen(DEX);
   while (f && f.available()) {
     String line = f.readStringUntil('\n');
-    int c1 = line.indexOf(','), c2 = line.indexOf(',', c1 + 1), c4 = -1, c5 = -1;
+    int c1 = line.indexOf(','), c2 = line.indexOf(',', c1 + 1);
     if (c1 != 16) continue;  // header or damaged row
     if (row > first - PAGE && row <= first) {
-      c4 = line.indexOf(',', line.indexOf(',', c2 + 1) + 1);
-      c5 = line.indexOf(',', c4 + 1);
+      int c4 = line.indexOf(',', line.indexOf(',', c2 + 1) + 1), c5 = line.indexOf(',', c4 + 1);
       Find &f2 = out[first - row];
       strlcpy(f2.ssid, line.substring(c1 + 1, c2).c_str(), sizeof f2.ssid);
       String rarity = line.substring(c4 + 1, c5);

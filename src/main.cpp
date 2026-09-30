@@ -38,5 +38,5 @@ void loop() {
   }
   usbSyncPoll();
   powerSleepIfIdle();
-  delay(5);
+  powerNap();
 }

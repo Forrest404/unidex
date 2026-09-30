@@ -17,7 +17,7 @@ PlatformIO + Arduino firmware: a launcher with four apps (Timetable, Name Badge,
 | 7b | Apple Calendar sync from the Mac over USB | done |
 | 8 | Chooser | done |
 | 9 | WiFi Pokédex | done |
-| 10 | Polish + battery audit | — |
+| 10 | Polish + battery audit | done |
 
 ## Hardware
 
@@ -94,7 +94,7 @@ with no bounce seen at 30 ms debounce in STEP 0. Quick taps measured 145–300 m
 | B short | select / action |
 | B long | app-specific extra |
 
-Timing (`src/core/input.cpp`): debounce 25 ms; long press = held 250 ms (tuned by hand). The long event fires
+Timing (`src/core/input.cpp`): debounce 30 ms; long press = held 300 ms (tuned by hand). The long event fires
 while the button is still held, and the release after it is ignored. Presses aren't read while a
 screen refresh is running (about 0.3–0.5 s).
 
@@ -106,7 +106,16 @@ screen refresh is running (about 0.3–0.5 s).
 - In sleep: GPIO17 held HIGH, GPIO6 held LOW, and panel RST/CS held HIGH. So the panel stays in its
   own deep sleep with its RAM kept, and the first refresh after a wake is partial (no flash).
   At boot each level is set before its hold is released; a floating pin would cut power.
-- CPU at 80 MHz. WiFi/BT are never started unless an app starts them.
+- While awake, the loop light-sleeps between polls and wakes on BOOT/PWR (GPIO wake) or at the
+  10 s deep-sleep deadline (timer). By the datasheet this cuts the awake draw from about 20 mA to about 2 mA.
+  It's skipped while a button is held (release and long-press timing need polling) and while a
+  USB host is connected (light sleep pauses USB, which the Mac sync needs). Every wake source is
+  cleared before deep sleep, so the light-sleep timer can't wake the board from deep sleep.
+- CPU at 80 MHz (240 MHz only during a Dex scan). WiFi/BT are never started unless an app starts
+  them, and they're turned off straight after.
+- Battery audit (STEP 10, no meter; datasheet figures): ESP32-S3 deep sleep ~10 µA, panel in its own
+  sleep ~1 µA, PCF85063 ~0.3 µA, SHTC3 idle ~0.3 µA, audio amp switched off in hardware (GPIO42).
+  Worth measuring with a meter one day.
 - `RTC_DATA_ATTR` variables survive deep sleep but not power loss.
 
 ### Sources
@@ -154,7 +163,11 @@ Icons: 40×40, stored as rows of `#`/`.` in `theme.cpp` (2 px strokes, no anti-a
 - Shown in filename order, so prefix them: `01-hello.bmp`, `02-…`. Up to 32 files.
 - Upload with `pio run -t uploadfs`.
 
-Adding any image (photo, logo, screenshot; PNG, JPG, HEIC, …):
+Easiest: open `tools/badge-maker.html` in a browser (double-click it). Drop in an image, adjust the
+preview, click Download BMP, move the file into `data/badges/`, then `pio run -t uploadfs`.
+HEIC only opens in Safari; use the script below for those.
+
+Or from the command line, any image (photo, logo, screenshot; PNG, JPG, HEIC, …):
 
 ```sh
 python3 tools/badges.py ~/Downloads/photo.jpg      # -> data/badges/04-photo.bmp (next free number)
@@ -345,7 +358,7 @@ The home grid fits 4 apps; a 5th needs a second page or a smaller grid.
 ## Build and flash
 
 ```sh
-pio run -t upload        # build + flash firmware
+pio run -t upload        # build + flash firmware (DEBUG=0 in platformio.ini; set 1 for serial logs)
 pio run -t uploadfs      # upload /data as the LittleFS image
 pio device monitor       # serial at 115200 (native USB)
 ```
