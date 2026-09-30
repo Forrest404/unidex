@@ -17,3 +17,20 @@ void displayInit(bool initial) {
   SPI.begin(PIN_SCK, -1, PIN_MOSI, PIN_CS);
   display.init(DEBUG ? 115200 : 0, initial);
 }
+
+static const int FULL_EVERY = 10;
+RTC_DATA_ATTR static int partialsSinceFull;  // survives sleep, so the count is honest
+
+void displayShow(void (*draw)(), bool full) {
+  full = full || partialsSinceFull >= FULL_EVERY;
+  partialsSinceFull = full ? 0 : partialsSinceFull + 1;
+  if (full) display.setFullWindow();
+  else display.setPartialWindow(0, 0, display.width(), display.height());
+  display.firstPage();
+  do {
+    display.fillScreen(GxEPD_WHITE);
+    display.setTextColor(GxEPD_BLACK);
+    draw();
+  } while (display.nextPage());
+  display.hibernate();  // hibernated e-ink keeps the image
+}

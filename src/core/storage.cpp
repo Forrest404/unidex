@@ -5,7 +5,7 @@
 static const char *NVS_NAMESPACE = "unidex";
 
 bool storageInit() {
-  return LittleFS.begin(false);  // never auto-format: that would erase the uploaded files
+  return LittleFS.begin(false);  
 }
 
 fs::File storageOpen(const char *path, const char *mode) {

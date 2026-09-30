@@ -1,17 +1,9 @@
-// STEP 4: read a file from LittleFS, keep a counter in NVS, draw with the theme.
 #include <Arduino.h>
 #include "core/display.h"
 #include "core/input.h"
+#include "core/launcher.h"
 #include "core/power.h"
 #include "core/storage.h"
-#include "core/theme.h"
-
-static void drawCount() {
-  char text[24];
-  snprintf(text, sizeof text, "saved: %ld", (long)storageGetInt("test_count"));
-  display.setFont(FONT_LARGE);
-  drawCentered(text, 130);
-}
 
 void setup() {
   powerInit();
@@ -26,44 +18,19 @@ void setup() {
 
   inputInit();
   displayInit(!woke);
-  display.setTextColor(GxEPD_BLACK);
-  bool fsOk = storageInit();
-  if (woke) return;  // the panel still shows the last screen
-
-  String line = "no filesystem";
-  if (fsOk) {
-    fs::File f = storageOpen("/hello.txt");
-    line = f ? f.readStringUntil('\n') : "no /hello.txt";
-    f.close();
-  }
+  if (!storageInit()) {
 #if DEBUG
-  Serial.println(line);
+    Serial.println("filesystem not mounted: run pio run -t uploadfs");
 #endif
-
-  display.setFullWindow();
-  display.fillScreen(GxEPD_WHITE);
-  drawHeader("storage");
-  display.setFont(FONT_SMALL);
-  drawCentered(line.c_str(), 70);
-  drawCount();
-  drawFooter("", "+1");
-  display.display();
-  display.hibernate();  // hibernated e-ink keeps the image
+  }
+  launcherBegin(woke);
 }
 
 void loop() {
   Event e = inputPoll();
-  if (e != Event::None) powerActivity();
-  if (e == Event::BShort) {
-    storagePutInt("test_count", storageGetInt("test_count") + 1);
-    // Partial window x/width must be multiples of 8 on this controller.
-    display.setPartialWindow(0, 104, display.width(), 56);
-    display.firstPage();
-    do {
-      display.fillScreen(GxEPD_WHITE);
-      drawCount();
-    } while (display.nextPage());
-    display.hibernate();
+  if (e != Event::None) {
+    powerActivity();
+    launcherHandle(e);
   }
   powerSleepIfIdle();
   delay(5);

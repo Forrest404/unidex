@@ -11,7 +11,7 @@ PlatformIO + Arduino firmware: a launcher with four apps (Timetable, Name Badge,
 | 2 | Button input (short/long) | done |
 | 3 | Power management + deep sleep | done |
 | 4 | Storage layer + theme | done |
-| 5 | Launcher, splash, icons | — |
+| 5 | Launcher, splash, icons | done |
 | 6 | Name Badge | — |
 | 7 | Timetable + NTP | — |
 | 8 | Chooser | — |
@@ -132,13 +132,53 @@ Preferences directly, so moving files to an SD card later only changes `storage.
 
 | NVS key | Type | Used by |
 |---|---|---|
-| `test_count` | int | STEP 4 test (remove later) |
 
 ## Theme
 
 `src/core/theme.h`: `FONT_SMALL` (FreeSans 9 pt: header, footer, secondary text) and `FONT_LARGE`
 (FreeSans 18 pt: the one focal element). Margin 8 px, header 24 px (title + 1 px rule), footer
 22 px (1 px rule + "A …" left, "B …" right). Helpers: `drawHeader`, `drawFooter`, `drawCentered`.
+Icons: 40×40, stored as rows of `#`/`.` in `theme.cpp` (2 px strokes, no anti-aliasing), drawn with `drawIcon`.
+
+## Launcher and apps
+
+- Cold boot: splash (full refresh), then home (partial). After a deep-sleep wake nothing is
+  redrawn: the panel still shows where you were.
+- Home: 2×2 grid, the selected app inverted. A short = next, B short = open.
+- In an app: A long = back home. A short, B short and B long go to the app.
+- The open app and the home selection are `RTC_DATA_ATTR`, so they survive sleep.
+
+### Refresh rule (`displayShow` in `src/core/display.cpp`)
+
+Every screen is drawn whole by a `draw()` function. Partial refresh normally; full refresh when
+switching apps/home and after every 10 partials (the counter survives sleep), to clear ghosting.
+Nothing redraws on a timer: only on input (the Chooser spin will be the one exception).
+
+### App interface (`src/core/app.h`)
+
+```cpp
+struct App {
+  const char *name;
+  const char *const *icon;    // 40x40 pixel art from theme.h
+  void (*onEnter)();
+  bool (*onButton)(Event e);  // return true if the screen needs redrawing
+  void (*draw)();             // draw the whole screen; the launcher refreshes the panel
+  void (*onExit)();
+};
+```
+
+### How to add an app
+
+1. Create `src/apps/<name>/<name>.cpp`. Define static `onEnter`, `onButton`, `draw` and `onExit`,
+   then `extern const App <name>App = {"Name", ICON_X, onEnter, onButton, draw, onExit};`
+   (see any existing app).
+2. Add `<name>App` to the `extern` line and to `APPS[]` in `src/apps/apps.cpp` (sets launcher order).
+3. Add a 40×40 icon to `theme.cpp`/`theme.h`.
+4. Keep state in `RTC_DATA_ATTR` variables (survives sleep) or NVS via `storage.h` (survives power
+   loss). Use `drawHeader`/`drawFooter` and the two theme fonts. Return true from `onButton` only
+   when the screen changed. Turn radios on only inside the app and off before returning.
+
+The home grid fits 4 apps; a 5th needs a second page or a smaller grid.
 
 ## Build and flash
 
