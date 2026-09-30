@@ -8,7 +8,7 @@ PlatformIO + Arduino firmware: a launcher with four apps (Timetable, Name Badge,
 |---|---|---|
 | 0 | Identify board + button serial test | done |
 | 1 | Project setup + display "hello" | done |
-| 2 | Button input (short/long) | — |
+| 2 | Button input (short/long) | done |
 | 3 | Power management + deep sleep | — |
 | 4 | Storage layer + theme | — |
 | 5 | Launcher, splash, icons | — |
@@ -81,10 +81,21 @@ Legend: **confirmed** = read from the chip itself or seen working on the device;
   mode. After boot it's a normal input. Strapping pins are latched only on a chip reset,
   not on a deep-sleep wake, so it should be safe as a wake button. *assumed — verified in STEP 3.*
 
-### Control mapping (decided in STEP 0)
+### Controls
 
 A = BOOT (next/scroll), B = PWR (select/action). Both buttons read cleanly, alone and together,
 with no bounce seen at 30 ms debounce. Quick taps measured 145–300 ms, deliberate holds 1.6–3.8 s.
+
+| Event | Meaning |
+|---|---|
+| A short | next / scroll |
+| A long | back to home |
+| B short | select / action |
+| B long | app-specific extra |
+
+Timing (`src/core/input.cpp`): debounce 30 ms; long press = held 400 ms. The long event fires
+while the button is still held, and the release after it is ignored. Presses aren't read while a
+screen refresh is running (about 0.3–0.5 s).
 
 ### Sources
 
