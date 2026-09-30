@@ -78,14 +78,34 @@ static void drawSplash() {
   drawCentered("unidex", 128);
 }
 
+static void drawRestarting() {
+  display.setFont(FONT_LARGE);
+  drawCentered("Restarting", 88);
+  display.setFont(FONT_SMALL);
+  drawCentered("let go of the buttons", 124);
+}
+
+// A fresh boot: RAM and RTC state start over; files, NVS and the clock chip are untouched.
+static void restart() {
+  displayShow(drawRestarting, false);
+  // Wait for release: BOOT (GPIO0) is the download-mode strapping pin, so don't restart with it held.
+  while (inputAnyDown()) {
+    inputPoll();
+    delay(10);
+  }
+  ESP.restart();
+}
+
 void launcherBegin(bool woke) {
   if (woke) return;  // the screen still shows where you were; the wake press itself redraws
+  current = HOME;  // a fresh boot (power-on, flash or restart) always starts at home
   displayShow(drawSplash, true);
   delay(1200);
   displayShow(drawHome, false);
 }
 
 void launcherHandle(Event e) {
+  if (e == Event::Reset) restart();
   if (current == HOME) {
     if (e == Event::AShort) {
       selected = (selected + 1) % APP_COUNT;

@@ -1,5 +1,5 @@
 // WiFi Pokedex: scan on demand, log first sightings to /dex.csv with salted, hashed BSSIDs.
-// One entry per network name (many access points share one); hidden networks are one entry each.
+// One entry per network name (many access points share one). Hidden networks are left out.
 // A = list of all finds (A pages, B back), B = scan, B long = counts per rarity (hold B there to clear).
 #include <WiFi.h>
 #include <mbedtls/sha256.h>
@@ -19,7 +19,6 @@ static const int WEAK_RSSI = -80;
 struct Find {
   char ssid[33];
   uint8_t rarity;
-  uint16_t tag;  // top of the BSSID hash: tells hidden networks apart on screen
 };
 
 // RAM is lost in deep sleep, so the dex is loaded again on first use after a wake.
@@ -34,13 +33,6 @@ static Find best;
 
 enum View : uint8_t { MAIN, LIST, STATS, CONFIRM };
 RTC_DATA_ATTR static uint8_t view, page;
-
-static const char *shown(const Find &f) {
-  static char hidden[16];
-  if (*f.ssid) return f.ssid;
-  snprintf(hidden, sizeof hidden, "(hidden %04x)", f.tag);
-  return hidden;
-}
 
 static void loadSalt() {
   String hex = storageGetString("dex_salt");
@@ -73,10 +65,9 @@ static uint64_t hashBssid(const uint8_t *bssid) {
   return sha64(in, sizeof in);
 }
 
-// Named networks are keyed by their name, so extra access points with the same name don't count
-// again; hidden ones have no name, so they're keyed by their BSSID hash.
-static uint64_t keyOf(const char *ssid, uint64_t bssidHash) {
-  return *ssid ? sha64((const uint8_t *)ssid, strlen(ssid)) : bssidHash;
+// Networks are keyed by their name, so extra access points with the same name don't count again.
+static uint64_t keyOf(const char *ssid) {
+  return sha64((const uint8_t *)ssid, strlen(ssid));
 }
 
 static bool isKnown(uint64_t h) {
@@ -85,22 +76,20 @@ static bool isKnown(uint64_t h) {
   return false;
 }
 
-static void remember(uint64_t bssidHash, const char *ssid, uint8_t rarity) {
-  if (knownCount < MAX_KNOWN) known[knownCount++] = keyOf(ssid, bssidHash);
+static void remember(const char *ssid, uint8_t rarity) {
+  if (knownCount < MAX_KNOWN) known[knownCount++] = keyOf(ssid);
   perRarity[rarity]++;
   strlcpy(newest.ssid, ssid, sizeof newest.ssid);
   newest.rarity = rarity;
-  newest.tag = bssidHash >> 48;
 }
 
-// One dex.csv row (hash,ssid,rssi,enc,rarity,first_seen). False for the header or a damaged row.
-static bool parseRow(const String &row, Find &out, uint64_t &hash) {
+// One dex.csv row (hash,ssid,rssi,enc,rarity,first_seen). False for the header, a damaged row, or a
+// hidden network logged by an older version (those are left out now).
+static bool parseRow(const String &row, Find &out) {
   int c1 = row.indexOf(','), c2 = row.indexOf(',', c1 + 1), c3 = row.indexOf(',', c2 + 1);
   int c4 = row.indexOf(',', c3 + 1), c5 = row.indexOf(',', c4 + 1);
-  if (c1 != 16 || c5 < 0) return false;
-  hash = strtoull(row.substring(0, 16).c_str(), nullptr, 16);
+  if (c1 != 16 || c5 < 0 || c2 == c1 + 1) return false;
   strlcpy(out.ssid, row.substring(c1 + 1, c2).c_str(), sizeof out.ssid);
-  out.tag = hash >> 48;
   String rarity = row.substring(c4 + 1, c5);
   out.rarity = COMMON;
   for (int i = 0; i < 4; i++)
@@ -114,9 +103,8 @@ static void load() {
   loadSalt();
   fs::File f = storageOpen(DEX);
   Find entry;
-  uint64_t hash;
   while (f && f.available())
-    if (parseRow(f.readStringUntil('\n'), entry, hash)) remember(hash, entry.ssid, entry.rarity);
+    if (parseRow(f.readStringUntil('\n'), entry)) remember(entry.ssid, entry.rarity);
 }
 
 static void ensureLoaded() {
@@ -135,10 +123,10 @@ static const char *encName(wifi_auth_mode_t a) {
   }
 }
 
-// First match wins: eduroam is the starter; hidden or weak is rare; open is common.
+// First match wins: eduroam is the starter; a weak signal is rare; open is common.
 static uint8_t rarityOf(const char *ssid, int rssi, wifi_auth_mode_t auth) {
   if (strcmp(ssid, "eduroam") == 0) return STARTER;
-  if (!*ssid || rssi < WEAK_RSSI) return RARE;
+  if (rssi < WEAK_RSSI) return RARE;
   if (auth == WIFI_AUTH_OPEN) return COMMON;
   return UNCOMMON;
 }
@@ -155,18 +143,19 @@ static void scan() {
 
   setCpuFrequencyMhz(240);  // full speed only while the radio is on
   WiFi.mode(WIFI_STA);
-  int found = WiFi.scanNetworks(false, true /*include hidden*/, false, 120 /*ms per channel*/);
-  nearby = max(found, 0);
-  newCount = 0;
+  int found = WiFi.scanNetworks(false, false /*no hidden networks*/, false, 120 /*ms per channel*/);
+  nearby = newCount = 0;
   String rows;  // new finds, written to flash in one go below
-  for (int i = 0; i < nearby; i++) {
+  for (int i = 0; i < found; i++) {
     char ssid[33];
     strlcpy(ssid, WiFi.SSID(i).c_str(), sizeof ssid);
+    if (!*ssid) continue;  // hidden networks are left out
+    nearby++;
     for (char *p = ssid; *p; p++)  // keep the CSV intact and the ASCII-only font readable
       if (*p == ',') *p = ' ';
       else if (*p < 32 || *p > 126) *p = '?';
     uint64_t h = hashBssid(WiFi.BSSID(i));
-    if (isKnown(keyOf(ssid, h))) continue;  // also skips repeats within this scan
+    if (isKnown(keyOf(ssid))) continue;  // also skips repeats within this scan
     int rssi = WiFi.RSSI(i);
     wifi_auth_mode_t auth = WiFi.encryptionType(i);
     uint8_t r = rarityOf(ssid, rssi, auth);
@@ -174,7 +163,7 @@ static void scan() {
     snprintf(row, sizeof row, "%016llx,%s,%d,%s,%s,%ld\n", (unsigned long long)h, ssid, rssi, encName(auth),
              RARITY[r], (long)time(nullptr));
     rows += row;
-    remember(h, ssid, r);
+    remember(ssid, r);
     if (newCount++ == 0 || r > best.rarity) best = newest;
   }
   WiFi.scanDelete();
@@ -226,7 +215,7 @@ static void drawMain() {
     display.setTextColor(GxEPD_WHITE);
     drawCentered("NEW!", tagY + tagH / 2);
     display.setTextColor(GxEPD_BLACK);
-    drawName(shown(best), 90);
+    drawName(best.ssid, 90);
     snprintf(line, sizeof line, "%s, %d new of %d", RARITY[best.rarity], newCount, nearby);
     display.setFont(FONT_SMALL);
     drawCentered(line, 128);
@@ -242,7 +231,7 @@ static void drawMain() {
     drawCentered(count, 78);
     display.setFont(FONT_SMALL);
     drawCentered("networks found", 106);
-    snprintf(line, sizeof line, "last: %s", shown(newest));
+    snprintf(line, sizeof line, "last: %s", newest.ssid);
     drawCentered(line, 140);
   }
   drawFooter("list", "scan");
@@ -254,9 +243,8 @@ static int readPage(Find *out) {
   int row = 0, n = 0;
   fs::File f = storageOpen(DEX);
   Find entry;
-  uint64_t hash;
   while (f && f.available()) {
-    if (!parseRow(f.readStringUntil('\n'), entry, hash)) continue;  // counted exactly as load() does
+    if (!parseRow(f.readStringUntil('\n'), entry)) continue;  // counted exactly as load() does
     if (row > first - PAGE && row <= first) {
       out[first - row] = entry;
       n++;
@@ -281,7 +269,7 @@ static void drawList() {
     uint16_t h, tagW;
     display.getTextBounds(RARITY[rows[i].rarity], 0, 0, &x, &y, &tagW, &h);
     display.setCursor(MARGIN, baseline);
-    display.print(fitText(shown(rows[i]), display.width() - 2 * MARGIN - tagW - 8));  // beside the rarity
+    display.print(fitText(rows[i].ssid, display.width() - 2 * MARGIN - tagW - 8));  // beside the rarity
   }
   if (n == 0) drawCentered("nothing yet", (CONTENT_TOP + CONTENT_BOTTOM) / 2);
   drawFooter("more", "back");

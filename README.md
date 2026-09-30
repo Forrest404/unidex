@@ -56,6 +56,11 @@ into deep sleep (it stays awake while on USB power; see Power below). The screen
 wakes it also counts: tap A on a sleeping home screen and it wakes and moves the highlight in one go; hold a
 button and it's a long press. Powering on with PWR (from off, on battery) doesn't count, so it can't open an app.
 
+**Restart:** hold **A and B together for 1 second** ("Restarting / let go of the buttons"), then let go. It boots
+fresh to the home screen, as after a flash. Files, badges, the Dex, events, settings and the clock are all kept.
+While both are held neither button does its own thing, and it waits for you to let go because BOOT is the chip's
+download-mode pin.
+
 The top right of the home screen shows the time and battery level, e.g. `14:32  87%`. They update when the
 screen redraws (any button press; B long on home refreshes them), never on a timer. The percentage is an estimate from the battery
 voltage, and reads high while charging over USB. A small lightning bolt before it means USB power is present (it can't tell charging from full). The time is
@@ -149,8 +154,9 @@ A WiFi Pokédex. **B** scans (about 2 seconds): you get "NEW!" plus the best new
 - **A**: list of everything found, newest first, 5 per page (A pages, B goes back)
 - **B long**: counts per rarity. Hold **B** again there to clear the dex (then B = yes, A = no)
 
-Each network **name** is logged once, however many access points share it. Rarity, first match wins:
-`eduroam` = starter; hidden or weaker than −80 dBm = rare; open = common; everything else = uncommon.
+Each network **name** is logged once, however many access points share it. Hidden networks (no name) are
+left out entirely. Rarity, first match wins: `eduroam` = starter; weaker than −80 dBm = rare; open = common;
+everything else = uncommon.
 
 It only listens for beacons and never connects to anything. Finds are appended to `/dex.csv` on the board
 (`hash,ssid,rssi,enc,rarity,first_seen`). The raw BSSID (the access point's MAC) is never stored, only the first

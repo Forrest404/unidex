@@ -4,6 +4,7 @@
 
 static const uint32_t DEBOUNCE_MS = 30;  // no bounce seen at this value in STEP 0
 static const uint32_t LONG_MS = 300;     // tuned on the device in STEP 2
+static const uint32_t RESET_MS = 1000;   // both buttons held this long = restart
 
 struct Button {
   int pin;
@@ -19,6 +20,7 @@ static Button buttons[] = {
   {18, Event::BShort, Event::BLong, false, false, 0},
 };
 static Event pending = Event::None;  // a wake tap that was over before we could see it
+static bool resetSent;
 
 void inputInit() {
   // After a deep-sleep wake the press that woke us counts as input. After power-on it doesn't:
@@ -48,6 +50,17 @@ Event inputPoll() {
     return e;
   }
   uint32_t now = millis();
+  // Both held: neither gives its own events (no "home" on the way to a restart), and after 3 s: Reset.
+  Button &a = buttons[0], &b = buttons[1];
+  if (a.down && b.down) {
+    a.longSent = b.longSent = true;
+    if (!resetSent && now - max(a.changedAt, b.changedAt) >= RESET_MS) {
+      resetSent = true;
+      return Event::Reset;
+    }
+  } else {
+    resetSent = false;
+  }
   for (Button &b : buttons) {
     bool pressed = digitalRead(b.pin) == LOW;
     if (pressed != b.down && now - b.changedAt > DEBOUNCE_MS) {
