@@ -84,7 +84,7 @@ Legend: **confirmed** = read from the chip itself or seen working on the device;
 ### Controls
 
 A = BOOT (next/scroll), B = PWR (select/action). Both buttons read cleanly, alone and together,
-with no bounce seen at 30 ms debounce. Quick taps measured 145–300 ms, deliberate holds 1.6–3.8 s.
+with no bounce seen at 30 ms debounce in STEP 0. Quick taps measured 145–300 ms, deliberate holds 1.6–3.8 s.
 
 | Event | Meaning |
 |---|---|
@@ -93,7 +93,7 @@ with no bounce seen at 30 ms debounce. Quick taps measured 145–300 ms, deliber
 | B short | select / action |
 | B long | app-specific extra |
 
-Timing (`src/core/input.cpp`): debounce 30 ms; long press = held 400 ms. The long event fires
+Timing (`src/core/input.cpp`): debounce 25 ms; long press = held 250 ms (tuned by hand). The long event fires
 while the button is still held, and the release after it is ignored. Presses aren't read while a
 screen refresh is running (about 0.3–0.5 s).
 
