@@ -256,7 +256,7 @@ Everything here was read from the chip, seen working on the device, or taken fro
 | PWR button (B) | 18 | active LOW, RTC GPIO, external 10k pull-up |
 | I2C SDA / SCL | 47 / 48 | PCF85063 clock (0x51), SHTC3 |
 | RTC interrupt | 5 | active LOW (vendor, unused) |
-| Battery voltage | 4 (ADC1 ch3) | ×2 divider (vendor; read by `src/core/battery.cpp`) |
+| Battery voltage | 4 (ADC1 ch3) | ×2 divider (R21/R38, 200k 1%), read by `src/core/battery.cpp`. The ADC reads ~2% low: a full battery (charger finished) read 4.08–4.09 V where the cell is ~4.17 V, so readings are scaled by 4170/4085. 100% from 4.15 V (resting LiPo curve); on battery the % only goes down, so noise can't make it bounce |
 
 </details>
 
