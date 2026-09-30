@@ -45,5 +45,5 @@ int batteryPercent() {
 // No charger-status pin is read, so this means "USB power present", not proof the battery is taking charge:
 // a full battery on USB shows it too. A dumb charger sends no USB data, so the voltage is the fallback.
 bool batteryCharging() {
-  return HWCDC::isPlugged() || batteryMillivolts() > 4250;
+  return HWCDC::isPlugged() || batteryMillivolts() >= 4190;  // the charger holds 4.20 V while topping up
 }

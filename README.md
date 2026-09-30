@@ -52,7 +52,7 @@ Two buttons: **A** = BOOT, **B** = PWR.
 | B long | app-specific extra |
 
 The home screen is a 2×2 grid: A moves the highlight, B opens. After 10 seconds without a press the board goes
-into deep sleep. The screen keeps showing what it last drew (e-ink needs no power for that). The press that
+into deep sleep (it stays awake while on USB power; see Power below). The screen keeps showing what it last drew (e-ink needs no power for that). The press that
 wakes it also counts: tap A on a sleeping home screen and it wakes and moves the highlight in one go; hold a
 button and it's a long press. Powering on with PWR (from off, on battery) doesn't count, so it can't open an app.
 
@@ -113,13 +113,19 @@ The timezone is hard-coded to London. To change it, edit `TZ_LONDON` (a POSIX TZ
 **A** next, **B** previous. The badge fills the screen with no header. Each flip is a full refresh (no ghosting),
 and the last badge shown is remembered across sleep and power loss.
 
+**Hold B** for the picker: 3×3 thumbnails, 9 per page. **A** moves, **B** opens the selected badge, **hold B** goes
+back. Thumbnails are decoded once and kept in RAM, so moving is only as slow as the panel's partial refresh.
+
 Badges are 1-bit, uncompressed BMPs up to 200×200 (smaller ones are centred) in `data/badges/`. They're shown in
 filename order, up to 32, so number them: `01-hello.bmp`, `02-…`.
 
 To make one from any image:
 
 - **In the browser:** open `tools/badge-maker.html` (double-click it). Drop in an image, pick fit or fill, photo
-  or line art, adjust the lightness, and download the BMP. Put it in `data/badges/`. Nothing is uploaded anywhere.
+  or line art, adjust the lightness. Then either **Send to device**, which puts it straight on the board over USB
+  (Chrome or Edge; plug in and press a button once), and the board opens it at once, or download the BMP for
+  `data/badges/`. Sending never overwrites a badge: a taken number moves to the next free one. It keeps the
+  Dex, events and settings. Nothing goes to the internet.
 - **From the command line** (PNG, JPG, HEIC, …; needs Pillow):
 
   ```sh
@@ -284,6 +290,10 @@ Everything here was read from the chip, seen working on the device, or taken fro
   *before* its hold is released; a floating pin would cut battery or panel power.
 - While awake, the main loop light-sleeps between polls and wakes on a button or at the 10 s deadline. It skips
   light sleep while a button is held and while USB is connected (light sleep pauses USB, which the Mac sync needs).
+- **On USB power it doesn't deep sleep**, so the Mac sync, the badge maker and flashing always find it. The
+  board can't sense USB power directly (USB 5 V isn't wired to any GPIO), so "USB power" means a computer is
+  talking to it, or the battery reads at least 4.19 V (the charger holding it at 4.2 V while topping up). A plain
+  charger that has *finished* charging looks like battery, so it sleeps. Checked at most every 10 s.
 - The CPU runs at 80 MHz (240 MHz only during a Dex scan). WiFi is off except inside the Dex scan and the NTP sync.
 - Datasheet estimates, **not measured** with a meter: about 2 mA awake with light sleep (vs about 20 mA), and
   tens of µA in deep sleep. Real battery life depends on how often you press things.
@@ -321,6 +331,9 @@ Text lines over USB serial, Mac → device (`src/core/usbsync.cpp`, `tools/calsy
 | `?` | `unidex 1` |
 | `T <unix seconds>` | `OK T` (clock chip set) |
 | `E <count> <crc32>` + `count` lines `YYYY-MM-DD,HH:MM,HH:MM,title,location` | `OK E <crc>` or `ERR` |
+| `L` (badge maker) | `F <name>` per badge, then `OK L` |
+| `B <name> <bytes> <crc32>` | `OK B` or `ERR` (name: `[a-z0-9-]+.bmp`, max 16 KB) |
+| `D <hex>` (≤ 64 bytes per line) | `K` per line; after the last byte `OK F <name>` (then the board opens it) or `ERR` |
 
 The crc32 (zlib) covers each line plus `\n`. The device writes a temp file and renames it only if the crc matches,
 so a cut transfer never leaves a broken file. Empty times mean an all-day event. Gotchas: the ESP32-S3 resets if

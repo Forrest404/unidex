@@ -1,6 +1,7 @@
 #include "power.h"
 #include "input.h"
 #include "storage.h"
+#include "battery.h"
 #include <Arduino.h>
 #include <driver/gpio.h>
 #include <esp_sleep.h>
@@ -49,6 +50,16 @@ void powerActivity() {
 void powerSleepIfIdle() {
   // Sleeping with a button held would wake straight away, in a loop.
   if (millis() - lastActivity < idleMs || inputAnyDown()) return;
+  // Stay awake on USB power: a computer is connected, or the charger is holding the battery at 4.2 V.
+  // The board can't sense USB power directly (VBUS isn't wired to any GPIO), so a plain charger that
+  // has finished charging looks like battery and it sleeps. The voltage is read at most every 10 s.
+  static uint32_t lastCheck;
+  static bool onUsb;
+  if (lastCheck == 0 || millis() - lastCheck > 10000) {
+    onUsb = batteryCharging();
+    lastCheck = millis();
+  }
+  if (onUsb) return;
 
   // Keep the panel powered in its own deep sleep (RAM retained), so the first refresh
   // after waking can be partial. RST/CS stay HIGH so it isn't woken or selected.

@@ -41,6 +41,8 @@
   button { font: inherit; font-weight: 600; padding: 10px 18px; border-radius: 8px; border: 0;
            background: var(--accent); color: var(--bg); cursor: pointer; width: 100%; }
   button:disabled { opacity: .35; cursor: default; }
+  button.secondary { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+  #sendStatus { color: var(--muted); font-size: 13px; margin: 0; text-align: center; min-height: 1em; }
   #hint { color: var(--muted); font-size: 13px; margin: 0; text-align: center; }
   #err { color: #c33; font-size: 13px; margin: 8px 0 0; min-height: 1em; }
 </style>
@@ -48,7 +50,8 @@
 <body>
 <main>
   <h1>Unidex badge maker</h1>
-  <p class="sub">Drop in an image, tweak it, download a 200×200 1-bit BMP for <code>data/badges/</code>.</p>
+  <p class="sub">Drop in an image, tweak it, then send it straight to the device over USB, or download a
+    200×200 1-bit BMP for <code>data/badges/</code>.</p>
 
   <div class="grid">
     <div class="card">
@@ -84,7 +87,9 @@
     <div class="card" id="stage">
       <div id="frame"><canvas id="out" width="200" height="200"></canvas></div>
       <p id="hint">Preview at 1.5×, as it will look on the panel.</p>
-      <button id="save" disabled>Download BMP</button>
+      <button id="send" disabled>Send to device</button>
+      <p id="sendStatus">Plug the device in and press one of its buttons to wake it, then Send (Chrome or Edge).</p>
+      <button id="save" class="secondary" disabled>Download BMP</button>
     </div>
   </div>
 </main>
@@ -151,6 +156,20 @@ function encodeBmp(bits) {
     if (bits[y * SIZE + x]) buf[offset + (SIZE - 1 - y) * stride + (x >> 3)] |= 0x80 >> (x & 7);
   return buf;
 }
+// zlib crc32, the same as the device's esp_rom_crc32_le.
+const crc32 = (() => {
+  const t = new Uint32Array(256);
+  for (let n = 0; n < 256; n++) {
+    let c = n;
+    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
+    t[n] = c >>> 0;
+  }
+  return bytes => {
+    let c = 0xFFFFFFFF;
+    for (const b of bytes) c = t[(c ^ b) & 255] ^ (c >>> 8);
+    return (c ^ 0xFFFFFFFF) >>> 0;
+  };
+})();
 // ---- end of pure conversion code ----
 
 if (typeof document !== 'undefined') {
@@ -194,6 +213,7 @@ if (typeof document !== 'undefined') {
     }
     ctx.putImageData(outData, 0, 0);
     $('save').disabled = false;
+    $('send').disabled = !('serial' in navigator);
   }
 
   function load(file) {
@@ -230,12 +250,110 @@ if (typeof document !== 'undefined') {
   for (const el of document.querySelectorAll('input[name=fit], input[name=style], #invert')) el.onchange = render;
   $('light').oninput = () => { $('lightVal').textContent = $('light').value; render(); };
 
-  $('save').onclick = () => {
+  const fileName = () => {
     const n = String(Math.max(1, Math.min(99, +$('num').value || 1))).padStart(2, '0');
     const slug = $('name').value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'badge';
+    return `${n}-${slug}.bmp`;
+  };
+
+  if (!('serial' in navigator))
+    $('sendStatus').textContent = 'Sending needs Chrome or Edge on a computer (Web Serial). Download works everywhere.';
+
+  // Talks the device's USB protocol (src/core/usbsync.cpp): ? -> "unidex 1", L lists badges,
+  // B <name> <bytes> <crc32> starts an upload, D <hex> sends up to 64 bytes and waits for "K".
+  async function sendToDevice(bytes, wanted, progress) {
+    const port = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x303a }] });
+    await port.open({ baudRate: 115200 });
+    // The ESP32-S3 resets if RTS is on while DTR is off, so clear RTS first, then DTR.
+    await port.setSignals({ requestToSend: false });
+    await port.setSignals({ dataTerminalReady: false });
+    const writer = port.writable.getWriter(), reader = port.readable.getReader();
+    const enc = new TextEncoder(), dec = new TextDecoder();
+    let buf = '';
+    const pump = (async () => {
+      try {
+        for (;;) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+        }
+      } catch (e) { /* port closed */ }
+    })();
+    const send = text => writer.write(enc.encode(text + '\n'));
+    // Next line starting with `prefix` (others are skipped), or null after `ms`. "ERR" throws.
+    const expect = async (prefix, ms, onOther) => {
+      const end = Date.now() + ms;
+      while (Date.now() < end) {
+        let nl;
+        while ((nl = buf.indexOf('\n')) >= 0) {
+          const line = buf.slice(0, nl).replace(/\r$/, '');
+          buf = buf.slice(nl + 1);
+          if (line.startsWith(prefix)) return line;
+          if (line === 'ERR') throw new Error('The device rejected the badge.');
+          if (onOther) onOther(line);
+        }
+        await new Promise(r => setTimeout(r, 10));
+      }
+      return null;
+    };
+    try {
+      let hello = null;
+      for (let i = 0; i < 6 && !hello; i++) {  // it may still be busy redrawing after a wake
+        await send('?');
+        hello = await expect('unidex 1', 1000);
+      }
+      if (!hello) throw new Error('No reply. Press a button on the device to wake it, then try again.');
+
+      const names = [];
+      await send('L');
+      if (!await expect('OK L', 3000, line => line.startsWith('F ') && names.push(line.slice(2))))
+        throw new Error('The device did not list its badges.');
+      // Never overwrite: if the number is taken, use the next free one.
+      let name = wanted;
+      const nums = names.map(n => parseInt(n, 10)).filter(n => n > 0);
+      if (nums.includes(parseInt(wanted, 10)))
+        name = String(Math.max(...nums) + 1).padStart(2, '0') + wanted.replace(/^\d+/, '');
+
+      await send(`B ${name} ${bytes.length} ${crc32(bytes)}`);
+      if (!await expect('OK B', 3000)) throw new Error('The device did not start the upload.');
+      for (let i = 0; i < bytes.length; i += 64) {
+        const hex = [...bytes.subarray(i, i + 64)].map(b => b.toString(16).padStart(2, '0')).join('');
+        await send('D ' + hex);
+        if (!await expect('K', 3000)) throw new Error('The device stopped answering.');
+        progress(Math.min(100, Math.round((i + 64) * 100 / bytes.length)));
+      }
+      if (!await expect('OK F', 3000)) throw new Error('The device did not confirm the badge.');
+      return name;
+    } finally {
+      await reader.cancel().catch(() => {});
+      reader.releaseLock();
+      writer.releaseLock();
+      await pump;
+      await port.close().catch(() => {});
+    }
+  }
+
+  $('send').onclick = async () => {
+    $('send').disabled = true;
+    $('err').textContent = '';
+    try {
+      const name = await sendToDevice(encodeBmp(bits), fileName(),
+                                      pct => $('sendStatus').textContent = `Sending… ${pct}%`);
+      $('sendStatus').textContent = `Sent ${name}. It's on the device now.`;
+      $('num').value = parseInt(name, 10) + 1;  // next badge gets the next number
+    } catch (e) {
+      $('sendStatus').textContent = e.name === 'NotFoundError'  // the port picker was closed
+        ? 'No device picked. Nothing listed? The board is asleep: press one of its buttons, then Send again.'
+        : e.message || String(e);
+    } finally {
+      $('send').disabled = false;
+    }
+  };
+
+  $('save').onclick = () => {
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([encodeBmp(bits)], { type: 'image/bmp' }));
-    a.download = `${n}-${slug}.bmp`;
+    a.download = fileName();
     a.click();
     URL.revokeObjectURL(a.href);
     $('num').value = +$('num').value + 1;  // next badge gets the next number

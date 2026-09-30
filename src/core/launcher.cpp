@@ -3,6 +3,8 @@
 #include "battery.h"
 #include "clock.h"
 #include "display.h"
+#include "storage.h"
+#include "usbsync.h"
 #include "theme.h"
 #include "../apps/apps.h"
 
@@ -105,4 +107,15 @@ void launcherHandle(Event e) {
     Redraw r = app(current)->onButton(e);
     if (r != Redraw::None) displayShow(app(current)->draw, r == Redraw::Full);
   }
+}
+
+void launcherPoll() {
+  char name[32];
+  if (!usbSyncTakeNewBadge(name, sizeof name)) return;
+  storagePutString("badge", name);  // the Badge app opens on the saved badge
+  if (current != HOME) app(current)->onExit();
+  for (int i = 0; i < APP_COUNT; i++)
+    if (APPS[i] == &badgeApp) current = i;
+  app(current)->onEnter();
+  displayShow(app(current)->draw, true);
 }

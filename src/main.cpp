@@ -37,6 +37,7 @@ void loop() {
     launcherHandle(e);
   }
   usbSyncPoll();
+  launcherPoll();
   powerSleepIfIdle();
   powerNap();
 }
