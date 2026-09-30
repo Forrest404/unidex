@@ -11,3 +11,7 @@ void displayInit(bool initial);
 // Partial refresh normally; full refresh when asked (app switches) or every 10 partials,
 // to clear e-ink ghosting.
 void displayShow(void (*draw)(), bool full);
+
+// Animation frame (the Chooser spin only): partial refresh, not counted toward the rule above and
+// no hibernate. Always finish an animation with a full displayShow() to clear the ghosting.
+void displayFrame(void (*draw)());

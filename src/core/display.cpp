@@ -21,9 +21,7 @@ void displayInit(bool initial) {
 static const int FULL_EVERY = 10;
 RTC_DATA_ATTR static int partialsSinceFull;  // survives sleep, so the count is honest
 
-void displayShow(void (*draw)(), bool full) {
-  full = full || partialsSinceFull >= FULL_EVERY;
-  partialsSinceFull = full ? 0 : partialsSinceFull + 1;
+static void render(void (*draw)(), bool full) {
   if (full) display.setFullWindow();
   else display.setPartialWindow(0, 0, display.width(), display.height());
   display.firstPage();
@@ -32,5 +30,15 @@ void displayShow(void (*draw)(), bool full) {
     display.setTextColor(GxEPD_BLACK);
     draw();
   } while (display.nextPage());
+}
+
+void displayShow(void (*draw)(), bool full) {
+  full = full || partialsSinceFull >= FULL_EVERY;
+  partialsSinceFull = full ? 0 : partialsSinceFull + 1;
+  render(draw, full);
   display.hibernate();  // hibernated e-ink keeps the image
+}
+
+void displayFrame(void (*draw)()) {
+  render(draw, false);
 }

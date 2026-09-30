@@ -15,7 +15,7 @@ PlatformIO + Arduino firmware: a launcher with four apps (Timetable, Name Badge,
 | 6 | Name Badge | done |
 | 7 | Timetable + NTP | done (NTP untested: no WiFi yet; clock set from the Mac) |
 | 7b | Apple Calendar sync from the Mac over USB | done |
-| 8 | Chooser | — |
+| 8 | Chooser | done |
 | 9 | WiFi Pokédex | — |
 | 10 | Polish + battery audit | — |
 
@@ -135,6 +135,7 @@ Preferences directly, so moving files to an SD card later only changes `storage.
 |---|---|---|
 | `badge` | string | Badge: filename of the last badge shown |
 | `events_crc` | int | Mac sync: crc32 of the saved `/events.csv` |
+| `ch_w1`…`ch_w6` | int | Chooser: wins per square number |
 
 ## Theme
 
@@ -265,6 +266,16 @@ Gotchas found on the way:
 - The device answers with `\r\n`. Swift treats that as one Character, so the agent strips `\r`.
 - After a cold boot the device is busy with the splash for about 3.5 s, so the agent keeps asking for 6 s.
 
+### Chooser
+
+- Always opens on 2 squares; A short cycles 2 → 6 → 2 with a numbered grid preview.
+- B short spins. The winner is picked first (`esp_random()` with the hardware entropy source
+  switched on briefly, because the radios are off). The highlight then walks the squares in reading
+  order, slowing each hop, starting (hops − 1) cells before the winner so it lands exactly on it.
+- The reveal is a full refresh (clears the spin's ghosting): the winner is inverted, with "You got #N".
+  B = spin again, A = back to the count.
+- B long = tally: the grid shows each square's win count. One NVS write per spin, after it lands.
+
 ## Launcher and apps
 
 - Cold boot: splash (full refresh), then home (partial). After a deep-sleep wake nothing is
@@ -277,7 +288,9 @@ Gotchas found on the way:
 
 Every screen is drawn whole by a `draw()` function. Partial refresh normally; full refresh when
 switching apps/home and after every 10 partials (the counter survives sleep), to clear ghosting.
-Nothing redraws on a timer: only on input (the Chooser spin will be the one exception).
+Nothing redraws on a timer: only on input. The one exception is the Chooser spin, which uses
+`displayFrame()`: partial frames that don't count toward the 10 and don't hibernate. An animation
+must always end with a full `displayShow()` to clear its ghosting.
 
 ### App interface (`src/core/app.h`)
 
