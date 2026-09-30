@@ -66,7 +66,8 @@ void launcherHandle(Event e) {
     APPS[current]->onExit();
     current = HOME;
     displayShow(drawHome, true);
-  } else if (APPS[current]->onButton(e)) {
-    displayShow(APPS[current]->draw, false);
+  } else {
+    Redraw r = APPS[current]->onButton(e);
+    if (r != Redraw::None) displayShow(APPS[current]->draw, r == Redraw::Full);
   }
 }

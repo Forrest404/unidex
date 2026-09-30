@@ -11,6 +11,6 @@ static void draw() {
 }
 
 static void noop() {}
-static bool onButton(Event) { return false; }
+static Redraw onButton(Event) { return Redraw::None; }
 
 extern const App dexApp = {"Dex", ICON_DEX, noop, onButton, draw, noop};

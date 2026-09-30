@@ -12,7 +12,7 @@ PlatformIO + Arduino firmware: a launcher with four apps (Timetable, Name Badge,
 | 3 | Power management + deep sleep | done |
 | 4 | Storage layer + theme | done |
 | 5 | Launcher, splash, icons | done |
-| 6 | Name Badge | — |
+| 6 | Name Badge | done |
 | 7 | Timetable + NTP | — |
 | 8 | Chooser | — |
 | 9 | WiFi Pokédex | — |
@@ -132,6 +132,7 @@ Preferences directly, so moving files to an SD card later only changes `storage.
 
 | NVS key | Type | Used by |
 |---|---|---|
+| `badge` | string | Badge: filename of the last badge shown |
 
 ## Theme
 
@@ -139,6 +140,20 @@ Preferences directly, so moving files to an SD card later only changes `storage.
 (FreeSans 18 pt: the one focal element). Margin 8 px, header 24 px (title + 1 px rule), footer
 22 px (1 px rule + "A …" left, "B …" right). Helpers: `drawHeader`, `drawFooter`, `drawCentered`.
 Icons: 40×40, stored as rows of `#`/`.` in `theme.cpp` (2 px strokes, no anti-aliasing), drawn with `drawIcon`.
+
+## File formats
+
+### Badges (`data/badges/*.bmp`)
+
+- 1-bit (monochrome), uncompressed BMP, up to 200×200. Smaller images are centred.
+- Either palette order works (index 0 black or white), and bottom-up or top-down rows.
+- Shown in filename order, so prefix them: `01-hello.bmp`, `02-…`. Up to 32 files.
+- Making one: GIMP → Image → Mode → Indexed → "Use black and white (1-bit) palette" → Export as BMP.
+  Or Pillow: `Image.new('1', (200, 200))` … `.save('x.bmp')` (see `tools/make_test_badges.py`).
+- Upload with `pio run -t uploadfs`.
+
+In the app: A = next, B = previous; the badge fills the screen with no header or footer. Each
+flip is a full refresh (no ghosting); the last one shown is saved in NVS.
 
 ## Launcher and apps
 
@@ -161,7 +176,7 @@ struct App {
   const char *name;
   const char *const *icon;    // 40x40 pixel art from theme.h
   void (*onEnter)();
-  bool (*onButton)(Event e);  // return true if the screen needs redrawing
+  Redraw (*onButton)(Event e);  // None, Partial (small change) or Full (whole image changed)
   void (*draw)();             // draw the whole screen; the launcher refreshes the panel
   void (*onExit)();
 };
@@ -175,8 +190,10 @@ struct App {
 2. Add `<name>App` to the `extern` line and to `APPS[]` in `src/apps/apps.cpp` (sets launcher order).
 3. Add a 40×40 icon to `theme.cpp`/`theme.h`.
 4. Keep state in `RTC_DATA_ATTR` variables (survives sleep) or NVS via `storage.h` (survives power
-   loss). Use `drawHeader`/`drawFooter` and the two theme fonts. Return true from `onButton` only
-   when the screen changed. Turn radios on only inside the app and off before returning.
+   loss). Plain RAM is lost in deep sleep and `onEnter` isn't called again after a wake, so rebuild
+   RAM caches lazily (see `ensureList()` in the badge app). Use `drawHeader`/`drawFooter` and the two
+   theme fonts. Return `Redraw::None` from `onButton` when nothing changed, `Full` when the whole
+   image changes. Turn radios on only inside the app and off before returning.
 
 The home grid fits 4 apps; a 5th needs a second page or a smaller grid.
 
