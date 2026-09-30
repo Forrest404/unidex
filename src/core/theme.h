@@ -1,0 +1,16 @@
+#pragma once
+#include <Adafruit_GFX.h>
+
+// Shared look for every screen: two font sizes, fixed margins, thin header and footer.
+extern const GFXfont *const FONT_SMALL;  // header, footer, secondary text
+extern const GFXfont *const FONT_LARGE;  // the one focal element
+
+const int16_t MARGIN = 8;
+const int16_t HEADER_H = 24;  // title + 1 px rule
+const int16_t FOOTER_H = 22;  // 1 px rule + button hints
+const int16_t CONTENT_TOP = HEADER_H;
+const int16_t CONTENT_BOTTOM = 200 - FOOTER_H;
+
+void drawHeader(const char *title);
+void drawFooter(const char *aHint, const char *bHint);  // e.g. "next", "select"; "" hides one
+void drawCentered(const char *text, int16_t cy);        // centred horizontally, cy = vertical centre

@@ -10,7 +10,7 @@ PlatformIO + Arduino firmware: a launcher with four apps (Timetable, Name Badge,
 | 1 | Project setup + display "hello" | done |
 | 2 | Button input (short/long) | done |
 | 3 | Power management + deep sleep | done |
-| 4 | Storage layer + theme | — |
+| 4 | Storage layer + theme | done |
 | 5 | Launcher, splash, icons | — |
 | 6 | Name Badge | — |
 | 7 | Timetable + NTP | — |
@@ -117,12 +117,37 @@ screen refresh is running (about 0.3–0.5 s).
   `04_Hardware/Schematics/ESP32-S3-Touch-ePaper-1.54-Schematic.pdf`)
 - Community note on the PWR/GPIO17 latch: https://www.espboards.dev/blog/waveshare-esp32-s3-epaper-esphome-climate/
 
+## Storage
+
+All file and NVS access goes through `src/core/storage.h`. Apps never touch LittleFS or
+Preferences directly, so moving files to an SD card later only changes `storage.cpp`.
+
+- Files: LittleFS on internal flash (the 1.5 MB `spiffs` partition in `default_8MB.csv`).
+  Sources live in `/data` and are uploaded as a filesystem image. The mount never auto-formats;
+  if no image was uploaded, `storageInit()` returns false.
+- `storageOpen(path, mode)` returns a standard `fs::File` ("r", "w", "a"; also opens folders for
+  `openNextFile()`).
+- NVS (namespace `unidex`): `storageGet/PutInt`, `storageGet/PutString`. Puts skip unchanged values.
+- Flash wear: open a file once, write everything, close it. Never write inside a loop.
+
+| NVS key | Type | Used by |
+|---|---|---|
+| `test_count` | int | STEP 4 test (remove later) |
+
+## Theme
+
+`src/core/theme.h`: `FONT_SMALL` (FreeSans 9 pt: header, footer, secondary text) and `FONT_LARGE`
+(FreeSans 18 pt: the one focal element). Margin 8 px, header 24 px (title + 1 px rule), footer
+22 px (1 px rule + "A …" left, "B …" right). Helpers: `drawHeader`, `drawFooter`, `drawCentered`.
+
 ## Build and flash
 
 ```sh
 pio run -t upload        # build + flash firmware
+pio run -t uploadfs      # upload /data as the LittleFS image
 pio device monitor       # serial at 115200 (native USB)
 ```
 
+Run the two uploads separately: `-t upload -t uploadfs` in one command only wrote the filesystem.
 The USB port disappears while the board is asleep: press a button, then upload within 10 s.
 If upload still can't connect: hold BOOT, tap RESET (or re-plug USB), release BOOT, retry.
