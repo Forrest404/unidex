@@ -1,13 +1,12 @@
 # unidex — tiny e-ink OS for the Waveshare ESP32-S3-ePaper-1.54
 
-PlatformIO + Arduino firmware: a small launcher with four apps (Timetable, Name Badge,
-WiFi Pokédex, Chooser), built for battery life first.
+PlatformIO + Arduino firmware: a launcher with four apps (Timetable, Name Badge, WiFi Pokédex, Chooser).
 
 ## Status
 
 | Step | What | State |
 |---|---|---|
-| 0 | Identify board + button serial test | in progress |
+| 0 | Identify board + button serial test | done |
 | 1 | Project setup + display "hello" | — |
 | 2 | Button input (short/long) | — |
 | 3 | Power management + deep sleep | — |
@@ -43,7 +42,7 @@ Legend: **confirmed** = read from the chip itself or seen working on the device;
 | Item | Value | Source |
 |---|---|---|
 | Panel | 1.54" black/white e-paper, 200 × 200 | vendor |
-| Controller | SSD1681 (init sequence `0x12` SWRESET, `0x01 C7 00 01`) | vendor code |
+| Controller | SSD1681 | vendor code |
 | GxEPD2 class | `GxEPD2_154_D67` (SSD1681 200×200) | assumed — verified in STEP 1 |
 
 ### Pins
@@ -59,8 +58,8 @@ Legend: **confirmed** = read from the chip itself or seen working on the device;
 | EPD power enable | 6 | **active LOW** (LOW = panel powered) | vendor |
 | Audio power enable | 42 | active LOW, keep HIGH (off) | vendor |
 | Battery power latch | 17 | **HIGH = stay on**; must be held through deep sleep (`rtc_gpio_hold_en`) | vendor |
-| BOOT button | 0 | active LOW, RTC GPIO | vendor |
-| PWR button | 18 | active LOW, RTC GPIO | vendor |
+| BOOT button | 0 | active LOW, RTC GPIO | confirmed (STEP 0 test) |
+| PWR button | 18 | active LOW, RTC GPIO | confirmed (STEP 0 test) |
 | RTC interrupt (PCF85063) | 5 | active LOW | vendor |
 | I2C SDA / SCL | 47 / 48 | RTC + SHTC3 | vendor |
 | Battery voltage | 4 (ADC1 ch3) | ×2 divider | vendor |
@@ -73,7 +72,7 @@ Legend: **confirmed** = read from the chip itself or seen working on the device;
   to latch power on. If firmware never latches, the board dies as soon as PWR is released.
   To power off, firmware sets GPIO17 LOW. The vendor example does this when PWR wakes it.
   On USB the board is always powered, so the latch makes no difference there.
-  *Readable: vendor code; verified by the STEP 0 test.*
+  *Readable: confirmed (STEP 0 test, on USB; holding PWR 2.4 s did not cut power).*
 - **PWR as a wake source**: the vendor sleep example uses `ext1` wake, ANY_LOW, on
   GPIO0 + GPIO5 + GPIO18. So both buttons can wake from deep sleep, as long as GPIO17
   is held HIGH during sleep. *vendor — verified in STEP 3.*
@@ -83,8 +82,8 @@ Legend: **confirmed** = read from the chip itself or seen working on the device;
 
 ### Control mapping (decided in STEP 0)
 
-A = BOOT (next/scroll), B = PWR (select/action). Short = < ~600 ms, long = hold.
-Final once the STEP 0 test confirms both buttons.
+A = BOOT (next/scroll), B = PWR (select/action). Both buttons read cleanly, alone and together,
+with no bounce seen at 30 ms debounce. Quick taps measured 145–300 ms, deliberate holds 1.6–3.8 s.
 
 ### Sources
 

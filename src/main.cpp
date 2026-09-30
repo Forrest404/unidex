@@ -1,5 +1,4 @@
 // STEP 0 — button test. Prints every press/release of BOOT and PWR over USB serial.
-// Replaced by the real firmware in STEP 1.
 #include <Arduino.h>
 
 static const int PIN_BOOT  = 0;   // BOOT button, active LOW
@@ -21,7 +20,7 @@ void setup() {
   uint32_t t0 = millis();
   while (!Serial && millis() - t0 < 3000) delay(10);  // give the USB host a moment
 
-  Serial.println("\n=== STEP 0 button test ===");
+  Serial.println("\nSTEP 0 button test");
   Serial.printf("reset reason: %d\n", (int)esp_reset_reason());
   Serial.printf("PSRAM: %u bytes, flash: %u bytes\n", ESP.getPsramSize(), ESP.getFlashChipSize());
   Serial.println("Press BOOT and PWR (short and long).");
