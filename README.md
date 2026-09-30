@@ -7,7 +7,7 @@ PlatformIO + Arduino firmware: a launcher with four apps (Timetable, Name Badge,
 | Step | What | State |
 |---|---|---|
 | 0 | Identify board + button serial test | done |
-| 1 | Project setup + display "hello" | — |
+| 1 | Project setup + display "hello" | done |
 | 2 | Button input (short/long) | — |
 | 3 | Power management + deep sleep | — |
 | 4 | Storage layer + theme | — |
@@ -41,21 +41,22 @@ Legend: **confirmed** = read from the chip itself or seen working on the device;
 
 | Item | Value | Source |
 |---|---|---|
-| Panel | 1.54" black/white e-paper, 200 × 200 | vendor |
+| Panel | 1.54" black/white e-paper, 200 × 200 | confirmed (STEP 1) |
 | Controller | SSD1681 | vendor code |
-| GxEPD2 class | `GxEPD2_154_D67` (SSD1681 200×200) | assumed — verified in STEP 1 |
+| GxEPD2 class | `GxEPD2_154_D67` (SSD1681 200×200), GxEPD2 1.6.9 | confirmed (STEP 1) |
+| Rotation | 0 = upright | confirmed (STEP 1) |
 
 ### Pins
 
 | Function | GPIO | Notes | Source |
 |---|---|---|---|
-| EPD SCK | 12 | SPI | vendor |
-| EPD MOSI | 13 | SPI (no MISO) | vendor |
-| EPD CS | 11 | | vendor |
-| EPD DC | 10 | | vendor |
-| EPD RST | 9 | | vendor |
-| EPD BUSY | 8 | | vendor |
-| EPD power enable | 6 | **active LOW** (LOW = panel powered) | vendor |
+| EPD SCK | 12 | SPI | confirmed (STEP 1) |
+| EPD MOSI | 13 | SPI (no MISO) | confirmed (STEP 1) |
+| EPD CS | 11 | | confirmed (STEP 1) |
+| EPD DC | 10 | | confirmed (STEP 1) |
+| EPD RST | 9 | | confirmed (STEP 1) |
+| EPD BUSY | 8 | | confirmed (STEP 1) |
+| EPD power enable | 6 | **active LOW** (LOW = panel powered) | confirmed (STEP 1) |
 | Audio power enable | 42 | active LOW, keep HIGH (off) | vendor |
 | Battery power latch | 17 | **HIGH = stay on**; must be held through deep sleep (`rtc_gpio_hold_en`) | vendor |
 | BOOT button | 0 | active LOW, RTC GPIO | confirmed (STEP 0 test) |
