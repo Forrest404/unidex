@@ -2,7 +2,7 @@
 #include <Arduino.h>
 
 static const uint32_t DEBOUNCE_MS = 30;  // no bounce seen at this value in STEP 0
-static const uint32_t LONG_MS = 400;     // tuned on the device in STEP 2
+static const uint32_t LONG_MS = 300;     // tuned on the device in STEP 2
 
 struct Button {
   int pin;
@@ -19,7 +19,17 @@ static Button buttons[] = {
 };
 
 void inputInit() {
-  for (Button &b : buttons) pinMode(b.pin, INPUT_PULLUP);
+  for (Button &b : buttons) {
+    pinMode(b.pin, INPUT_PULLUP);
+    // Treat it as down with its event already sent, so the release produces nothing.
+    b.down = b.longSent = digitalRead(b.pin) == LOW;
+  }
+}
+
+bool inputAnyDown() {
+  for (Button &b : buttons)
+    if (b.down) return true;
+  return false;
 }
 
 Event inputPoll() {

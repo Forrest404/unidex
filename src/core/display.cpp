@@ -7,13 +7,13 @@ static const int PIN_EPD_PWR = 6;  // panel power switch, active LOW
 GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT> display(
     GxEPD2_154_D67(PIN_CS, PIN_DC, PIN_RST, PIN_BUSY));
 
-void displayInit() {
+void displayInit(bool initial) {
   pinMode(PIN_EPD_PWR, OUTPUT);
   digitalWrite(PIN_EPD_PWR, LOW);
-  delay(10);  // let the panel rail settle before reset
+  if (initial) delay(10);  // let the panel rail settle; after a wake it stayed powered
 
   // Must come before display.init(): GxEPD2 calls SPI.begin() with default pins,
   // which is a no-op once SPI is already started, so these pins stick.
   SPI.begin(PIN_SCK, -1, PIN_MOSI, PIN_CS);
-  display.init(DEBUG ? 115200 : 0);
+  display.init(DEBUG ? 115200 : 0, initial);
 }
