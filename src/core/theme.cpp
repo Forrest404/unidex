@@ -32,12 +32,16 @@ void drawFooter(const char *aHint, const char *bHint) {
   if (*bHint) {
     char b[24];
     snprintf(b, sizeof b, "B %s", bHint);
-    int16_t x, y;
-    uint16_t w, h;
-    display.getTextBounds(b, 0, 0, &x, &y, &w, &h);
-    display.setCursor(display.width() - MARGIN - w - x, baseline);
-    display.print(b);
+    drawRight(b, baseline);
   }
+}
+
+void drawRight(const char *text, int16_t baseline) {
+  int16_t x, y;
+  uint16_t w, h;
+  display.getTextBounds(text, 0, 0, &x, &y, &w, &h);
+  display.setCursor(display.width() - MARGIN - w - x, baseline);
+  display.print(text);
 }
 
 void drawIcon(const char *const *icon, int16_t x, int16_t y, uint16_t color) {

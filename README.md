@@ -13,7 +13,7 @@ PlatformIO + Arduino firmware: a launcher with four apps (Timetable, Name Badge,
 | 4 | Storage layer + theme | done |
 | 5 | Launcher, splash, icons | done |
 | 6 | Name Badge | done |
-| 7 | Timetable + NTP | — |
+| 7 | Timetable + NTP | done (NTP untested: no WiFi yet; clock set from the Mac) |
 | 8 | Chooser | — |
 | 9 | WiFi Pokédex | — |
 | 10 | Polish + battery audit | — |
@@ -62,7 +62,7 @@ Legend: **confirmed** = read from the chip itself or seen working on the device;
 | BOOT button | 0 | active LOW, RTC GPIO, external 10k pull-up (R1) | confirmed (STEP 0 test) |
 | PWR button | 18 | active LOW, RTC GPIO, external 10k pull-up (R58) | confirmed (STEP 0 test) |
 | RTC interrupt (PCF85063) | 5 | active LOW | vendor |
-| I2C SDA / SCL | 47 / 48 | RTC + SHTC3 | vendor |
+| I2C SDA / SCL | 47 / 48 | RTC + SHTC3, 4.7k pull-ups | confirmed (STEP 7, PCF85063) |
 | Battery voltage | 4 (ADC1 ch3) | ×2 divider | vendor |
 | LED | 3 | only used in one vendor example | assumed |
 
@@ -148,12 +148,69 @@ Icons: 40×40, stored as rows of `#`/`.` in `theme.cpp` (2 px strokes, no anti-a
 - 1-bit (monochrome), uncompressed BMP, up to 200×200. Smaller images are centred.
 - Either palette order works (index 0 black or white), and bottom-up or top-down rows.
 - Shown in filename order, so prefix them: `01-hello.bmp`, `02-…`. Up to 32 files.
-- Making one: GIMP → Image → Mode → Indexed → "Use black and white (1-bit) palette" → Export as BMP.
-  Or Pillow: `Image.new('1', (200, 200))` … `.save('x.bmp')` (see `tools/make_test_badges.py`).
 - Upload with `pio run -t uploadfs`.
+
+Adding any image (photo, logo, screenshot; PNG, JPG, HEIC, …):
+
+```sh
+python3 tools/badges.py ~/Downloads/photo.jpg      # -> data/badges/04-photo.bmp (next free number)
+python3 tools/badges.py --crop selfie.heic         # fill the screen, cutting the edges
+```
+
+It fits the image inside 200×200 (scaling small images up), turns transparency white, and picks
+dithering for photos or clean black/white edges for line art (`--dither` / `--no-dither` to force).
+Rename the BMP to change its place in the order.
+
+Making one in Illustrator (sources live in `art/badges/`):
+
+1. Open `art/badges/template.svg` (blank 200×200 px artboard) or one of the existing badges
+   (`01-hello.svg` etc., text still editable). Use pure black and white; thin lines under 1 px vanish.
+2. File → Export → Export As… → PNG, resolution **72 ppi** (= 200×200 px), into `art/badges/`,
+   named like `04-whatever.png`. Save the `.ai`/`.svg` there too so you can edit it later.
+   Export for Screens also works; a `@1x`/`@2x` suffix is dropped and larger exports are scaled down.
+3. `python3 tools/badges.py` (no arguments) turns every PNG in `art/badges/` into `data/badges/<name>.bmp`
+   (grey → nearest of black/white, transparent → white). Add `--dither` for photos or gradients.
+4. `pio run -t uploadfs`.
+
+To remove a badge, delete both its PNG and its BMP.
 
 In the app: A = next, B = previous; the badge fills the screen with no header or footer. Each
 flip is a full refresh (no ghosting); the last one shown is saved in NVS.
+
+### Timetable (`data/timetable.csv`)
+
+```
+day,start,end,module,room
+Mon,09:00,10:00,Maths,B12
+Wed,18:00,19:30,Robotics Club,Lab 1
+```
+
+- `day` is `Mon`…`Sun` (case-insensitive, first 3 letters count); times are 24 h `HH:MM`.
+- The header row is optional; rows that don't parse are skipped.
+- Limits: 64 rows, module 23 characters, room 11 characters. Repeats weekly.
+
+In the app: the next class in the large font, then "in 42 min" / "now, ends in 20 min" / "Tue 09:00",
+then time span and room. A short = next upcoming class (up to 5), B long = rest of today
+(A scrolls, B back), B short = sync the time over WiFi. The countdown updates on each button
+press; nothing redraws on a timer.
+
+## Clock
+
+- Time lives on the onboard **PCF85063** clock chip (I2C 0x51, SDA 47 / SCL 48), stored as UTC.
+  It has its own crystal (~2 s/day) and is powered from the battery through a diode, so it keeps
+  counting through deep sleep and power-off. Confirmed in STEP 7.
+- The Timetable reads the chip once per boot into system time. The timezone is London:
+  `GMT0BST,M3.5.0/1,M10.5.0` (summer time is automatic).
+- If the chip's "oscillator stopped" flag is set (never set, or battery lost), the Timetable shows
+  "time not set".
+- Setting it: NTP over WiFi (B in Timetable). WiFi goes off straight after.
+
+### WiFi (only for NTP)
+
+```sh
+cp src/secrets.example.h src/secrets.h   # git-ignored; never committed
+# edit WIFI_SSID / WIFI_PASS, then rebuild and flash
+```
 
 ## Launcher and apps
 

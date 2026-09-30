@@ -1,8 +1,8 @@
 #include "input.h"
 #include <Arduino.h>
 
-static const uint32_t DEBOUNCE_MS = 30;  // no bounce seen at this value in STEP 0
-static const uint32_t LONG_MS = 300;     // tuned on the device in STEP 2
+static const uint32_t DEBOUNCE_MS = 25;  // no bounce seen at this value in STEP 0
+static const uint32_t LONG_MS = 250;     // tuned on the device in STEP 2
 
 struct Button {
   int pin;
