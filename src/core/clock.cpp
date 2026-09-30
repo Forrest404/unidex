@@ -4,10 +4,10 @@
 #include <Wire.h>
 #include <esp_sntp.h>
 #include <sys/time.h>
-#if __has_include("../../secrets.h")
-#include "../../secrets.h"
+#if __has_include("../secrets.h")
+#include "../secrets.h"
 #else
-#include "../../secrets.example.h"
+#include "../secrets.example.h"
 #endif
 
 static const char *TZ_LONDON = "GMT0BST,M3.5.0/1,M10.5.0";
@@ -23,9 +23,16 @@ static void setTz(const char *tz) {
   tzset();
 }
 
-void clockBegin() {
+static void start() {
+  static bool started;
+  if (started) return;
+  started = true;
   setTz(TZ_LONDON);
   Wire.begin(PIN_SDA, PIN_SCL);
+}
+
+void clockBegin() {
+  start();
   Wire.beginTransmission(PCF_ADDR);
   Wire.write(PCF_SECONDS);
   if (Wire.endTransmission(false) != 0 || Wire.requestFrom((uint16_t)PCF_ADDR, (size_t)7) != 7) return;
@@ -92,4 +99,11 @@ const char *clockSync() {
   Serial.printf("sync: %s, WiFi mode %d (0 = off)\n", err ? err : "ok", (int)WiFi.getMode());
 #endif
   return err;
+}
+
+void clockSet(time_t utc) {
+  start();
+  struct timeval tv = {utc, 0};
+  settimeofday(&tv, nullptr);
+  writeChip();
 }

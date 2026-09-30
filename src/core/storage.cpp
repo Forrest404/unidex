@@ -16,6 +16,15 @@ bool storageExists(const char *path) {
   return LittleFS.exists(path);
 }
 
+bool storageRename(const char *from, const char *to) {
+  LittleFS.remove(to);
+  return LittleFS.rename(from, to);
+}
+
+bool storageRemove(const char *path) {
+  return LittleFS.remove(path);
+}
+
 int32_t storageGetInt(const char *key, int32_t fallback) {
   Preferences prefs;
   prefs.begin(NVS_NAMESPACE, true);

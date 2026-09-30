@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key><string>com.forrest.unidex-sync</string>
+  <key>CFBundleName</key><string>UnidexSync</string>
+  <key>CFBundleExecutable</key><string>UnidexSync</string>
+  <key>CFBundlePackageType</key><string>APPL</string>
+  <key>CFBundleVersion</key><string>1</string>
+  <key>LSUIElement</key><true/>
+  <key>NSCalendarsFullAccessUsageDescription</key>
+  <string>Sends your next 7 days of events to the unidex e-ink device over USB.</string>
+</dict>
+</plist>

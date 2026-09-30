@@ -15,7 +15,7 @@ void displayInit(bool initial) {
   // Must come before display.init(): GxEPD2 calls SPI.begin() with default pins,
   // which is a no-op once SPI is already started, so these pins stick.
   SPI.begin(PIN_SCK, -1, PIN_MOSI, PIN_CS);
-  display.init(DEBUG ? 115200 : 0, initial);
+  display.init(0, initial);  // no GxEPD2 timing logs: they'd clutter the USB sync line
 }
 
 static const int FULL_EVERY = 10;

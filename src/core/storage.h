@@ -8,6 +8,8 @@
 bool storageInit();  // false if the filesystem image hasn't been uploaded
 fs::File storageOpen(const char *path, const char *mode = "r");  // "r", "w", "a"; also opens folders
 bool storageExists(const char *path);
+bool storageRename(const char *from, const char *to);  // replaces `to`: write a temp file, then rename
+bool storageRemove(const char *path);
 
 // Small persistent values in NVS. Puts skip the write if the value is unchanged.
 int32_t storageGetInt(const char *key, int32_t fallback = 0);

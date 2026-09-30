@@ -1,12 +1,16 @@
-// Timetable: next class + countdown from /timetable.csv. B long = rest of today, B short = sync time.
+// Timetable: next class or event + countdown. Weekly classes from /timetable.csv, dated calendar
+// events from /events.csv (written by the Mac USB sync). B long = rest of today, B short = sync time.
 #include "../../core/app.h"
 #include "../../core/display.h"
 #include "../../core/storage.h"
 #include "../../core/theme.h"
-#include "clock.h"
+#include "../../core/clock.h"
+#include "../../core/usbsync.h"
 
 struct Class {
+  int32_t date;  // days since 1970-01-01 for a calendar event; -1 = weekly class
   uint8_t wday;  // 0 = Sunday, as in struct tm
+  bool allDay;
   uint16_t start, end;  // minutes since midnight
   char module[24], room[12];
 };
@@ -16,13 +20,14 @@ struct Upcoming {
   int32_t delta;  // minutes from now to the start; negative = in progress
 };
 
-static const int MAX_CLASSES = 64, MAX_UPCOMING = 5, DAY_ROWS = 7, ROW_H = 20;
+static const int MAX_CLASSES = 96, MAX_UPCOMING = 5, DAY_ROWS = 7, ROW_H = 20;
 static const int32_t WEEK = 7 * 1440;
 
 // RAM is lost in deep sleep, so the CSV and clock are loaded again on first use after a wake.
 static Class classes[MAX_CLASSES];
 static int count = -1;  // -1 = not loaded yet
 static bool clockReady;
+static uint32_t loadedGeneration;  // reload when the USB sync brings new events
 static const char *syncError;  // shown once after a failed sync
 
 enum View : uint8_t { NEXT, DAY };
@@ -37,6 +42,21 @@ static int parseDay(String s) {
   return -1;
 }
 
+// Days since 1970-01-01 (Howard Hinnant's days_from_civil).
+static int32_t daysFromCivil(int y, int m, int d) {
+  y -= m <= 2;
+  const int era = (y >= 0 ? y : y - 399) / 400;
+  const int yoe = y - era * 400;
+  const int doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
+  return era * 146097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468;
+}
+
+static int32_t parseDate(const String &s) {  // YYYY-MM-DD
+  if (s.length() != 10 || s[4] != '-' || s[7] != '-') return -1;
+  int y = s.substring(0, 4).toInt(), m = s.substring(5, 7).toInt(), d = s.substring(8, 10).toInt();
+  return (y >= 2024 && m >= 1 && m <= 12 && d >= 1 && d <= 31) ? daysFromCivil(y, m, d) : -1;
+}
+
 static int parseTime(const String &s) {
   int colon = s.indexOf(':');
   if (colon < 1) return -1;
@@ -44,30 +64,46 @@ static int parseTime(const String &s) {
   return (h >= 0 && h < 24 && m >= 0 && m < 60) ? h * 60 + m : -1;
 }
 
-// Rows that don't parse (including the "day,start,..." header) are skipped.
-static void load() {
-  count = 0;
-  fs::File f = storageOpen("/timetable.csv");
+static int splitCsv(const String &line, String *field) {
+  int n = 0, from = 0;
+  while (n < 5) {
+    int comma = line.indexOf(',', from);
+    field[n] = line.substring(from, comma < 0 ? line.length() : comma);
+    field[n++].trim();
+    if (comma < 0) break;
+    from = comma + 1;
+  }
+  return n;
+}
+
+// timetable.csv rows are weekly (day,start,end,module,room); events.csv rows are dated
+// (YYYY-MM-DD,start,end,title,location; empty times = all day). Rows that don't parse,
+// including header rows, are skipped.
+static void loadFile(const char *path, bool dated) {
+  fs::File f = storageOpen(path);
   while (f && f.available() && count < MAX_CLASSES) {
-    String line = f.readStringUntil('\n');
     String field[5];
-    int n = 0, from = 0;
-    while (n < 5) {
-      int comma = line.indexOf(',', from);
-      field[n] = line.substring(from, comma < 0 ? line.length() : comma);
-      field[n++].trim();
-      if (comma < 0) break;
-      from = comma + 1;
-    }
-    int wday = parseDay(field[0]), start = parseTime(field[1]), end = parseTime(field[2]);
-    if (n < 5 || wday < 0 || start < 0 || end <= start) continue;
-    Class &c = classes[count++];
+    if (splitCsv(f.readStringUntil('\n'), field) < 5) continue;
+    Class c = {};
+    c.date = dated ? parseDate(field[0]) : -1;
+    c.allDay = dated && field[1].isEmpty() && field[2].isEmpty();
+    int wday = dated ? (c.date + 4) % 7 : parseDay(field[0]);  // 1970-01-01 was a Thursday
+    int start = c.allDay ? 0 : parseTime(field[1]), end = c.allDay ? 1440 : parseTime(field[2]);
+    if ((dated && c.date < 0) || wday < 0 || start < 0 || end <= start) continue;
     c.wday = wday;
     c.start = start;
     c.end = end;
     strlcpy(c.module, field[3].c_str(), sizeof c.module);
     strlcpy(c.room, field[4].c_str(), sizeof c.room);
+    classes[count++] = c;
   }
+}
+
+static void load() {
+  count = 0;
+  loadFile("/timetable.csv", false);
+  loadFile("/events.csv", true);
+  loadedGeneration = usbSyncGeneration();
 }
 
 static void ensureReady() {
@@ -75,7 +111,7 @@ static void ensureReady() {
     clockBegin();
     clockReady = true;
   }
-  if (count < 0) load();
+  if (count < 0 || loadedGeneration != usbSyncGeneration()) load();
 }
 
 static struct tm localNow() {
@@ -87,14 +123,23 @@ static struct tm localNow() {
 
 static int nowMinutes(const struct tm &now) { return now.tm_hour * 60 + now.tm_min; }
 
-// The next classes across the week, soonest first.
+static int32_t today(const struct tm &now) { return daysFromCivil(now.tm_year + 1900, now.tm_mon + 1, now.tm_mday); }
+
+// The next classes and timed events, soonest first. All-day events are left out: they'd always be "now".
 static int findUpcoming(Upcoming *out, const struct tm &now) {
   const int32_t nowWeek = now.tm_wday * 1440 + nowMinutes(now);
   int n = 0;
   for (int i = 0; i < count; i++) {
     const Class &c = classes[i];
-    int32_t d = c.wday * 1440 + c.start - nowWeek;
-    if (d + (c.end - c.start) <= 0) d += WEEK;  // already over this week
+    if (c.allDay) continue;
+    int32_t d;
+    if (c.date >= 0) {
+      d = (c.date - today(now)) * 1440 + c.start - nowMinutes(now);
+      if (d + (c.end - c.start) <= 0) continue;  // already over
+    } else {
+      d = c.wday * 1440 + c.start - nowWeek;
+      if (d + (c.end - c.start) <= 0) d += WEEK;  // already over this week
+    }
     int pos = n < MAX_UPCOMING ? n++ : MAX_UPCOMING;
     while (pos > 0 && out[pos - 1].delta > d) {
       if (pos < MAX_UPCOMING) out[pos] = out[pos - 1];
@@ -105,12 +150,13 @@ static int findUpcoming(Upcoming *out, const struct tm &now) {
   return n;
 }
 
-// Today's classes that haven't ended, by start time.
+// Today's classes and events that haven't ended, by start time (all-day events first).
 static int findToday(int16_t *out, const struct tm &now) {
   int n = 0;
   for (int i = 0; i < count; i++) {
     const Class &c = classes[i];
-    if (c.wday != now.tm_wday || c.end <= nowMinutes(now)) continue;
+    bool isToday = c.date >= 0 ? c.date == today(now) : c.wday == now.tm_wday;
+    if (!isToday || c.end <= nowMinutes(now)) continue;
     int pos = n++;
     while (pos > 0 && classes[out[pos - 1]].start > c.start) {
       out[pos] = out[pos - 1];
@@ -148,7 +194,7 @@ static void drawMessage(const struct tm &now, const char *line1, const char *lin
 
 static void drawNext(const struct tm &now) {
   if (count == 0) {
-    drawMessage(now, "no timetable", "add /timetable.csv");
+    drawMessage(now, "nothing coming up", "plug into the Mac to sync");
     drawFooter("hold home", "");
     return;
   }
@@ -159,6 +205,11 @@ static void drawNext(const struct tm &now) {
   }
   Upcoming up[MAX_UPCOMING];
   int n = findUpcoming(up, now);
+  if (n == 0) {  // e.g. only all-day or finished events left
+    drawMessage(now, "nothing coming up", "B hold: today");
+    drawFooter("hold home", "hold: day");
+    return;
+  }
   peek %= n;
   const Class &c = classes[up[peek].index];
   const int32_t d = up[peek].delta;
@@ -210,13 +261,14 @@ static void drawDay(const struct tm &now) {
     const Class &c = classes[today[scroll + r]];
     const int16_t top = CONTENT_TOP + 4 + r * ROW_H, baseline = top + 15;
     uint16_t ink = GxEPD_BLACK;
-    if (c.start <= nowMinutes(now)) {  // in progress: the one inverted row
+    if (!c.allDay && c.start <= nowMinutes(now)) {  // in progress: inverted
       display.fillRect(MARGIN - 4, top, display.width() - 2 * (MARGIN - 4), ROW_H, GxEPD_BLACK);
       ink = GxEPD_WHITE;
     }
     display.setTextColor(ink);
-    char hm[6];
-    formatHm(hm, sizeof hm, c.start);
+    char hm[8];
+    if (c.allDay) strcpy(hm, "all day");
+    else formatHm(hm, sizeof hm, c.start);
     display.setCursor(MARGIN, baseline);
     display.print(hm);
     drawRight(c.room, baseline);
@@ -225,7 +277,7 @@ static void drawDay(const struct tm &now) {
     int16_t x, y;
     uint16_t w, h, roomW;
     display.getTextBounds(c.room, 0, 0, &x, &y, &roomW, &h);
-    const int16_t left = MARGIN + 50, room = display.width() - MARGIN - roomW - 6;
+    const int16_t left = MARGIN + 54, room = display.width() - MARGIN - roomW - 6;
     String name = c.module;
     display.getTextBounds(name.c_str(), 0, 0, &x, &y, &w, &h);
     while (name.length() > 1 && left + w > room) {

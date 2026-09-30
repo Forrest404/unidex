@@ -14,6 +14,7 @@ PlatformIO + Arduino firmware: a launcher with four apps (Timetable, Name Badge,
 | 5 | Launcher, splash, icons | done |
 | 6 | Name Badge | done |
 | 7 | Timetable + NTP | done (NTP untested: no WiFi yet; clock set from the Mac) |
+| 7b | Apple Calendar sync from the Mac over USB | done |
 | 8 | Chooser | — |
 | 9 | WiFi Pokédex | — |
 | 10 | Polish + battery audit | — |
@@ -133,6 +134,7 @@ Preferences directly, so moving files to an SD card later only changes `storage.
 | NVS key | Type | Used by |
 |---|---|---|
 | `badge` | string | Badge: filename of the last badge shown |
+| `events_crc` | int | Mac sync: crc32 of the saved `/events.csv` |
 
 ## Theme
 
@@ -185,9 +187,24 @@ Mon,09:00,10:00,Maths,B12
 Wed,18:00,19:30,Robotics Club,Lab 1
 ```
 
+The committed file has only the header row: real events come from Apple Calendar (below).
+
 - `day` is `Mon`…`Sun` (case-insensitive, first 3 letters count); times are 24 h `HH:MM`.
 - The header row is optional; rows that don't parse are skipped.
 - Limits: 64 rows, module 23 characters, room 11 characters. Repeats weekly.
+
+### Calendar events (`/events.csv`, written by the device)
+
+Not uploaded: the device writes it when the Mac sync sends events. `uploadfs` wipes it until the
+next sync.
+
+```
+2026-10-01,14:00,15:00,Dentist,High St
+2026-10-03,,,Mum's birthday,
+```
+
+`YYYY-MM-DD,start,end,title,location`; empty times = all day. Titles are cut to 23 characters and
+locations to 11, and they're converted to plain ASCII (the display font has nothing else).
 
 In the app: the next class in the large font, then "in 42 min" / "now, ends in 20 min" / "Tue 09:00",
 then time span and room. A short = next upcoming class (up to 5), B long = rest of today
@@ -203,7 +220,8 @@ press; nothing redraws on a timer.
   `GMT0BST,M3.5.0/1,M10.5.0` (summer time is automatic).
 - If the chip's "oscillator stopped" flag is set (never set, or battery lost), the Timetable shows
   "time not set".
-- Setting it: NTP over WiFi (B in Timetable). WiFi goes off straight after.
+- Setting it: every Mac sync (below) writes the Mac's time. NTP over WiFi (B in Timetable) is the
+  backup. WiFi goes off straight after.
 
 ### WiFi (only for NTP)
 
@@ -211,6 +229,41 @@ press; nothing redraws on a timer.
 cp src/secrets.example.h src/secrets.h   # git-ignored; never committed
 # edit WIFI_SSID / WIFI_PASS, then rebuild and flash
 ```
+
+## Mac calendar sync (`tools/calsync/`)
+
+A LaunchAgent on the Mac pushes the time and the next 7 days of Apple Calendar events (all
+calendars, repeating events expanded) whenever the device is **plugged in and awake**. Plugging in
+doesn't wake the board, so press a button; the sync takes about 2 s.
+
+```sh
+tools/calsync/install.sh             # builds UnidexSync.app, asks for Calendar access, starts the agent
+tools/calsync/install.sh uninstall
+```
+
+- Installed to `~/Library/Application Support/UnidexSync/`; log: `sync.log` there.
+  A good line: `time set, 15 events: OK E <crc>`.
+- Calendar access: System Settings → Privacy & Security → Calendars → UnidexSync.
+- Each time the port appears the agent syncs once. The device skips the flash write if the events
+  haven't changed (crc matches NVS `events_crc`), and writes a temp file then renames it, so a cut
+  transfer never leaves a broken file.
+- **Stop the agent before flashing** so it doesn't grab the port:
+  `launchctl bootout gui/$(id -u)/com.forrest.unidex-sync`, then afterwards
+  `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.forrest.unidex-sync.plist`.
+
+Protocol (text lines over USB serial, Mac → device; `src/core/usbsync.cpp`):
+
+| Mac sends | Device replies |
+|---|---|
+| `?` | `unidex 1` |
+| `T <unix seconds>` | `OK T` (clock chip set) |
+| `E <count> <crc32>` + `count` event lines | `OK E <crc>` or `ERR` (crc32 as in zlib, over each line + `\n`) |
+
+Gotchas found on the way:
+- The ESP32-S3 resets if RTS is on while DTR is off. Opening the port turns both on, so clear
+  **RTS first, then DTR**.
+- The device answers with `\r\n`. Swift treats that as one Character, so the agent strips `\r`.
+- After a cold boot the device is busy with the splash for about 3.5 s, so the agent keeps asking for 6 s.
 
 ## Launcher and apps
 
