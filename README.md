@@ -297,7 +297,9 @@ hash,ssid,rssi,enc,rarity,first_seen
 3f9a0c1d2b4e5f60,eduroam,-67,WPA2-E,starter,1790783100
 ```
 
-- One row per network, first sighting only. New rows are appended in one write per scan.
+- One row per network **name**: access points sharing a name (e.g. many eduroam APs) count once,
+  including repeats within a scan. Hidden networks have no name, so each one is its own row and
+  shows as `(hidden xxxx)` (the first 4 hex digits of its hash). New rows are appended in one write per scan.
 - `hash` = the first 8 bytes of SHA-256(salt + BSSID), as hex. The raw BSSID is never stored. The
   salt is random per device (NVS `dex_salt`), because a 48-bit BSSID with a known vendor prefix could
   be brute-forced back from a plain hash. Wiping NVS makes old hashes unmatchable (everything is new again).
