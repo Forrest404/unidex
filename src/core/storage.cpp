@@ -54,3 +54,22 @@ void storagePutString(const char *key, const char *value) {
   if (!prefs.isKey(key) || prefs.getString(key) != value) prefs.putString(key, value);
   prefs.end();
 }
+
+void storageRemoveKey(const char *key) {
+  Preferences prefs;
+  prefs.begin(NVS_NAMESPACE, false);
+  prefs.remove(key);
+  prefs.end();
+}
+
+void storageClearKeys() {
+  Preferences prefs;
+  prefs.begin(NVS_NAMESPACE, false);
+  prefs.clear();
+  prefs.end();
+}
+
+void storageUsage(size_t &used, size_t &total) {
+  used = LittleFS.usedBytes();
+  total = LittleFS.totalBytes();
+}

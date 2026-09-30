@@ -1,10 +1,11 @@
 #include "power.h"
 #include "input.h"
+#include "storage.h"
 #include <Arduino.h>
 #include <driver/gpio.h>
 #include <esp_sleep.h>
 
-static const uint32_t IDLE_MS = 10000;
+static uint32_t idleMs = 10000;  // Settings: 10, 20, 30 or 60 s (NVS sleep_s)
 
 static const gpio_num_t PIN_LATCH = GPIO_NUM_17;      // HIGH keeps battery power on; has a pull-down
 static const gpio_num_t PIN_AUDIO_PWR = GPIO_NUM_42;  // active LOW; external pull-up keeps it off in sleep
@@ -28,6 +29,7 @@ void powerInit() {
     gpio_hold_dis(h.pin);
   }
   gpio_deep_sleep_hold_dis();
+  idleMs = storageGetInt("sleep_s", 10) * 1000;
 
   pinMode(PIN_AUDIO_PWR, OUTPUT);
   digitalWrite(PIN_AUDIO_PWR, HIGH);
@@ -46,7 +48,7 @@ void powerActivity() {
 
 void powerSleepIfIdle() {
   // Sleeping with a button held would wake straight away, in a loop.
-  if (millis() - lastActivity < IDLE_MS || inputAnyDown()) return;
+  if (millis() - lastActivity < idleMs || inputAnyDown()) return;
 
   // Keep the panel powered in its own deep sleep (RAM retained), so the first refresh
   // after waking can be partial. RST/CS stay HIGH so it isn't woken or selected.
@@ -65,13 +67,18 @@ void powerNap() {
   // Light sleep pauses USB, so skip it while a host is connected (the Mac sync needs the port).
   // Also skip while a button is held: its release and long-press timing need polling.
   const uint32_t idle = millis() - lastActivity;
-  if (HWCDC::isPlugged() || inputAnyDown() || idle >= IDLE_MS) {
+  if (HWCDC::isPlugged() || inputAnyDown() || idle >= idleMs) {
     delay(5);
     return;
   }
-  esp_sleep_enable_timer_wakeup((uint64_t)(IDLE_MS - idle) * 1000);  // wake for the deep-sleep check
+  esp_sleep_enable_timer_wakeup((uint64_t)(idleMs - idle) * 1000);  // wake for the deep-sleep check
   gpio_wakeup_enable(GPIO_NUM_0, GPIO_INTR_LOW_LEVEL);
   gpio_wakeup_enable(GPIO_NUM_18, GPIO_INTR_LOW_LEVEL);
   esp_sleep_enable_gpio_wakeup();
   esp_light_sleep_start();
+}
+
+void powerSetSleepSeconds(int s) {
+  idleMs = s * 1000;
+  storagePutInt("sleep_s", s);
 }

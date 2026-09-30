@@ -16,3 +16,6 @@ int32_t storageGetInt(const char *key, int32_t fallback = 0);
 void storagePutInt(const char *key, int32_t value);
 String storageGetString(const char *key, const char *fallback = "");
 void storagePutString(const char *key, const char *value);
+void storageRemoveKey(const char *key);
+void storageClearKeys();  // every NVS value (settings, tallies, salt...)
+void storageUsage(size_t &used, size_t &total);  // filesystem bytes

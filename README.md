@@ -55,6 +55,11 @@ The home screen is a 2×2 grid: A moves the highlight, B opens. After 10 seconds
 into deep sleep. The screen keeps showing what it last drew (e-ink needs no power for that); press either button
 to wake it and it carries on where you were.
 
+The top right of the home screen shows the time and battery level, e.g. `14:32  87%`. They update when the
+screen redraws (a button press or a wake), never on a timer. The percentage is an estimate from the battery
+voltage, and reads high while charging over USB. A small lightning bolt before it means USB power is present (it can't tell charging from full). The time is
+left out until the clock has been set.
+
 ### Timetable
 
 Shows the next class in large type, then "in 42 min", "now, ends in 20 min" or "Tue 09:00", then time and room.
@@ -151,16 +156,32 @@ Opens on 2 squares; **A** cycles 2 → 6. **B** spins: the highlight walks the g
 winner that was picked up front with the hardware random number generator. The reveal inverts the winning square
 ("You got #3"). **B** = spin again, **A** = back to the count, **B long** = tally of wins per square.
 
+### Settings
+
+**Hold A on the home screen.** A = next row, B = change or open, A long = home.
+
+- **Date & time**: set the clock by hand (no WiFi or Mac needed). A steps year → month → day → hour →
+  minute → Save; B = +1, hold B = −1; B on Save writes it to the clock chip (London time, summer time
+  automatic). The next Mac sync or NTP sync replaces it.
+- **Sleep**: 10 / 20 / 30 / 60 s awake after the last press.
+- **Invert**: white on black, everywhere (full refresh when switched).
+- **Battery & info**: battery voltage and % ("USB" while plugged in), firmware version, storage used,
+  time of the last Mac sync.
+- **Reset data**: Chooser tally, Dex, calendar events, or everything, each behind a confirm. Everything
+  also clears the settings, badge choice and Dex salt, then restarts. The uploaded badges and
+  timetable stay.
+
 ## Project layout
 
 ```
 src/
   main.cpp              setup/loop: input -> launcher -> sleep
-  apps/                 one folder per app (timetable, badge, dex, chooser) + apps.cpp (launcher order)
+  apps/                 one folder per app (timetable, badge, dex, chooser, settings) + apps.cpp (launcher order)
   core/
     launcher.*          splash, home grid, routes buttons to the open app
     display.*           GxEPD2 wrapper and the refresh rule
     input.*             debounce + short/long press events
+    battery.*           battery voltage and percent
     power.*             deep sleep, light sleep between polls, wake, pin holds
     storage.*           LittleFS files + NVS key/value (apps never touch either directly)
     clock.*             PCF85063 clock chip, NTP
@@ -202,6 +223,11 @@ apps, when an app asks for one, and after every 10 partials (the counter survive
 for USB on cold boot; with it on, a missing filesystem prints "run pio run -t uploadfs". The filesystem is never
 auto-formatted on mount, so a failed mount can't erase your files.
 
+Uploads run at 115200 baud, and firmware uploads use esptool's ROM loader (`--no-stub`, added by
+`tools/upload_nostub.py`). On this board the faster default and the esptool stub drop the USB link partway
+through ("No serial data received"). The filesystem upload keeps the stub, because the ROM loader refuses its
+1.5 MB erase. Also, the board is asleep most of the time and its USB port disappears; press a button first.
+
 ## Hardware notes
 
 Everything here was read from the chip, seen working on the device, or taken from Waveshare's own example code
@@ -230,7 +256,7 @@ Everything here was read from the chip, seen working on the device, or taken fro
 | PWR button (B) | 18 | active LOW, RTC GPIO, external 10k pull-up |
 | I2C SDA / SCL | 47 / 48 | PCF85063 clock (0x51), SHTC3 |
 | RTC interrupt | 5 | active LOW (vendor, unused) |
-| Battery voltage | 4 (ADC1 ch3) | ×2 divider (vendor, unused) |
+| Battery voltage | 4 (ADC1 ch3) | ×2 divider (vendor; read by `src/core/battery.cpp`) |
 
 </details>
 
@@ -279,6 +305,8 @@ Everything here was read from the chip, seen working on the device, or taken fro
 | `events_crc` | Mac sync: crc32 of the saved `/events.csv`, to skip identical writes |
 | `ch_w1`…`ch_w6` | Chooser: wins per square |
 | `dex_salt` | Dex: random salt for hashing BSSIDs |
+| `sleep_s` | Settings: seconds awake after the last press (10/20/30/60) |
+| `invert` | Settings: 1 = white on black |
 
 </details>
 

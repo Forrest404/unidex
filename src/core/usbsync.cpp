@@ -17,6 +17,7 @@ static char line[160];
 static size_t len;
 static int remaining;              // event lines still to come
 static uint32_t expectedCrc, crc, lastLineAt, generation;
+RTC_DATA_ATTR static time_t lastSync;
 static bool unchanged;             // same crc as the saved file: check it, but don't rewrite flash
 static fs::File out;
 
@@ -35,6 +36,7 @@ static void finishEvents() {
 #if DEBUG
   Serial.println(unchanged ? "events unchanged" : "events saved");
 #endif
+  lastSync = time(nullptr);
   Serial.printf("OK E %lu\n", (unsigned long)crc);
 }
 
@@ -88,4 +90,8 @@ void usbSyncPoll() {
 
 uint32_t usbSyncGeneration() {
   return generation;
+}
+
+time_t usbSyncLastTime() {
+  return lastSync;
 }
