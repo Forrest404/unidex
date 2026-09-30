@@ -1,4 +1,5 @@
 #include <Arduino.h>
+#include "core/clock.h"
 #include "core/display.h"
 #include "core/input.h"
 #include "core/launcher.h"
@@ -18,6 +19,7 @@ void setup() {
   while (!woke && !Serial && millis() - t0 < 3000) delay(10);
 #endif
 
+  clockBegin();  // local time for every app (one I2C read)
   inputInit();
   displayInit(!woke);
   if (!storageInit()) {

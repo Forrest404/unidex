@@ -16,7 +16,7 @@ PlatformIO + Arduino firmware: a launcher with four apps (Timetable, Name Badge,
 | 7 | Timetable + NTP | done (NTP untested: no WiFi yet; clock set from the Mac) |
 | 7b | Apple Calendar sync from the Mac over USB | done |
 | 8 | Chooser | done |
-| 9 | WiFi Pokédex | — |
+| 9 | WiFi Pokédex | done |
 | 10 | Polish + battery audit | — |
 
 ## Hardware
@@ -136,6 +136,7 @@ Preferences directly, so moving files to an SD card later only changes `storage.
 | `badge` | string | Badge: filename of the last badge shown |
 | `events_crc` | int | Mac sync: crc32 of the saved `/events.csv` |
 | `ch_w1`…`ch_w6` | int | Chooser: wins per square number |
+| `dex_salt` | string | Dex: 16-byte random salt (hex) for hashing BSSIDs |
 
 ## Theme
 
@@ -275,6 +276,27 @@ Gotchas found on the way:
 - The reveal is a full refresh (clears the spin's ghosting): the winner is inverted, with "You got #N".
   B = spin again, A = back to the count.
 - B long = tally: the grid shows each square's win count. One NVS write per spin, after it lands.
+
+### WiFi Pokédex (`/dex.csv`, written by the device)
+
+```
+hash,ssid,rssi,enc,rarity,first_seen
+3f9a0c1d2b4e5f60,eduroam,-67,WPA2-E,starter,1790783100
+```
+
+- One row per network, first sighting only. New rows are appended in one write per scan.
+- `hash` = the first 8 bytes of SHA-256(salt + BSSID), as hex. The raw BSSID is never stored. The
+  salt is random per device (NVS `dex_salt`), because a 48-bit BSSID with a known vendor prefix could
+  be brute-forced back from a plain hash. Wiping NVS makes old hashes unmatchable (everything is new again).
+- SSIDs: commas → space, non-ASCII → `?`, max 32 characters; empty = hidden. `enc`: open, WEP, WPA,
+  WPA2, WPA2-E, WPA3. `first_seen` is Unix time (0 if the clock wasn't set).
+- Rarity, first match wins: `eduroam` = starter; hidden or RSSI below −80 dBm = rare;
+  open = common; anything else = uncommon.
+- Scanning turns WiFi on and the CPU to 240 MHz for about 2 s, then WiFi off and the CPU back to 80 MHz.
+
+In the app: B = scan ("NEW!" plus the best new find, or "nothing new"); A = list of all finds, newest
+first, 5 per page (A pages and wraps, B back); B long = counts per rarity; hold B there = clear the
+dex (then B yes / A no).
 
 ## Launcher and apps
 

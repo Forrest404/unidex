@@ -23,10 +23,9 @@ struct Upcoming {
 static const int MAX_CLASSES = 96, MAX_UPCOMING = 5, DAY_ROWS = 7, ROW_H = 20;
 static const int32_t WEEK = 7 * 1440;
 
-// RAM is lost in deep sleep, so the CSV and clock are loaded again on first use after a wake.
+// RAM is lost in deep sleep, so the CSV is loaded again on first use after a wake.
 static Class classes[MAX_CLASSES];
 static int count = -1;  // -1 = not loaded yet
-static bool clockReady;
 static uint32_t loadedGeneration;  // reload when the USB sync brings new events
 static const char *syncError;  // shown once after a failed sync
 
@@ -107,10 +106,6 @@ static void load() {
 }
 
 static void ensureReady() {
-  if (!clockReady) {
-    clockBegin();
-    clockReady = true;
-  }
   if (count < 0 || loadedGeneration != usbSyncGeneration()) load();
 }
 
