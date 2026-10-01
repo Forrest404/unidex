@@ -47,11 +47,8 @@
       <div class="card">
         <h2>Update</h2>
         <p class="muted">The newest firmware only. <b>Keeps</b> your badges, Dex, calendar events and settings.</p>
-        <esp-web-install-button manifest="firmware/update.json">
-          <button slot="activate" class="secondary">Update</button>
-          <span slot="unsupported" class="unsupported">Use <b>Chrome</b> or <b>Edge</b> on a computer.</span>
-          <span slot="not-allowed" class="unsupported">This page must be opened over https.</span>
-        </esp-web-install-button>
+        <button id="update" class="secondary">Update</button>
+        <p id="updateStatus" class="status"></p>
       </div>
     </div>
 
@@ -72,9 +69,55 @@
   </section>
 </main>
 <script type="module">
-  fetch('firmware/update.json').then(r => r.json()).then(m => {
-    document.getElementById('version').textContent = m.version;
-  }).catch(() => { document.getElementById('version').textContent = 'unknown'; });
+  // Update writes only the app (firmware.bin at 0x10000) and never erases, so NVS settings and the SD card stay.
+  // ESP Web Tools can't do this: it erases the whole device for firmware without Improv Serial.
+  import { ESPLoader, Transport } from 'https://cdn.jsdelivr.net/npm/esptool-js@0.6.0/+esm';
+  const $ = id => document.getElementById(id);
+  let version = 'unknown';
+  fetch('firmware/update.json').then(r => r.json()).then(m => { version = m.version; $('version').textContent = version; })
+    .catch(() => { $('version').textContent = version; });
+
+  const status = text => { $('updateStatus').textContent = text; };
+  if (!('serial' in navigator)) {
+    $('update').disabled = true;
+    status('Use Chrome or Edge on a computer.');
+  }
+
+  $('update').onclick = async () => {
+    let port;
+    try {
+      port = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x303a }] });
+    } catch (e) {
+      status('No device picked. Nothing listed? The device is asleep: press one of its buttons, then try again.');
+      return;
+    }
+    $('update').disabled = true;
+    const transport = new Transport(port);
+    const loader = new ESPLoader({ transport, baudrate: 115200, enableTracing: false });  // 115200: no baud switch
+    try {
+      status('Connecting…');
+      await loader.main();  // resets into the bootloader and starts the flasher
+      status('Downloading…');
+      const resp = await fetch('firmware/firmware.bin');
+      if (!resp.ok) throw new Error(`download failed (${resp.status})`);
+      const data = new Uint8Array(await resp.arrayBuffer());
+      await loader.writeFlash({
+        fileArray: [{ data, address: 0x10000 }],
+        flashSize: 'keep', flashMode: 'keep', flashFreq: 'keep', eraseAll: false, compress: true,
+        reportProgress: (i, written, total) => status(`Updating… ${Math.floor(written * 100 / total)}%`),
+      });
+      status('Restarting…');
+      await transport.setRTS(true);
+      await new Promise(r => setTimeout(r, 100));
+      await loader.after();
+      status(`Updated to ${version}. Your data was kept.`);
+    } catch (e) {
+      status(`Update failed: ${e.message || e}. Unplug the device, hold BOOT while plugging it back in, then try again.`);
+    } finally {
+      await transport.disconnect().catch(() => {});
+      $('update').disabled = !('serial' in navigator);
+    }
+  };
 </script>
 </body>
 </html>
