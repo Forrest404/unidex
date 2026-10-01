@@ -280,7 +280,8 @@ same USB protocol as the Mac agent (`site/serial.js`). Calendar files are parsed
 moved or cancelled occurrences, time zones) and sent as London time, like `calsync.swift`.
 
 Files live on the SD card, so the installer writes no filesystem image; people copy `starter/` to their card or use
-the badge maker. Note: `data/badges/` is committed, so anything in it is public in the repo.
+the badge maker. `data/badges/` holds the same generic set: anything put there is committed and public, so keep
+personal badges on your own SD card instead.
 
 ### Adding an app
 
