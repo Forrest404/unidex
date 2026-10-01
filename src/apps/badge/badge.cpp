@@ -30,7 +30,7 @@ static void list() {
   if (!dir || !dir.isDirectory()) return;
   for (fs::File f = dir.openNextFile(); f && count < MAX_BADGES; f = dir.openNextFile()) {
     String n = f.name();
-    if (n.endsWith(".bmp")) names[count++] = n;
+    if (n.endsWith(".bmp") && !n.startsWith(".")) names[count++] = n;  // skip macOS "._" files on the card
   }
   std::sort(names, names + count);
   if (current >= count) current = 0;

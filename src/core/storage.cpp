@@ -1,5 +1,5 @@
 #include "storage.h"
-#include <LittleFS.h>
+#include <LittleFS.h>  // only for the one-time copy from internal flash
 #include <Preferences.h>
 #include <SD_MMC.h>
 
@@ -7,25 +7,27 @@ static const char *NVS_NAMESPACE = "unidex";
 static const int SD_CLK = 39, SD_CMD = 41, SD_D0 = 40;  // Waveshare 04_SD_Card example + schematic
 static bool cardMounted;
 
-bool storageInit() {
-  return LittleFS.begin(false);  // never auto-format: that would erase the uploaded files
-}
-
 fs::File storageOpen(const char *path, const char *mode) {
-  return LittleFS.open(path, mode);
+  if (!storageCardMount()) return fs::File();
+  if (*mode != 'r') {  // FAT won't create a file in a missing folder (e.g. /badges on a new card)
+    String dir = String(path).substring(0, String(path).lastIndexOf('/'));
+    if (dir.length() && !SD_MMC.exists(dir)) SD_MMC.mkdir(dir);
+  }
+  return SD_MMC.open(path, mode);
 }
 
 bool storageExists(const char *path) {
-  return LittleFS.exists(path);
+  return storageCardMount() && SD_MMC.exists(path);
 }
 
 bool storageRename(const char *from, const char *to) {
-  LittleFS.remove(to);
-  return LittleFS.rename(from, to);
+  if (!storageCardMount()) return false;
+  SD_MMC.remove(to);
+  return SD_MMC.rename(from, to);
 }
 
 bool storageRemove(const char *path) {
-  return LittleFS.remove(path);
+  return storageCardMount() && SD_MMC.remove(path);
 }
 
 int32_t storageGetInt(const char *key, int32_t fallback) {
@@ -72,17 +74,49 @@ void storageClearKeys() {
   prefs.end();
 }
 
-void storageUsage(size_t &used, size_t &total) {
-  used = LittleFS.usedBytes();
-  total = LittleFS.totalBytes();
+bool storageUsage(uint64_t &used, uint64_t &total) {
+  if (!storageCardMount()) return false;
+  used = SD_MMC.usedBytes();
+  total = SD_MMC.totalBytes();
+  return true;
+}
+
+// Files used to live in internal flash (LittleFS). The first time a card mounts, copy any of them the
+// card doesn't have yet (never overwriting), once. Each file is streamed and written in one go.
+static void copyFile(const String &path) {
+  if (SD_MMC.exists(path) || !LittleFS.exists(path)) return;
+  fs::File in = LittleFS.open(path, "r"), out = SD_MMC.open(path, "w");
+  uint8_t buf[512];
+  for (size_t n; in && out && (n = in.read(buf, sizeof buf)) > 0;) out.write(buf, n);
+}
+
+static void copyFromFlashOnce() {
+  if (storageGetInt("sd_copied", 0)) return;
+  if (LittleFS.begin(false)) {
+    copyFile("/timetable.csv");
+    copyFile("/dex.csv");
+    copyFile("/events.csv");
+    if (!SD_MMC.exists("/badges")) SD_MMC.mkdir("/badges");
+    fs::File dir = LittleFS.open("/badges");
+    for (fs::File f = dir ? dir.openNextFile() : fs::File(); f; f = dir.openNextFile()) {
+      String n = f.name();
+      if (n.endsWith(".bmp")) copyFile("/badges/" + n);
+    }
+    LittleFS.end();
+  }
+  storagePutInt("sd_copied", 1);
 }
 
 bool storageCardMount() {
   if (cardMounted) return true;
   SD_MMC.setPins(SD_CLK, SD_CMD, SD_D0);
   cardMounted = SD_MMC.begin("/sdcard", true /*1-bit*/, false /*never format: it would erase the card*/);
-  if (!cardMounted) SD_MMC.end();  // missing, not FAT, or broken
-  return cardMounted;
+  if (!cardMounted) {
+    SD_MMC.end();  // missing, not FAT, or broken
+    return false;
+  }
+  copyFromFlashOnce();
+  return true;
 }
 
 void storageEnd() {

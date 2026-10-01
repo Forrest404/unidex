@@ -87,7 +87,7 @@ static void listBadges() {
   fs::File dir = storageOpen("/badges");
   for (fs::File f = dir ? dir.openNextFile() : fs::File(); f; f = dir.openNextFile()) {
     String n = f.name();
-    if (n.endsWith(".bmp")) Serial.printf("F %s\n", n.c_str());
+    if (n.endsWith(".bmp") && !n.startsWith(".")) Serial.printf("F %s\n", n.c_str());
   }
   Serial.println("OK L");
 }

@@ -113,9 +113,11 @@ static void drawInfo() {
   if (pct < 0) snprintf(battery, sizeof battery, "none");
   else if (HWCDC::isPlugged()) snprintf(battery, sizeof battery, "%d.%02d V USB", mv / 1000, mv % 1000 / 10);
   else snprintf(battery, sizeof battery, "%d.%02d V %d%%", mv / 1000, mv % 1000 / 10, pct);
-  size_t used, total;
-  storageUsage(used, total);
-  snprintf(storage, sizeof storage, "%u / %u KB", (unsigned)(used / 1024), (unsigned)(total / 1024));
+  uint64_t used, total;
+  if (storageUsage(used, total))
+    snprintf(storage, sizeof storage, "%llu / %llu MB", used >> 20, total >> 20);
+  else
+    snprintf(storage, sizeof storage, "no card");
   if (time_t t = usbSyncLastTime()) {
     struct tm s;
     localtime_r(&t, &s);

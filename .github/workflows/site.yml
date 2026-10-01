@@ -34,18 +34,13 @@ jobs:
       - name: Build firmware
         run: pio run
 
-      - name: Build the starter filesystem (generic badges, empty timetable)
-        run: pio run -t buildfs
-        env:
-          PLATFORMIO_DATA_DIR: starter
-
       - name: Collect firmware and write the installer manifests
         run: |
           set -e
           out=site/firmware
           mkdir -p "$out"
           b=.pio/build/epaper154
-          cp "$b/bootloader.bin" "$b/partitions.bin" "$b/firmware.bin" "$b/littlefs.bin" "$out/"
+          cp "$b/bootloader.bin" "$b/partitions.bin" "$b/firmware.bin" "$out/"
           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin "$out/"
           version="${{ github.event.release.tag_name }}"
           [ -n "$version" ] || version="$(git describe --tags --always)"
@@ -53,7 +48,7 @@ jobs:
           import json, sys
           out, version = sys.argv[1], sys.argv[2]
           parts = [("bootloader.bin", 0x0), ("partitions.bin", 0x8000), ("boot_app0.bin", 0xE000),
-                   ("firmware.bin", 0x10000), ("littlefs.bin", 0x670000)]
+                   ("firmware.bin", 0x10000)]  # files live on the SD card: no filesystem image
           def manifest(parts, erase):
               return {"name": "unidex", "version": version, "new_install_prompt_erase": erase,
                       "new_install_improv_wait_time": 0,

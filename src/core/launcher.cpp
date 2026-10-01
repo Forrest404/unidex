@@ -8,8 +8,9 @@
 #include "theme.h"
 #include "../apps/apps.h"
 
-static const int HOME = -1, SETTINGS = -2;
-RTC_DATA_ATTR static int current = HOME;  // open app, HOME or SETTINGS
+static const int HOME = -1, SETTINGS = -2, NO_CARD = -3;
+RTC_DATA_ATTR static int current = HOME;  // open app, HOME, SETTINGS or NO_CARD
+RTC_DATA_ATTR static int noCardFor;       // the app that couldn't open
 RTC_DATA_ATTR static int selected;        // highlighted icon on the home screen
 
 static const App *app(int i) { return i == SETTINGS ? &settingsApp : APPS[i]; }
@@ -108,14 +109,41 @@ void launcherBegin(bool woke) {
   displayShow(drawHome, false);
 }
 
+static bool needsCard(int i) {
+  const App *a = app(i);
+  return a == &timetableApp || a == &badgeApp || a == &dexApp;
+}
+
+static void drawNoCard() {
+  const int16_t mid = (CONTENT_TOP + CONTENT_BOTTOM) / 2;
+  drawHeader(app(noCardFor)->name);
+  display.setFont(FONT_SMALL);
+  drawCentered("No SD card", mid - 12);
+  drawCentered("insert a FAT32 card", mid + 12);
+  drawFooter("hold home", "");
+}
+
 void launcherHandle(Event e) {
   if (e == Event::Reset) restart();
+  if (current == NO_CARD) {  // only A long (home) does anything; opening the app again retries
+    if (e == Event::ALong) {
+      current = HOME;
+      displayShow(drawHome, true);
+    }
+    return;
+  }
   if (current == HOME) {
     if (e == Event::AShort) {
       selected = (selected + 1) % APP_COUNT;
       displayShow(drawHome, false);
     } else if (e == Event::BShort || e == Event::ALong) {
       current = e == Event::ALong ? SETTINGS : selected;
+      if (needsCard(current) && !storageCardMount()) {  // missing, unreadable or not FAT32
+        noCardFor = current;
+        current = NO_CARD;
+        displayShow(drawNoCard, true);
+        return;
+      }
       app(current)->onEnter();
       displayShow(app(current)->draw, true);
     } else {
@@ -145,7 +173,7 @@ void launcherPoll() {
   char name[32];
   if (!usbSyncTakeNewBadge(name, sizeof name)) return;
   storagePutString("badge", name);  // the Badge app opens on the saved badge
-  if (current != HOME) app(current)->onExit();
+  if (current >= 0 || current == SETTINGS) app(current)->onExit();
   for (int i = 0; i < APP_COUNT; i++)
     if (APPS[i] == &badgeApp) current = i;
   app(current)->onEnter();

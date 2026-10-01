@@ -36,7 +36,8 @@
     <div class="actions">
       <div class="card">
         <h2>Install</h2>
-        <p class="muted">A fresh start: the firmware plus three starter badges. <b>Erases everything</b> on the device.</p>
+        <p class="muted">A fresh start: <b>erases</b> the device's firmware and settings. Your files live on the micro SD
+          card and aren't touched.</p>
         <esp-web-install-button manifest="firmware/install.json">
           <button slot="activate">Install</button>
           <span slot="unsupported" class="unsupported">Your browser can't do this. Use <b>Chrome</b> or <b>Edge</b> on a computer.</span>
@@ -61,7 +62,10 @@
 
   <section>
     <h2>After installing</h2>
-    <p>Set the clock and send your calendar or badges from <a href="tools.html">Tools</a>. On the device:
+    <p>Files live on a <b>micro SD card</b> (FAT32) in the device's slot. Send badges, the clock and your calendar from
+      <a href="tools.html">Tools</a>, or copy the
+      <a href="https://github.com/Forrest404/unidex/tree/main/starter">starter files</a> (a <code>badges</code>
+      folder and <code>timetable.csv</code>) to the card. On the device:
       <b>A</b> = next, <b>B</b> = select, <b>hold A</b> = back home (or Settings, on the home screen),
       <b>hold A + B</b> for a second = restart.</p>
     <p class="note">Version <span id="version">…</span>. Each new release on GitHub updates this page automatically.</p>

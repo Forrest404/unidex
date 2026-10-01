@@ -22,11 +22,6 @@ void setup() {
   clockBegin();  // local time for every app (one I2C read)
   inputInit();
   displayInit(!woke);
-  if (!storageInit()) {
-#if DEBUG
-    Serial.println("filesystem not mounted: run pio run -t uploadfs");
-#endif
-  }
   launcherBegin(woke);
 }
 

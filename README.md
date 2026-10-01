@@ -29,17 +29,17 @@ clock, sending a calendar file, and the automatic Mac calendar sync.
 ## Quick start
 
 ```sh
-git clone https://github.com/Forrest404/unisex.git && cd unisex
+git clone https://github.com/Forrest404/unidex.git && cd unidex
 
 # Optional, only for NTP time sync over WiFi (git-ignored, never committed):
 cp src/secrets.example.h src/secrets.h   # then fill in WIFI_SSID / WIFI_PASS
 
 pio run -t upload       # build and flash the firmware
-pio run -t uploadfs     # upload data/ (badges, timetable) to the board's filesystem
 ```
 
-Run the two uploads as separate commands, and do both: the firmware doesn't contain your badges or timetable,
-and without the filesystem image the apps show "no badges" / "nothing coming up".
+Files live on a **micro SD card** (FAT32) in the board's slot: copy the contents of `data/` (or `starter/` for the
+generic badges) to the root of the card, so it has `timetable.csv` and a `badges/` folder. Badges can also be sent
+from the badge maker. Without a readable card, Timetable, Badge and Dex show "No SD card".
 
 If upload can't connect: the USB port disappears while the board sleeps, so press a button and start the
 upload within 10 seconds. Still stuck: hold BOOT, tap RESET (or re-plug USB), release BOOT, retry.
@@ -90,7 +90,7 @@ Wed,18:00,19:30,Robotics Club,Lab 1
 
 `day` is `Mon`…`Sun`; times are 24 h `HH:MM`. The header row is optional, and unparseable rows are skipped.
 Names are cut at 23 characters and rooms at 11. Up to 96 entries in total (classes + calendar events).
-Then run `pio run -t uploadfs`.
+Put it in the root of the SD card.
 
 #### Apple Calendar sync (macOS)
 
@@ -110,8 +110,7 @@ System Settings → Privacy & Security → Calendars.
 `launchctl bootout gui/$(id -u)/com.forrest.unidex-sync`, and afterwards
 `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.forrest.unidex-sync.plist`.
 
-Synced events are stored in `/events.csv` on the board (not in `data/`, so `uploadfs` wipes them until the next
-sync). Titles and locations are converted to plain ASCII because the display font has nothing else.
+Synced events are stored in `/events.csv` on the SD card. Titles and locations are converted to plain ASCII because the display font has nothing else.
 
 #### Timezone
 
@@ -126,7 +125,8 @@ and the last badge shown is remembered across sleep and power loss.
 **Hold B** for the picker: 3×3 thumbnails, 9 per page. **A** moves, **B** opens the selected badge, **hold B** goes
 back. Thumbnails are decoded once and kept in RAM, so moving is only as slow as the panel's partial refresh.
 
-Badges are 1-bit, uncompressed BMPs up to 200×200 (smaller ones are centred) in `data/badges/`. They're shown in
+Badges are 1-bit, uncompressed BMPs up to 200×200 (smaller ones are centred) in the SD card's `badges/` folder
+(`data/badges/` in the repo is a set to copy there). Files starting with `.` (macOS `._` files) are ignored. They're shown in
 filename order, up to 32, so number them: `01-hello.bmp`, `02-…`.
 
 To make one from any image:
@@ -135,7 +135,7 @@ To make one from any image:
   `site/tools.html` locally). Drop in an image, pick fit or fill, photo
   or line art, adjust the lightness. Then either **Send to device**, which puts it straight on the board over USB
   (Chrome or Edge; plug in and press a button once), and the board opens it at once, or download the BMP for
-  `data/badges/`. Sending never overwrites a badge: a taken number moves to the next free one. It keeps the
+  the card's `badges/` folder. Sending never overwrites a badge: a taken number moves to the next free one. It keeps the
   Dex, events and settings. Nothing goes to the internet.
 - **From the command line** (PNG, JPG, HEIC, …; needs Pillow):
 
@@ -150,8 +150,7 @@ To make one from any image:
   1 px vanish; `tools/badge-template.svg` is a blank artboard), export a PNG at 72 ppi, then run it through the
   script above.
 
-Then run `pio run -t uploadfs`. Everything in `data/` is copied to the board's 1.5 MB filesystem, so keep large
-source images elsewhere.
+Then copy the BMPs to the card's `badges/` folder.
 
 ### Dex
 
@@ -202,12 +201,11 @@ src/
     input.*             debounce + short/long press events
     battery.*           battery voltage and percent
     power.*             deep sleep, light sleep between polls, wake, pin holds
-    storage.*           LittleFS files + NVS key/value (apps never touch either directly)
+    storage.*           files on the SD card + NVS key/value (apps never touch either directly)
     clock.*             PCF85063 clock chip, NTP
     usbsync.*           serial protocol for the Mac calendar sync
     theme.*             fonts, header/footer helpers, 40x40 pixel icons
-data/                   uploaded to the board with `pio run -t uploadfs`
-  badges/  timetable.csv
+data/                   your files, to copy to the SD card: badges/, timetable.csv
 tools/                  badges.py, badge-template.svg, calsync/ (macOS), upload_nostub.py
 site/                   the website: installer (index.html), Tools (badge maker, clock, calendar file), serial.js
 starter/                the filesystem the web installer writes: 3 generic badges, empty timetable
@@ -229,7 +227,8 @@ problems came from its older bundled esptool together with a baud switch. The To
 same USB protocol as the Mac agent (`site/serial.js`). Calendar files are parsed with ical.js (repeating events,
 moved or cancelled occurrences, time zones) and sent as London time, like `calsync.swift`.
 
-Note: `data/badges/` is committed, so anything in it is public in the repo even though the installer doesn't use it.
+Files live on the SD card, so the installer writes no filesystem image; people copy `starter/` to their card or use
+the badge maker. Note: `data/badges/` is committed, so anything in it is public in the repo.
 
 ### Adding an app
 
@@ -259,13 +258,12 @@ apps, when an app asks for one, and after every 10 partials (the counter survive
 ### Build options
 
 `platformio.ini` sets `-DDEBUG=0`. Set it to `1` for serial logs (`pio device monitor`, 115200) and a short wait
-for USB on cold boot; with it on, a missing filesystem prints "run pio run -t uploadfs". The filesystem is never
-auto-formatted on mount, so a failed mount can't erase your files.
+for USB on cold boot. The SD card is never formatted on mount, so a failed mount can't erase your files.
 
 Uploads run at 115200 baud, and firmware uploads use esptool's ROM loader (`--no-stub`, added by
 `tools/upload_nostub.py`). On this board the faster default and the esptool stub drop the USB link partway
-through ("No serial data received"). The filesystem upload keeps the stub, because the ROM loader refuses its
-1.5 MB erase. Also, the board is asleep most of the time and its USB port disappears; press a button first.
+through ("No serial data received"). On USB the board stays awake, otherwise press a button first: its USB port
+disappears while it sleeps.
 
 ## Hardware notes
 
@@ -282,7 +280,8 @@ Everything here was read from the chip, seen working on the device, or taken fro
 | USB | Native USB-Serial/JTAG (`303A:1001`), no UART bridge | confirmed |
 | Panel | 1.54" black/white e-paper, 200×200, SSD1681 | confirmed |
 | Driver | GxEPD2 1.6.9, class `GxEPD2_154_D67`, rotation 0 | confirmed |
-| Also on board | SHTC3 temp/humidity, ES8311 audio codec, TF slot, mic, speaker header | vendor (unused here) |
+| Also on board | SHTC3 temp/humidity, ES8311 audio codec, mic, speaker header | vendor (unused here) |
+| Micro SD slot | SD_MMC 1-bit, FAT32, holds all files | confirmed (mounted a 128 GB SDHC card) |
 
 | Function | GPIO | Notes |
 |---|---|---|
@@ -295,6 +294,7 @@ Everything here was read from the chip, seen working on the device, or taken fro
 | PWR button (B) | 18 | active LOW, RTC GPIO, external 10k pull-up |
 | I2C SDA / SCL | 47 / 48 | PCF85063 clock (0x51), SHTC3 |
 | RTC interrupt | 5 | active LOW (vendor, unused) |
+| SD CLK / CMD / D0 | 39 / 41 / 40 | SD_MMC 1-bit (D3/CS not connected, pulled up). Separate from the display's SPI pins, so no bus sharing. No card-detect pin, and no power switch: the card stays powered in deep sleep (idle cards draw roughly 50–200 µA) |
 | Battery voltage | 4 (ADC1 ch3) | ×2 divider (R21/R38, 200k 1%), read by `src/core/battery.cpp`. The ADC reads ~2% low: a full battery (charger finished) read 4.08–4.09 V where the cell is ~4.17 V, so readings are scaled by 4170/4085. 100% from 4.15 V (resting LiPo curve); on battery the % only goes down, so noise can't make it bounce |
 
 </details>
@@ -344,8 +344,12 @@ Everything here was read from the chip, seen working on the device, or taken fro
   boot a stopped or 12-hour chip is started in 24-hour mode. Its frozen time isn't trusted: after a deep-sleep
   wake the board's own time is written back; after power-on it's set to 2000-01-01, which reads as "not set".
   The USB command `C` prints the chip's registers and the system time, to check it's counting.
-- Files live in LittleFS on the 1.5 MB `spiffs` partition of `default_8MB.csv`, built from `data/`. Small
-  settings live in NVS (namespace `unidex`):
+- Files live on the **micro SD card** (FAT32, root: `timetable.csv`, `badges/`, `dex.csv`, `events.csv`). It's
+  mounted on first use and unmounted before deep sleep; a missing or unreadable card shows "No SD card" in
+  Timetable, Badge and Dex instead of crashing. The USB command `S` prints the card's state and files.
+- Files used to live in LittleFS on internal flash. The first time a card mounts, any of them missing on the card
+  are copied over once (never overwriting); NVS `sd_copied` records that it's done. Small settings live in NVS
+  (namespace `unidex`):
 
 | NVS key | Used by |
 |---|---|
@@ -355,6 +359,7 @@ Everything here was read from the chip, seen working on the device, or taken fro
 | `dex_salt` | Dex: random salt for hashing BSSIDs |
 | `sleep_s` | Settings: seconds awake after the last press (10/20/30/60) |
 | `invert` | Settings: 1 = white on black |
+| `sd_copied` | Storage: the one-time copy from internal flash to the card is done |
 
 </details>
 
@@ -368,6 +373,7 @@ Text lines over USB serial, Mac → device (`src/core/usbsync.cpp`, `tools/calsy
 | `?` | `unidex 1` |
 | `T <unix seconds>` | `OK T` (clock chip set) |
 | `C` | `OK C ctrl1=.. sec=.. min=.. … sys=<unix>` (clock chip diagnostics) |
+| `S` | `OK S ok <type> <size> MB, <used> MB used`, then `D <dir>` / `F <path> <bytes>` lines, then `OK S end` (or `OK S none …`) |
 | `E <count> <crc32>` + `count` lines `YYYY-MM-DD,HH:MM,HH:MM,title,location` | `OK E <crc>` or `ERR` |
 | `L` (badge maker) | `F <name>` per badge, then `OK L` |
 | `B <name> <bytes> <crc32>` | `OK B` or `ERR` (name: `[a-z0-9-]+.bmp`, max 16 KB) |
