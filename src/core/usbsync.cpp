@@ -4,11 +4,13 @@
 #include "clock.h"
 #include "power.h"
 #include "storage.h"
+#include "../apps/notes/usb.h"
 
 // Protocol (text lines, Mac -> device):
 //   ?                      -> "unidex 1"
 //   T <unix seconds>       -> sets the clock, "OK T"
 //   C                      -> "OK C <clock chip registers and system time>" (diagnostics)
+//   N ...                  -> Notes settings, tests and note download (src/apps/notes/usb.h)
 //   S                      -> SD card test: "OK S ...", "F <path> <bytes>" / "D <dir>" lines, "OK S end"
 //   E <count> <crc32>      then <count> lines "YYYY-MM-DD,HH:MM,HH:MM,title,location"
 //                          -> "OK E <crc>" or "ERR"; crc32 (zlib) covers each line plus '\n'
@@ -22,7 +24,7 @@ static const char *BADGE_TMP = "/badges/upload.tmp";
 static const int32_t MAX_BADGE_BYTES = 16384;  // a 200x200 1-bit BMP is 5062
 static const uint32_t STALL_MS = 3000;  // give up on a transfer that stops halfway
 
-static char line[160];
+static char line[600];  // fits "N SET <name> <hex>" for a 256-character key
 static size_t len;
 static int remaining;              // event lines still to come
 static uint32_t expectedCrc, crc, lastLineAt, generation;
@@ -129,6 +131,8 @@ static void handle(const char *l) {
     char status[96];
     clockStatus(status, sizeof status);
     Serial.printf("OK C %s\n", status);
+  } else if (notesUsb(l)) {
+    // Notes setup and note download: "N ..." (src/apps/notes/usb.h)
   } else if (strcmp(l, "S") == 0) {
     storageCardTest();
   } else if (strcmp(l, "L") == 0) {

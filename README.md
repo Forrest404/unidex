@@ -1,20 +1,22 @@
 # unidex
 
-A tiny pocket OS for a 1.54" e-ink board: a home screen and four small apps, driven by two buttons,
+A tiny pocket OS for a 1.54" e-ink board: a home screen and five small apps, driven by two buttons,
 running for days on a battery because it sleeps whenever you aren't pressing something.
 
 | App | What it does |
 |---|---|
 | **Timetable** | Shows your next class or calendar event with a countdown. Reads a weekly CSV and, optionally, your Apple Calendar (synced from a Mac over USB). |
+| **Notes** | Hold a button and talk: the note is transcribed (OpenAI Whisper), tidied up (OpenAI or Claude), kept on the SD card and optionally pushed to GitHub as Markdown for Obsidian. |
 | **Name Badge** | Flips through full-screen 1-bit images: name tags, logos, photos. Includes a drag-and-drop converter. |
 | **Dex** | A WiFi Pokédex. Scan, and every new network name you hear is logged with a rarity. |
 | **Chooser** | Pick 2–6 squares, spin, get a random winner. Keeps a tally. |
 
-Built with PlatformIO + Arduino (ESP32-S3). WiFi is never used unless you ask for it (a Dex scan, or an NTP time sync).
+Built with PlatformIO + Arduino (ESP32-S3). WiFi is never used unless you ask for it (a Dex scan, a Notes recording or sync, or an NTP time sync).
 
 **Install it from your browser, with no tools needed: https://forrest404.github.io/unidex/** (Chrome or Edge on a
 computer). The same site has [Tools](https://forrest404.github.io/unidex/tools.html): the badge maker, setting the
-clock, sending a calendar file, and the automatic Mac calendar sync.
+clock, sending a calendar file, and the automatic Mac calendar sync; and a
+[Notes](https://forrest404.github.io/unidex/notes.html) page for WiFi, API keys and GitHub.
 
 ## What you need
 
@@ -24,21 +26,20 @@ clock, sending a calendar file, and the automatic Mac calendar sync.
 - A USB-C data cable.
 - Optional: a 3.7 V LiPo on the board's battery connector, to use it untethered.
 - [PlatformIO](https://platformio.org/install) (CLI or the VS Code extension).
+- For Notes: an [OpenAI API key](https://platform.openai.com/api-keys) (Whisper), 2.4 GHz WiFi, and optionally an
+  Anthropic key and a GitHub repo.
 - Optional: a Mac for the calendar sync; Python 3 + [Pillow](https://pillow.readthedocs.io) for the badge script.
 
 ## Quick start
 
 ```sh
 git clone https://github.com/Forrest404/unidex.git && cd unidex
-
-# Optional, only for NTP time sync over WiFi (git-ignored, never committed):
-cp src/secrets.example.h src/secrets.h   # then fill in WIFI_SSID / WIFI_PASS
-
 pio run -t upload       # build and flash the firmware
 ```
 
 Files live on a **micro SD card** (FAT32) in the board's slot: copy the contents of `data/` (or `starter/` for the
-generic badges) to the root of the card, so it has `timetable.csv` and a `badges/` folder. Badges can also be sent
+generic badges) to the root of the card, so it has `timetable.csv` and a `badges/` folder. WiFi and API keys are
+never compiled in: set them on the [Notes page](https://forrest404.github.io/unidex/notes.html) (over USB). Badges can also be sent
 from the badge maker. Without a readable card, Timetable, Badge and Dex show "No SD card".
 
 If upload can't connect: the USB port disappears while the board sleeps, so press a button and start the
@@ -55,7 +56,8 @@ Two buttons: **A** = BOOT, **B** = PWR.
 | B short | select / action |
 | B long | app-specific extra |
 
-The home screen is a 2×2 grid: A moves the highlight, B opens. After 10 seconds without a press the board goes
+The home screen shows one app at a time, its icon large, with a dot per app underneath: A moves to the next,
+B opens. After 10 seconds without a press the board goes
 into deep sleep (it stays awake while on USB power; see Power below). The screen keeps showing what it last drew (e-ink needs no power for that). The press that
 wakes it also counts: tap A on a sleeping home screen and it wakes and moves the highlight in one go; hold a
 button and it's a long press. Powering on with PWR (from off, on battery) doesn't count, so it can't open an app.
@@ -174,6 +176,42 @@ Opens on 2 squares; **A** cycles 2 → 6. **B** spins: the highlight walks the g
 winner that was picked up front with the hardware random number generator. The reveal inverts the winning square
 ("You got #3"). **B** = spin again, **A** = back to the count, **B long** = tally of wins per square.
 
+### Notes
+
+**Hold B** and talk; let go to stop (up to 3 minutes). The screen shows a timer and a level bar while it listens.
+Then, over WiFi, the device:
+
+1. **transcribes** the recording with OpenAI Whisper (`whisper-1`, about $0.006 a minute),
+2. **tidies it up** with OpenAI (`gpt-4o-mini` by default) or Claude (`claude-haiku-4-5` by default), or not at
+   all: a one-word topic title, a one-sentence summary, a clean rewrite (keeping every fact, name and number),
+   topics, and a calendar event if the note describes a dated plan ("dentist next Friday at 3"),
+3. **saves** it to the SD card as Markdown (`/notes/<date-time>.md`, next to the `.wav`), and
+4. if switched on, **pushes** it to `<folder>/<Title>.md` in your GitHub repo (`Title 2.md` if the name is
+   taken), ready for Obsidian. The original transcript is kept in a folded callout under the clean version.
+
+On the Notes screen: **B** = sync (transcribe recordings made offline, push notes GitHub doesn't have yet),
+**A** = the list. In the list: **A** = next, **B** = open, **hold B** = back. In a note: **A** = next page,
+**B** = back, **hold B** = delete (from the device; a GitHub copy stays).
+
+Set it up on the [Notes page](https://forrest404.github.io/unidex/notes.html): WiFi, the OpenAI key, which
+model tidies up (and the Anthropic key for Claude), and GitHub (repo, branch, folder and a
+[fine-grained token](https://github.com/settings/personal-access-tokens/new) with Contents: Read and write on that
+repo only). Each has a **Test** button that runs on the device. The page also tests the microphone and downloads
+notes as `.md` files over USB.
+
+- **eduroam / work WiFi** (WPA2-Enterprise): pick "eduroam / work" on the Notes page and add your username. It
+  logs in with PEAP/MSCHAPv2 without checking the network's certificate, so a fake access point with the same name
+  could capture that password. The clock's WiFi time sync uses the same network.
+- **Without an SD card** it works online only: notes go to GitHub (if on), or are shown once and not kept.
+  Recordings made without WiFi are lost unless there's a card.
+- **Keys** live in the device's NVS (namespace `unidex_cred`), never in the code or on the card. The page can't
+  read them back: it only sees whether each is set and the last 4 characters of API keys. Settings → Reset data
+  doesn't remove them; the Notes page's **Clear all keys** and the website's **Install** (full erase) do;
+  **Update** keeps them. Anyone with the device and a USB cable could still run `N TEST` with your keys, so treat
+  it like an unlocked phone.
+- **HTTPS** is checked against the Mozilla root certificates embedded in the firmware (`certs/`).
+- The note format and the tidy-up prompt follow [forrest-notes](https://github.com/Forrest404/forrest-notes).
+
 ### Settings
 
 **Hold A on the home screen.** A = next row, B = change or open, A long = home.
@@ -194,20 +232,26 @@ winner that was picked up front with the hardware random number generator. The r
 ```
 src/
   main.cpp              setup/loop: input -> launcher -> sleep
-  apps/                 one folder per app (timetable, badge, dex, chooser, settings) + apps.cpp (launcher order)
+  apps/                 one folder per app (timetable, notes, badge, dex, chooser, settings) + apps.cpp (launcher order)
+  apps/notes/           notes.cpp (screens), store (files on the card), cloud (Whisper, tidy-up, GitHub), usb (N commands)
   core/
-    launcher.*          splash, home grid, routes buttons to the open app
+    launcher.*          splash, home carousel, routes buttons to the open app
     display.*           GxEPD2 wrapper and the refresh rule
     input.*             debounce + short/long press events
     battery.*           battery voltage and percent
     power.*             deep sleep, light sleep between polls, wake, pin holds
     storage.*           files on the SD card + NVS key/value (apps never touch either directly)
     clock.*             PCF85063 clock chip, NTP
-    usbsync.*           serial protocol for the Mac calendar sync
+    audio.*             ES8311 microphone (16 kHz mono, I2S)
+    net.*               WiFi on/off and a small HTTPS client (checks certificates)
+    credentials.*       WiFi, API keys and GitHub settings in their own NVS namespace
+    usbsync.*           serial protocol for the Mac calendar sync, the Tools page and the Notes page
     theme.*             fonts, header/footer helpers, 40x40 pixel icons
 data/                   your files, to copy to the SD card: badges/, timetable.csv
 tools/                  badges.py, badge-template.svg, calsync/ (macOS), upload_nostub.py
-site/                   the website: installer (index.html), Tools (badge maker, clock, calendar file), serial.js
+site/                   the website: installer (index.html), Tools (badge maker, clock, calendar file), Notes
+                        (notes.html/notes.js: WiFi, keys, tests, download), serial.js
+certs/                  root CA bundle embedded in the firmware for HTTPS (see certs/README.md)
 starter/                the filesystem the web installer writes: 3 generic badges, empty timetable
 .github/workflows/      site.yml: builds the firmware and publishes the website on each release
 ```
@@ -247,7 +291,7 @@ Rules that keep it fast and cheap on battery:
   (see `ensureList()` in the badge app).
 - **Turn radios on only inside the app and off again** before returning. Nothing redraws on a timer.
 - Flash wear: open a file once, write everything, close it. Never write inside a loop.
-- The home grid fits 4 apps; a fifth needs a second page or a smaller grid.
+- The home carousel takes any number of apps (one dot each; around 8 still fit across).
 
 ### The refresh rule
 
@@ -288,7 +332,8 @@ Everything here was read from the chip, seen working on the device, or taken fro
 | EPD SCK / MOSI | 12 / 13 | SPI, no MISO |
 | EPD CS / DC / RST / BUSY | 11 / 10 / 9 / 8 | |
 | EPD power enable | 6 | **active LOW**; an external pull-up turns the panel off if the pin floats |
-| Audio power enable | 42 | active LOW; kept HIGH (off) |
+| Audio power enable | 42 | active LOW; LOW only while Notes records, HIGH (off) otherwise |
+| Audio codec (ES8311) | I2S MCLK 14, BCLK 15, WS 38, DOUT 45, DIN 16 | I2C address 0x18 on the clock chip's bus. Mic only (speaker amp pin 46 unused). `src/core/audio.cpp` is a small driver on the legacy I2S API: Espressif's `esp_codec_dev` needs ESP-IDF 5. Confirmed: records |
 | Battery power latch | 17 | **HIGH = stay on**; has a pull-down, so it must be held HIGH, including through deep sleep |
 | BOOT button (A) | 0 | active LOW, RTC GPIO, external 10k pull-up |
 | PWR button (B) | 18 | active LOW, RTC GPIO, external 10k pull-up |
@@ -378,6 +423,9 @@ Text lines over USB serial, Mac → device (`src/core/usbsync.cpp`, `tools/calsy
 | `L` (badge maker) | `F <name>` per badge, then `OK L` |
 | `B <name> <bytes> <crc32>` | `OK B` or `ERR` (name: `[a-z0-9-]+.bmp`, max 16 KB) |
 | `D <hex>` (≤ 64 bytes per line) | `K` per line; after the last byte `OK F <name>` (then the board opens it) or `ERR` |
+| `N ?` / `N SET <name> <hex>` / `N CLR <name\|all>` (Notes page) | settings, as `NS <name> <set\|unset> <hex>` lines then `OK N ?`; secrets are never sent back |
+| `N TEST <wifi\|openai\|anthropic\|github>`, `N MIC` | `OK N TEST <what> ok` or `… fail <reason>`; `OK N MIC <peak> <rms>` |
+| `N LIST` / `N READ <id>` / `N DEL <id>` | `NF …` lines then `OK N LIST`; `ND <hex>` lines then `OK N READ <bytes> <crc32>`; `OK N DEL` |
 
 The crc32 (zlib) covers each line plus `\n`. The device writes a temp file and renames it only if the crc matches,
 so a cut transfer never leaves a broken file. Empty times mean an all-day event. Gotchas: the ESP32-S3 resets if

@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Keys are typed here: no third-party code, and the page can't send anything over the network
+     (connect-src 'none'). They go over USB to the device only. -->
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<title>unidex: notes</title>
+<link rel="stylesheet" href="style.css">
+<style>
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+  .card { display: flex; flex-direction: column; gap: 4px; }
+  .card h3 { font-size: 15px; margin: 0 0 4px; }
+  label { display: block; margin: 10px 0 4px; font-weight: 600; font-size: 13px; }
+  label .hint { font-weight: 400; color: var(--muted); }
+  input[type=text], input[type=password] { font: inherit; padding: 7px 9px; border: 1px solid var(--line);
+    border-radius: 6px; background: var(--bg); color: var(--fg); width: 100%; }
+  .seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .seg label { margin: 0; flex: 1; font-weight: 500; text-align: center; }
+  .seg input { position: absolute; opacity: 0; }
+  .seg span { display: block; padding: 7px 4px; cursor: pointer; }
+  .seg input:checked + span { background: var(--accent); color: var(--bg); }
+  .seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
+  .check { display: flex; gap: 8px; align-items: center; font-weight: 500; }
+  .check input { margin: 0; }
+  .buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .saved { color: var(--muted); font-size: 12px; font-weight: 400; }
+  .ok { color: #2a7a3a; }
+  .bad { color: #c33; }
+  @media (prefers-color-scheme: dark) { .ok { color: #6c6; } .bad { color: #f77; } }
+  #connectRow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  #device { margin: 0; }
+  fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+  fieldset:disabled { opacity: .45; }
+  #meter { height: 12px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-top: 10px; }
+  #meter div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td, th { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; }
+  td.act { text-align: right; white-space: nowrap; }
+  td.act button { padding: 5px 10px; font-size: 13px; }
+  .tag { font-size: 12px; color: var(--muted); }
+</style>
+</head>
+<body>
+<nav>
+  <a class="brand" href="./">unidex</a>
+  <a href="./">Install</a>
+  <a href="tools.html">Tools</a>
+  <a href="notes.html" aria-current="page">Notes</a>
+  <a href="https://github.com/Forrest404/unidex">GitHub</a>
+</nav>
+<main>
+  <h1>Notes</h1>
+  <p class="sub">Set up voice notes: hold <b>B</b> in the Notes app, talk, let go. The device transcribes it with
+    OpenAI Whisper, tidies it up with OpenAI or Claude, keeps it on the SD card and can push it to a GitHub repo
+    (for Obsidian). Everything here goes <b>over USB to your device only</b>: this page has no other code and
+    can't reach the internet.</p>
+  <p id="unsupported" class="unsupported" hidden>Your browser can't talk to USB devices. Use <b>Chrome</b> or
+    <b>Edge</b> on a computer.</p>
+
+  <section>
+    <div class="card">
+      <div id="connectRow">
+        <button id="connect">Connect</button>
+        <button id="disconnect" class="secondary" hidden>Disconnect</button>
+        <p id="device" class="status">Plug the device in and press one of its buttons to wake it, then Connect.</p>
+      </div>
+    </div>
+  </section>
+
+  <fieldset id="panel" disabled>
+  <section>
+    <h2>Connections</h2>
+    <p class="muted">Blank password and key fields keep what's saved. Test runs on the device itself, over its own
+      WiFi.</p>
+    <div class="grid">
+      <div class="card">
+        <h3>WiFi <span class="saved" id="wifiSaved"></span></h3>
+        <div class="seg">
+          <label><input type="radio" name="wifiKind" value="home" checked><span>Home</span></label>
+          <label><input type="radio" name="wifiKind" value="enterprise"><span>eduroam / work</span></label>
+        </div>
+        <label for="wifi_ssid">Network name <span class="hint">(2.4 GHz)</span></label>
+        <input id="wifi_ssid" type="text" autocomplete="off" spellcheck="false" maxlength="32">
+        <div id="userBox" hidden>
+          <label for="wifi_user">Username <span class="hint">(usually you@uni.ac.uk)</span></label>
+          <input id="wifi_user" type="text" autocomplete="off" spellcheck="false" maxlength="128">
+        </div>
+        <label for="wifi_pass">Password</label>
+        <input id="wifi_pass" type="password" autocomplete="new-password" maxlength="128">
+        <p class="note" id="enterpriseNote" hidden>Logs in with PEAP / MSCHAPv2. The device doesn't check the
+          network's certificate, so a fake access point with the same name could capture this password: use it
+          only where you trust the network, and not with a password you use elsewhere.</p>
+        <div class="buttons">
+          <button data-save="wifi">Save</button>
+          <button class="secondary" data-test="wifi">Test</button>
+        </div>
+        <p class="status" id="wifiStatus"></p>
+      </div>
+
+      <div class="card">
+        <h3>OpenAI <span class="saved" id="openaiSaved"></span></h3>
+        <label for="openai_key">API key <span class="hint">(sk-…, for Whisper)</span></label>
+        <input id="openai_key" type="password" autocomplete="off" spellcheck="false" maxlength="256">
+        <p class="note">From <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>,
+          with billing on. Whisper costs about $0.006 a minute.</p>
+        <div class="buttons">
+          <button data-save="openai">Save</button>
+          <button class="secondary" data-test="openai">Test</button>
+        </div>
+        <p class="status" id="openaiStatus"></p>
+      </div>
+
+      <div class="card">
+        <h3>Tidy-up <span class="saved" id="cleanupSaved"></span></h3>
+        <label>Rewrites the transcript into a clean note with a title, summary and topics</label>
+        <div class="seg">
+          <label><input type="radio" name="cleanup" value="openai" checked><span>OpenAI</span></label>
+          <label><input type="radio" name="cleanup" value="anthropic"><span>Claude</span></label>
+          <label><input type="radio" name="cleanup" value="off"><span>Off</span></label>
+        </div>
+        <label for="cleanup_model">Model <span class="hint" id="modelHint">(blank = gpt-4o-mini)</span></label>
+        <input id="cleanup_model" type="text" autocomplete="off" spellcheck="false" maxlength="64">
+        <div id="anthropicBox">
+          <label for="anthropic_key">Anthropic API key <span class="saved" id="anthropicSaved"></span></label>
+          <input id="anthropic_key" type="password" autocomplete="off" spellcheck="false" maxlength="256">
+          <p class="note">From <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
+        </div>
+        <div class="buttons">
+          <button data-save="cleanup">Save</button>
+          <button class="secondary" data-test="anthropic" id="testClaude">Test Claude</button>
+        </div>
+        <p class="status" id="cleanupStatus"></p>
+      </div>
+
+      <div class="card">
+        <h3>GitHub / Obsidian <span class="saved" id="githubSaved"></span></h3>
+        <label class="check"><input id="gh_on" type="checkbox"> Push each note to a GitHub repo</label>
+        <label for="gh_repo">Repo <span class="hint">(owner/name, can be private)</span></label>
+        <input id="gh_repo" type="text" autocomplete="off" spellcheck="false" maxlength="100" placeholder="you/Notes">
+        <div class="grid" style="gap:8px">
+          <div><label for="gh_branch">Branch</label>
+            <input id="gh_branch" type="text" autocomplete="off" spellcheck="false" maxlength="64" placeholder="main"></div>
+          <div><label for="gh_dir">Folder</label>
+            <input id="gh_dir" type="text" autocomplete="off" spellcheck="false" maxlength="64" placeholder="VoiceNotes"></div>
+        </div>
+        <label for="gh_token">Token <span class="hint">(github_pat_…)</span></label>
+        <input id="gh_token" type="password" autocomplete="off" spellcheck="false" maxlength="256">
+        <p class="note">A <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a>
+          for just that repo, with <b>Contents: Read and write</b>.</p>
+        <div class="buttons">
+          <button data-save="github">Save</button>
+          <button class="secondary" data-test="github">Test</button>
+        </div>
+        <p class="status" id="githubStatus"></p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Microphone</h2>
+    <div class="card">
+      <p class="muted" style="margin:0">Records two seconds and shows how loud it was. Talk while it listens.</p>
+      <div id="meter"><div></div></div>
+      <div class="buttons"><button class="secondary" id="mic">Test microphone</button></div>
+      <p class="status" id="micStatus"></p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Your notes</h2>
+    <div class="card">
+      <p class="muted" style="margin:0" id="cardInfo">Notes are kept on the SD card as Markdown.</p>
+      <div class="buttons">
+        <button class="secondary" id="refresh">Show notes</button>
+        <button class="secondary" id="downloadAll" disabled>Download all</button>
+      </div>
+      <p class="status" id="listStatus"></p>
+      <table id="noteTable" hidden>
+        <thead><tr><th>Note</th><th>Recorded</th><th></th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Remove everything</h2>
+    <div class="card">
+      <p class="muted" style="margin:0">Clears the WiFi, keys, token and Notes settings from the device. Your notes
+        stay on the card. (Install on the first page also wipes them; Update keeps them.)</p>
+      <div class="buttons"><button class="secondary" id="clearAll">Clear all keys</button></div>
+      <p class="status" id="clearStatus"></p>
+    </div>
+  </section>
+  </fieldset>
+</main>
+<script type="module" src="notes.js"></script>
+</body>
+</html>

@@ -15,7 +15,7 @@ RTC_DATA_ATTR static int selected;        // highlighted icon on the home screen
 
 static const App *app(int i) { return i == SETTINGS ? &settingsApp : APPS[i]; }
 
-static const int16_t CELL_W = 96, CELL_H = 74, GRID_X = 4, GRID_Y = CONTENT_TOP + 2, GAP = 3;
+static const int16_t ICON_Y = CONTENT_TOP + 8, NAME_Y = 134, DOTS_Y = 160, DOT_GAP = 13;
 
 // Small lightning bolt, 7 px wide and 12 tall, with its top-left corner at (x, y).
 static void drawBolt(int16_t x, int16_t y) {
@@ -49,31 +49,24 @@ static void drawStatus() {
   if (batteryCharging()) drawBolt(display.width() - MARGIN - w - (w ? 12 : 7), 5);
 }
 
+// Home is a carousel: one app at a time, its icon at double size, its name, and a dot per app.
 static void drawHome() {
   drawHeader("unidex");
   drawStatus();
-  display.setFont(FONT_SMALL);
+  const App *a = APPS[selected];
+  drawIcon(a->icon, (display.width() - 2 * ICON_SIZE) / 2, ICON_Y, GxEPD_BLACK, 2);
+  display.setFont(FONT_LARGE);
+  drawCentered(a->name, NAME_Y);
+  const int16_t x0 = (display.width() - (APP_COUNT - 1) * DOT_GAP) / 2;
   for (int i = 0; i < APP_COUNT; i++) {
-    int16_t x = GRID_X + (i % 2) * CELL_W, y = GRID_Y + (i / 2) * CELL_H;
-    uint16_t ink = GxEPD_BLACK;
-    if (i == selected) {
-      display.fillRoundRect(x + GAP, y + GAP, CELL_W - 2 * GAP, CELL_H - 2 * GAP, 6, GxEPD_BLACK);
-      ink = GxEPD_WHITE;
-    }
-    drawIcon(APPS[i]->icon, x + (CELL_W - ICON_SIZE) / 2, y + 8, ink);
-    int16_t tx, ty;
-    uint16_t tw, th;
-    display.getTextBounds(APPS[i]->name, 0, 0, &tx, &ty, &tw, &th);
-    display.setTextColor(ink);
-    display.setCursor(x + (CELL_W - tw) / 2 - tx, y + 65);
-    display.print(APPS[i]->name);
+    if (i == selected) display.fillCircle(x0 + i * DOT_GAP, DOTS_Y, 4, GxEPD_BLACK);
+    else display.drawCircle(x0 + i * DOT_GAP, DOTS_Y, 3, GxEPD_BLACK);
   }
-  display.setTextColor(GxEPD_BLACK);
   drawFooter("next", "open");
 }
 
 static void drawSplash() {
-  // Mark: 2x2 squares, one filled, echoing the home grid.
+  // Mark: 2x2 squares, one filled.
   const int16_t S = 14, G = 4, mx = (200 - 2 * S - G) / 2, my = 56;
   display.drawRect(mx, my, S, S, GxEPD_BLACK);
   display.drawRect(mx + S + G, my, S, S, GxEPD_BLACK);

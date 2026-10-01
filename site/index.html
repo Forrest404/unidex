@@ -19,12 +19,13 @@
   <a class="brand" href="./">unidex</a>
   <a href="./" aria-current="page">Install</a>
   <a href="tools.html">Tools</a>
+  <a href="notes.html">Notes</a>
   <a href="https://github.com/Forrest404/unidex">GitHub</a>
 </nav>
 <main>
   <h1>Install unidex</h1>
-  <p class="sub">A small e-ink OS for the Waveshare ESP32-S3-ePaper-1.54: timetable with calendar events, name
-    badges, a WiFi Pokédex and a chooser. Install it straight from your browser, with nothing to download.</p>
+  <p class="sub">A small e-ink OS for the Waveshare ESP32-S3-ePaper-1.54: timetable with calendar events, voice
+    notes, name badges, a WiFi Pokédex and a chooser. Install it straight from your browser, with nothing to download.</p>
 
   <section>
     <ol>
@@ -36,8 +37,8 @@
     <div class="actions">
       <div class="card">
         <h2>Install</h2>
-        <p class="muted">A fresh start: <b>erases</b> the device's firmware and settings. Your files live on the micro SD
-          card and aren't touched.</p>
+        <p class="muted">A fresh start: <b>erases</b> the device's firmware and settings, including the WiFi
+          and keys saved for Notes. Your files live on the micro SD card and aren't touched.</p>
         <esp-web-install-button manifest="firmware/install.json">
           <button slot="activate">Install</button>
           <span slot="unsupported" class="unsupported">Your browser can't do this. Use <b>Chrome</b> or <b>Edge</b> on a computer.</span>
@@ -46,7 +47,7 @@
       </div>
       <div class="card">
         <h2>Update</h2>
-        <p class="muted">The newest firmware only. <b>Keeps</b> your badges, Dex, calendar events and settings.</p>
+        <p class="muted">The newest firmware only. <b>Keeps</b> your badges, Dex, calendar events, notes, settings and keys.</p>
         <button id="update" class="secondary">Update</button>
         <p id="updateStatus" class="status"></p>
       </div>
@@ -62,7 +63,8 @@
     <p>Files live on a <b>micro SD card</b> (FAT32) in the device's slot. Send badges, the clock and your calendar from
       <a href="tools.html">Tools</a>, or copy the
       <a href="https://github.com/Forrest404/unidex/tree/main/starter">starter files</a> (a <code>badges</code>
-      folder and <code>timetable.csv</code>) to the card. On the device:
+      folder and <code>timetable.csv</code>) to the card. For voice notes, set up WiFi and your keys on
+      <a href="notes.html">Notes</a>. On the device:
       <b>A</b> = next, <b>B</b> = select, <b>hold A</b> = back home (or Settings, on the home screen),
       <b>hold A + B</b> for a second = restart.</p>
     <p class="note">Version <span id="version">…</span>. Each new release on GitHub updates this page automatically.</p>

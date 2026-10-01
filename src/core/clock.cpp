@@ -4,17 +4,13 @@
 #include <Wire.h>
 #include <esp_sntp.h>
 #include <sys/time.h>
-#if __has_include("../secrets.h")
-#include "../secrets.h"
-#else
-#include "../secrets.example.h"
-#endif
+#include "net.h"
 
 static const char *TZ_LONDON = "GMT0BST,M3.5.0/1,M10.5.0";
 static const uint8_t PCF_ADDR = 0x51, PCF_CONTROL1 = 0x00, PCF_SECONDS = 0x04;  // 0x04-0x0A: s m h day wday month year
 static const uint8_t CONTROL1_STOP = 0x20, CONTROL1_12H = 0x02;  // 0x00 = running, 24-hour mode
 static const int PIN_SDA = 47, PIN_SCL = 48;
-static const uint32_t WIFI_TIMEOUT_MS = 10000, NTP_TIMEOUT_MS = 8000;
+static const uint32_t NTP_TIMEOUT_MS = 8000;
 
 static uint8_t fromBcd(uint8_t v) { return (v >> 4) * 10 + (v & 0x0F); }
 static uint8_t toBcd(uint8_t v) { return (v / 10) << 4 | v % 10; }
@@ -107,26 +103,18 @@ static void writeChipNow() {
 
 
 const char *clockSync() {
-  if (!*WIFI_SSID) return "no WiFi set";
-  const char *err = nullptr;
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
-  uint32_t t0 = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - t0 < WIFI_TIMEOUT_MS) delay(100);
-  if (WiFi.status() != WL_CONNECTED) {
-    err = "WiFi failed";
-  } else {
+  const char *err = netConnect();  // the WiFi saved from the website's Notes page
+  if (!err) {
     // Wait for a real NTP answer: getLocalTime() alone returns at once if the clock was already set.
     sntp_set_sync_status(SNTP_SYNC_STATUS_RESET);
     configTzTime(TZ_LONDON, "pool.ntp.org", "time.google.com");
-    t0 = millis();
+    const uint32_t t0 = millis();
     while (sntp_get_sync_status() != SNTP_SYNC_STATUS_COMPLETED && millis() - t0 < NTP_TIMEOUT_MS) delay(100);
     if (sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED) writeChipNow();
     else err = "no time server";
     sntp_stop();
+    netOff();
   }
-  WiFi.disconnect(true);
-  WiFi.mode(WIFI_OFF);
 #if DEBUG
   Serial.printf("sync: %s, WiFi mode %d (0 = off)\n", err ? err : "ok", (int)WiFi.getMode());
 #endif

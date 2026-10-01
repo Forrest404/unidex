@@ -37,6 +37,8 @@ void inputInit() {
   }
 }
 
+bool inputBHeld() { return digitalRead(18) == LOW; }
+
 bool inputAnyDown() {
   for (Button &b : buttons)
     if (b.down) return true;

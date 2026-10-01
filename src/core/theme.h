@@ -19,5 +19,6 @@ String fitText(const char *text, int16_t maxWidth);     // cut from the end to f
 
 // 40x40 launcher icons, one string per row, '#' = ink.
 const int16_t ICON_SIZE = 40;
-extern const char *const ICON_TIMETABLE[], *const ICON_BADGE[], *const ICON_DEX[], *const ICON_CHOOSER[];
-void drawIcon(const char *const *icon, int16_t x, int16_t y, uint16_t color);
+extern const char *const ICON_TIMETABLE[], *const ICON_BADGE[], *const ICON_DEX[], *const ICON_CHOOSER[],
+    *const ICON_NOTES[];
+void drawIcon(const char *const *icon, int16_t x, int16_t y, uint16_t color, int scale = 1);  // scale 2 = 80x80

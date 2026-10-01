@@ -7,3 +7,4 @@ enum class Event { None, AShort, ALong, BShort, BLong, Reset };
 void inputInit();  // the press that woke the board from deep sleep counts as input (not a power-on press)
 Event inputPoll();  // call often; returns at most one event per call
 bool inputAnyDown();
+bool inputBHeld();  // B is down right now (raw pin, no debounce): for hold-to-talk, which polls it in a loop

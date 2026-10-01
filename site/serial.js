@@ -75,3 +75,86 @@ export async function connect() {
   }
   return { send, expect, close };
 }
+
+// ---- Notes (src/apps/notes/usb.h): settings, connection tests and note download ----
+// Settings travel as hex so any character survives the line protocol. Secrets are written, never read
+// back: the device only reports whether each is set (and the last 4 characters of API keys).
+
+const enc = new TextEncoder(), dec = new TextDecoder();
+export const toHex = s => [...enc.encode(s)].map(b => b.toString(16).padStart(2, '0')).join('');
+export const fromHex = h => dec.decode(new Uint8Array((h.match(/../g) || []).map(x => parseInt(x, 16))));
+const tooOld = 'This device doesn’t know about Notes yet. Update its firmware on the Install page first.';
+
+// {settings: {name: {set, value}}, card, notes, waiting}
+export async function notesStatus(dev) {
+  const settings = {};
+  let counts = null;
+  await dev.send('N ?');
+  const done = await dev.expect('OK N ?', 4000, line => {
+    const [tag, name, state, hex = ''] = line.split(' ');
+    if (tag === 'NS') settings[name] = { set: state === 'set', value: fromHex(hex) };
+    if (tag === 'NC') counts = { card: name === '1', notes: +state, waiting: +hex };
+  });
+  if (!done) throw new Error(tooOld);
+  return { settings, ...counts };
+}
+
+// Saves one setting; an empty value clears it.
+export async function notesSet(dev, name, value) {
+  await dev.send(`N SET ${name} ${toHex(value)}`);
+  if (!(await dev.expect(`OK N SET ${name}`, 3000))) throw new Error(`The device didn’t save ${name}.`);
+}
+
+export async function notesClear(dev, name = 'all') {
+  await dev.send(`N CLR ${name}`);
+  if (!(await dev.expect('OK N CLR', 3000))) throw new Error(tooOld);
+}
+
+// Runs on the device, with its own WiFi: 'wifi', 'openai', 'anthropic' or 'github'. {ok, reason}
+export async function notesTest(dev, what) {
+  await dev.send(`N TEST ${what}`);
+  const line = await dev.expect(`OK N TEST ${what}`, 45000);
+  if (!line) throw new Error('No answer from the device.');
+  const rest = line.slice(`OK N TEST ${what} `.length);
+  return rest === 'ok' ? { ok: true } : { ok: false, reason: rest.replace(/^fail /, '') };
+}
+
+// Two seconds from the microphone: {peak, rms} (0-32767), or {reason}.
+export async function notesMic(dev) {
+  await dev.send('N MIC');
+  const line = await dev.expect('OK N MIC', 6000);
+  if (!line) throw new Error(tooOld);
+  const [, , , a, ...b] = line.split(' ');
+  return a === 'fail' ? { reason: b.join(' ') } : { peak: +a, rms: +b[0] };
+}
+
+// [{id, bytes, text, pushed, title}], newest first.
+export async function notesList(dev) {
+  const notes = [];
+  await dev.send('N LIST');
+  const done = await dev.expect('OK N LIST', 15000, line => {
+    const [tag, id, bytes, text, pushed, hex = ''] = line.split(' ');
+    if (tag === 'NF') notes.push({ id, bytes: +bytes, text: text === '1', pushed: pushed === '1', title: fromHex(hex) });
+  });
+  if (!done) throw new Error(tooOld);
+  return notes;
+}
+
+// One note's Markdown, checked with its crc32.
+export async function notesRead(dev, id) {
+  const bytes = [];
+  await dev.send(`N READ ${id}`);
+  const done = await dev.expect('OK N READ', 15000, line => {
+    if (line.startsWith('ND ')) for (const pair of line.slice(3).match(/../g) || []) bytes.push(parseInt(pair, 16));
+  });
+  if (!done) throw new Error('The device couldn’t read that note.');
+  const [, , , size, crc] = done.split(' ');
+  const data = new Uint8Array(bytes);
+  if (data.length !== +size || crc32(data) !== +crc) throw new Error('The note arrived damaged. Try again.');
+  return dec.decode(data);
+}
+
+export async function notesDelete(dev, id) {
+  await dev.send(`N DEL ${id}`);
+  if (!(await dev.expect('OK N DEL', 3000))) throw new Error(tooOld);
+}
