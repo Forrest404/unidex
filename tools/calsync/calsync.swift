@@ -42,19 +42,21 @@ func eventLines() -> [String] {
   var lines: [(Date, String)] = []
   let events = store.events(matching: store.predicateForEvents(withStart: start, end: end, calendars: nil))
   for e in events {
-    let title = clean(e.title, 23), place = clean(e.location, 11)
+    // Lengths match the device (timetable.cpp): title 63, location 47, notes 160. Notes lose their line breaks.
+    let title = clean(e.title, 63), place = clean(e.location, 47)
+    let notes = clean(e.notes?.replacingOccurrences(of: "\n", with: " / "), 160)
     if e.isAllDay {
       // One line per day it covers, inside the window.
       var d = max(cal.startOfDay(for: e.startDate), start)
       while d < min(e.endDate, end) {
-        lines.append((d, "\(day.string(from: d)),,,\(title),\(place)"))
+        lines.append((d, "\(day.string(from: d)),,,\(title),\(place),\(notes)"))
         d = cal.date(byAdding: .day, value: 1, to: d)!
       }
     } else {
       // A timed event crossing midnight is cut at 23:59 on its first day.
       let sameDay = cal.isDate(e.startDate, inSameDayAs: e.endDate)
       let endText = sameDay ? hm.string(from: e.endDate) : "23:59"
-      lines.append((e.startDate, "\(day.string(from: e.startDate)),\(hm.string(from: e.startDate)),\(endText),\(title),\(place)"))
+      lines.append((e.startDate, "\(day.string(from: e.startDate)),\(hm.string(from: e.startDate)),\(endText),\(title),\(place),\(notes)"))
     }
   }
   return lines.sorted { $0.0 < $1.0 }.prefix(MAX_EVENTS).map { $0.1 }

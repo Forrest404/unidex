@@ -1,5 +1,6 @@
-// Timetable: next class or event + countdown. Weekly classes from /timetable.csv, dated calendar
-// events from /events.csv (written by the Mac USB sync). B long = rest of today, B short = sync time.
+// Timetable: the next class or event as a card (countdown, title, time, place, what's after).
+// Weekly classes from /timetable.csv, dated events from /events.csv (Mac sync or the website).
+// A = next event, B = details (full title, place, notes), B long = rest of today.
 #include "../../core/app.h"
 #include "../../core/display.h"
 #include "../../core/storage.h"
@@ -12,7 +13,7 @@ struct Class {
   uint8_t wday;  // 0 = Sunday, as in struct tm
   bool allDay;
   uint16_t start, end;  // minutes since midnight
-  char module[24], room[12];
+  char module[64], room[48], notes[161];  // title, location, notes (events.csv field 6)
 };
 
 struct Upcoming {
@@ -21,6 +22,7 @@ struct Upcoming {
 };
 
 static const int MAX_CLASSES = 96, MAX_UPCOMING = 5, DAY_ROWS = 7, ROW_H = 20;
+static const int DETAIL_LINES = 40, PAGE_LINES = 8, LINE_H = 18;  // details screen, small font
 static const int32_t WEEK = 7 * 1440;
 
 // RAM is lost in deep sleep, so the CSV is loaded again on first use after a wake.
@@ -29,8 +31,8 @@ static int count = -1;  // -1 = not loaded yet
 static uint32_t loadedGeneration;  // reload when the USB sync brings new events
 static const char *syncError;  // shown once after a failed sync
 
-enum View : uint8_t { NEXT, DAY };
-RTC_DATA_ATTR static uint8_t view, peek, scroll;
+enum View : uint8_t { NEXT, DAY, DETAIL };
+RTC_DATA_ATTR static uint8_t view, peek, scroll, page;
 
 static int parseDay(String s) {
   static const char *DAYS[] = {"sun", "mon", "tue", "wed", "thu", "fri", "sat"};
@@ -65,7 +67,7 @@ static int parseTime(const String &s) {
 
 static int splitCsv(const String &line, String *field) {
   int n = 0, from = 0;
-  while (n < 5) {
+  while (n < 6) {
     int comma = line.indexOf(',', from);
     field[n] = line.substring(from, comma < 0 ? line.length() : comma);
     field[n++].trim();
@@ -76,13 +78,14 @@ static int splitCsv(const String &line, String *field) {
 }
 
 // timetable.csv rows are weekly (day,start,end,module,room); events.csv rows are dated
-// (YYYY-MM-DD,start,end,title,location; empty times = all day). Rows that don't parse,
+// (YYYY-MM-DD,start,end,title,location[,notes]; empty times = all day). Rows that don't parse,
 // including header rows, are skipped.
 static void loadFile(const char *path, bool dated) {
   fs::File f = storageOpen(path);
   while (f && f.available() && count < MAX_CLASSES) {
-    String field[5];
-    if (splitCsv(f.readStringUntil('\n'), field) < 5) continue;
+    String field[6];
+    const int n = splitCsv(f.readStringUntil('\n'), field);
+    if (n < 5) continue;
     Class c = {};
     c.date = dated ? parseDate(field[0]) : -1;
     c.allDay = dated && field[1].isEmpty() && field[2].isEmpty();
@@ -94,6 +97,7 @@ static void loadFile(const char *path, bool dated) {
     c.end = end;
     strlcpy(c.module, field[3].c_str(), sizeof c.module);
     strlcpy(c.room, field[4].c_str(), sizeof c.room);
+    if (n > 5) strlcpy(c.notes, field[5].c_str(), sizeof c.notes);
     classes[count++] = c;
   }
 }
@@ -187,63 +191,202 @@ static void drawMessage(const struct tm &now, const char *line1, const char *lin
   drawCentered(line2, mid + 12);
 }
 
-static void drawNext(const struct tm &now) {
+static int16_t textWidth(const String &t) {
+  int16_t x, y;
+  uint16_t w, h;
+  display.getTextBounds(t.c_str(), 0, 0, &x, &y, &w, &h);
+  return w;
+}
+
+// The text cut to fit maxW in the current font, ending in "..." when cut.
+static String ellipsize(String t, int16_t maxW) {
+  if (textWidth(t) <= maxW) return t;
+  while (t.length() > 1 && textWidth(t + "...") > maxW) t.remove(t.length() - 1);
+  return t + "...";
+}
+
+// Word-wraps text to maxW in the current font. Fills out[] with up to maxLines lines (the last ends in
+// "..." if the text didn't fit) and returns how many lines the whole text needs.
+static int wrapText(const char *text, int16_t maxW, String *out, int maxLines) {
+  int lines = 0;
+  String line, word;
+  auto push = [&](const String &l) {
+    if (lines < maxLines) out[lines] = l;
+    lines++;
+  };
+  for (const char *p = text;; p++) {
+    if (*p && *p != ' ') {
+      word += *p;
+      continue;
+    }
+    while (word.length() && textWidth(word) > maxW) {  // a word longer than a line: break it
+      int cut = word.length() - 1;
+      while (cut > 1 && textWidth(word.substring(0, cut)) > maxW) cut--;
+      if (line.length()) push(line), line = "";
+      push(word.substring(0, cut));
+      word = word.substring(cut);
+    }
+    if (word.length()) {
+      String joined = line.length() ? line + " " + word : word;
+      if (textWidth(joined) <= maxW) line = joined;
+      else push(line), line = word;
+      word = "";
+    }
+    if (!*p) break;
+  }
+  if (line.length()) push(line);
+  if (lines > maxLines && maxLines > 0) out[maxLines - 1] = ellipsize(out[maxLines - 1] + " ...", maxW);
+  return lines;
+}
+
+// "IN 42 MIN" / "NOW, ENDS IN 20 MIN" / "TOMORROW 09:30" / "TUE 09:00".
+static void formatWhen(char *buf, size_t len, const Class &c, int32_t d, const struct tm &now) {
+  static const char *DAYS[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
+  char dur[16], hm[6];
+  if (d <= 0) {
+    formatDuration(dur, sizeof dur, d + (c.end - c.start));
+    snprintf(buf, len, "NOW, ENDS IN %s", dur);
+  } else if (d < 1440 - nowMinutes(now)) {
+    formatDuration(dur, sizeof dur, d);
+    snprintf(buf, len, "IN %s", dur);
+  } else {
+    formatHm(hm, sizeof hm, c.start);
+    bool tomorrow = c.wday == (now.tm_wday + 1) % 7 && d < 2 * 1440;
+    snprintf(buf, len, "%s %s", tomorrow ? "TOMORROW" : DAYS[c.wday], hm);
+  }
+  for (char *p = buf; *p; p++) *p = toupper(*p);
+}
+
+static void formatSpan(char *buf, size_t len, const Class &c) {
+  char a[6], b[6];
+  formatHm(a, sizeof a, c.start);
+  formatHm(b, sizeof b, c.end);
+  snprintf(buf, len, "%s-%s", a, b);
+}
+
+// Returns the number of upcoming events (0 = nothing to show, and the screen is already drawn).
+static int upcomingOrMessage(Upcoming *up, const struct tm &now) {
   if (count == 0) {
     drawMessage(now, "nothing coming up", "plug into the Mac to sync");
     drawFooter("hold home", "");
-    return;
+    return 0;
   }
   if (!clockValid()) {
     drawMessage(now, "time not set", syncError ? syncError : "B to sync");
     drawFooter("hold home", "sync");
-    return;
+    return 0;
   }
-  Upcoming up[MAX_UPCOMING];
-  int n = findUpcoming(up, now);
+  const int n = findUpcoming(up, now);
   if (n == 0) {  // e.g. only all-day or finished events left
     drawMessage(now, "nothing coming up", "B hold: today");
     drawFooter("hold home", "hold: day");
-    return;
   }
+  return n;
+}
+
+// The card: countdown, the title (large, 2 lines), time and length, place, and a peek at what's after.
+static void drawNext(const struct tm &now) {
+  Upcoming up[MAX_UPCOMING];
+  const int n = upcomingOrMessage(up, now);
+  if (n == 0) return;
   peek %= n;
   const Class &c = classes[up[peek].index];
-  const int32_t d = up[peek].delta;
-
+  const int16_t width = display.width() - 2 * MARGIN;
   drawTitle("Timetable", now);
-  int16_t x, y;
-  uint16_t w, h;
-  display.setFont(FONT_LARGE);
-  display.getTextBounds(c.module, 0, 0, &x, &y, &w, &h);
-  if (w > display.width() - 2 * MARGIN) display.setFont(FONT_SMALL);  // long names drop to the small font
-  drawCentered(c.module, 82);
 
-  char when[32], span[16], dur[16];
-  if (syncError) {
-    snprintf(when, sizeof when, "%s", syncError);
-  } else if (d <= 0) {
-    formatDuration(dur, sizeof dur, d + (c.end - c.start));
-    snprintf(when, sizeof when, "now, ends in %s", dur);
-  } else if (d < 1440 - nowMinutes(now)) {
-    formatDuration(dur, sizeof dur, d);
-    snprintf(when, sizeof when, "in %s", dur);
-  } else {
-    static const char *DAY_NAMES[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
-    char hm[6];
-    formatHm(hm, sizeof hm, c.start);
-    bool tomorrow = c.wday == (now.tm_wday + 1) % 7 && d < 2 * 1440;
-    snprintf(when, sizeof when, "%s %s", tomorrow ? "tomorrow" : DAY_NAMES[c.wday], hm);
-  }
-  char start[6], end[6];
-  formatHm(start, sizeof start, c.start);
-  formatHm(end, sizeof end, c.end);
-  snprintf(span, sizeof span, "%s-%s", start, end);
-  char detail[32];
-  snprintf(detail, sizeof detail, "%s  %s", span, c.room);
-
+  char when[32];
+  formatWhen(when, sizeof when, c, up[peek].delta, now);
   display.setFont(FONT_SMALL);
-  drawCentered(when, 120);
-  drawCentered(detail, 144);
-  drawFooter("next", "hold: day");
+  display.setCursor(MARGIN, CONTENT_TOP + 18);
+  display.print(when);
+
+  // The title: large on up to 2 lines, else small on up to 3, centred between the countdown and the rule.
+  String lines[3];
+  int used, lineH, ascent;
+  display.setFont(FONT_LARGE);
+  if ((used = wrapText(c.module, width, lines, 2)) <= 2) {
+    lineH = 28, ascent = 20;
+  } else {
+    display.setFont(FONT_SMALL);
+    used = min(wrapText(c.module, width, lines, 3), 3);
+    lineH = 18, ascent = 13;
+  }
+  const int16_t top = CONTENT_TOP + 26, bottom = CONTENT_TOP + 86;
+  const int16_t first = top + (bottom - top - used * lineH) / 2 + ascent;
+  for (int i = 0; i < used; i++) display.setCursor(MARGIN, first + i * lineH), display.print(lines[i]);
+  display.drawFastHLine(MARGIN, CONTENT_TOP + 90, 40, GxEPD_BLACK);
+
+  char span[16], dur[16], line[48];
+  formatSpan(span, sizeof span, c);
+  formatDuration(dur, sizeof dur, c.end - c.start);
+  snprintf(line, sizeof line, "%s   %s", span, dur);
+  display.setFont(FONT_SMALL);
+  display.setCursor(MARGIN, CONTENT_TOP + 108);
+  display.print(line);
+  if (*c.room) display.setCursor(MARGIN, CONTENT_TOP + 126), display.print(ellipsize(c.room, width));
+
+  if (n > 1) {  // what's after this one
+    const Class &next = classes[up[(peek + 1) % n].index];
+    char at[32];
+    formatWhen(at, sizeof at, next, up[(peek + 1) % n].delta, now);
+    char hm[6];
+    formatHm(hm, sizeof hm, next.start);
+    snprintf(line, sizeof line, "then %s  ", up[(peek + 1) % n].delta < 1440 - nowMinutes(now) ? hm : at);
+    display.setCursor(MARGIN, CONTENT_BOTTOM - 6);
+    display.print(ellipsize(String(line) + next.module, width));
+  }
+  drawFooter("next", "details");
+}
+
+// Everything about the event, as lines of small text: title, date, time and length, place, notes.
+static int detailLines(const Class &c, int32_t d, const struct tm &now, String *out) {
+  static const char *DAYS[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+  static const char *MONTHS[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+  const int16_t width = display.width() - 2 * MARGIN;
+  int n = 0;
+  auto add = [&](const char *text) {
+    String part[DETAIL_LINES];
+    int got = wrapText(text, width, part, DETAIL_LINES);
+    for (int i = 0; i < got && i < DETAIL_LINES && n < DETAIL_LINES; i++) out[n++] = part[i];
+  };
+  add(c.module);
+  if (n < DETAIL_LINES) out[n++] = "";
+  // The date it happens on: today plus however many days ahead the start is.
+  time_t t = time(nullptr) + (time_t)d * 60;
+  struct tm on;
+  localtime_r(&t, &on);
+  char date[24], span[16], dur[16], line[64];
+  snprintf(date, sizeof date, "%s %d %s", DAYS[on.tm_wday], on.tm_mday, MONTHS[on.tm_mon]);
+  add(date);
+  formatSpan(span, sizeof span, c);
+  formatDuration(dur, sizeof dur, c.end - c.start);
+  snprintf(line, sizeof line, "%s  (%s)", span, dur);
+  add(line);
+  if (*c.room) add(c.room);
+  if (*c.notes) {
+    if (n < DETAIL_LINES) out[n++] = "";
+    add(c.notes);
+  }
+  return n;
+}
+
+static void drawDetail(const struct tm &now) {
+  Upcoming up[MAX_UPCOMING];
+  const int n = upcomingOrMessage(up, now);
+  if (n == 0) return;
+  peek %= n;
+  String lines[DETAIL_LINES];
+  display.setFont(FONT_SMALL);
+  const int total = detailLines(classes[up[peek].index], up[peek].delta, now, lines);
+  if (page * PAGE_LINES >= total) page = 0;
+  drawTitle("Details", now);
+  display.setFont(FONT_SMALL);
+  for (int i = 0; i < PAGE_LINES && page * PAGE_LINES + i < total; i++) {
+    display.setCursor(MARGIN, CONTENT_TOP + 18 + i * LINE_H);
+    display.print(lines[page * PAGE_LINES + i]);
+  }
+  const bool more = (page + 1) * PAGE_LINES < total;
+  drawFooter(more ? "more" : total > PAGE_LINES ? "top" : "", "back");
 }
 
 static void drawDay(const struct tm &now) {
@@ -286,7 +429,7 @@ static void drawSyncing() {
 
 static void onEnter() {
   view = NEXT;
-  peek = scroll = 0;
+  peek = scroll = page = 0;
   syncError = nullptr;
   count = -1;  // re-read the CSV in case it changed
   ensureReady();
@@ -306,15 +449,23 @@ static Redraw onButton(Event e) {
     }
     return Redraw::Partial;
   }
+  if (view == DETAIL) {
+    if (e == Event::AShort) page++;  // drawDetail wraps back to the first page after the last
+    else view = NEXT;
+    return Redraw::Partial;
+  }
   if (e == Event::AShort) {
     peek++;
   } else if (e == Event::BLong) {
     view = DAY;
     scroll = 0;
-  } else if (e == Event::BShort) {
+  } else if (e == Event::BShort && !clockValid()) {  // "time not set": B syncs over WiFi
     displayShow(drawSyncing, false);
     syncError = clockSync();
     peek = 0;
+  } else if (e == Event::BShort) {
+    view = DETAIL;
+    page = 0;
   }
   return Redraw::Partial;
 }
@@ -323,6 +474,7 @@ static void draw() {
   ensureReady();
   struct tm now = localNow();
   if (view == DAY) drawDay(now);
+  else if (view == DETAIL) drawDetail(now);
   else drawNext(now);
 }
 

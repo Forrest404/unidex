@@ -75,11 +75,15 @@ left out until the clock has been set.
 
 ### Timetable
 
-Shows the next class in large type, then "in 42 min", "now, ends in 20 min" or "Tue 09:00", then time and room.
+The next class or event as a card: "IN 42 MIN" / "NOW, ENDS IN 20 MIN" / "TOMORROW 09:30" on top, the title in
+large type (wrapped to 2 lines; a longer title drops to 3 small lines), the time and length, the location, and a
+"then 16:30 Maths" line for what comes after.
 
 - **A**: next upcoming item (up to 5)
+- **B**: details: the full title, date, time and length, full location and the event's notes (A pages through long
+  ones, B goes back)
 - **B long**: the rest of today (A scrolls, B returns)
-- **B short**: sync the clock over WiFi (needs `secrets.h`)
+- When the clock isn't set, **B** syncs it over WiFi instead (if WiFi is set up)
 
 The countdown updates when you press a button, never on a timer, to save power.
 Edit `data/timetable.csv` for weekly classes:
@@ -91,7 +95,7 @@ Wed,18:00,19:30,Robotics Club,Lab 1
 ```
 
 `day` is `Mon`…`Sun`; times are 24 h `HH:MM`. The header row is optional, and unparseable rows are skipped.
-Names are cut at 23 characters and rooms at 11. Up to 96 entries in total (classes + calendar events).
+Names are cut at 63 characters and rooms at 47. Up to 96 entries in total (classes + calendar events).
 Put it in the root of the SD card.
 
 #### Apple Calendar sync (macOS)
@@ -112,7 +116,11 @@ System Settings → Privacy & Security → Calendars.
 `launchctl bootout gui/$(id -u)/com.forrest.unidex-sync`, and afterwards
 `launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.forrest.unidex-sync.plist`.
 
-Synced events are stored in `/events.csv` on the SD card. Titles and locations are converted to plain ASCII because the display font has nothing else.
+Synced events are stored in `/events.csv` on the SD card, one per line:
+`YYYY-MM-DD,HH:MM,HH:MM,title,location,notes` (empty times = all day). Title, location and notes are cut at 63, 47
+and 160 characters and converted to plain ASCII, because the display font has nothing else; commas are dropped and
+line breaks in notes become " / ". Older 5-field lines still work, just without notes. After updating the firmware,
+re-run `tools/calsync/install.sh` once so the Mac agent sends the longer fields.
 
 #### Timezone
 

@@ -360,26 +360,28 @@ function encodeBmp(bits) {
       const master = v.hasProperty('recurrence-id') && masters.get(v.getFirstPropertyValue('uid'));
       if (master) master.relateException(new ICAL.Event(v));
     }
-    const add = (summary, location, start, end, allDay) => {
-      const title = clean(summary, 23), place = clean(location, 11);
+    // Lengths match the device (timetable.cpp): title 63, location 47, notes 160.
+    const add = (summary, location, description, start, end, allDay) => {
+      const title = clean(summary, 63), place = clean(location, 47);
+      const notes = clean((description || '').replace(/\s*\n\s*/g, ' / '), 160);
       if (allDay) {  // one line per day it covers, inside the window (end date is exclusive)
         for (let d = start.clone(); d.compare(end) < 0; d.addDuration(ICAL.Duration.fromData({ days: 1 }))) {
           const day = d.toString().slice(0, 10);
-          if (day >= first && day <= last) out.push({ at: new Date(day + 'T00:00:00Z'), line: `${day},,,${title},${place}` });
+          if (day >= first && day <= last) out.push({ at: new Date(day + 'T00:00:00Z'), line: `${day},,,${title},${place},${notes}` });
         }
         return;
       }
       const s = start.toJSDate(), e = end.toJSDate(), day = dayOf(s);
       if (day < first || day > last) return;
       const endText = dayOf(e) === day ? hmOf(e) : '23:59';  // crossing midnight: cut at 23:59
-      out.push({ at: s, line: `${day},${hmOf(s)},${endText},${title},${place}` });
+      out.push({ at: s, line: `${day},${hmOf(s)},${endText},${title},${place},${notes}` });
     };
     const windowEnd = ICAL.Time.fromJSDate(new Date(now.getTime() + (DAYS_AHEAD + 2) * 86400000), true);
     const windowStart = ICAL.Time.fromJSDate(new Date(now.getTime() - 2 * 86400000), true);
     for (const ev of masters.values()) {
       if (ev.component.getFirstPropertyValue('status') === 'CANCELLED') continue;
       if (!ev.isRecurring()) {
-        add(ev.summary, ev.location, ev.startDate, ev.endDate, ev.startDate.isDate);
+        add(ev.summary, ev.location, ev.description, ev.startDate, ev.endDate, ev.startDate.isDate);
         continue;
       }
       const it = ev.iterator();
@@ -388,7 +390,7 @@ function encodeBmp(bits) {
         if (next.compare(windowStart) < 0) continue;
         const o = ev.getOccurrenceDetails(next);
         if (o.item.component.getFirstPropertyValue('status') === 'CANCELLED') continue;
-        add(o.item.summary, o.item.location, o.startDate, o.endDate, o.startDate.isDate);
+        add(o.item.summary, o.item.location, o.item.description, o.startDate, o.endDate, o.startDate.isDate);
       }
     }
     return out.sort((a, b) => a.at - b.at).slice(0, MAX_EVENTS).map(e => e.line);
