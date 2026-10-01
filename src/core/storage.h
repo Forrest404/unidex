@@ -19,3 +19,8 @@ void storagePutString(const char *key, const char *value);
 void storageRemoveKey(const char *key);
 void storageClearKeys();  // every NVS value (settings, tallies, salt...)
 void storageUsage(size_t &used, size_t &total);  // filesystem bytes
+
+// Micro SD card (SD_MMC, 1-bit: CLK 39, CMD 41, D0 40). Mounted on first use, unmounted before deep sleep.
+bool storageCardMount();     // true if a readable (FAT) card is mounted
+void storageEnd();           // unmount; call before deep sleep
+void storageCardTest();      // mount, then print the card's state and files to serial (USB command S)

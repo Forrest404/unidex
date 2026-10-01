@@ -69,6 +69,7 @@ void powerSleepIfIdle() {
   gpio_hold_en(PIN_EPD_CS);
   gpio_deep_sleep_hold_en();
 
+  storageEnd();  // unmount the SD card cleanly (it stays powered: no switch on its supply)
   esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);  // drop powerNap's timer and GPIO sources
   esp_sleep_enable_ext1_wakeup(WAKE_MASK, ESP_EXT1_WAKEUP_ANY_LOW);
   esp_deep_sleep_start();
