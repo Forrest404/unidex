@@ -8,6 +8,7 @@
 // Protocol (text lines, Mac -> device):
 //   ?                      -> "unidex 1"
 //   T <unix seconds>       -> sets the clock, "OK T"
+//   C                      -> "OK C <clock chip registers and system time>" (diagnostics)
 //   E <count> <crc32>      then <count> lines "YYYY-MM-DD,HH:MM,HH:MM,title,location"
 //                          -> "OK E <crc>" or "ERR"; crc32 (zlib) covers each line plus '\n'
 // Badge upload (tools/badge-maker.html over Web Serial):
@@ -123,6 +124,10 @@ static void handle(const char *l) {
   }
   if (strcmp(l, "?") == 0) {
     Serial.println("unidex 1");
+  } else if (strcmp(l, "C") == 0) {
+    char status[96];
+    clockStatus(status, sizeof status);
+    Serial.printf("OK C %s\n", status);
   } else if (strcmp(l, "L") == 0) {
     listBadges();
   } else if (l[0] == 'B' && l[1] == ' ') {

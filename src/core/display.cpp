@@ -48,3 +48,8 @@ void displayShow(void (*draw)(), bool full) {
 void displayFrame(void (*draw)()) {
   render(draw, false);
 }
+
+void displayTick(void (*draw)()) {
+  render(draw, false);
+  display.hibernate();
+}

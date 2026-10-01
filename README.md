@@ -61,8 +61,9 @@ fresh to the home screen, as after a flash. Files, badges, the Dex, events, sett
 While both are held neither button does its own thing, and it waits for you to let go because BOOT is the chip's
 download-mode pin.
 
-The top right of the home screen shows the time and battery level, e.g. `14:32  87%`. They update when the
-screen redraws (any button press; B long on home refreshes them), never on a timer. The percentage is an estimate from the battery
+The top right of the home screen shows the time and battery level, e.g. `14:32  87%`. While the board is awake
+(e.g. on USB) the time updates live each minute. While it's asleep the clock chip keeps counting silently, with no
+wake-ups, and the screen catches up on the next press. B long on home also refreshes the header. The percentage is an estimate from the battery
 voltage, and reads high while charging over USB. A small lightning bolt before it means USB power is present (it can't tell charging from full). The time is
 left out until the clock has been set.
 
@@ -312,7 +313,12 @@ Everything here was read from the chip, seen working on the device, or taken fro
 - Time lives on the onboard **PCF85063** (own crystal, battery-backed through a diode), stored as UTC, so it
   keeps counting through deep sleep and power-off. It's read once per boot. If its "oscillator stopped" flag is
   set (never set, or battery lost) the Timetable says "time not set". Every Mac sync writes the Mac's time;
-  NTP over WiFi (B short in Timetable) is the backup.
+  NTP over WiFi (B short in Timetable) and Settings → Date & time are the backups.
+- The chip arrived from the factory **stopped and in 12-hour mode** (Control_1 = `0x22`: STOP and 12_24 set), so its
+  time was frozen. Now every set uses the datasheet order (STOP, write the time, start in 24-hour mode), and at
+  boot a stopped or 12-hour chip is started in 24-hour mode. Its frozen time isn't trusted: after a deep-sleep
+  wake the board's own time is written back; after power-on it's set to 2000-01-01, which reads as "not set".
+  The USB command `C` prints the chip's registers and the system time, to check it's counting.
 - Files live in LittleFS on the 1.5 MB `spiffs` partition of `default_8MB.csv`, built from `data/`. Small
   settings live in NVS (namespace `unidex`):
 
@@ -336,6 +342,7 @@ Text lines over USB serial, Mac → device (`src/core/usbsync.cpp`, `tools/calsy
 |---|---|
 | `?` | `unidex 1` |
 | `T <unix seconds>` | `OK T` (clock chip set) |
+| `C` | `OK C ctrl1=.. sec=.. min=.. … sys=<unix>` (clock chip diagnostics) |
 | `E <count> <crc32>` + `count` lines `YYYY-MM-DD,HH:MM,HH:MM,title,location` | `OK E <crc>` or `ERR` |
 | `L` (badge maker) | `F <name>` per badge, then `OK L` |
 | `B <name> <bytes> <crc32>` | `OK B` or `ERR` (name: `[a-z0-9-]+.bmp`, max 16 KB) |

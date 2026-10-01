@@ -24,13 +24,17 @@ static void drawBolt(int16_t x, int16_t y) {
 
 // Top right of the home header: "14:32  87%", with a bolt before it on USB power.
 // Either text part is left out when it isn't known.
+static int shownMinute = -1;  // the minute the home clock shows, -1 = none
+
 static void drawStatus() {
   char text[16] = "";
+  shownMinute = -1;
   if (clockValid()) {
     time_t t = time(nullptr);
     struct tm now;
     localtime_r(&t, &now);
     snprintf(text, sizeof text, "%02d:%02d", now.tm_hour, now.tm_min);
+    shownMinute = now.tm_min;
   }
   const int pct = batteryPercent();
   if (pct >= 0) snprintf(text + strlen(text), sizeof text - strlen(text), "%s%d%%", *text ? "  " : "", pct);
@@ -97,7 +101,7 @@ static void restart() {
 }
 
 void launcherBegin(bool woke) {
-  if (woke) return;  // the screen still shows where you were; the wake press itself redraws
+  if (woke) return;  // the screen still shows where you were; the wake press redraws (with the time)
   current = HOME;  // a fresh boot (power-on, flash or restart) always starts at home
   displayShow(drawSplash, true);
   delay(1200);
@@ -130,6 +134,14 @@ void launcherHandle(Event e) {
 }
 
 void launcherPoll() {
+  // Live clock while awake: redraw when the minute on screen goes out of date. Asleep, the clock
+  // chip keeps counting silently and the time catches up on the next press (no wake-ups, saving battery).
+  if (current == HOME && clockValid()) {
+    time_t t = time(nullptr);
+    struct tm now;
+    localtime_r(&t, &now);
+    if (now.tm_min != shownMinute) displayTick(drawHome);
+  }
   char name[32];
   if (!usbSyncTakeNewBadge(name, sizeof name)) return;
   storagePutString("badge", name);  // the Badge app opens on the saved badge
