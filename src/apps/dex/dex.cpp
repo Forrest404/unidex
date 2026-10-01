@@ -1,4 +1,4 @@
-// WiFi Pokedex: scan on demand, log first sightings to /dex.csv with salted, hashed BSSIDs.
+// Dex, a WiFi network collection game: scan on demand, log first sightings to /dex.csv with salted, hashed BSSIDs.
 // One entry per network name (many access points share one). Hidden networks are left out.
 // A = list of all finds (A pages, B back), B = scan, B long = counts per rarity (hold B there to clear).
 #include <WiFi.h>

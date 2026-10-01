@@ -8,7 +8,7 @@ running for days on a battery because it sleeps whenever you aren't pressing som
 | **Timetable** | Shows your next class or calendar event with a countdown. Reads a weekly CSV and, optionally, your Apple Calendar (synced from a Mac over USB). |
 | **Notes** | Hold a button and talk: the note is transcribed (OpenAI Whisper), tidied up (OpenAI or Claude), kept on the SD card and optionally pushed to GitHub as Markdown for Obsidian. |
 | **Name Badge** | Flips through full-screen 1-bit images: name tags, logos, photos. Includes a drag-and-drop converter. |
-| **Dex** | A WiFi Pokédex. Scan, and every new network name you hear is logged with a rarity. |
+| **Dex** | A WiFi network collection game. Scan, and every new network name you hear is logged with a rarity. |
 | **Chooser** | Pick 2–6 squares, spin, get a random winner. Keeps a tally. |
 
 Built with PlatformIO + Arduino (ESP32-S3). WiFi is never used unless you ask for it (a Dex scan, a Notes recording or sync, or an NTP time sync).
@@ -164,7 +164,7 @@ Then copy the BMPs to the card's `badges/` folder.
 
 ### Dex
 
-A WiFi Pokédex. **B** scans (about 2 seconds): you get "NEW!" plus the best new find, or "nothing new".
+A WiFi network collection game. **B** scans (about 2 seconds): you get "NEW!" plus the best new find, or "nothing new".
 
 - **A**: list of everything found, newest first, 5 per page (A pages, B goes back)
 - **B long**: counts per rarity. Hold **B** again there to clear the dex (then B = yes, A = no)
