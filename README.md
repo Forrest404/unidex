@@ -450,3 +450,15 @@ boot keeps the board busy with the splash for about 3.5 s, so the sender waits u
   (`user_config.h` pin definitions, `board_power_bsp.cpp`, `epaper_driver_bsp.cpp`, the V2 schematic)
 - PWR/GPIO17 latch behaviour: https://www.espboards.dev/blog/waveshare-esp32-s3-epaper-esphome-climate/
 - Display library: [GxEPD2](https://github.com/ZinggJM/GxEPD2)
+
+## Licence and source code
+
+Copyright 2026 Forrest. unidex is free software under the GNU General Public License, version 3 or later
+([LICENSE](LICENSE)). Source code: https://github.com/Forrest404/unidex
+
+Third-party libraries, fonts and data built into the firmware, and their licences, are listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+To run a modified version, build it with PlatformIO (`pio run`) and flash it over USB (`pio run -t upload`), or
+flash a `firmware.bin` from the website's Update button. The board does not check firmware signatures, so any
+build you make will run.
