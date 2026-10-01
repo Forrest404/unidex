@@ -1,0 +1,80 @@
+# Builds the firmware and publishes the website (site/) with the browser installer to GitHub Pages.
+# Runs on every published release, or by hand from the Actions tab.
+name: Website
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # tags, for the version shown on the site
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Build firmware
+        run: pio run
+
+      - name: Build the starter filesystem (generic badges, empty timetable)
+        run: pio run -t buildfs
+        env:
+          PLATFORMIO_DATA_DIR: starter
+
+      - name: Collect firmware and write the installer manifests
+        run: |
+          set -e
+          out=site/firmware
+          mkdir -p "$out"
+          b=.pio/build/epaper154
+          cp "$b/bootloader.bin" "$b/partitions.bin" "$b/firmware.bin" "$b/littlefs.bin" "$out/"
+          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin "$out/"
+          version="${{ github.event.release.tag_name }}"
+          [ -n "$version" ] || version="$(git describe --tags --always)"
+          python3 - "$out" "$version" <<'PY'
+          import json, sys
+          out, version = sys.argv[1], sys.argv[2]
+          parts = [("bootloader.bin", 0x0), ("partitions.bin", 0x8000), ("boot_app0.bin", 0xE000),
+                   ("firmware.bin", 0x10000), ("littlefs.bin", 0x670000)]
+          def manifest(parts, erase):
+              return {"name": "unidex", "version": version, "new_install_prompt_erase": erase,
+                      "new_install_improv_wait_time": 0,
+                      "builds": [{"chipFamily": "ESP32-S3",
+                                  "parts": [{"path": p, "offset": o} for p, o in parts]}]}
+          # Install: everything, offered with a full erase. Update: the app only, so data stays.
+          json.dump(manifest(parts, True), open(f"{out}/install.json", "w"), indent=2)
+          json.dump(manifest([p for p in parts if p[0] == "firmware.bin"], False), open(f"{out}/update.json", "w"), indent=2)
+          PY
+          ls -la "$out"
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

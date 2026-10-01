@@ -12,6 +12,10 @@ running for days on a battery because it sleeps whenever you aren't pressing som
 
 Built with PlatformIO + Arduino (ESP32-S3). WiFi is never used unless you ask for it (a Dex scan, or an NTP time sync).
 
+**Install it from your browser, with no tools needed: https://forrest404.github.io/unidex/** (Chrome or Edge on a
+computer). The same site has [Tools](https://forrest404.github.io/unidex/tools.html): the badge maker, setting the
+clock, sending a calendar file, and the automatic Mac calendar sync.
+
 ## What you need
 
 - **Board:** [Waveshare ESP32-S3-ePaper-1.54](https://docs.waveshare.com/ESP32-S3-ePaper-1.54), **V2**
@@ -127,7 +131,8 @@ filename order, up to 32, so number them: `01-hello.bmp`, `02-…`.
 
 To make one from any image:
 
-- **In the browser:** open `tools/badge-maker.html` (double-click it). Drop in an image, pick fit or fill, photo
+- **In the browser:** the badge maker on [Tools](https://forrest404.github.io/unidex/tools.html) (or open
+  `site/tools.html` locally). Drop in an image, pick fit or fill, photo
   or line art, adjust the lightness. Then either **Send to device**, which puts it straight on the board over USB
   (Chrome or Edge; plug in and press a button once), and the board opens it at once, or download the BMP for
   `data/badges/`. Sending never overwrites a badge: a taken number moves to the next free one. It keeps the
@@ -203,8 +208,28 @@ src/
     theme.*             fonts, header/footer helpers, 40x40 pixel icons
 data/                   uploaded to the board with `pio run -t uploadfs`
   badges/  timetable.csv
-tools/                  badge-maker.html, badges.py, badge-template.svg, calsync/ (macOS)
+tools/                  badges.py, badge-template.svg, calsync/ (macOS), upload_nostub.py
+site/                   the website: installer (index.html), Tools (badge maker, clock, calendar file), serial.js
+starter/                the filesystem the web installer writes: 3 generic badges, empty timetable
+.github/workflows/      site.yml: builds the firmware and publishes the website on each release
 ```
+
+### The website
+
+`site/` is published to GitHub Pages by `.github/workflows/site.yml` on every **published release** (or by hand
+from the Actions tab). The workflow builds the firmware, builds a filesystem image from `starter/` (not `data/`, so
+your own badges and timetable stay out of the public installer), and writes two manifests for
+[ESP Web Tools](https://esphome.github.io/esp-web-tools/):
+
+- **Install**: bootloader, partitions, boot_app0, app and starter filesystem, offered with a full erase.
+- **Update**: the app only, so badges, the Dex, events and settings stay.
+
+ESP Web Tools flashes at 115200 baud with a modern esptool stub, which works on this board. The PlatformIO upload
+problems came from its older bundled esptool together with a baud switch. The Tools page talks to the device with the
+same USB protocol as the Mac agent (`site/serial.js`). Calendar files are parsed with ical.js (repeating events,
+moved or cancelled occurrences, time zones) and sent as London time, like `calsync.swift`.
+
+Note: `data/badges/` is committed, so anything in it is public in the repo even though the installer doesn't use it.
 
 ### Adding an app
 

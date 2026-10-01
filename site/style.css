@@ -1,0 +1,28 @@
+:root { --bg: #f4f4f2; --fg: #111; --muted: #666; --card: #fff; --line: #d8d8d4; --accent: #111; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #161616; --fg: #eee; --muted: #999; --card: #222; --line: #3a3a3a; --accent: #eee; }
+}
+* { box-sizing: border-box; }
+body { margin: 0; padding: 0 16px 48px; background: var(--bg); color: var(--fg);
+       font: 15px/1.5 -apple-system, system-ui, sans-serif; }
+main { max-width: 760px; margin: 0 auto; }
+nav { max-width: 760px; margin: 0 auto; display: flex; gap: 18px; align-items: baseline; padding: 18px 0 28px; }
+nav .brand { font-weight: 700; font-size: 17px; margin-right: auto; color: var(--fg); text-decoration: none; }
+nav a { color: var(--muted); text-decoration: none; }
+nav a[aria-current] { color: var(--fg); font-weight: 600; }
+h1 { font-size: 24px; margin: 0 0 6px; }
+h2 { font-size: 18px; margin: 0 0 4px; }
+p.sub, .muted { color: var(--muted); }
+p.sub { margin: 0 0 22px; }
+section { margin-bottom: 36px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
+button, .button { font: inherit; font-weight: 600; padding: 10px 18px; border-radius: 8px; border: 0;
+         background: var(--accent); color: var(--bg); cursor: pointer; display: inline-block; text-decoration: none; }
+button:disabled { opacity: .35; cursor: default; }
+button.secondary { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+code, pre { font: 13px/1.5 ui-monospace, Menlo, monospace; }
+pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
+.note { color: var(--muted); font-size: 13px; }
+.status { color: var(--muted); font-size: 13px; min-height: 1.4em; margin: 8px 0 0; }
+.unsupported { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
+ol { padding-left: 20px; }

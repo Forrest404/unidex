@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>unidex: install</title>
+<link rel="stylesheet" href="style.css">
+<script type="module" src="https://unpkg.com/esp-web-tools@10.4.0/dist/web/install-button.js?module"></script>
+<style>
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 8px 0 28px; }
+  @media (max-width: 640px) { .actions { grid-template-columns: 1fr; } }
+  .actions .card { display: flex; flex-direction: column; gap: 10px; }
+  .actions p { margin: 0; }
+  esp-web-install-button button { width: 100%; }
+</style>
+</head>
+<body>
+<nav>
+  <a class="brand" href="./">unidex</a>
+  <a href="./" aria-current="page">Install</a>
+  <a href="tools.html">Tools</a>
+  <a href="https://github.com/Forrest404/unidex">GitHub</a>
+</nav>
+<main>
+  <h1>Install unidex</h1>
+  <p class="sub">A small e-ink OS for the Waveshare ESP32-S3-ePaper-1.54: timetable with calendar events, name
+    badges, a WiFi Pokédex and a chooser. Install it straight from your browser, with nothing to download.</p>
+
+  <section>
+    <ol>
+      <li>Plug the device into this computer with a USB-C <b>data</b> cable.</li>
+      <li>Press one of its buttons so it's awake.</li>
+      <li>Click a button below and pick <b>USB JTAG/serial debug unit</b> from the list.</li>
+    </ol>
+
+    <div class="actions">
+      <div class="card">
+        <h2>Install</h2>
+        <p class="muted">A fresh start: the firmware plus three starter badges. <b>Erases everything</b> on the device.</p>
+        <esp-web-install-button manifest="firmware/install.json">
+          <button slot="activate">Install</button>
+          <span slot="unsupported" class="unsupported">Your browser can't do this. Use <b>Chrome</b> or <b>Edge</b> on a computer.</span>
+          <span slot="not-allowed" class="unsupported">This page must be opened over https.</span>
+        </esp-web-install-button>
+      </div>
+      <div class="card">
+        <h2>Update</h2>
+        <p class="muted">The newest firmware only. <b>Keeps</b> your badges, Dex, calendar events and settings.</p>
+        <esp-web-install-button manifest="firmware/update.json">
+          <button slot="activate" class="secondary">Update</button>
+          <span slot="unsupported" class="unsupported">Use <b>Chrome</b> or <b>Edge</b> on a computer.</span>
+          <span slot="not-allowed" class="unsupported">This page must be opened over https.</span>
+        </esp-web-install-button>
+      </div>
+    </div>
+
+    <p class="note">Nothing in the list? The device is asleep: press a button and try again. Still nothing (a brand-new
+      board, or one with other firmware)? Unplug it, hold <b>BOOT</b> while plugging it back in, let go, then try
+      again; press a button after it's installed.</p>
+  </section>
+
+  <section>
+    <h2>After installing</h2>
+    <p>Set the clock and send your calendar or badges from <a href="tools.html">Tools</a>. On the device:
+      <b>A</b> = next, <b>B</b> = select, <b>hold A</b> = back home (or Settings, on the home screen),
+      <b>hold A + B</b> for a second = restart.</p>
+    <p class="note">Version <span id="version">…</span>. Each new release on GitHub updates this page automatically.</p>
+  </section>
+</main>
+<script type="module">
+  fetch('firmware/update.json').then(r => r.json()).then(m => {
+    document.getElementById('version').textContent = m.version;
+  }).catch(() => { document.getElementById('version').textContent = 'unknown'; });
+</script>
+</body>
+</html>

@@ -3,24 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Unidex badge maker</title>
+<title>unidex: tools</title>
+<link rel="stylesheet" href="style.css">
 <style>
-  :root { --bg: #f4f4f2; --fg: #111; --muted: #666; --card: #fff; --line: #d8d8d4; --accent: #111; }
-  @media (prefers-color-scheme: dark) {
-    :root { --bg: #161616; --fg: #eee; --muted: #999; --card: #222; --line: #3a3a3a; --accent: #eee; }
-  }
-  * { box-sizing: border-box; }
-  body { margin: 0; padding: 24px 16px; background: var(--bg); color: var(--fg);
-         font: 15px/1.4 -apple-system, system-ui, sans-serif; }
-  main { max-width: 760px; margin: 0 auto; }
-  h1 { font-size: 20px; margin: 0 0 4px; }
-  p.sub { margin: 0 0 20px; color: var(--muted); }
   .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
-  #drop { border: 2px dashed var(--line); border-radius: 10px; padding: 28px 12px; text-align: center;
+  #drop, #icsDrop { border: 2px dashed var(--line); border-radius: 10px; padding: 28px 12px; text-align: center;
           color: var(--muted); cursor: pointer; margin-bottom: 16px; }
-  #drop.over { border-color: var(--accent); color: var(--fg); }
+  #drop.over, #icsDrop.over { border-color: var(--accent); color: var(--fg); }
   label { display: block; margin: 12px 0 4px; font-weight: 600; font-size: 13px; }
   .row { display: flex; gap: 8px; align-items: center; }
   .seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
@@ -36,24 +26,33 @@
   .check { display: flex; gap: 8px; align-items: center; font-weight: 500; margin-top: 12px; }
   .check input { margin: 0; }
   #stage { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  #stage button { width: 100%; }
   #frame { background: #c9c9c4; padding: 14px; border-radius: 8px; line-height: 0; }
   canvas { width: 300px; height: 300px; image-rendering: pixelated; background: #fff; }
-  button { font: inherit; font-weight: 600; padding: 10px 18px; border-radius: 8px; border: 0;
-           background: var(--accent); color: var(--bg); cursor: pointer; width: 100%; }
-  button:disabled { opacity: .35; cursor: default; }
-  button.secondary { background: transparent; color: var(--fg); border: 1px solid var(--line); }
-  #sendStatus { color: var(--muted); font-size: 13px; margin: 0; text-align: center; min-height: 1em; }
-  #hint { color: var(--muted); font-size: 13px; margin: 0; text-align: center; }
+  #sendStatus, #hint { color: var(--muted); font-size: 13px; margin: 0; text-align: center; min-height: 1em; }
   #err { color: #c33; font-size: 13px; margin: 8px 0 0; min-height: 1em; }
+  #eventList { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: var(--muted); }
 </style>
 </head>
 <body>
+<nav>
+  <a class="brand" href="./">unidex</a>
+  <a href="./">Install</a>
+  <a href="tools.html" aria-current="page">Tools</a>
+  <a href="https://github.com/Forrest404/unidex">GitHub</a>
+</nav>
 <main>
-  <h1>Unidex badge maker</h1>
-  <p class="sub">Drop in an image, tweak it, then send it straight to the device over USB, or download a
-    200×200 1-bit BMP for <code>data/badges/</code>.</p>
+  <h1>Tools</h1>
+  <p class="sub">Everything here talks to the device over USB from your browser (Chrome or Edge on a computer).
+    Plug it in and press one of its buttons first. Nothing is uploaded to the internet.</p>
+  <p id="unsupported" class="unsupported" hidden>Your browser can't talk to USB devices. Use <b>Chrome</b> or
+    <b>Edge</b> on a computer. You can still make and download badges below.</p>
 
-  <div class="grid">
+  <section id="badges">
+    <h2>Badge maker</h2>
+    <p class="muted">Drop in an image, tweak it, then send it to the device (it opens straight away) or download a
+      200×200 1-bit BMP.</p>
+<div class="grid">
     <div class="card">
       <div id="drop" tabindex="0">Drop an image here, paste one, or click to choose</div>
       <input id="file" type="file" accept="image/*" hidden>
@@ -88,14 +87,52 @@
       <div id="frame"><canvas id="out" width="200" height="200"></canvas></div>
       <p id="hint">Preview at 1.5×, as it will look on the panel.</p>
       <button id="send" disabled>Send to device</button>
-      <p id="sendStatus">Plug the device in and press one of its buttons to wake it, then Send (Chrome or Edge).</p>
+      <p id="sendStatus">Plug the device in and press one of its buttons to wake it, then Send.</p>
       <button id="save" class="secondary" disabled>Download BMP</button>
     </div>
   </div>
+  </section>
+
+  <section id="clock">
+    <h2>Clock &amp; calendar</h2>
+    <div class="card">
+      <p style="margin-top:0">Set the device's clock to this computer's time.</p>
+      <button id="setClock" disabled>Set the clock</button>
+      <p id="clockStatus" class="status"></p>
+    </div>
+    <div class="card" style="margin-top:16px">
+      <p style="margin-top:0">Send the next 7 days of a calendar to the Timetable. Export a calendar file
+        (<code>.ics</code>) from Apple Calendar (File → Export), Google Calendar (Settings → Import &amp; export) or
+        Outlook, and drop it here. Repeating events are included. Sending also sets the clock.</p>
+      <div id="icsDrop" tabindex="0">Drop a .ics file here, or click to choose</div>
+      <input id="icsFile" type="file" accept=".ics,text/calendar" hidden>
+      <button id="sendIcs" disabled>Send to device</button>
+      <p id="icsStatus" class="status"></p>
+      <ul id="eventList"></ul>
+      <p class="note">Each send replaces the events on the device. If you also use the automatic Mac sync, the Mac
+        sends its own calendar the next time the device is plugged in.</p>
+    </div>
+  </section>
+
+  <section id="mac">
+    <h2>Automatic calendar sync (Mac)</h2>
+    <p>A small background app on your Mac sends the time and your Apple Calendar (next 7 days, all calendars)
+      every time the device is plugged in and awake. It needs the Xcode Command Line Tools
+      (<code>xcode-select --install</code>).</p>
+<pre>git clone https://github.com/Forrest404/unidex.git
+unidex/tools/calsync/install.sh</pre>
+    <p class="note">Allow Calendar access when macOS asks. Remove it again with
+      <code>unidex/tools/calsync/install.sh uninstall</code>.</p>
+  </section>
 </main>
 
-<script>
-// ---- conversion (no DOM below this line until the marker) ----
+<script type="module">
+import ICAL from 'https://cdn.jsdelivr.net/npm/ical.js@2.2.1/dist/ical.min.js';
+import { supported, crc32, connect, asleepHint } from './serial.js';
+
+if (!supported) document.getElementById('unsupported').hidden = false;
+
+// ---- badge conversion (no DOM) ----
 const SIZE = 200;
 
 // Grey values (0-255, one per pixel) -> bits, 1 = white. Line art is the source's own black/white
@@ -156,23 +193,9 @@ function encodeBmp(bits) {
     if (bits[y * SIZE + x]) buf[offset + (SIZE - 1 - y) * stride + (x >> 3)] |= 0x80 >> (x & 7);
   return buf;
 }
-// zlib crc32, the same as the device's esp_rom_crc32_le.
-const crc32 = (() => {
-  const t = new Uint32Array(256);
-  for (let n = 0; n < 256; n++) {
-    let c = n;
-    for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1;
-    t[n] = c >>> 0;
-  }
-  return bytes => {
-    let c = 0xFFFFFFFF;
-    for (const b of bytes) c = t[(c ^ b) & 255] ^ (c >>> 8);
-    return (c ^ 0xFFFFFFFF) >>> 0;
-  };
-})();
-// ---- end of pure conversion code ----
 
-if (typeof document !== 'undefined') {
+// ---- badge maker ----
+{
   const $ = id => document.getElementById(id);
   const out = $('out'), ctx = out.getContext('2d', { willReadFrequently: true });
   let img = null, bits = null;
@@ -213,7 +236,7 @@ if (typeof document !== 'undefined') {
     }
     ctx.putImageData(outData, 0, 0);
     $('save').disabled = false;
-    $('send').disabled = !('serial' in navigator);
+    $('send').disabled = !supported;
   }
 
   function load(file) {
@@ -256,80 +279,31 @@ if (typeof document !== 'undefined') {
     return `${n}-${slug}.bmp`;
   };
 
-  if (!('serial' in navigator))
-    $('sendStatus').textContent = 'Sending needs Chrome or Edge on a computer (Web Serial). Download works everywhere.';
-
-  // Talks the device's USB protocol (src/core/usbsync.cpp): ? -> "unidex 1", L lists badges,
-  // B <name> <bytes> <crc32> starts an upload, D <hex> sends up to 64 bytes and waits for "K".
-  async function sendToDevice(bytes, wanted, progress) {
-    const port = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x303a }] });
-    await port.open({ baudRate: 115200 });
-    // The ESP32-S3 resets if RTS is on while DTR is off, so clear RTS first, then DTR.
-    await port.setSignals({ requestToSend: false });
-    await port.setSignals({ dataTerminalReady: false });
-    const writer = port.writable.getWriter(), reader = port.readable.getReader();
-    const enc = new TextEncoder(), dec = new TextDecoder();
-    let buf = '';
-    const pump = (async () => {
-      try {
-        for (;;) {
-          const { value, done } = await reader.read();
-          if (done) break;
-          buf += dec.decode(value, { stream: true });
-        }
-      } catch (e) { /* port closed */ }
-    })();
-    const send = text => writer.write(enc.encode(text + '\n'));
-    // Next line starting with `prefix` (others are skipped), or null after `ms`. "ERR" throws.
-    const expect = async (prefix, ms, onOther) => {
-      const end = Date.now() + ms;
-      while (Date.now() < end) {
-        let nl;
-        while ((nl = buf.indexOf('\n')) >= 0) {
-          const line = buf.slice(0, nl).replace(/\r$/, '');
-          buf = buf.slice(nl + 1);
-          if (line.startsWith(prefix)) return line;
-          if (line === 'ERR') throw new Error('The device rejected the badge.');
-          if (onOther) onOther(line);
-        }
-        await new Promise(r => setTimeout(r, 10));
-      }
-      return null;
-    };
+  // L lists badges, B <name> <bytes> <crc32> starts an upload, D <hex> sends up to 64 bytes and waits for "K".
+  async function sendBadge(bytes, wanted, progress) {
+    const dev = await connect();
     try {
-      let hello = null;
-      for (let i = 0; i < 6 && !hello; i++) {  // it may still be busy redrawing after a wake
-        await send('?');
-        hello = await expect('unidex 1', 1000);
-      }
-      if (!hello) throw new Error('No reply. Press a button on the device to wake it, then try again.');
-
       const names = [];
-      await send('L');
-      if (!await expect('OK L', 3000, line => line.startsWith('F ') && names.push(line.slice(2))))
+      await dev.send('L');
+      if (!await dev.expect('OK L', 3000, line => line.startsWith('F ') && names.push(line.slice(2))))
         throw new Error('The device did not list its badges.');
       // Never overwrite: if the number is taken, use the next free one.
       let name = wanted;
       const nums = names.map(n => parseInt(n, 10)).filter(n => n > 0);
       if (nums.includes(parseInt(wanted, 10)))
         name = String(Math.max(...nums) + 1).padStart(2, '0') + wanted.replace(/^\d+/, '');
-
-      await send(`B ${name} ${bytes.length} ${crc32(bytes)}`);
-      if (!await expect('OK B', 3000)) throw new Error('The device did not start the upload.');
+      await dev.send(`B ${name} ${bytes.length} ${crc32(bytes)}`);
+      if (!await dev.expect('OK B', 3000)) throw new Error('The device did not start the upload.');
       for (let i = 0; i < bytes.length; i += 64) {
         const hex = [...bytes.subarray(i, i + 64)].map(b => b.toString(16).padStart(2, '0')).join('');
-        await send('D ' + hex);
-        if (!await expect('K', 3000)) throw new Error('The device stopped answering.');
+        await dev.send('D ' + hex);
+        if (!await dev.expect('K', 3000)) throw new Error('The device stopped answering.');
         progress(Math.min(100, Math.round((i + 64) * 100 / bytes.length)));
       }
-      if (!await expect('OK F', 3000)) throw new Error('The device did not confirm the badge.');
+      if (!await dev.expect('OK F', 3000)) throw new Error('The device did not confirm the badge.');
       return name;
     } finally {
-      await reader.cancel().catch(() => {});
-      reader.releaseLock();
-      writer.releaseLock();
-      await pump;
-      await port.close().catch(() => {});
+      await dev.close();
     }
   }
 
@@ -337,14 +311,11 @@ if (typeof document !== 'undefined') {
     $('send').disabled = true;
     $('err').textContent = '';
     try {
-      const name = await sendToDevice(encodeBmp(bits), fileName(),
-                                      pct => $('sendStatus').textContent = `Sending… ${pct}%`);
+      const name = await sendBadge(encodeBmp(bits), fileName(), pct => $('sendStatus').textContent = `Sending… ${pct}%`);
       $('sendStatus').textContent = `Sent ${name}. It's on the device now.`;
       $('num').value = parseInt(name, 10) + 1;  // next badge gets the next number
     } catch (e) {
-      $('sendStatus').textContent = e.name === 'NotFoundError'  // the port picker was closed
-        ? 'No device picked. Nothing listed? The board is asleep: press one of its buttons, then Send again.'
-        : e.message || String(e);
+      $('sendStatus').textContent = e.name === 'NotFoundError' ? asleepHint : e.message || String(e);
     } finally {
       $('send').disabled = false;
     }
@@ -356,8 +327,135 @@ if (typeof document !== 'undefined') {
     a.download = fileName();
     a.click();
     URL.revokeObjectURL(a.href);
-    $('num').value = +$('num').value + 1;  // next badge gets the next number
+    $('num').value = +$('num').value + 1;
   };
+}
+
+// ---- clock & calendar ----
+{
+  const $ = id => document.getElementById(id);
+  const DAYS_AHEAD = 7, MAX_EVENTS = 64, TZ = 'Europe/London';  // the device shows London time
+
+  // Same cleaning as tools/calsync/calsync.swift: the device font is ASCII, fields are comma-separated.
+  const clean = (s, max) => (s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\x20-\x7e]|,/g, '').trim().slice(0, max);
+  const parts = d => Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, year: 'numeric',
+    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
+    .formatToParts(d).map(p => [p.type, p.value]));
+  const dayOf = d => { const p = parts(d); return `${p.year}-${p.month}-${p.day}`; };
+  const hmOf = d => { const p = parts(d); return `${p.hour}:${p.minute}`; };
+
+  let lines = null;
+
+  // .ics text -> device lines for today + 7 days (London), soonest first.
+  function eventsFrom(text) {
+    const cal = new ICAL.Component(ICAL.parse(text));
+    for (const tz of cal.getAllSubcomponents('vtimezone')) ICAL.TimezoneService.register(tz);
+    const now = new Date(), first = dayOf(now), last = dayOf(new Date(now.getTime() + DAYS_AHEAD * 86400000));
+    const masters = new Map(), out = [];
+    const vevents = cal.getAllSubcomponents('vevent');
+    for (const v of vevents) if (!v.hasProperty('recurrence-id')) masters.set(v.getFirstPropertyValue('uid'), new ICAL.Event(v));
+    for (const v of vevents) {  // moved or cancelled single occurrences of a repeating event
+      const master = v.hasProperty('recurrence-id') && masters.get(v.getFirstPropertyValue('uid'));
+      if (master) master.relateException(new ICAL.Event(v));
+    }
+    const add = (summary, location, start, end, allDay) => {
+      const title = clean(summary, 23), place = clean(location, 11);
+      if (allDay) {  // one line per day it covers, inside the window (end date is exclusive)
+        for (let d = start.clone(); d.compare(end) < 0; d.addDuration(ICAL.Duration.fromData({ days: 1 }))) {
+          const day = d.toString().slice(0, 10);
+          if (day >= first && day <= last) out.push({ at: new Date(day + 'T00:00:00Z'), line: `${day},,,${title},${place}` });
+        }
+        return;
+      }
+      const s = start.toJSDate(), e = end.toJSDate(), day = dayOf(s);
+      if (day < first || day > last) return;
+      const endText = dayOf(e) === day ? hmOf(e) : '23:59';  // crossing midnight: cut at 23:59
+      out.push({ at: s, line: `${day},${hmOf(s)},${endText},${title},${place}` });
+    };
+    const windowEnd = ICAL.Time.fromJSDate(new Date(now.getTime() + (DAYS_AHEAD + 2) * 86400000), true);
+    const windowStart = ICAL.Time.fromJSDate(new Date(now.getTime() - 2 * 86400000), true);
+    for (const ev of masters.values()) {
+      if (ev.component.getFirstPropertyValue('status') === 'CANCELLED') continue;
+      if (!ev.isRecurring()) {
+        add(ev.summary, ev.location, ev.startDate, ev.endDate, ev.startDate.isDate);
+        continue;
+      }
+      const it = ev.iterator();
+      for (let next, guard = 0; (next = it.next()) && guard < 5000; guard++) {
+        if (next.compare(windowEnd) > 0) break;
+        if (next.compare(windowStart) < 0) continue;
+        const o = ev.getOccurrenceDetails(next);
+        if (o.item.component.getFirstPropertyValue('status') === 'CANCELLED') continue;
+        add(o.item.summary, o.item.location, o.startDate, o.endDate, o.startDate.isDate);
+      }
+    }
+    return out.sort((a, b) => a.at - b.at).slice(0, MAX_EVENTS).map(e => e.line);
+  }
+
+  function loadIcs(file) {
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      try {
+        lines = eventsFrom(reader.result);
+        $('icsDrop').textContent = `${file.name}  (click to change)`;
+        $('icsStatus').textContent = `${lines.length} event${lines.length === 1 ? '' : 's'} in the next ${DAYS_AHEAD} days.`;
+        $('eventList').innerHTML = '';
+        for (const l of lines.slice(0, 8)) {
+          const [day, start, , title] = l.split(',');
+          const li = document.createElement('li');
+          li.textContent = `${day} ${start || 'all day'}  ${title}`;
+          $('eventList').append(li);
+        }
+        $('sendIcs').disabled = !supported;
+      } catch (e) {
+        lines = null;
+        $('sendIcs').disabled = true;
+        $('icsStatus').textContent = "Couldn't read that calendar file.";
+      }
+    };
+    reader.readAsText(file);
+  }
+
+  async function withDevice(statusId, work) {
+    const status = $(statusId);
+    try {
+      status.textContent = 'Connecting…';
+      const dev = await connect();
+      try { status.textContent = await work(dev); } finally { await dev.close(); }
+    } catch (e) {
+      status.textContent = e.name === 'NotFoundError' ? asleepHint : e.message || String(e);
+    }
+  }
+
+  const setTime = async dev => {
+    await dev.send(`T ${Math.round(Date.now() / 1000)}`);
+    if (!await dev.expect('OK T', 3000)) throw new Error('The device did not confirm the time.');
+  };
+
+  $('setClock').disabled = !supported;
+  $('setClock').onclick = () => withDevice('clockStatus', async dev => {
+    await setTime(dev);
+    return `Clock set to ${hmOf(new Date())} (London time).`;
+  });
+
+  $('sendIcs').onclick = () => withDevice('icsStatus', async dev => {
+    await setTime(dev);
+    const body = lines.map(l => l + '\n').join('');
+    await dev.send(`E ${lines.length} ${crc32(new TextEncoder().encode(body))}`);
+    for (const l of lines) await dev.send(l);
+    if (!await dev.expect('OK E', 5000)) throw new Error('The device did not confirm the events.');
+    return `Sent ${lines.length} event${lines.length === 1 ? '' : 's'} and set the clock. Open Timetable on the device.`;
+  });
+
+  const drop = $('icsDrop');
+  drop.onclick = () => $('icsFile').click();
+  drop.onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('icsFile').click(); } };
+  $('icsFile').onchange = e => loadIcs(e.target.files[0]);
+  drop.ondragover = e => { e.preventDefault(); e.stopPropagation(); drop.classList.add('over'); };
+  drop.ondragleave = () => drop.classList.remove('over');
+  drop.ondrop = e => { e.preventDefault(); e.stopPropagation(); drop.classList.remove('over'); loadIcs(e.dataTransfer.files[0]); };
 }
 </script>
 </body>
