@@ -81,7 +81,7 @@ export async function connect() {
 // back: the device only reports whether each is set (and the last 4 characters of API keys).
 
 const enc = new TextEncoder(), dec = new TextDecoder();
-export const toHex = s => [...enc.encode(s)].map(b => b.toString(16).padStart(2, '0')).join('');
+const toHex = s => [...enc.encode(s)].map(b => b.toString(16).padStart(2, '0')).join('');
 export const fromHex = h => dec.decode(new Uint8Array((h.match(/../g) || []).map(x => parseInt(x, 16))));
 const tooOld = 'This device doesn’t know about Notes yet. Update its firmware on the Install page first.';
 

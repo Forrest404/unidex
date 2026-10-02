@@ -113,13 +113,6 @@ static void ensureReady() {
   if (count < 0 || loadedGeneration != usbSyncGeneration()) load();
 }
 
-static struct tm localNow() {
-  time_t t = time(nullptr);
-  struct tm now;
-  localtime_r(&t, &now);
-  return now;
-}
-
 static int nowMinutes(const struct tm &now) { return now.tm_hour * 60 + now.tm_min; }
 
 static int32_t today(const struct tm &now) { return daysFromCivil(now.tm_year + 1900, now.tm_mon + 1, now.tm_mday); }
@@ -424,7 +417,7 @@ static void drawDay(const struct tm &now) {
 }
 
 static void drawSyncing() {
-  drawMessage(localNow(), "syncing time...", "");
+  drawMessage(clockLocal(), "syncing time...", "");
 }
 
 static void onEnter() {
@@ -441,7 +434,7 @@ static Redraw onButton(Event e) {
   if (view == DAY) {
     if (e == Event::AShort) {
       int16_t today[MAX_CLASSES];
-      int n = findToday(today, localNow());
+      int n = findToday(today, clockLocal());
       if (scroll + DAY_ROWS >= n) return Redraw::None;
       scroll++;
     } else {
@@ -472,7 +465,7 @@ static Redraw onButton(Event e) {
 
 static void draw() {
   ensureReady();
-  struct tm now = localNow();
+  struct tm now = clockLocal();
   if (view == DAY) drawDay(now);
   else if (view == DETAIL) drawDetail(now);
   else drawNext(now);

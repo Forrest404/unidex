@@ -138,3 +138,10 @@ void clockStatus(char *out, size_t len) {
   snprintf(out, len, "ctrl1=%02x sec=%02x min=%02x hour=%02x day=%02x mon=%02x year=%02x sys=%ld%s", r[0], r[4], r[5],
            r[6], r[7], r[9], r[10], (long)time(nullptr), ok ? "" : " i2c-fail");
 }
+
+struct tm clockLocal() {
+  time_t t = time(nullptr);
+  struct tm now;
+  localtime_r(&t, &now);
+  return now;
+}

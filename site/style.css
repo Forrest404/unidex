@@ -26,3 +26,11 @@ pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px
 .status { color: var(--muted); font-size: 13px; min-height: 1.4em; margin: 8px 0 0; }
 .unsupported { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
 ol { padding-left: 20px; }
+
+/* Segmented choice (radio buttons styled as one bar), on Tools and Notes */
+.seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg label { margin: 0; flex: 1; font-weight: 500; text-align: center; }
+.seg input { position: absolute; opacity: 0; }
+.seg span { display: block; padding: 7px 4px; cursor: pointer; }
+.seg input:checked + span { background: var(--accent); color: var(--bg); }
+.seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }

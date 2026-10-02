@@ -22,13 +22,6 @@ RTC_DATA_ATTR static uint8_t screen, cursor, resetCursor, field;
 RTC_DATA_ATTR static int8_t doneRow = -1;
 RTC_DATA_ATTR static int16_t value[MINUTE + 1];  // the date being edited: y, m, d, h, min
 
-static struct tm localNow() {
-  time_t t = time(nullptr);
-  struct tm now;
-  localtime_r(&t, &now);
-  return now;
-}
-
 static int daysIn(int year, int month) {
   static const int DAYS[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
   bool leap = (year % 4 == 0 && year % 100 != 0) || year % 400 == 0;
@@ -51,7 +44,7 @@ static void drawList() {
   display.setFont(FONT_SMALL);
   char time[8] = "not set", sleep[8];
   if (clockValid()) {
-    struct tm now = localNow();
+    struct tm now = clockLocal();
     snprintf(time, sizeof time, "%02d:%02d", now.tm_hour, now.tm_min);
   }
   snprintf(sleep, sizeof sleep, "%d s", (int)storageGetInt("sleep_s", 10));
@@ -167,7 +160,7 @@ static void clear(uint8_t what) {
 }
 
 static void startEditing() {
-  struct tm now = localNow();
+  struct tm now = clockLocal();
   bool set = clockValid();
   value[YEAR] = set ? now.tm_year + 1900 : 2026;
   value[MONTH] = set ? now.tm_mon + 1 : 1;

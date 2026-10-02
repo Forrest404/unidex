@@ -13,12 +13,6 @@
   #drop.over, #icsDrop.over { border-color: var(--accent); color: var(--fg); }
   label { display: block; margin: 12px 0 4px; font-weight: 600; font-size: 13px; }
   .row { display: flex; gap: 8px; align-items: center; }
-  .seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-  .seg label { margin: 0; flex: 1; font-weight: 500; text-align: center; }
-  .seg input { position: absolute; opacity: 0; }
-  .seg span { display: block; padding: 7px 4px; cursor: pointer; }
-  .seg input:checked + span { background: var(--accent); color: var(--bg); }
-  .seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
   input[type=text], input[type=number] { font: inherit; padding: 6px 8px; border: 1px solid var(--line);
     border-radius: 6px; background: var(--bg); color: var(--fg); width: 100%; }
