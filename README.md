@@ -1,7 +1,7 @@
 # unidex
 
 A tiny pocket OS for a 1.54" e-ink board: a home screen and five small apps, driven by two buttons,
-running for days on a battery because it sleeps whenever you aren't pressing something.
+built to sleep whenever you aren't pressing something, to save battery (battery life not yet measured).
 
 | App | What it does |
 |---|---|
@@ -250,6 +250,37 @@ Settings > Reset > Everything keeps WiFi and API keys, so a unit for someone els
 3. **Use a fresh SD card** with only the contents of `starter/`: none of your notes, recordings, timetable or badges.
 4. **Include the source link** (https://github.com/Forrest404/unidex, GPL-3.0) in the box.
 
+## How to measure battery life
+
+Nothing here has been measured yet. Measure with the exact battery you'll ship, and don't state a battery life
+until you have.
+
+**You need** a multimeter on its mA / µA range in series with the battery lead (a JST extension cable you can cut,
+or a breakout), or a power profiler such as a Nordic PPK2 supplying 3.7 V in place of the battery. A USB power meter
+won't do: the board stays awake on USB. Unplug USB for every reading.
+
+**Current in each state** (on a multimeter, use the µA range for deep sleep only; the wake-up surge can blow its fuse):
+
+| State | How to get there | Current |
+|---|---|---|
+| Deep sleep, SD card in | leave it 10 s on the home screen until it sleeps | |
+| Deep sleep, no SD card | same, card removed | |
+| Awake, idle | press a button and read within 10 s | |
+| Screen refresh | moving between apps (peak) | |
+| Dex scan | Dex, scan (peak and average) | |
+| Notes recording | hold B in Notes | |
+| Notes upload | after the recording, while it sends (WiFi) | |
+
+**Run-down test**: charge fully, unplug, use it the way a student would, and note when it shuts off. Settings →
+Battery & info shows the voltage along the way.
+
+| Battery (mAh) | How it was used | Start (date, time) | End (date, time) | Hours |
+|---|---|---|---|---|
+| | | | | |
+
+Rough estimate from the currents: hours ≈ battery mAh × 0.8 ÷ average mA, where the average weights each state by
+the time spent in it.
+
 ## Project layout
 
 ```
@@ -395,9 +426,12 @@ Everything here was read from the chip, seen working on the device, or taken fro
   board can't sense USB power directly (USB 5 V isn't wired to any GPIO), so "USB power" means a computer is
   talking to it, or the battery reads at least 4.19 V (the charger holding it at 4.2 V while topping up). A plain
   charger that has *finished* charging looks like battery, so it sleeps. Checked at most every 10 s.
-- The CPU runs at 80 MHz (240 MHz only during a Dex scan). WiFi is off except inside the Dex scan and the NTP sync.
-- Datasheet estimates, **not measured** with a meter: about 2 mA awake with light sleep (vs about 20 mA), and
-  tens of µA in deep sleep. Real battery life depends on how often you press things.
+- The CPU runs at 80 MHz (240 MHz only while WiFi is on). WiFi is off except during a Dex scan, Notes and the NTP
+  sync.
+- Datasheet estimates, **not measured** with a meter: about 2 mA awake with light sleep (vs about 20 mA). In deep
+  sleep the chip itself draws µA, but the SD card stays powered (roughly 50–200 µA idle), plus the board's
+  regulator and charger. Real battery life depends on how often you press things: see
+  [How to measure battery life](#how-to-measure-battery-life).
 
 </details>
 
