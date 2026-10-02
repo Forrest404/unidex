@@ -16,8 +16,10 @@
   .card h3 { font-size: 15px; margin: 0 0 4px; }
   label { display: block; margin: 10px 0 4px; font-weight: 600; font-size: 13px; }
   label .hint { font-weight: 400; color: var(--muted); }
-  input[type=text], input[type=password] { font: inherit; padding: 7px 9px; border: 1px solid var(--line);
+  input[type=text], input[type=password], textarea { font: inherit; padding: 7px 9px; border: 1px solid var(--line);
     border-radius: 6px; background: var(--bg); color: var(--fg); width: 100%; }
+  textarea { font: 11px/1.3 ui-monospace, monospace; resize: vertical; }
+  [hidden] { display: none !important; }  /* buttons set display, which would beat the hidden attribute */
   .seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
   .seg label { margin: 0; flex: 1; font-weight: 500; text-align: center; }
   .seg input { position: absolute; opacity: 0; }
@@ -92,9 +94,19 @@
         </div>
         <label for="wifi_pass">Password</label>
         <input id="wifi_pass" type="password" autocomplete="new-password" maxlength="128">
+        <div id="caBox" hidden>
+          <label for="wifi_ca">CA certificate <span class="hint">(optional; from your university's IT pages or
+            cat.eduroam.org; blank keeps what's saved)</span></label>
+          <textarea id="wifi_ca" rows="3" spellcheck="false" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+          <button class="secondary" id="removeCa" hidden>Remove certificate</button>
+        </div>
         <p class="note" id="enterpriseNote" hidden>Logs in with PEAP / MSCHAPv2. The device doesn't check the
           network's certificate, so a fake access point with the same name could capture this password: use it
-          only where you trust the network, and not with a password you use elsewhere.</p>
+          only where you trust the network, and not with a password you use elsewhere. Adding your university's
+          CA certificate above makes this safer.</p>
+        <p class="note" id="caNote" hidden>Logs in with PEAP / MSCHAPv2 and checks that the network's certificate
+          was signed by your CA. It can't check the server's name, so this only stops a fake access point if your
+          university uses its own private CA. If the CA is a public one, treat the network as unchecked.</p>
         <div class="buttons">
           <button data-save="wifi">Save</button>
           <button class="secondary" data-test="wifi">Test</button>

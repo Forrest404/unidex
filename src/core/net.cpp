@@ -17,9 +17,19 @@ const char *netConnect() {
   setCpuFrequencyMhz(240);  // full speed only while the radio is on (as in the Dex scan)
   WiFi.mode(WIFI_STA);
   const String user = credGet("wifi_user");
-  if (user.length())  // eduroam and other WPA2-Enterprise networks: PEAP with username + password
+  esp_wifi_sta_wpa2_ent_clear_ca_cert();
+  if (user.length()) {  // eduroam and other WPA2-Enterprise networks: PEAP with username + password
+    // The stack keeps a pointer to the PEM, so it must outlive the login; the length includes the NUL for mbedTLS.
+    static String pem;
+    const String ca = credGet("wifi_ca");
+    if (ca.length()) {
+      pem = "-----BEGIN CERTIFICATE-----\n";
+      for (size_t i = 0; i < ca.length(); i += 64) pem += ca.substring(i, i + 64) + "\n";
+      pem += "-----END CERTIFICATE-----\n";
+      esp_wifi_sta_wpa2_ent_set_ca_cert((const uint8_t *)pem.c_str(), pem.length() + 1);
+    }
     WiFi.begin(ssid.c_str(), WPA2_AUTH_PEAP, user.c_str(), user.c_str(), credGet("wifi_pass").c_str());
-  else {
+  } else {
     esp_wifi_sta_wpa2_ent_disable();  // begin() never turns enterprise mode off after an eduroam login
     WiFi.begin(ssid.c_str(), credGet("wifi_pass").c_str());
   }

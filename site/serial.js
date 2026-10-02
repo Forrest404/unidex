@@ -105,6 +105,16 @@ export async function notesSet(dev, name, value) {
   if (!(await dev.expect(`OK N SET ${name}`, 3000))) throw new Error(`The device didn’t save ${name}.`);
 }
 
+// For values longer than one USB line (the eduroam CA): chunks with N ADD, the last one with N SET, which saves.
+export async function notesSetLong(dev, name, value) {
+  let i = 0;
+  for (; value.length - i > 280; i += 280) {
+    await dev.send(`N ADD ${name} ${toHex(value.slice(i, i + 280))}`);
+    if (!(await dev.expect(`OK N ADD ${name}`, 3000))) throw new Error(`The device didn’t take ${name}.`);
+  }
+  await notesSet(dev, name, value.slice(i));
+}
+
 export async function notesClear(dev, name = 'all') {
   await dev.send(`N CLR ${name}`);
   if (!(await dev.expect('OK N CLR', 3000))) throw new Error(tooOld);

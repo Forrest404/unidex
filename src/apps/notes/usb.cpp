@@ -111,6 +111,8 @@ static void read(const String &id) {
   Serial.printf("OK N READ %u %lu\n", (unsigned)md.length(), (unsigned long)crc);
 }
 
+static String caChunks;  // N ADD wifi_ca chunks waiting for the final N SET wifi_ca
+
 bool notesUsb(const char *l) {
   if (strncmp(l, "N ", 2) != 0) return false;
   char cmd[8] = "", arg[24] = "";
@@ -121,10 +123,24 @@ bool notesUsb(const char *l) {
   } else if (strcmp(cmd, "SET") == 0) {
     String value;
     const char *hex = n == 2 ? strchr(l + 6, ' ') : nullptr;  // after "N SET <name>"
-    if (n == 2 && credKnown(arg) && fromHex(hex ? hex + 1 : "", value) && credSet(arg, value))
+    const bool parsed = n == 2 && credKnown(arg) && fromHex(hex ? hex + 1 : "", value);
+    if (strcmp(arg, "wifi_ca") == 0) value = caChunks + value;  // the CA is saved once, with its last chunk
+    caChunks = "";
+    if (parsed && credSet(arg, value))
       Serial.printf("OK N SET %s\n", arg);
     else
       Serial.println("ERR");
+  } else if (strcmp(cmd, "ADD") == 0) {  // a wifi_ca chunk, kept in RAM until N SET wifi_ca
+    String value;
+    const char *hex = n == 2 ? strchr(l + 6, ' ') : nullptr;
+    if (n == 2 && strcmp(arg, "wifi_ca") == 0 && hex && fromHex(hex + 1, value) &&
+        caChunks.length() + value.length() <= 3000) {
+      caChunks += value;
+      Serial.printf("OK N ADD %s\n", arg);
+    } else {
+      caChunks = "";
+      Serial.println("ERR");
+    }
   } else if (strcmp(cmd, "CLR") == 0) {
     if (strcmp(arg, "all") == 0) credClearAll();
     else if (credKnown(arg)) credClear(arg);

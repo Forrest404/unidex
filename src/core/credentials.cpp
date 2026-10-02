@@ -17,6 +17,7 @@ static const Field FIELDS[] = {
   {"gh_on", false, 1, "0"},          {"gh_repo", false, 100, ""},
   {"gh_branch", false, 64, "main"},  {"gh_dir", false, 64, "VoiceNotes"},
   {"gh_token", true, 256, ""},
+  {"wifi_ca", true, 3000, ""},  // eduroam CA certificate: the PEM's base64 body, no header lines or line breaks
 };
 
 // Opening a namespace read-only fails (and logs an error onto the USB line) until it exists: create it once.
@@ -73,9 +74,9 @@ bool credSet(const char *name, const String &value) {
   }
   Preferences p;
   p.begin(NAMESPACE, false);
-  if (!p.isKey(name) || p.getString(name) != value) p.putString(name, value);
+  const bool ok = (p.isKey(name) && p.getString(name) == value) || p.putString(name, value);  // 0 = NVS full
   p.end();
-  return true;
+  return ok;
 }
 
 void credClear(const char *name) {

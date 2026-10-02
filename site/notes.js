@@ -1,5 +1,5 @@
 // The Notes setup page (notes.html). Talks to the device over Web Serial only.
-import { supported, connect, asleepHint, notesStatus, notesSet, notesClear, notesTest, notesMic, notesList,
+import { supported, connect, asleepHint, notesStatus, notesSet, notesSetLong, notesClear, notesTest, notesMic, notesList,
          notesRead, notesDelete } from './serial.js';
 
 const $ = id => document.getElementById(id);
@@ -35,9 +35,12 @@ async function run(statusId, fn) {
 const cleanupChoice = () => document.querySelector('input[name=cleanup]:checked').value;
 const enterprise = () => document.querySelector('input[name=wifiKind]:checked').value === 'enterprise';
 
+let caSaved = false;
 function showWifiKind() {
-  $('userBox').hidden = !enterprise();
-  $('enterpriseNote').hidden = !enterprise();
+  $('userBox').hidden = $('caBox').hidden = !enterprise();
+  $('enterpriseNote').hidden = !enterprise() || caSaved;
+  $('caNote').hidden = !enterprise() || !caSaved;
+  $('removeCa').hidden = !caSaved;
   if ($('wifi_ssid').value === '' && enterprise()) $('wifi_ssid').value = 'eduroam';
 }
 document.querySelectorAll('input[name=wifiKind]').forEach(r => (r.onchange = showWifiKind));
@@ -57,6 +60,9 @@ async function load() {
   const s = name => st.settings[name] || { set: false, value: '' };
   for (const name of ['wifi_ssid', 'wifi_user', 'gh_repo', 'cleanup_model']) $(name).value = s(name).set ? s(name).value : '';
   document.querySelector(`input[name=wifiKind][value=${s('wifi_user').set ? 'enterprise' : 'home'}]`).checked = true;
+  caSaved = s('wifi_ca').set;
+  $('wifi_ca').value = '';
+  $('wifi_ca').placeholder = caSaved ? 'saved' : '-----BEGIN CERTIFICATE-----';
   showWifiKind();
   for (const name of ['gh_branch', 'gh_dir']) $(name).value = s(name).set ? s(name).value : '';
   $('gh_on').checked = s('gh_on').value === '1';
@@ -113,7 +119,16 @@ const GROUPS = {
             extra: () => ({ gh_on: $('gh_on').checked ? '1' : '0' }) },
 };
 
+// The base64 body of the first certificate in a pasted PEM, or null if there isn't one.
+function caBody() {
+  const m = $('wifi_ca').value.match(/-----BEGIN CERTIFICATE-----([\s\S]*?)-----END CERTIFICATE-----/);
+  const body = m && m[1].replace(/\s+/g, '');
+  return body && /^[A-Za-z0-9+/]+=*$/.test(body) && body.length <= 3000 ? body : null;
+}
+
 function check(group) {
+  if (group === 'wifi' && enterprise() && $('wifi_ca').value.trim() && !caBody())
+    return 'The CA certificate should be PEM text, from -----BEGIN CERTIFICATE----- to -----END CERTIFICATE-----.';
   if (group === 'wifi' && !$('wifi_ssid').value.trim()) return 'Type the network name.';
   if (group === 'wifi' && enterprise() && !$('wifi_user').value.trim()) return 'Type your username.';
   if (group === 'openai' && $('openai_key').value && !$('openai_key').value.trim().startsWith('sk-'))
@@ -136,11 +151,20 @@ document.querySelectorAll('[data-save]').forEach(btn => {
       for (const f of g.secret) if ($(f).value.trim()) values[f] = $(f).value.trim();
       if (!Object.keys(values).length) return say(g.status, 'Nothing to save: type the key first.');
       for (const [key, value] of Object.entries(values)) await notesSet(dev, key, value);
+      if (name === 'wifi' && enterprise() && caBody()) await notesSetLong(dev, 'wifi_ca', caBody());
+      if (name === 'wifi' && !enterprise() && caSaved) await notesSet(dev, 'wifi_ca', '');  // home: no CA
       await load();
       say(g.status, 'Saved on the device.', 'ok');
     });
   };
 });
+
+$('removeCa').onclick = () =>
+  run('wifiStatus', async () => {
+    await notesSet(dev, 'wifi_ca', '');
+    await load();
+    say('wifiStatus', 'Certificate removed.', 'ok');
+  });
 
 document.querySelectorAll('[data-test]').forEach(btn => {
   btn.onclick = () => {

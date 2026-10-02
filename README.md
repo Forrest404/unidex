@@ -208,8 +208,11 @@ repo only). Each has a **Test** button that runs on the device. The page also te
 notes as `.md` files over USB.
 
 - **eduroam / work WiFi** (WPA2-Enterprise): pick "eduroam / work" on the Notes page and add your username. It
-  logs in with PEAP/MSCHAPv2 without checking the network's certificate, so a fake access point with the same name
-  could capture that password. The clock's WiFi time sync uses the same network.
+  logs in with PEAP/MSCHAPv2. Without a CA certificate it doesn't check the network's certificate, so a fake access
+  point with the same name could capture that password. You can paste your university's CA certificate (from its IT
+  pages or https://cat.eduroam.org): the device then checks the network's certificate was signed by that CA. The
+  WiFi stack in this Arduino core (ESP-IDF 4.4) can't also check the server's name, so this only stops a fake access
+  point if the CA is the university's own private one. The clock's WiFi time sync uses the same network.
 - **Without an SD card** it works online only: notes go to GitHub (if on), or are shown once and not kept.
   Recordings made without WiFi are lost unless there's a card.
 - **Keys** live in the device's NVS (namespace `unidex_cred`), never in the code or on the card. The page can't

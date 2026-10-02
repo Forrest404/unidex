@@ -13,10 +13,11 @@
 //   cleanup_model                        model name; empty = the provider's default
 //   gh_on                                "1" = push notes to GitHub
 //   gh_repo, gh_branch, gh_dir, gh_token owner/name, branch, folder in the repo, fine-grained token
+//   wifi_ca                              eduroam CA certificate (base64 body of the PEM); empty = not checked
 bool credKnown(const char *name);
 bool credSecret(const char *name);              // passwords and keys: never sent back over USB
 String credGet(const char *name);               // "" if not set (gh_branch/gh_dir/cleanup have defaults)
-bool credSet(const char *name, const String &value);  // false for an unknown name or a value too long
+bool credSet(const char *name, const String &value);  // false for an unknown name, a value too long or NVS full
 void credClear(const char *name);
 void credClearAll();
 bool credHas(const char *name);
