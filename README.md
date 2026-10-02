@@ -235,6 +235,18 @@ notes as `.md` files over USB.
   also clears the settings, badge choice and Dex salt, then restarts. The uploaded badges and
   timetable stay.
 
+## Preparing a unit for sale
+
+Settings > Reset > Everything keeps WiFi and API keys, so a unit for someone else needs a full erase:
+
+1. **Erase and install.** Use the website's **Install** button (it erases first), or run
+   `pio run -t erase && pio run -t upload`.
+2. **Check it holds no keys.** Run `~/.platformio/penv/bin/python tools/check_unit.py`. It prints only whether each
+   slot is set, never a value, and ends in **PASS** only if every slot reads `unset`. (Pause the Mac agent or
+   close the Notes tab first, so the port is free.)
+3. **Use a fresh SD card** with only the contents of `starter/`: none of your notes, recordings, timetable or badges.
+4. **Include the source link** (https://github.com/Forrest404/unidex, GPL-3.0) in the box.
+
 ## Project layout
 
 ```
