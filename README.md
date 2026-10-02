@@ -471,6 +471,8 @@ boot keeps the board busy with the splash for about 3.5 s, so the sender waits u
 Copyright 2026 Forrest. unidex is free software under the GNU General Public License, version 3 or later
 ([LICENSE](LICENSE)). Source code: https://github.com/Forrest404/unidex
 
+What the device and website send where: [PRIVACY.md](PRIVACY.md) (a draft).
+
 Third-party libraries, fonts and data built into the firmware, and their licences, are listed in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
