@@ -10,29 +10,16 @@
 <title>unidex: notes</title>
 <link rel="stylesheet" href="style.css">
 <style>
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
   .card { display: flex; flex-direction: column; gap: 4px; }
   .card h3 { font-size: 15px; margin: 0 0 4px; }
-  label { display: block; margin: 10px 0 4px; font-weight: 600; font-size: 13px; }
-  label .hint { font-weight: 400; color: var(--muted); }
-  input[type=text], input[type=password], textarea { font: inherit; padding: 7px 9px; border: 1px solid var(--line);
-    border-radius: 6px; background: var(--bg); color: var(--fg); width: 100%; }
-  textarea { font: 11px/1.3 ui-monospace, monospace; resize: vertical; }
-  [hidden] { display: none !important; }  /* buttons set display, which would beat the hidden attribute */
-  .check { display: flex; gap: 8px; align-items: center; font-weight: 500; }
-  .check input { margin: 0; }
   .buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
   .saved { color: var(--muted); font-size: 12px; font-weight: 400; }
-  .ok { color: #2a7a3a; }
-  .bad { color: #c33; }
-  @media (prefers-color-scheme: dark) { .ok { color: #6c6; } .bad { color: #f77; } }
   #connectRow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
   #device { margin: 0; }
   fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
-  fieldset:disabled { opacity: .45; }
+  fieldset:disabled .check { color: var(--muted); }  /* before Connect: text stays readable, controls dim */
   #meter { height: 12px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-top: 10px; }
-  #meter div { height: 100%; width: 0; background: var(--accent); transition: width .3s; }
+  #meter div { height: 100%; width: 0; background: var(--accent); transition: width .3s ease-out; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
   td, th { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
   th { font-size: 12px; color: var(--muted); font-weight: 600; }

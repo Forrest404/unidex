@@ -6,25 +6,20 @@
 <title>unidex: tools</title>
 <link rel="stylesheet" href="style.css">
 <style>
-  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-  @media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
-  #drop, #icsDrop { border: 2px dashed var(--line); border-radius: 10px; padding: 28px 12px; text-align: center;
-          color: var(--muted); cursor: pointer; margin-bottom: 16px; }
-  #drop.over, #icsDrop.over { border-color: var(--accent); color: var(--fg); }
-  label { display: block; margin: 12px 0 4px; font-weight: 600; font-size: 13px; }
+  #drop, #icsDrop { border: 2px dashed var(--line-strong); border-radius: 10px; padding: 28px 12px; text-align: center;
+          color: var(--muted); cursor: pointer; margin-bottom: 16px; transition: border-color .15s, color .15s, background-color .15s; }
+  #drop:hover, #icsDrop:hover { color: var(--fg); background: var(--hover); }
+  #drop.over, #icsDrop.over { border-color: var(--fg); color: var(--fg); background: var(--hover); }
   .row { display: flex; gap: 8px; align-items: center; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
-  input[type=text], input[type=number] { font: inherit; padding: 6px 8px; border: 1px solid var(--line);
-    border-radius: 6px; background: var(--bg); color: var(--fg); width: 100%; }
   input[type=number] { width: 70px; }
-  .check { display: flex; gap: 8px; align-items: center; font-weight: 500; margin-top: 12px; }
-  .check input { margin: 0; }
+  .check { margin-top: 12px; }
   #stage { display: flex; flex-direction: column; align-items: center; gap: 12px; }
   #stage button { width: 100%; }
-  #frame { background: #c9c9c4; padding: 14px; border-radius: 8px; line-height: 0; }
-  canvas { width: 300px; height: 300px; image-rendering: pixelated; background: #fff; }
+  #frame { background: #c9c9c4; padding: 14px; border-radius: 10px; line-height: 0; max-width: 100%; }
+  canvas { width: 300px; max-width: 100%; height: auto; aspect-ratio: 1; image-rendering: pixelated; background: #fff; }
   #sendStatus, #hint { color: var(--muted); font-size: 13px; margin: 0; text-align: center; min-height: 1em; }
-  #err { color: #c33; font-size: 13px; margin: 8px 0 0; min-height: 1em; }
+  #err { color: var(--bad); font-size: 13px; margin: 8px 0 0; min-height: 1em; }
   #eventList { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: var(--muted); }
 </style>
 </head>

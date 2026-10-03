@@ -1,36 +1,83 @@
-:root { --bg: #f4f4f2; --fg: #111; --muted: #666; --card: #fff; --line: #d8d8d4; --accent: #111; }
+:root {
+  color-scheme: light dark;
+  --bg: #f5f5f4; --fg: #18181b; --muted: #5f5f67; --card: #fff; --line: #e2e2e5; --line-strong: #c4c4ca; --field: #8d8d95;
+  --hover: rgba(0, 0, 0, .05); --accent: #18181b; --on-accent: #fff; --ok: #1d7a37; --bad: #c42b22;
+}
 @media (prefers-color-scheme: dark) {
-  :root { --bg: #161616; --fg: #eee; --muted: #999; --card: #222; --line: #3a3a3a; --accent: #eee; }
+  :root {
+    --bg: #111113; --fg: #ececee; --muted: #a0a0a8; --card: #1a1a1d; --line: #2c2c31; --line-strong: #46464d; --field: #6a6a72;
+    --hover: rgba(255, 255, 255, .06); --accent: #ececee; --on-accent: #111113; --ok: #62d083; --bad: #ff7b72;
+  }
 }
 * { box-sizing: border-box; }
-body { margin: 0; padding: 0 16px 48px; background: var(--bg); color: var(--fg);
-       font: 15px/1.5 -apple-system, system-ui, sans-serif; }
+body { margin: 0; padding: 0 16px 56px; background: var(--bg); color: var(--fg); accent-color: var(--accent);
+       font: 15px/1.6 -apple-system, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
 main { max-width: 760px; margin: 0 auto; }
-nav { max-width: 760px; margin: 0 auto; display: flex; gap: 18px; align-items: baseline; padding: 18px 0 28px; }
-nav .brand { font-weight: 700; font-size: 17px; margin-right: auto; color: var(--fg); text-decoration: none; }
-nav a { color: var(--muted); text-decoration: none; }
-nav a[aria-current] { color: var(--fg); font-weight: 600; }
-h1 { font-size: 24px; margin: 0 0 6px; }
-h2 { font-size: 18px; margin: 0 0 4px; }
+[hidden] { display: none !important; }  /* buttons set display, which would beat the hidden attribute */
+
+nav { max-width: 760px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: baseline;
+      padding: 20px 0 32px; }
+nav .brand { font-weight: 700; font-size: 17px; letter-spacing: -.01em; margin-right: auto; color: var(--fg); }
+nav a { color: var(--muted); text-decoration: none; transition: color .15s; }
+nav a:hover, nav a[aria-current] { color: var(--fg); }
+nav a[aria-current] { font-weight: 600; }
+@media (max-width: 420px) { nav { gap: 4px 14px; } }
+
+h1 { font-size: 26px; line-height: 1.25; letter-spacing: -.02em; margin: 0 0 8px; }
+h2 { font-size: 18px; letter-spacing: -.01em; margin: 0 0 6px; }
+h3 { letter-spacing: -.01em; }
 p.sub, .muted { color: var(--muted); }
-p.sub { margin: 0 0 22px; }
-section { margin-bottom: 36px; }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; }
-button, .button { font: inherit; font-weight: 600; padding: 10px 18px; border-radius: 8px; border: 0;
-         background: var(--accent); color: var(--bg); cursor: pointer; display: inline-block; text-decoration: none; }
-button:disabled { opacity: .35; cursor: default; }
-button.secondary { background: transparent; color: var(--fg); border: 1px solid var(--line); }
+p.sub { margin: 0 0 24px; }
+section { margin-bottom: 40px; }
+a { color: inherit; text-decoration: underline; text-decoration-color: var(--line-strong);
+    text-underline-offset: 2px; transition: text-decoration-color .15s; }
+a:hover { text-decoration-color: currentColor; }
+:focus-visible { outline: 2px solid var(--fg); outline-offset: 2px; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 640px) { .grid { grid-template-columns: 1fr; } }
+
+button, .button { font: inherit; font-weight: 600; min-height: 40px; padding: 9px 18px; border-radius: 8px;
+         border: 1px solid transparent; background: var(--accent); color: var(--on-accent); cursor: pointer;
+         display: inline-block; text-decoration: none; transition: opacity .15s, background-color .15s, transform .1s; }
+button:hover:not(:disabled) { opacity: .85; }
+button:active:not(:disabled) { transform: translateY(1px); }
+button:disabled { opacity: .35; cursor: not-allowed; }
+button.secondary { background: transparent; color: var(--fg); border-color: var(--line-strong); }
+button.secondary:hover:not(:disabled) { opacity: 1; background: var(--hover); }
+
+label { display: block; margin: 12px 0 4px; font-weight: 600; font-size: 13px; }
+label .hint { font-weight: 400; color: var(--muted); }
+input[type=text], input[type=password], input[type=number], textarea {
+  font: inherit; padding: 8px 10px; border: 1px solid var(--field); border-radius: 8px; width: 100%;
+  background: var(--bg); color: var(--fg); transition: border-color .15s, box-shadow .15s; }
+input::placeholder, textarea::placeholder { color: var(--muted); opacity: .7; }
+input:focus, textarea:focus { outline: none; border-color: var(--fg); box-shadow: 0 0 0 3px var(--hover); }
+input:disabled, textarea:disabled { opacity: .5; cursor: not-allowed; }
+textarea { font: 11px/1.4 ui-monospace, Menlo, monospace; resize: vertical; }
+.check { display: flex; gap: 8px; align-items: center; font-weight: 500; }
+.check input { margin: 0; }
+
 code, pre { font: 13px/1.5 ui-monospace, Menlo, monospace; }
 pre { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; overflow-x: auto; }
 .note { color: var(--muted); font-size: 13px; }
-.status { color: var(--muted); font-size: 13px; min-height: 1.4em; margin: 8px 0 0; }
+.status { color: var(--muted); font-size: 13px; min-height: 1.4em; margin: 8px 0 0; font-variant-numeric: tabular-nums; }
+.ok { color: var(--ok); }
+.bad { color: var(--bad); }
 .unsupported { border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
 ol { padding-left: 20px; }
+li + li { margin-top: 2px; }
 
 /* Segmented choice (radio buttons styled as one bar), on Tools and Notes */
-.seg { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+.seg { display: flex; border: 1px solid var(--line-strong); border-radius: 8px; overflow: hidden; }
 .seg label { margin: 0; flex: 1; font-weight: 500; text-align: center; }
+.seg label + label { border-left: 1px solid var(--line-strong); }
 .seg input { position: absolute; opacity: 0; }
-.seg span { display: block; padding: 7px 4px; cursor: pointer; }
-.seg input:checked + span { background: var(--accent); color: var(--bg); }
-.seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
+.seg span { display: block; padding: 7px 4px; cursor: pointer; transition: background-color .15s, color .15s; }
+.seg input:not(:checked) + span:hover { background: var(--hover); }
+.seg input:checked + span { background: var(--accent); color: var(--on-accent); }
+.seg input:focus-visible + span { outline: 2px solid var(--fg); outline-offset: -2px; }
+.seg input:disabled + span { cursor: not-allowed; opacity: .5; }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
