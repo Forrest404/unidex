@@ -97,6 +97,8 @@ void powerNap() {
   esp_light_sleep_start();
 }
 
+int powerSleepSeconds() { return idleMs / 1000; }
+
 void powerSetSleepSeconds(int s) {
   idleMs = s * 1000;
   storagePutInt("sleep_s", s);

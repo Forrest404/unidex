@@ -32,7 +32,7 @@ static void drawToastIfAny() {
 
 // --- home ---
 
-static const int16_t ICON_Y = CONTENT_TOP + 4, NAME_Y = 122, LINE_Y = 143, DOTS_Y = 156;
+static const int16_t ICON_Y = CONTENT_TOP + 2, NAME_BASE = 127, LINE_BASE = 146, DOTS_Y = 157;
 
 // Small lightning bolt, 7 px wide and 12 tall, with its top-left corner at (x, y).
 static void drawBolt(int16_t x, int16_t y) {
@@ -75,12 +75,12 @@ static void drawHome() {
   drawStatus();
   const App *a = APPS[selected];
   drawIcon(a->icon, (display.width() - 2 * ICON_SIZE) / 2, ICON_Y, GxEPD_BLACK, 2);
-  display.setFont(FONT_LARGE);
-  drawCentered(a->name, NAME_Y);
+  display.setFont(FONT_MEDIUM);
+  drawCenteredLine(a->name, NAME_BASE);
   appStatus(a, shownLine, sizeof shownLine);
   if (*shownLine) {
     display.setFont(FONT_SMALL);
-    drawCentered(fitText(shownLine, display.width() - 2 * MARGIN).c_str(), LINE_Y);
+    drawCenteredLine(fitText(shownLine, display.width() - 2 * MARGIN).c_str(), LINE_BASE);
   }
   drawPageDots(APP_COUNT, selected, DOTS_Y);
   drawHints("next", "open", "back", "");

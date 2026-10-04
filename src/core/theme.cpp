@@ -1,5 +1,6 @@
 #include "theme.h"
 #include <Fonts/FreeSans9pt7b.h>
+#include <Fonts/FreeSans12pt7b.h>
 #include <Fonts/FreeSans18pt7b.h>
 #include <Fonts/FreeSansBold9pt7b.h>
 #include "FreeSans7pt7b.h"
@@ -7,6 +8,7 @@
 
 const GFXfont *const FONT_SMALL = &FreeSans9pt7b;
 const GFXfont *const FONT_LARGE = &FreeSans18pt7b;
+const GFXfont *const FONT_MEDIUM = &FreeSans12pt7b;
 const GFXfont *const FONT_BOLD = &FreeSansBold9pt7b;
 const GFXfont *const FONT_TINY = &FreeSans7pt7b;
 
@@ -15,6 +17,14 @@ void drawCentered(const char *text, int16_t cy) {
   uint16_t w, h;
   display.getTextBounds(text, 0, 0, &x, &y, &w, &h);
   display.setCursor((display.width() - w) / 2 - x, cy - h / 2 - y);
+  display.print(text);
+}
+
+void drawCenteredLine(const char *text, int16_t baseline) {
+  int16_t x, y;
+  uint16_t w, h;
+  display.getTextBounds(text, 0, 0, &x, &y, &w, &h);
+  display.setCursor((display.width() - w) / 2 - x, baseline);
   display.print(text);
 }
 
@@ -123,7 +133,7 @@ void drawEmpty(const char *headline, const char *line1, const char *line2) {
 }
 
 void drawSheet(const char *title, const char *line1, const char *line2) {
-  const int16_t x = MARGIN + 4, y = CONTENT_TOP + 16, w = display.width() - 2 * x, h = HINTS_TOP - 12 - y;
+  const int16_t x = MARGIN, y = CONTENT_TOP + 14, w = display.width() - 2 * x, h = HINTS_TOP - 10 - y;
   display.fillRoundRect(x, y, w, h, 6, GxEPD_WHITE);
   display.drawRoundRect(x, y, w, h, 6, GxEPD_BLACK);
   display.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 5, GxEPD_BLACK);

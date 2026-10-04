@@ -1,8 +1,11 @@
-// Settings: opened by holding A on the home screen. A = next row, B = change or open, A long = home.
+// Settings: date and time, sleep, invert, battery and info, reset data.
+// A = next row or field, B = change, open or clear, hold A = back (in the date editor: leave without saving).
 #include "../../core/app.h"
 #include "../../core/battery.h"
 #include "../../core/clock.h"
+#include "../../core/devtools.h"
 #include "../../core/display.h"
+#include "../../core/launcher.h"
 #include "../../core/power.h"
 #include "../../core/storage.h"
 #include "../../core/theme.h"
@@ -14,12 +17,11 @@ static const int ROW_H = 26;
 
 enum Screen : uint8_t { LIST, DATETIME, INFO, RESET, CONFIRM };
 enum Row : uint8_t { DATE, SLEEP, INVERT, INFO_ROW, RESET_ROW, ROWS };
-enum Reset : uint8_t { TALLY, DEX, CALENDAR, EVERYTHING, BACK, RESETS };
-static const char *RESET_NAMES[] = {"Chooser tally", "Dex", "Calendar", "Everything", "Back"};
+enum Reset : uint8_t { TALLY, DEX, CALENDAR, EVERYTHING, RESETS };
+static const char *RESET_NAMES[] = {"Chooser tally", "Dex", "Calendar", "Everything"};
 enum Field : uint8_t { YEAR, MONTH, DAY, HOUR, MINUTE, SAVE, FIELDS };
 
 RTC_DATA_ATTR static uint8_t screen, cursor, resetCursor, field;
-RTC_DATA_ATTR static int8_t doneRow = -1;
 RTC_DATA_ATTR static int16_t value[MINUTE + 1];  // the date being edited: y, m, d, h, min
 
 static int daysIn(int year, int month) {
@@ -47,17 +49,17 @@ static void drawList() {
     struct tm now = clockLocal();
     snprintf(time, sizeof time, "%02d:%02d", now.tm_hour, now.tm_min);
   }
-  snprintf(sleep, sizeof sleep, "%d s", (int)storageGetInt("sleep_s", 10));
+  snprintf(sleep, sizeof sleep, "%d s", powerSleepSeconds());
   drawRow(DATE, cursor == DATE, "Date & time", time);
-  drawRow(SLEEP, cursor == SLEEP, "Sleep", sleep);
+  drawRow(SLEEP, cursor == SLEEP, "Sleep after", sleep);
   drawRow(INVERT, cursor == INVERT, "Invert", display.inverted ? "on" : "off");
   drawRow(INFO_ROW, cursor == INFO_ROW, "Battery & info", ">");
   drawRow(RESET_ROW, cursor == RESET_ROW, "Reset data", ">");
-  drawFooter("next", "select");
+  drawHints("next", cursor == SLEEP || cursor == INVERT ? "change" : "open", "home", "");
 }
 
-// Text pieces in a line, centred; the piece at `active` is inverted.
-static void drawPieces(const char *const *pieces, int n, int active, int16_t cy) {
+// Text pieces in a line, centred; the piece at `active` is inverted in a box `boxH` tall.
+static void drawPieces(const char *const *pieces, int n, int active, int16_t cy, int16_t boxH) {
   String line;
   for (int i = 0; i < n; i++) line += pieces[i];
   int16_t x, y;
@@ -70,7 +72,7 @@ static void drawPieces(const char *const *pieces, int n, int active, int16_t cy)
     uint16_t pw, ph;
     display.getTextBounds(pieces[i], cursorX, baseline, &px, &py, &pw, &ph);
     if (i == active) {
-      display.fillRect(px - 3, cy - 18, pw + 6, 36, GxEPD_BLACK);
+      display.fillRect(px - 3, cy - boxH / 2, pw + 6, boxH, GxEPD_BLACK);
       display.setTextColor(GxEPD_WHITE);
     }
     display.setCursor(cursorX, baseline);
@@ -90,18 +92,18 @@ static void drawDateTime() {
   snprintf(mi, sizeof mi, "%02d", value[MINUTE]);
   const char *date[] = {y, "-", mo, "-", d}, *time[] = {hh, ":", mi};
   display.setFont(FONT_LARGE);
-  drawPieces(date, 5, field <= DAY ? field * 2 : -1, 66);
-  drawPieces(time, 3, field == HOUR ? 0 : field == MINUTE ? 2 : -1, 112);
+  drawPieces(date, 5, field <= DAY ? field * 2 : -1, 56, 36);
+  drawPieces(time, 3, field == HOUR ? 0 : field == MINUTE ? 2 : -1, 100, 36);
   display.setFont(FONT_SMALL);
   const char *save[] = {"Save"};
-  drawPieces(save, 1, field == SAVE ? 0 : -1, 152);
-  drawFooter("next", field == SAVE ? "save" : "+1, hold -1");
+  drawPieces(save, 1, field == SAVE ? 0 : -1, 140, 24);
+  drawHints("next", field == SAVE ? "save" : "+1", "cancel", field == SAVE ? "" : "-1");
 }
 
 static void drawInfo() {
-  drawHeader("Info");
+  drawHeader("Battery & info");
   display.setFont(FONT_SMALL);
-  char battery[24], storage[24], sync[12] = "never";
+  char battery[24], storage[24], sync[12] = "not yet";
   const int mv = batteryMillivolts(), pct = batteryPercent();
   if (pct < 0) snprintf(battery, sizeof battery, "none");
   else if (HWCDC::isPlugged()) snprintf(battery, sizeof battery, "%d.%02d V USB", mv / 1000, mv % 1000 / 10);
@@ -112,51 +114,68 @@ static void drawInfo() {
   else
     snprintf(storage, sizeof storage, "no card");
   if (time_t t = usbSyncLastTime()) {
-    struct tm s;
+    struct tm s, now = clockLocal();
     localtime_r(&t, &s);
-    snprintf(sync, sizeof sync, "%02d:%02d", s.tm_hour, s.tm_min);
+    if (s.tm_yday == now.tm_yday && s.tm_year == now.tm_year) strftime(sync, sizeof sync, "%H:%M", &s);
+    else strftime(sync, sizeof sync, "%d %b", &s);
   }
   drawRow(0, false, "Battery", battery);
   drawRow(1, false, "Firmware", VERSION);
   drawRow(2, false, "Storage", storage);
   drawRow(3, false, "Mac sync", sync);
-  drawFooter("", "back");
+  drawHints("", "refresh", "back", "");
+}
+
+static void drawResetRows() {
+  drawHeader("Reset data");
+  display.setFont(FONT_SMALL);
+  for (int i = 0; i < RESETS; i++) drawRow(i, i == resetCursor, RESET_NAMES[i], "");
 }
 
 static void drawReset() {
-  drawHeader("Reset");
-  display.setFont(FONT_SMALL);
-  for (int i = 0; i < RESETS; i++) drawRow(i, i == resetCursor, RESET_NAMES[i], i == doneRow ? "done" : "");
-  drawFooter("next", "select");
+  drawResetRows();
+  drawHints("next", "clear", "back", "");
 }
 
 static void drawConfirm() {
-  char line[32];
-  snprintf(line, sizeof line, "Clear %s?", RESET_NAMES[resetCursor]);
-  drawHeader("Reset");
-  display.setFont(FONT_SMALL);
-  drawCentered(line, 88);
-  drawCentered("this can't be undone", 112);
-  drawFooter("no", "yes");
+  static const char *TITLES[] = {"Clear the tally?", "Clear the Dex?", "Clear the calendar?", "Reset everything?"};
+  static const char *WHAT[] = {"Wins go back to 0.", "Forget all networks.", "Synced events go.",
+                               "Settings, Dex, tally,"};
+  drawResetRows();
+  drawSheet(TITLES[resetCursor], WHAT[resetCursor],
+            resetCursor == EVERYTHING ? "calendar. Keys stay." : "Can't be undone.");
+  drawHints("keep", resetCursor == EVERYTHING ? "reset" : "clear", "back", "");
 }
 
+// Clears one thing and says what happened (the honest result: nothing there, no card, done).
 static void clear(uint8_t what) {
-  if (what == TALLY || what == EVERYTHING) {
+  if (devDryRun()) {
+    launcherToast("Dry run: not cleared");
+    return;
+  }
+  if (what == TALLY) {
+    bool any = false;
     char key[8];
     for (int i = 1; i <= 6; i++) {
       snprintf(key, sizeof key, "ch_w%d", i);
+      any |= storageGetInt(key, 0) != 0;
       storageRemoveKey(key);
     }
+    launcherToast(any ? "Tally cleared" : "Nothing to clear");
+    return;
   }
-  if (what == DEX || what == EVERYTHING) storageRemove("/dex.csv");
-  if (what == CALENDAR || what == EVERYTHING) {
-    storageRemove("/events.csv");
-    storageRemoveKey("events_crc");  // so the next Mac sync writes the events again
+  if (what == DEX || what == CALENDAR) {
+    const char *path = what == DEX ? "/dex.csv" : "/events.csv";
+    if (!storageCardMount()) launcherToast("No SD card");
+    else if (!storageExists(path)) launcherToast("Nothing to clear");
+    else launcherToast(storageRemove(path) ? (what == DEX ? "Dex cleared" : "Calendar cleared") : "Couldn't clear it");
+    if (what == CALENDAR) storageRemoveKey("events_crc");  // so the next Mac sync writes the events again
+    return;
   }
-  if (what == EVERYTHING) {
-    storageClearKeys();  // settings, badge choice, Dex salt
-    ESP.restart();       // start clean with the defaults
-  }
+  storageRemove("/dex.csv");
+  storageRemove("/events.csv");
+  storageClearKeys();  // settings, badge choice, tally, Dex salt (not the WiFi and keys: they're separate)
+  systemRestart("Starting fresh");
 }
 
 static void startEditing() {
@@ -192,7 +211,6 @@ static void save() {
 static void onEnter() {
   screen = LIST;
   cursor = 0;
-  doneRow = -1;
 }
 
 static Redraw onButton(Event e) {
@@ -205,7 +223,7 @@ static Redraw onButton(Event e) {
           startEditing();
           screen = DATETIME;
         } else if (cursor == SLEEP) {
-          int now = storageGetInt("sleep_s", 10), next = SLEEP_CHOICES[0];
+          int now = powerSleepSeconds(), next = SLEEP_CHOICES[0];
           for (int i = 0; i < 3; i++)
             if (SLEEP_CHOICES[i] == now) next = SLEEP_CHOICES[i + 1];
           powerSetSleepSeconds(next);
@@ -215,7 +233,6 @@ static Redraw onButton(Event e) {
         } else {
           screen = cursor == INFO_ROW ? INFO : RESET;
           resetCursor = 0;
-          doneRow = -1;
         }
       } else {
         return Redraw::None;
@@ -226,30 +243,35 @@ static Redraw onButton(Event e) {
       else if (e == Event::BShort && field == SAVE) {
         save();
         screen = LIST;
+        launcherToast("Clock set");
       } else if (e == Event::BShort) step(+1);
       else if (e == Event::BLong && field != SAVE) step(-1);
       else return Redraw::None;
       return Redraw::Partial;
     case INFO:
-      if (e != Event::BShort && e != Event::BLong) return Redraw::None;
-      screen = LIST;
-      return Redraw::Partial;
+      return e == Event::BShort ? Redraw::Partial : Redraw::None;  // refresh the readings
     case RESET:
       if (e == Event::AShort) resetCursor = (resetCursor + 1) % RESETS;
-      else if (e == Event::BShort) screen = resetCursor == BACK ? LIST : CONFIRM;
+      else if (e == Event::BShort) screen = CONFIRM;
       else return Redraw::None;
       return Redraw::Partial;
     case CONFIRM:
-      if (e == Event::BShort) {
-        clear(resetCursor);
-        doneRow = resetCursor;
-      } else if (e != Event::AShort) {
-        return Redraw::None;
-      }
+      if (e == Event::BShort) clear(resetCursor);
+      else if (e != Event::AShort) return Redraw::None;
       screen = RESET;
       return Redraw::Partial;
   }
   return Redraw::None;
+}
+
+static Redraw onBack() {
+  switch (screen) {
+    case LIST: return Redraw::Exit;
+    case DATETIME: launcherToast("Not saved"); screen = LIST; break;
+    case CONFIRM: screen = RESET; break;
+    default: screen = LIST; break;
+  }
+  return Redraw::Partial;
 }
 
 static void draw() {
@@ -264,4 +286,9 @@ static void draw() {
 
 static void onExit() {}
 
-extern const App settingsApp = {"Settings", ICON_SETTINGS, onEnter, onButton, draw, onExit};
+static void status(char *out, size_t len) {
+  if (!clockValid()) snprintf(out, len, "Clock not set");
+  else snprintf(out, len, "Sleep after %d s", powerSleepSeconds());
+}
+
+extern const App settingsApp = {"Settings", ICON_SETTINGS, onEnter, onButton, draw, onExit, onBack, status};

@@ -4,6 +4,7 @@
 // Shared look for every screen: two font sizes, fixed margins, thin header and footer.
 extern const GFXfont *const FONT_SMALL;  // header, footer, secondary text
 extern const GFXfont *const FONT_LARGE;  // the one focal element
+extern const GFXfont *const FONT_MEDIUM; // app names on the home screen (12 pt)
 extern const GFXfont *const FONT_BOLD;   // headlines of empty states and confirm sheets (9 pt bold)
 extern const GFXfont *const FONT_TINY;   // the "hold" row of the hints (7 pt)
 
@@ -22,6 +23,7 @@ void drawFooter(const char *aHint, const char *bHint);  // e.g. "next", "select"
 //   hold A: back        hold B: delete
 void drawHints(const char *a, const char *b, const char *aHold, const char *bHold);
 void drawCentered(const char *text, int16_t cy);        // centred horizontally, cy = vertical centre
+void drawCenteredLine(const char *text, int16_t baseline);  // centred horizontally on a fixed baseline
 void drawRight(const char *text, int16_t baseline);     // right-aligned to the margin
 String fitText(const char *text, int16_t maxWidth);     // cut to fit the current font, ending in "..." if cut
 int16_t textWidth(const char *text);                    // in the current font
