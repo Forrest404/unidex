@@ -1,10 +1,12 @@
 // Dex, a WiFi network collection game: scan on demand, log first sightings to /dex.csv with salted, hashed BSSIDs.
 // One entry per network name (many access points share one). Hidden networks are left out.
-// A = list of all finds (A pages, B back), B = scan, B long = counts per rarity (hold B there to clear).
+// A = list of all finds, B = scan, hold B = counts per rarity (hold B there to clear), hold A = back.
 #include <WiFi.h>
 #include <mbedtls/sha256.h>
 #include "../../core/app.h"
+#include "../../core/devtools.h"
 #include "../../core/display.h"
+#include "../../core/launcher.h"
 #include "../../core/power.h"
 #include "../../core/storage.h"
 #include "../../core/theme.h"
@@ -33,6 +35,7 @@ static Find best;
 
 enum View : uint8_t { MAIN, LIST, STATS, CONFIRM };
 RTC_DATA_ATTR static uint8_t view, page;
+RTC_DATA_ATTR static int dexCount = -1;  // finds, kept through sleep for the home screen (-1 = not counted yet)
 
 static void loadSalt() {
   String hex = storageGetString("dex_salt");
@@ -101,10 +104,13 @@ static void load() {
   knownCount = 0;
   memset(perRarity, 0, sizeof perRarity);
   loadSalt();
-  fs::File f = storageOpen(DEX);
-  Find entry;
-  while (f && f.available())
-    if (parseRow(f.readStringUntil('\n'), entry)) remember(entry.ssid, entry.rarity);
+  if (storageExists(DEX)) {  // opening a missing file would log an error onto the USB line
+    fs::File f = storageOpen(DEX);
+    Find entry;
+    while (f && f.available())
+      if (parseRow(f.readStringUntil('\n'), entry)) remember(entry.ssid, entry.rarity);
+  }
+  dexCount = knownCount;
 }
 
 static void ensureLoaded() {
@@ -133,8 +139,9 @@ static uint8_t rarityOf(const char *ssid, int rssi, wifi_auth_mode_t auth) {
 
 static void drawScanning() {
   drawHeader("Dex");
-  display.setFont(FONT_SMALL);
-  drawCentered("scanning...", (CONTENT_TOP + CONTENT_BOTTOM) / 2);
+  drawEmpty("Looking for networks", "a few seconds...");
+  drawProgress(HINTS_TOP - 24, -1);
+  drawHints("", "", "", "");
 }
 
 static void scan() {
@@ -145,17 +152,23 @@ static void scan() {
   WiFi.mode(WIFI_STA);
   int found = WiFi.scanNetworks(false, false /*no hidden networks*/, false, 120 /*ms per channel*/);
   nearby = newCount = 0;
+  uint64_t seen[64];  // names nearby (many access points can share one), so "nearby" counts networks
   String rows;  // new finds, written to flash in one go below
   for (int i = 0; i < found; i++) {
     char ssid[33];
     strlcpy(ssid, WiFi.SSID(i).c_str(), sizeof ssid);
     if (!*ssid) continue;  // hidden networks are left out
-    nearby++;
     for (char *p = ssid; *p; p++)  // keep the CSV intact and the ASCII-only font readable
       if (*p == ',') *p = ' ';
       else if (*p < 32 || *p > 126) *p = '?';
+    const uint64_t key = keyOf(ssid);
+    bool repeat = false;
+    for (int s = 0; s < nearby && s < 64; s++) repeat |= seen[s] == key;
+    if (repeat) continue;
+    if (nearby < 64) seen[nearby] = key;
+    nearby++;
     uint64_t h = hashBssid(WiFi.BSSID(i));
-    if (isKnown(keyOf(ssid))) continue;  // also skips repeats within this scan
+    if (isKnown(key)) continue;
     int rssi = WiFi.RSSI(i);
     wifi_auth_mode_t auth = WiFi.encryptionType(i);
     uint8_t r = rarityOf(ssid, rssi, auth);
@@ -178,6 +191,7 @@ static void scan() {
     f.close();
   }
   scanned = true;
+  dexCount = knownCount;
 #if DEBUG
   Serial.printf("scan: %d nearby, %d new, WiFi mode %d (0 = off)\n", nearby, newCount, (int)WiFi.getMode());
 #endif
@@ -185,20 +199,16 @@ static void scan() {
 }
 
 static void drawTitle(const char *title) {
-  drawHeader(title);
   char found[16];
   snprintf(found, sizeof found, "%d found", knownCount);
-  drawRight(found, 16);
+  drawHeader(title, found);
 }
 
-// Large font if it fits, else small.
+// Large font if it fits, else small (cut with "..." if even that is too wide).
 static void drawName(const char *text, int16_t cy) {
-  int16_t x, y;
-  uint16_t w, h;
   display.setFont(FONT_LARGE);
-  display.getTextBounds(text, 0, 0, &x, &y, &w, &h);
-  if (w > display.width() - 2 * MARGIN) display.setFont(FONT_SMALL);
-  drawCentered(text, cy);
+  if (textWidth(text) > display.width() - 2 * MARGIN) display.setFont(FONT_SMALL);
+  drawCentered(fitText(text, display.width() - 2 * MARGIN).c_str(), cy);
 }
 
 static void drawMain() {
@@ -206,8 +216,7 @@ static void drawMain() {
   char line[48];
   display.setFont(FONT_SMALL);
   if (knownCount == 0) {
-    drawCentered("no networks yet", 90);
-    drawCentered("B to scan", 114);
+    drawEmpty("No networks yet", "Press B to look for", "WiFi networks nearby");
   } else if (scanned && newCount > 0) {
     // NEW!: a small inverted tag above the best new find.
     const int16_t tagW = 52, tagH = 20, tagX = (display.width() - tagW) / 2, tagY = CONTENT_TOP + 10;
@@ -215,32 +224,31 @@ static void drawMain() {
     display.setTextColor(GxEPD_WHITE);
     drawCentered("NEW!", tagY + tagH / 2);
     display.setTextColor(GxEPD_BLACK);
-    drawName(best.ssid, 90);
+    drawName(best.ssid, 84);
     snprintf(line, sizeof line, "%s, %d new of %d", RARITY[best.rarity], newCount, nearby);
     display.setFont(FONT_SMALL);
-    drawCentered(line, 128);
+    drawCentered(fitText(line, display.width() - 2 * MARGIN).c_str(), 116);
   } else if (scanned) {
-    drawName("nothing new", 90);
-    snprintf(line, sizeof line, "%d nearby", nearby);
-    display.setFont(FONT_SMALL);
-    drawCentered(line, 128);
+    drawEmpty("Nothing new here", nearby == 1 ? "1 network nearby," : (String(nearby) + " networks nearby,").c_str(),
+              "all found before");
   } else {
     char count[12];
     snprintf(count, sizeof count, "%d", knownCount);
     display.setFont(FONT_LARGE);
-    drawCentered(count, 78);
+    drawCentered(count, 66);
     display.setFont(FONT_SMALL);
-    drawCentered("networks found", 106);
+    drawCentered(knownCount == 1 ? "network found" : "networks found", 96);
     snprintf(line, sizeof line, "last: %s", newest.ssid);
-    drawCentered(line, 140);
+    drawCentered(fitText(line, display.width() - 2 * MARGIN).c_str(), 132);
   }
-  drawFooter("list", "scan");
+  drawHints("list", "scan", "home", "rarity");
 }
 
 // One page of the whole dex, newest first, read straight from the file (names aren't kept in RAM).
 static int readPage(Find *out) {
   const int first = knownCount - 1 - page * PAGE;  // file row index of the page's newest entry
   int row = 0, n = 0;
+  if (!storageExists(DEX)) return 0;
   fs::File f = storageOpen(DEX);
   Find entry;
   while (f && f.available()) {
@@ -257,25 +265,24 @@ static int readPage(Find *out) {
 static void drawList() {
   Find rows[PAGE];
   const int n = readPage(rows);
-  char title[24];
-  snprintf(title, sizeof title, "%d-%d of %d", page * PAGE + 1, page * PAGE + n, knownCount);
-  drawHeader("All");
-  drawRight(title, 16);
+  char title[24] = "";
+  if (n) snprintf(title, sizeof title, "%d-%d of %d", page * PAGE + 1, page * PAGE + n, knownCount);
+  drawHeader("All finds", title);
   display.setFont(FONT_SMALL);
   for (int i = 0; i < n; i++) {
     const int16_t baseline = CONTENT_TOP + 22 + i * 26;
+    display.setFont(FONT_TINY);  // the rarity small, so the name gets the room
     drawRight(RARITY[rows[i].rarity], baseline);
-    int16_t x, y;
-    uint16_t h, tagW;
-    display.getTextBounds(RARITY[rows[i].rarity], 0, 0, &x, &y, &tagW, &h);
+    const int16_t tagW = textWidth(RARITY[rows[i].rarity]);
+    display.setFont(FONT_SMALL);
     display.setCursor(MARGIN, baseline);
-    display.print(fitText(rows[i].ssid, display.width() - 2 * MARGIN - tagW - 8));  // beside the rarity
+    display.print(fitText(rows[i].ssid, display.width() - 2 * MARGIN - tagW - 6));
   }
-  if (n == 0) drawCentered("nothing yet", (CONTENT_TOP + CONTENT_BOTTOM) / 2);
-  drawFooter("more", "back");
+  if (n == 0) drawEmpty("Nothing yet", "Scan on the Dex screen", "to find networks");
+  drawHints(knownCount > PAGE ? "more" : "", "", "back", "");
 }
 
-static void drawStats() {
+static void drawStatsRows() {
   drawTitle("Rarity");
   display.setFont(FONT_SMALL);
   const uint8_t order[] = {RARE, STARTER, UNCOMMON, COMMON};
@@ -287,21 +294,27 @@ static void drawStats() {
     snprintf(n, sizeof n, "%d", perRarity[order[i]]);
     drawRight(n, baseline);
   }
-  drawFooter("back", "hold: clear");
+}
+
+static void drawStats() {
+  drawStatsRows();
+  drawHints("", "", "back", knownCount ? "clear" : "");
 }
 
 static void drawConfirm() {
   char line[32];
-  snprintf(line, sizeof line, "Clear all %d?", knownCount);
-  drawHeader("Clear dex");
-  display.setFont(FONT_SMALL);
-  drawCentered(line, 88);
-  drawCentered("this can't be undone", 112);
-  drawFooter("no", "yes");
+  snprintf(line, sizeof line, knownCount == 1 ? "Your 1 find goes." : "All %d finds go.", knownCount);
+  drawStatsRows();
+  drawSheet("Clear the Dex?", line, "Can't be undone.");
+  drawHints("keep", "clear", "back", "");
 }
 
 static void clearDex() {
-  storageRemove(DEX);
+  if (devDryRun()) {
+    launcherToast("Dry run: not cleared");
+    return;
+  }
+  launcherToast(storageRemove(DEX) ? "Dex cleared" : "Couldn't clear it");
   knownCount = -1;  // reload: empty. The salt stays, so hashes stay comparable.
   scanned = false;
   ensureLoaded();
@@ -326,10 +339,11 @@ static Redraw onButton(Event e) {
       return Redraw::None;
     }
   } else if (view == STATS) {
-    view = e == Event::BLong ? CONFIRM : MAIN;
+    if (e != Event::BLong || !knownCount) return Redraw::None;
+    view = CONFIRM;
   } else if (view == LIST) {
-    if (e == Event::AShort) page = (page + 1) * PAGE < knownCount ? page + 1 : 0;  // wraps to the top
-    else view = MAIN;
+    if (e != Event::AShort || knownCount <= PAGE) return Redraw::None;
+    page = (page + 1) * PAGE < knownCount ? page + 1 : 0;  // wraps to the top
   } else if (e == Event::AShort) {
     view = LIST;
     page = 0;
@@ -352,6 +366,17 @@ static void draw() {
   else drawMain();
 }
 
+static Redraw onBack() {
+  if (view == MAIN) return Redraw::Exit;
+  view = view == CONFIRM ? STATS : MAIN;
+  return Redraw::Partial;
+}
+
 static void onExit() {}
 
-extern const App dexApp = {"Dex", ICON_DEX, onEnter, onButton, draw, onExit};
+static void status(char *out, size_t len) {
+  if (dexCount < 0) snprintf(out, len, "Collect WiFi networks");
+  else snprintf(out, len, dexCount == 1 ? "1 network found" : "%d networks found", dexCount);
+}
+
+extern const App dexApp = {"Dex", ICON_DEX, onEnter, onButton, draw, onExit, onBack, status, nullptr, true};
