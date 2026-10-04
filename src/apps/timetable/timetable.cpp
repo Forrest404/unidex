@@ -2,10 +2,12 @@
 // Weekly classes from /timetable.csv, dated events from /events.csv (Mac sync or the website).
 // A = next event, B = details (full title, place, notes), B long = rest of today.
 #include "../../core/app.h"
+#include "../../core/clock.h"
 #include "../../core/display.h"
+#include "../../core/launcher.h"
+#include "../../core/power.h"
 #include "../../core/storage.h"
 #include "../../core/theme.h"
-#include "../../core/clock.h"
 #include "../../core/usbsync.h"
 
 struct Class {
@@ -21,18 +23,28 @@ struct Upcoming {
   int32_t delta;  // minutes from now to the start; negative = in progress
 };
 
-static const int MAX_CLASSES = 96, MAX_UPCOMING = 5, DAY_ROWS = 7, ROW_H = 20;
-static const int DETAIL_LINES = 40, PAGE_LINES = 8, LINE_H = 18;  // details screen, small font
+static const int MAX_CLASSES = 96, MAX_UPCOMING = 5, DAY_ROWS = 6, ROW_H = 20;
+static const int DETAIL_LINES = 40, PAGE_LINES = 7, LINE_H = 18;  // details screen, small font
 static const int32_t WEEK = 7 * 1440;
 
 // RAM is lost in deep sleep, so the CSV is loaded again on first use after a wake.
 static Class classes[MAX_CLASSES];
 static int count = -1;  // -1 = not loaded yet
 static uint32_t loadedGeneration;  // reload when the USB sync brings new events
-static const char *syncError;  // shown once after a failed sync
+static int drawnMinute = -1;       // the minute on screen, for the live countdown
 
 enum View : uint8_t { NEXT, DAY, DETAIL };
-RTC_DATA_ATTR static uint8_t view, peek, scroll, page;
+RTC_DATA_ATTR static uint8_t view, peek, scroll, page, row, detailFrom;
+RTC_DATA_ATTR static int16_t detailClass;   // the event the details screen shows
+RTC_DATA_ATTR static int32_t detailDelta;   // minutes from now to its start, when it was opened
+
+// The next few events, kept through sleep for the home screen's line (it can't read the card).
+struct Soon {
+  char title[32];
+  time_t start, end;
+};
+RTC_DATA_ATTR static Soon soon[3];
+RTC_DATA_ATTR static int8_t soonCount = -1;  // -1 = not worked out since power-up
 
 static int parseDay(String s) {
   static const char *DAYS[] = {"sun", "mon", "tue", "wed", "thu", "fri", "sat"};
@@ -168,20 +180,10 @@ static void formatDuration(char *buf, size_t len, int32_t min) {
 static void formatHm(char *buf, size_t len, int min) { snprintf(buf, len, "%02d:%02d", min / 60, min % 60); }
 
 static void drawTitle(const char *title, const struct tm &now) {
-  drawHeader(title);
-  if (clockValid()) {
-    char hm[6];
-    formatHm(hm, sizeof hm, nowMinutes(now));
-    drawRight(hm, 16);
-  }
-}
-
-static void drawMessage(const struct tm &now, const char *line1, const char *line2) {
-  const int16_t mid = (CONTENT_TOP + CONTENT_BOTTOM) / 2;
-  drawTitle("Timetable", now);
-  display.setFont(FONT_SMALL);
-  drawCentered(line1, mid - 12);
-  drawCentered(line2, mid + 12);
+  char hm[6] = "";
+  if (clockValid()) formatHm(hm, sizeof hm, nowMinutes(now));
+  drawHeader(title, hm);
+  drawnMinute = clockValid() ? now.tm_min : -1;
 }
 
 // "IN 42 MIN" / "NOW, ENDS IN 20 MIN" / "TOMORROW 09:30" / "TUE 09:00".
@@ -209,22 +211,39 @@ static void formatSpan(char *buf, size_t len, const Class &c) {
   snprintf(buf, len, "%s-%s", a, b);
 }
 
-// Returns the number of upcoming events (0 = nothing to show, and the screen is already drawn).
-static int upcomingOrMessage(Upcoming *up, const struct tm &now) {
+// Remembers the next few events for the home screen's line.
+static void rememberSoon(const Upcoming *up, int n) {
+  const time_t now = time(nullptr);
+  soonCount = min(n, 3);
+  for (int i = 0; i < soonCount; i++) {
+    const Class &c = classes[up[i].index];
+    strlcpy(soon[i].title, c.module, sizeof soon[i].title);
+    soon[i].start = now - now % 60 + (time_t)up[i].delta * 60;
+    soon[i].end = soon[i].start + (time_t)(c.end - c.start) * 60;
+  }
+}
+
+// The empty and "can't show it" states. Returns the number of upcoming events (0 = the screen is drawn).
+static int upcomingOrEmpty(Upcoming *up, const struct tm &now) {
   if (count == 0) {
-    drawMessage(now, "nothing coming up", "plug into the Mac to sync");
-    drawFooter("hold home", "");
+    soonCount = 0;
+    drawTitle("Timetable", now);
+    drawEmpty("Nothing coming up", "Add events on the", "website or your Mac");
+    drawHints("", "", "home", "");
     return 0;
   }
   if (!clockValid()) {
-    drawMessage(now, "time not set", syncError ? syncError : "B to sync");
-    drawFooter("hold home", "sync");
+    drawTitle("Timetable", now);
+    drawEmpty("Time not set", "Press B to sync it,", "or set it in Settings");
+    drawHints("", "sync", "home", "");
     return 0;
   }
   const int n = findUpcoming(up, now);
+  rememberSoon(up, n);
   if (n == 0) {  // e.g. only all-day or finished events left
-    drawMessage(now, "nothing coming up", "B hold: today");
-    drawFooter("hold home", "hold: day");
+    drawTitle("Timetable", now);
+    drawEmpty("Nothing coming up", "Only all-day or past", "events are left");
+    drawHints("", "", "home", "today");
   }
   return n;
 }
@@ -232,18 +251,23 @@ static int upcomingOrMessage(Upcoming *up, const struct tm &now) {
 // The card: countdown, the title (large, 2 lines), time and length, place, and a peek at what's after.
 static void drawNext(const struct tm &now) {
   Upcoming up[MAX_UPCOMING];
-  const int n = upcomingOrMessage(up, now);
+  const int n = upcomingOrEmpty(up, now);
   if (n == 0) return;
   peek %= n;
   const Class &c = classes[up[peek].index];
   const int16_t width = display.width() - 2 * MARGIN;
   drawTitle("Timetable", now);
 
-  char when[32];
+  char when[32], pos[8];
   formatWhen(when, sizeof when, c, up[peek].delta, now);
   display.setFont(FONT_SMALL);
-  display.setCursor(MARGIN, CONTENT_TOP + 18);
+  display.setCursor(MARGIN, CONTENT_TOP + 16);
   display.print(when);
+  if (n > 1) {  // which of the upcoming events this is
+    snprintf(pos, sizeof pos, "%d/%d", peek + 1, n);
+    display.setFont(FONT_TINY);
+    drawRight(pos, CONTENT_TOP + 16);
+  }
 
   // The title: large on up to 2 lines, else small on up to 3, centred between the countdown and the rule.
   String lines[3];
@@ -256,35 +280,35 @@ static void drawNext(const struct tm &now) {
     used = min(wrapText(c.module, width, lines, 3), 3);
     lineH = 18, ascent = 13;
   }
-  const int16_t top = CONTENT_TOP + 26, bottom = CONTENT_TOP + 86;
+  const int16_t top = CONTENT_TOP + 22, bottom = CONTENT_TOP + 78;
   const int16_t first = top + (bottom - top - used * lineH) / 2 + ascent;
   for (int i = 0; i < used; i++) display.setCursor(MARGIN, first + i * lineH), display.print(lines[i]);
-  display.drawFastHLine(MARGIN, CONTENT_TOP + 90, 40, GxEPD_BLACK);
+  display.drawFastHLine(MARGIN, CONTENT_TOP + 81, 40, GxEPD_BLACK);
 
   char span[16], dur[16], line[48];
   formatSpan(span, sizeof span, c);
   formatDuration(dur, sizeof dur, c.end - c.start);
   snprintf(line, sizeof line, "%s   %s", span, dur);
   display.setFont(FONT_SMALL);
-  display.setCursor(MARGIN, CONTENT_TOP + 108);
+  int16_t y = CONTENT_TOP + 98;
+  display.setCursor(MARGIN, y);
   display.print(line);
-  if (*c.room) display.setCursor(MARGIN, CONTENT_TOP + 126), display.print(fitText(c.room, width));
+  if (*c.room) display.setCursor(MARGIN, y += 18), display.print(fitText(c.room, width));
 
   if (n > 1) {  // what's after this one
     const Class &next = classes[up[(peek + 1) % n].index];
-    char at[32];
+    char at[32], hm[6];
     formatWhen(at, sizeof at, next, up[(peek + 1) % n].delta, now);
-    char hm[6];
     formatHm(hm, sizeof hm, next.start);
     snprintf(line, sizeof line, "then %s  ", up[(peek + 1) % n].delta < 1440 - nowMinutes(now) ? hm : at);
-    display.setCursor(MARGIN, CONTENT_BOTTOM - 6);
+    display.setCursor(MARGIN, y + 18);
     display.print(fitText((String(line) + next.module).c_str(), width));
   }
-  drawFooter("next", "details");
+  drawHints(n > 1 ? "next" : "", "details", "home", "today");
 }
 
 // Everything about the event, as lines of small text: title, date, time and length, place, notes.
-static int detailLines(const Class &c, int32_t d, const struct tm &now, String *out) {
+static int detailLines(const Class &c, int32_t d, String *out) {
   static const char *DAYS[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
   static const char *MONTHS[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
   const int16_t width = display.width() - 2 * MARGIN;
@@ -316,102 +340,136 @@ static int detailLines(const Class &c, int32_t d, const struct tm &now, String *
 }
 
 static void drawDetail(const struct tm &now) {
-  Upcoming up[MAX_UPCOMING];
-  const int n = upcomingOrMessage(up, now);
-  if (n == 0) return;
-  peek %= n;
+  if (detailClass < 0 || detailClass >= count) {  // the events changed underneath: back to the card
+    view = NEXT;
+    drawNext(now);
+    return;
+  }
   String lines[DETAIL_LINES];
   display.setFont(FONT_SMALL);
-  const int total = detailLines(classes[up[peek].index], up[peek].delta, now, lines);
-  if (page * PAGE_LINES >= total) page = 0;
-  drawTitle("Details", now);
+  const int total = detailLines(classes[detailClass], detailDelta, lines);
+  const int pages = (total + PAGE_LINES - 1) / PAGE_LINES;
+  if (page >= pages) page = 0;
+  char pos[8] = "";
+  if (pages > 1) snprintf(pos, sizeof pos, "%d/%d", page + 1, pages);
+  drawHeader("Details", pos);
+  drawnMinute = -1;
   display.setFont(FONT_SMALL);
   for (int i = 0; i < PAGE_LINES && page * PAGE_LINES + i < total; i++) {
     display.setCursor(MARGIN, CONTENT_TOP + 18 + i * LINE_H);
     display.print(lines[page * PAGE_LINES + i]);
   }
-  const bool more = (page + 1) * PAGE_LINES < total;
-  drawFooter(more ? "more" : total > PAGE_LINES ? "top" : "", "back");
+  drawHints(pages > 1 ? "more" : "", "", "back", "");
 }
 
 static void drawDay(const struct tm &now) {
   int16_t today[MAX_CLASSES];
-  int n = findToday(today, now);
+  const int n = findToday(today, now);
   drawTitle("Today", now);
+  if (n == 0) {
+    drawEmpty("Nothing left today", "Enjoy the free time", "");
+    drawHints("", "", "back", "");
+    return;
+  }
+  row %= n;
+  if (row < scroll) scroll = row;  // keep the selected row on screen
+  if (row >= scroll + DAY_ROWS) scroll = row - DAY_ROWS + 1;
   display.setFont(FONT_SMALL);
-  if (n == 0) drawCentered("no more classes today", (CONTENT_TOP + CONTENT_BOTTOM) / 2);
   for (int r = 0; r < DAY_ROWS && scroll + r < n; r++) {
     const Class &c = classes[today[scroll + r]];
     const int16_t top = CONTENT_TOP + 4 + r * ROW_H, baseline = top + 15;
-    uint16_t ink = GxEPD_BLACK;
-    if (!c.allDay && c.start <= nowMinutes(now)) {  // in progress: inverted
-      display.fillRect(MARGIN - 4, top, display.width() - 2 * (MARGIN - 4), ROW_H, GxEPD_BLACK);
-      ink = GxEPD_WHITE;
-    }
-    display.setTextColor(ink);
+    const bool selected = scroll + r == row;
+    if (selected) display.fillRect(MARGIN - 4, top, display.width() - 2 * (MARGIN - 4), ROW_H, GxEPD_BLACK);
+    display.setTextColor(selected ? GxEPD_WHITE : GxEPD_BLACK);
     char hm[8];
     if (c.allDay) strcpy(hm, "all day");
+    else if (c.start <= nowMinutes(now)) strcpy(hm, "now");  // in progress
     else formatHm(hm, sizeof hm, c.start);
     display.setCursor(MARGIN, baseline);
     display.print(hm);
-    drawRight(c.room, baseline);
-
-    // The module name gets whatever fits between the time and the room.
-    int16_t x, y;
-    uint16_t h, roomW;
-    display.getTextBounds(c.room, 0, 0, &x, &y, &roomW, &h);
-    const int16_t left = MARGIN + 54, room = display.width() - MARGIN - roomW - 6;
+    // The title gets the rest of the row (the room is on the details screen).
+    const int16_t left = MARGIN + 54;
     display.setCursor(left, baseline);
-    display.print(fitText(c.module, room - left));
+    display.print(fitText(c.module, display.width() - MARGIN - left));
     display.setTextColor(GxEPD_BLACK);
   }
-  drawFooter("scroll", "back");
+  drawHints(n > 1 ? "next" : "", "details", "back", "");
 }
 
 static void drawSyncing() {
-  drawMessage(clockLocal(), "syncing time...", "");
+  drawTitle("Timetable", clockLocal());
+  drawEmpty("Setting the clock", "WiFi, then a time server", "up to 30 s");
+  drawProgress(HINTS_TOP - 14, -1);
+  drawHints("", "", "", "");
+}
+
+static void openDetail(int16_t cls, int32_t delta, uint8_t from) {
+  detailClass = cls;
+  detailDelta = delta;
+  detailFrom = from;
+  view = DETAIL;
+  page = 0;
 }
 
 static void onEnter() {
   view = NEXT;
-  peek = scroll = page = 0;
-  syncError = nullptr;
+  peek = scroll = page = row = 0;
   count = -1;  // re-read the CSV in case it changed
   ensureReady();
 }
 
 static Redraw onButton(Event e) {
   ensureReady();
-  syncError = nullptr;
+  const struct tm now = clockLocal();
   if (view == DAY) {
-    if (e == Event::AShort) {
-      int16_t today[MAX_CLASSES];
-      int n = findToday(today, clockLocal());
-      if (scroll + DAY_ROWS >= n) return Redraw::None;
-      scroll++;
+    int16_t today[MAX_CLASSES];
+    const int n = findToday(today, now);
+    if (!n) return Redraw::None;
+    if (e == Event::AShort && n > 1) {
+      row = (row + 1) % n;
+    } else if (e == Event::BShort) {
+      const Class &c = classes[today[row % n]];
+      openDetail(today[row % n], c.start - nowMinutes(now), DAY);
     } else {
-      view = NEXT;
+      return Redraw::None;
     }
     return Redraw::Partial;
   }
   if (view == DETAIL) {
-    if (e == Event::AShort) page++;  // drawDetail wraps back to the first page after the last
-    else view = NEXT;
+    if (e != Event::AShort) return Redraw::None;
+    page++;  // drawDetail wraps back to the first page after the last
     return Redraw::Partial;
   }
-  if (e == Event::AShort) {
-    peek++;
-  } else if (e == Event::BLong) {
-    view = DAY;
-    scroll = 0;
-  } else if (e == Event::BShort && !clockValid()) {  // "time not set": B syncs over WiFi
+  if (count == 0) return Redraw::None;
+  if (!clockValid()) {  // "Time not set": B syncs over WiFi
+    if (e != Event::BShort) return Redraw::None;
     displayShow(drawSyncing, false);
-    syncError = clockSync();
+    const char *err = clockSync();
+    powerActivity();  // the sync took a while; don't sleep straight away
+    launcherToast(err ? err : "Clock set");
     peek = 0;
-  } else if (e == Event::BShort) {
-    view = DETAIL;
-    page = 0;
+    return Redraw::Partial;
   }
+  Upcoming up[MAX_UPCOMING];
+  const int n = findUpcoming(up, now);
+  if (e == Event::BLong) {
+    view = DAY;
+    scroll = row = 0;
+  } else if (n == 0) {
+    return Redraw::None;
+  } else if (e == Event::AShort && n > 1) {
+    peek = (peek + 1) % n;
+  } else if (e == Event::BShort) {
+    openDetail(up[peek % n].index, up[peek % n].delta, NEXT);
+  } else {
+    return Redraw::None;
+  }
+  return Redraw::Partial;
+}
+
+static Redraw onBack() {
+  if (view == NEXT) return Redraw::Exit;
+  view = view == DETAIL ? detailFrom : NEXT;
   return Redraw::Partial;
 }
 
@@ -423,6 +481,42 @@ static void draw() {
   else drawNext(now);
 }
 
+// The countdown and "now" markers move on each minute.
+static Redraw tick() {
+  if (view == DETAIL || drawnMinute < 0 || !clockValid() || clockLocal().tm_min == drawnMinute) return Redraw::None;
+  return Redraw::Tick;
+}
+
 static void onExit() {}
 
-extern const App timetableApp = {"Timetable", ICON_TIMETABLE, onEnter, onButton, draw, onExit};
+// "In 12 min: Maths", "Now: Maths", "Tue 09:00: Maths", from the events remembered on the last visit. The time
+// goes first so a long title is what gets cut.
+static void status(char *out, size_t len) {
+  if (!clockValid()) {
+    snprintf(out, len, "Time not set");
+    return;
+  }
+  const time_t now = time(nullptr);
+  for (int i = 0; i < soonCount; i++) {
+    const Soon &s = soon[i];
+    if (now >= s.end) continue;
+    if (now >= s.start) {
+      snprintf(out, len, "Now: %s", s.title);
+      return;
+    }
+    const long mins = (s.start - now + 59) / 60;
+    char when[24];
+    if (mins < 60) snprintf(when, sizeof when, "In %ld min", mins);
+    else if (mins < 12 * 60) snprintf(when, sizeof when, "In %ld h %02ld", mins / 60, mins % 60);
+    else {
+      struct tm at;
+      localtime_r(&s.start, &at);
+      strftime(when, sizeof when, "%a %H:%M", &at);
+    }
+    snprintf(out, len, "%s: %s", when, s.title);
+    return;
+  }
+  if (soonCount == 0) snprintf(out, len, "Nothing coming up");
+}
+
+extern const App timetableApp = {"Timetable", ICON_TIMETABLE, onEnter, onButton, draw, onExit, onBack, status, tick, true};

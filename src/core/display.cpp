@@ -16,6 +16,7 @@ void displayInit(bool initial) {
   // which is a no-op once SPI is already started, so these pins stick.
   SPI.begin(PIN_SCK, -1, PIN_MOSI, PIN_CS);
   display.init(0, initial);  // no GxEPD2 timing logs: they'd clutter the USB sync line
+  display.setTextWrap(false);  // with wrap on, measuring a long line reports only its first wrapped piece
   display.inverted = storageGetInt("invert", 0);
 }
 
