@@ -1,8 +1,9 @@
-// Name Badge: flips through 1-bit BMPs in /badges, full screen. A = next, B = previous,
-// hold B = picker (3x3 thumbnails: A = next, B = open, hold B = back).
+// Badge: flips through 1-bit BMPs in /badges, full screen. A = next, B = picker (3x3 thumbnails:
+// A = next, B = open, hold A = back), hold B = previous. The hints show as a band for a moment on opening.
 #include <algorithm>
 #include "../../core/app.h"
 #include "../../core/display.h"
+#include "../../core/launcher.h"
 #include "../../core/storage.h"
 #include "../../core/theme.h"
 
@@ -16,12 +17,26 @@ static int count = -1;  // -1 = not listed yet
 RTC_DATA_ATTR static int current;
 RTC_DATA_ATTR static bool picking;
 RTC_DATA_ATTR static int cursor;  // selected thumbnail in the picker
+static const uint32_t BAND_MS = 2500;
+static uint32_t bandAt;     // when the hints band was shown over the badge
+static bool band;           // it's on screen now
+RTC_DATA_ATTR static int8_t shownCount = -1;  // badges on the card when last listed (for the home screen)
 
 // Thumbnails, decoded once and kept in RAM (a 46x46 1-bit thumbnail is 276 bytes), so moving
 // the cursor only costs the screen refresh. RAM is lost in deep sleep; they're rebuilt as needed.
 static const int THUMB_ROW = (THUMB + 7) / 8;
 static uint8_t thumbs[MAX_BADGES][THUMB * THUMB_ROW];
 static bool thumbReady[MAX_BADGES];
+
+static void choose(int i) {
+  current = i;
+  storagePutString("badge", names[i].c_str());
+}
+
+static void showBand() {
+  band = true;
+  bandAt = millis();
+}
 
 static void list() {
   count = 0;
@@ -34,6 +49,7 @@ static void list() {
   }
   std::sort(names, names + count);
   if (current >= count) current = 0;
+  shownCount = count;
 }
 
 static void ensureList() {
@@ -106,10 +122,9 @@ static void makeThumb(int i) {
 static void drawPicker() {
   char pos[12];
   snprintf(pos, sizeof pos, "%d/%d", cursor + 1, count);
-  drawHeader("Badges");
-  drawRight(pos, 16);
+  drawHeader("Badges", pos);
   const int16_t grid = 3 * STEP - 4, gx = (display.width() - grid) / 2;
-  const int16_t gy = CONTENT_TOP + (CONTENT_BOTTOM - CONTENT_TOP - grid) / 2;
+  const int16_t gy = CONTENT_TOP + (HINTS_TOP - CONTENT_TOP - grid) / 2;
   const int first = cursor / PER_PAGE * PER_PAGE;
   for (int i = first; i < count && i < first + PER_PAGE; i++) {
     const int16_t x = gx + (i - first) % 3 * STEP, y = gy + (i - first) / 3 * STEP;
@@ -123,16 +138,7 @@ static void drawPicker() {
       display.drawRect(x - 1, y - 1, THUMB + 2, THUMB + 2, GxEPD_BLACK);
     }
   }
-  drawFooter("next", "open");
-}
-
-static void drawMessage(const char *line1, const char *line2) {
-  const int16_t mid = (CONTENT_TOP + CONTENT_BOTTOM) / 2;
-  drawHeader("Badge");
-  display.setFont(FONT_SMALL);
-  drawCentered(line1, mid - 12);
-  drawCentered(line2, mid + 12);
-  drawFooter("hold home", "");
+  drawHints(count > 1 ? "next" : "", "open", "back", "");
 }
 
 static void onEnter() {
@@ -141,44 +147,80 @@ static void onEnter() {
   String last = storageGetString("badge");
   for (int i = 0; i < count; i++)
     if (names[i] == last) current = i;
+  showBand();
 }
 
 static Redraw onButton(Event e) {
   ensureList();
+  if (count == 0) return Redraw::None;
   if (picking) {
-    if (e == Event::AShort) {
+    if (e == Event::AShort && count > 1) {
       cursor = (cursor + 1) % count;
       return Redraw::Partial;
     }
-    if (e == Event::BShort) {
-      current = cursor;
-      storagePutString("badge", names[current].c_str());
-    } else if (e != Event::BLong) {
-      return Redraw::None;
-    }
-    picking = false;  // B opens the picked badge, hold B goes back to the one you had
-    return Redraw::Full;
+    if (e != Event::BShort) return Redraw::None;
+    choose(cursor);
+    picking = false;
+    band = false;
+    return Redraw::Full;  // a whole new image
   }
-  if (e == Event::BLong && count > 0) {
+  if (e == Event::BShort) {
     picking = true;
     cursor = current;
     return Redraw::Partial;  // quick to open; picking a badge redraws it with a full refresh
   }
-  if (count < 2) return Redraw::None;
-  if (e == Event::AShort) current = (current + 1) % count;
-  else if (e == Event::BShort) current = (current + count - 1) % count;
-  else return Redraw::None;
-  storagePutString("badge", names[current].c_str());
+  if (count < 2) {  // nothing to flip to: say so, and show what the buttons do
+    launcherToast("Only one badge");
+    showBand();
+    return Redraw::Partial;
+  }
+  band = false;
+  choose(e == Event::AShort ? (current + 1) % count : (current + count - 1) % count);
   return Redraw::Full;  // a whole new image: a partial would ghost the previous badge
+}
+
+static Redraw onBack() {
+  if (!picking) return Redraw::Exit;
+  picking = false;  // back to the badge you had
+  return Redraw::Full;
+}
+
+// The hints over the bottom of the badge, on a white band, for a moment after opening.
+static void drawBand() {
+  display.fillRect(0, HINTS_TOP - 3, display.width(), display.height() - HINTS_TOP + 3, GxEPD_WHITE);
+  drawHints(count > 1 ? "next" : "", "pick", "home", count > 1 ? "prev" : "");
 }
 
 static void draw() {
   ensureList();
-  if (count == 0) drawMessage("no badges", "add BMPs to /badges");
-  else if (picking) drawPicker();
-  else if (!drawBmp(names[current])) drawMessage("can't read", names[current].c_str());
+  if (count == 0) {
+    drawHeader("Badge");
+    drawEmpty("No badges yet", "Make them on the", "website, in Tools");
+    drawHints("", "", "home", "");
+  } else if (picking) {
+    drawPicker();
+  } else if (!drawBmp(names[current])) {
+    drawHeader("Badge");
+    drawEmpty("Can't read this one", names[current].c_str(), "Not a 1-bit BMP?");
+    drawHints(count > 1 ? "next" : "", "pick", "home", count > 1 ? "prev" : "");
+  } else if (band) {
+    drawBand();
+  }
 }
 
-static void onExit() {}
+// Clears the hints band once its moment is over.
+static Redraw tick() {
+  if (!band || picking || millis() - bandAt < BAND_MS) return Redraw::None;
+  band = false;
+  return Redraw::Tick;
+}
 
-extern const App badgeApp = {"Badge", ICON_BADGE, onEnter, onButton, draw, onExit};
+static void onExit() { band = false; }
+
+static void status(char *out, size_t len) {
+  if (shownCount > 0) snprintf(out, len, "Badge %d of %d", current + 1, shownCount);
+  else if (shownCount == 0) snprintf(out, len, "No badges yet");
+  else snprintf(out, len, "Show a name badge");
+}
+
+extern const App badgeApp = {"Badge", ICON_BADGE, onEnter, onButton, draw, onExit, onBack, status, tick, true};

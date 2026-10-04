@@ -1,0 +1,23 @@
+# Badge. Ends on the badge it started on (next then previous; the picker is left without choosing).
+select Badge
+shot b-home-status
+press b
+shot b-band
+sleep 3200
+shot b-band-gone
+press a
+shot b-next
+press B
+shot b-previous
+press b
+shot b-picker
+press a
+shot b-picker-next
+press A
+shot b-picker-back
+press b
+press b
+shot b-picked-same
+press A
+expect screen=Home
+shot b-home-after
