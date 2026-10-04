@@ -1,7 +1,7 @@
 #include "apps.h"
 
 // Launcher order. Adding an app: one new file in src/apps/<name>/ plus one line here.
-extern const App timetableApp, badgeApp, dexApp, chooserApp, notesApp;
+extern const App timetableApp, badgeApp, dexApp, chooserApp, notesApp, settingsApp;
 
-const App *const APPS[] = {&timetableApp, &notesApp, &badgeApp, &dexApp, &chooserApp};
+const App *const APPS[] = {&timetableApp, &notesApp, &badgeApp, &dexApp, &chooserApp, &settingsApp};
 const int APP_COUNT = sizeof(APPS) / sizeof(APPS[0]);

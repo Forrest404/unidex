@@ -12,7 +12,7 @@ This list was compiled from each project's own licence files and package metadat
 |---|---|---|---|---|
 | GxEPD2 (e-paper driver) | 1.6.9 | GPL-3.0 | Jean-Marc Zingg | https://github.com/ZinggJM/GxEPD2 |
 | Adafruit GFX Library | 1.12.6 | BSD (see below) | Adafruit Industries | https://github.com/adafruit/Adafruit-GFX-Library |
-| FreeSans fonts (in Adafruit GFX, converted from GNU FreeFont) | – | GPL-3.0-or-later with font exception | Free Software Foundation and contributors | https://www.gnu.org/software/freefont/license.html |
+| FreeSans fonts (in Adafruit GFX, converted from GNU FreeFont; src/core/FreeSans7pt7b.h converted from FreeFont 20120503 by tools/gfxfont.py) | – | GPL-3.0-or-later with font exception | Free Software Foundation and contributors | https://www.gnu.org/software/freefont/license.html |
 | Adafruit BusIO | 1.17.4 | MIT (see below) | Adafruit Industries | https://github.com/adafruit/Adafruit_BusIO |
 | ArduinoJson | 7.4.3 | MIT (see below) | Benoit Blanchon | https://github.com/bblanchon/ArduinoJson |
 | Arduino core for ESP32 (arduino-esp32) | 2.0.17 | LGPL-2.1-or-later (files from the Arduino project) and Apache-2.0 (Espressif files) | Arduino team; Espressif Systems | https://github.com/espressif/arduino-esp32/tree/2.0.17 |

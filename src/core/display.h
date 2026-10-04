@@ -7,8 +7,26 @@ class Display : public GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT> {
  public:
   using GxEPD2_BW<GxEPD2_154_D67, GxEPD2_154_D67::HEIGHT>::GxEPD2_BW;
   bool inverted = false;
+#if UNIDEX_DEV
+  // Test build: a copy of what the panel shows (1 = black), for the USB screenshot command.
+  uint8_t shadow[200 * 200 / 8];
+  void drawPixel(int16_t x, int16_t y, uint16_t color) override {
+    color = ink(color);
+    GxEPD2_BW::drawPixel(x, y, color);
+    if (x < 0 || y < 0 || x >= 200 || y >= 200) return;
+    const uint8_t bit = 0x80 >> (x & 7);
+    if (color == GxEPD_BLACK) shadow[(y * 200 + x) >> 3] |= bit;
+    else shadow[(y * 200 + x) >> 3] &= ~bit;
+  }
+  void fillScreen(uint16_t color) override {
+    color = ink(color);
+    GxEPD2_BW::fillScreen(color);
+    memset(shadow, color == GxEPD_BLACK ? 0xFF : 0, sizeof shadow);
+  }
+#else
   void drawPixel(int16_t x, int16_t y, uint16_t color) override { GxEPD2_BW::drawPixel(x, y, ink(color)); }
   void fillScreen(uint16_t color) override { GxEPD2_BW::fillScreen(ink(color)); }
+#endif
 
  private:
   uint16_t ink(uint16_t c) const { return inverted ? (c == GxEPD_WHITE ? GxEPD_BLACK : GxEPD_WHITE) : c; }
@@ -31,3 +49,11 @@ void displayFrame(void (*draw)());
 // Clock tick: a partial refresh that doesn't count toward the every-10 rule (only the minute changes,
 // so there's nothing to ghost and no full flash every 10 minutes), then hibernate.
 void displayTick(void (*draw)());
+
+// The last refresh: 'F' full, 'P' partial, 'T' tick, 'f' animation frame, and how long it took (test build).
+struct DisplayRefresh {
+  char kind;
+  uint32_t ms;
+  uint32_t count;
+};
+DisplayRefresh displayLastRefresh();

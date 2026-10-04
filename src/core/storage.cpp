@@ -2,6 +2,7 @@
 #include <LittleFS.h>  // only for the one-time copy from internal flash
 #include <Preferences.h>
 #include <SD_MMC.h>
+#include "devtools.h"
 
 static const char *NVS_NAMESPACE = "unidex";
 static const int SD_CLK = 39, SD_CMD = 41, SD_D0 = 40;  // Waveshare 04_SD_Card example + schematic
@@ -108,6 +109,7 @@ static void copyFromFlashOnce() {
 }
 
 bool storageCardMount() {
+  if (devNoCard()) return false;  // test build switch (X NOCARD 1)
   if (cardMounted) return true;
   SD_MMC.setPins(SD_CLK, SD_CMD, SD_D0);
   cardMounted = SD_MMC.begin("/sdcard", true /*1-bit*/, false /*never format: it would erase the card*/);

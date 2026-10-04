@@ -5,6 +5,7 @@
 #include <esp_wpa2.h>
 #include "credentials.h"
 #include "power.h"
+#include "devtools.h"
 
 extern const uint8_t caBundle[] asm("_binary_certs_x509_crt_bundle_bin_start");  // see certs/README.md
 
@@ -13,6 +14,7 @@ static const uint32_t WIFI_TIMEOUT_MS = 20000, IO_TIMEOUT_MS = 30000;  // enterp
 const char *netConnect() {
   const String ssid = credGet("wifi_ssid");
   if (!ssid.length()) return "WiFi not set up";
+  if (devNetFail()) return "WiFi failed";  // test build switch (X NETFAIL 1)
   if (WiFi.status() == WL_CONNECTED) return nullptr;
   setCpuFrequencyMhz(240);  // full speed only while the radio is on (as in the Dex scan)
   WiFi.mode(WIFI_STA);

@@ -27,7 +27,12 @@ void displaySetInverted(bool on) {
 static const int FULL_EVERY = 10;
 RTC_DATA_ATTR static int partialsSinceFull;  // survives sleep, so the count is honest
 
-static void render(void (*draw)(), bool full) {
+static DisplayRefresh last;
+
+DisplayRefresh displayLastRefresh() { return last; }
+
+static void render(void (*draw)(), bool full, char kind) {
+  const uint32_t t0 = millis();
   if (full) display.setFullWindow();
   else display.setPartialWindow(0, 0, display.width(), display.height());
   display.firstPage();
@@ -36,20 +41,21 @@ static void render(void (*draw)(), bool full) {
     display.setTextColor(GxEPD_BLACK);
     draw();
   } while (display.nextPage());
+  last = {kind, millis() - t0, last.count + 1};
 }
 
 void displayShow(void (*draw)(), bool full) {
   full = full || partialsSinceFull >= FULL_EVERY;
   partialsSinceFull = full ? 0 : partialsSinceFull + 1;
-  render(draw, full);
+  render(draw, full, full ? 'F' : 'P');
   display.hibernate();  // hibernated e-ink keeps the image
 }
 
 void displayFrame(void (*draw)()) {
-  render(draw, false);
+  render(draw, false, 'f');
 }
 
 void displayTick(void (*draw)()) {
-  render(draw, false);
+  render(draw, false, 'T');
   display.hibernate();
 }

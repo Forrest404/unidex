@@ -5,6 +5,7 @@
 #include "power.h"
 #include "storage.h"
 #include "../apps/notes/usb.h"
+#include "devtools.h"
 
 // Protocol (text lines, Mac -> device):
 //   ?                      -> "unidex 1"
@@ -125,6 +126,9 @@ static void handle(const char *l) {
     if (--remaining == 0) finishEvents();
     return;
   }
+#if UNIDEX_DEV
+  if (devUsb(l)) return;  // test build: screenshots and virtual buttons
+#endif
   if (strcmp(l, "?") == 0) {
     Serial.println("unidex 1");
   } else if (strcmp(l, "C") == 0) {

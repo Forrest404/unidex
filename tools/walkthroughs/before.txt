@@ -1,0 +1,125 @@
+# Every screen of the current firmware. Nothing here deletes, records or changes a setting.
+# Normal use only: one Dex scan, one Chooser spin (adds to the tally).
+select Timetable
+shot home-timetable
+press a
+shot home-notes
+press a
+shot home-badge
+press a
+shot home-dex
+press a
+shot home-chooser
+
+select Timetable
+press b
+shot tt-next
+press a
+shot tt-next-2
+press b
+shot tt-details
+press b
+shot tt-details-back
+press B
+shot tt-today
+press a
+shot tt-today-scroll
+press b
+home
+clock unset
+select Timetable
+press b
+shot tt-clock-not-set
+press A
+home
+
+select Notes
+press b
+shot notes-main
+press b
+shot notes-sync
+press a
+shot notes-list
+press b
+shot notes-view
+press a
+shot notes-view-page2
+press b
+shot notes-view-back
+press B
+shot notes-list-holdB
+home
+
+# Badge: next then previous puts the saved badge back where it was
+select Badge
+press b
+shot badge-main
+press a
+shot badge-next
+press b
+shot badge-prev
+press B
+shot badge-picker
+press a
+shot badge-picker-next
+press B
+shot badge-picker-holdB
+home
+
+select Dex
+press b
+shot dex-main
+press a
+shot dex-list
+press a
+shot dex-list-2
+press b
+shot dex-list-back
+press B
+shot dex-stats
+press a
+shot dex-stats-a
+press b
+shot dex-after-scan
+home
+
+select Chooser
+press b
+shot chooser-count
+press a
+shot chooser-3
+press b
+shot chooser-result
+press B
+shot chooser-tally
+press b
+shot chooser-tally-back
+home
+
+# Settings is behind hold A on home in this firmware; it opens on its first row (Date & time)
+press A
+shot settings-list
+press b
+shot settings-date
+press A
+expect screen=Home
+press A
+press a
+press a
+press a
+shot settings-info-row
+press b
+shot settings-info
+press b
+press a
+shot settings-reset-row
+press b
+shot settings-reset
+press a
+press a
+press a
+press a
+shot settings-reset-back-row
+press b
+shot settings-after-back
+home

@@ -8,14 +8,31 @@
 #include "theme.h"
 #include "../apps/apps.h"
 
-static const int HOME = -1, SETTINGS = -2, NO_CARD = -3;
-RTC_DATA_ATTR static int current = HOME;  // open app, HOME, SETTINGS or NO_CARD
+static const int HOME = -1, NO_CARD = -2;
+RTC_DATA_ATTR static int current = HOME;  // open app, HOME or NO_CARD
 RTC_DATA_ATTR static int noCardFor;       // the app that couldn't open
-RTC_DATA_ATTR static int selected;        // highlighted icon on the home screen
+RTC_DATA_ATTR static int selected;        // highlighted app on the home screen
 
-static const App *app(int i) { return i == SETTINGS ? &settingsApp : APPS[i]; }
+static const App *open() { return APPS[current]; }
 
-static const int16_t ICON_Y = CONTENT_TOP + 8, NAME_Y = 134, DOTS_Y = 160, DOT_GAP = 13;
+// --- toast: one short message over the screen, cleared after a few seconds ---
+
+static const uint32_t TOAST_MS = 2500;
+static char toastText[40];
+static uint32_t toastAt;
+
+void launcherToast(const char *text) {
+  strlcpy(toastText, text, sizeof toastText);
+  toastAt = millis();
+}
+
+static void drawToastIfAny() {
+  if (*toastText) drawToast(toastText);
+}
+
+// --- home ---
+
+static const int16_t ICON_Y = CONTENT_TOP + 4, NAME_Y = 122, LINE_Y = 143, DOTS_Y = 156;
 
 // Small lightning bolt, 7 px wide and 12 tall, with its top-left corner at (x, y).
 static void drawBolt(int16_t x, int16_t y) {
@@ -26,30 +43,33 @@ static void drawBolt(int16_t x, int16_t y) {
 // Top right of the home header: "14:32  87%", with a bolt before it on USB power.
 // Either text part is left out when it isn't known.
 static int shownMinute = -1;  // the minute the home clock shows, -1 = none
+static char shownLine[40];    // the selected app's status line as last drawn
 
 static void drawStatus() {
   char text[16] = "";
   shownMinute = -1;
   if (clockValid()) {
-    time_t t = time(nullptr);
-    struct tm now;
-    localtime_r(&t, &now);
+    const struct tm now = clockLocal();
     snprintf(text, sizeof text, "%02d:%02d", now.tm_hour, now.tm_min);
     shownMinute = now.tm_min;
   }
   const int pct = batteryPercent();
   if (pct >= 0) snprintf(text + strlen(text), sizeof text - strlen(text), "%s%d%%", *text ? "  " : "", pct);
-  int16_t x, y;
-  uint16_t w = 0, h;
+  uint16_t w = 0;
   if (*text) {
     display.setFont(FONT_SMALL);
-    display.getTextBounds(text, 0, 0, &x, &y, &w, &h);
+    w = textWidth(text);
     drawRight(text, 16);
   }
   if (batteryCharging()) drawBolt(display.width() - MARGIN - w - (w ? 12 : 7), 5);
 }
 
-// Home is a carousel: one app at a time, its icon at double size, its name, and a dot per app.
+static void appStatus(const App *a, char *out, size_t len) {
+  *out = 0;
+  if (a->status) a->status(out, len);
+}
+
+// Home is a carousel: one app at a time, its icon at double size, its name, a live line, a dot per app.
 static void drawHome() {
   drawHeader("unidex");
   drawStatus();
@@ -57,12 +77,14 @@ static void drawHome() {
   drawIcon(a->icon, (display.width() - 2 * ICON_SIZE) / 2, ICON_Y, GxEPD_BLACK, 2);
   display.setFont(FONT_LARGE);
   drawCentered(a->name, NAME_Y);
-  const int16_t x0 = (display.width() - (APP_COUNT - 1) * DOT_GAP) / 2;
-  for (int i = 0; i < APP_COUNT; i++) {
-    if (i == selected) display.fillCircle(x0 + i * DOT_GAP, DOTS_Y, 4, GxEPD_BLACK);
-    else display.drawCircle(x0 + i * DOT_GAP, DOTS_Y, 3, GxEPD_BLACK);
+  appStatus(a, shownLine, sizeof shownLine);
+  if (*shownLine) {
+    display.setFont(FONT_SMALL);
+    drawCentered(fitText(shownLine, display.width() - 2 * MARGIN).c_str(), LINE_Y);
   }
-  drawFooter("next", "open");
+  drawPageDots(APP_COUNT, selected, DOTS_Y);
+  drawHints("next", "open", "back", "");
+  drawToastIfAny();
 }
 
 static void drawSplash() {
@@ -76,15 +98,20 @@ static void drawSplash() {
   drawCentered("unidex", 128);
 }
 
+// --- restart ---
+
+static const char *restartWhy = "";
+
 static void drawRestarting() {
   display.setFont(FONT_LARGE);
   drawCentered("Restarting", 88);
   display.setFont(FONT_SMALL);
-  drawCentered("let go of the buttons", 124);
+  if (*restartWhy) drawCentered(restartWhy, 118);
+  drawCentered("let go of the buttons", *restartWhy ? 140 : 124);
 }
 
-// A fresh boot: RAM and RTC state start over; files, NVS and the clock chip are untouched.
-static void restart() {
+void systemRestart(const char *why) {
+  restartWhy = why;
   displayShow(drawRestarting, false);
   // Wait for release: BOOT (GPIO0) is the download-mode strapping pin, so don't restart with it held.
   while (inputAnyDown()) {
@@ -102,73 +129,110 @@ void launcherBegin(bool woke) {
   displayShow(drawHome, false);
 }
 
-static bool needsCard(int i) {
-  const App *a = app(i);
-  return a == &timetableApp || a == &badgeApp || a == &dexApp;
+// --- opening apps ---
+
+static bool needsCard(const App *a) {
+  return a->needsCard || a == &timetableApp || a == &badgeApp || a == &dexApp;  // until those apps set it
 }
 
 static void drawNoCard() {
-  const int16_t mid = (CONTENT_TOP + CONTENT_BOTTOM) / 2;
-  drawHeader(app(noCardFor)->name);
-  display.setFont(FONT_SMALL);
-  drawCentered("No SD card", mid - 12);
-  drawCentered("insert a FAT32 card", mid + 12);
-  drawFooter("hold home", "");
+  drawHeader(APPS[noCardFor]->name);
+  drawEmpty("No SD card", "Put in a FAT32 card,", "then press B");
+  drawHints("", "retry", "home", "");
+  drawToastIfAny();
+}
+
+static void drawApp() {
+  open()->draw();
+  drawToastIfAny();
+}
+
+static void showApp(Redraw r) {
+  if (r == Redraw::Full || r == Redraw::Partial) displayShow(drawApp, r == Redraw::Full);
+  else if (r == Redraw::Tick) displayTick(drawApp);
+}
+
+static void goHome() {
+  current = HOME;
+  displayShow(drawHome, true);
+}
+
+static void openApp(int i) {
+  if (needsCard(APPS[i]) && !storageCardMount()) {  // missing, unreadable or not FAT32
+    noCardFor = i;
+    current = NO_CARD;
+    displayShow(drawNoCard, true);
+    return;
+  }
+  current = i;
+  open()->onEnter();
+  displayShow(drawApp, true);
 }
 
 void launcherHandle(Event e) {
-  if (e == Event::Reset) restart();
-  if (current == NO_CARD) {  // only A long (home) does anything; opening the app again retries
-    if (e == Event::ALong) {
-      current = HOME;
-      displayShow(drawHome, true);
+  if (e == Event::Reset) systemRestart("");
+  *toastText = 0;  // any press clears a message
+  if (current == NO_CARD) {
+    if (e == Event::ALong) goHome();
+    if (e == Event::BShort) {
+      if (storageCardMount()) {
+        openApp(noCardFor);
+        return;
+      }
+      launcherToast("Still no card");
+      displayShow(drawNoCard, false);
     }
     return;
   }
   if (current == HOME) {
-    if (e == Event::AShort) {
-      selected = (selected + 1) % APP_COUNT;
+    if (e == Event::AShort || e == Event::ALong) {
+      selected = (selected + (e == Event::AShort ? 1 : APP_COUNT - 1)) % APP_COUNT;
       displayShow(drawHome, false);
-    } else if (e == Event::BShort || e == Event::ALong) {
-      current = e == Event::ALong ? SETTINGS : selected;
-      if (needsCard(current) && !storageCardMount()) {  // missing, unreadable or not FAT32
-        noCardFor = current;
-        current = NO_CARD;
-        displayShow(drawNoCard, true);
-        return;
-      }
-      app(current)->onEnter();
-      displayShow(app(current)->draw, true);
-    } else {
-      displayShow(drawHome, false);  // B long: refresh the clock and battery in the header
+    } else if (e == Event::BShort) {
+      openApp(selected);
     }
     return;
   }
-  if (e == Event::ALong) {
-    app(current)->onExit();
-    current = HOME;
-    displayShow(drawHome, true);
+  Redraw r;
+  if (e == Event::ALong) r = open()->onBack ? open()->onBack() : Redraw::Exit;
+  else r = open()->onButton(e);
+  if (r == Redraw::Exit) {
+    open()->onExit();
+    goHome();
   } else {
-    Redraw r = app(current)->onButton(e);
-    if (r != Redraw::None) displayShow(app(current)->draw, r == Redraw::Full);
+    showApp(r);
   }
 }
 
+const char *launcherScreenName() {
+  return current == HOME ? "Home" : current == NO_CARD ? "No card" : open()->name;
+}
+
+const char *launcherSelectedName() { return APPS[selected]->name; }
+
 void launcherPoll() {
-  // Live clock while awake: redraw when the minute on screen goes out of date. Asleep, the clock
-  // chip keeps counting silently and the time catches up on the next press (no wake-ups, saving battery).
-  if (current == HOME && clockValid()) {
-    time_t t = time(nullptr);
-    struct tm now;
-    localtime_r(&t, &now);
-    if (now.tm_min != shownMinute) displayTick(drawHome);
+  const bool toastOver = *toastText && millis() - toastAt >= TOAST_MS;
+  if (toastOver) *toastText = 0;
+  if (current == HOME) {
+    // Live clock and status line while awake: redraw when what's on screen goes out of date. Asleep, the
+    // clock chip keeps counting silently and the time catches up on the next press (no wake-ups).
+    char line[sizeof shownLine];
+    appStatus(APPS[selected], line, sizeof line);
+    const bool minuteChanged = clockValid() && clockLocal().tm_min != shownMinute;
+    if (toastOver || minuteChanged || strcmp(line, shownLine) != 0) displayTick(drawHome);
+  } else if (current == NO_CARD) {
+    if (toastOver) displayTick(drawNoCard);
+  } else {
+    const Redraw r = open()->tick ? open()->tick() : Redraw::None;
+    if (r != Redraw::None) showApp(r);
+    else if (toastOver) displayTick(drawApp);
   }
   char name[32];
   if (!usbSyncTakeNewBadge(name, sizeof name)) return;
   storagePutString("badge", name);  // the Badge app opens on the saved badge
-  if (current >= 0 || current == SETTINGS) app(current)->onExit();
+  if (current >= 0) open()->onExit();
   for (int i = 0; i < APP_COUNT; i++)
     if (APPS[i] == &badgeApp) current = i;
-  app(current)->onEnter();
-  displayShow(app(current)->draw, true);
+  open()->onEnter();
+  displayShow(drawApp, true);
 }

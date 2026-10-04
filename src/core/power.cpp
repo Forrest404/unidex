@@ -50,6 +50,9 @@ void powerActivity() {
 void powerSleepIfIdle() {
   // Sleeping with a button held would wake straight away, in a loop.
   if (millis() - lastActivity < idleMs || inputAnyDown()) return;
+#if UNIDEX_DEV
+  return;  // test build: always awake, so the test tools never find it asleep (USB host detection can drop out)
+#endif
   // Stay awake on USB power: a computer is connected, or the charger is holding the battery at 4.2 V.
   // The board can't sense USB power directly (VBUS isn't wired to any GPIO), so a plain charger that
   // has finished charging looks like battery and it sleeps. The voltage is read at most every 10 s.
@@ -79,6 +82,10 @@ void powerNap() {
   // Light sleep pauses USB, so skip it while a host is connected (the Mac sync needs the port).
   // Also skip while a button is held: its release and long-press timing need polling.
   const uint32_t idle = millis() - lastActivity;
+#if UNIDEX_DEV
+  delay(5);  // test build: no light sleep (see powerSleepIfIdle)
+  return;
+#endif
   if (HWCDC::isPlugged() || inputAnyDown() || idle >= idleMs) {
     delay(5);
     return;

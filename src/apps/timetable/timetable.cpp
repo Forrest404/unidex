@@ -184,54 +184,6 @@ static void drawMessage(const struct tm &now, const char *line1, const char *lin
   drawCentered(line2, mid + 12);
 }
 
-static int16_t textWidth(const String &t) {
-  int16_t x, y;
-  uint16_t w, h;
-  display.getTextBounds(t.c_str(), 0, 0, &x, &y, &w, &h);
-  return w;
-}
-
-// The text cut to fit maxW in the current font, ending in "..." when cut.
-static String ellipsize(String t, int16_t maxW) {
-  if (textWidth(t) <= maxW) return t;
-  while (t.length() > 1 && textWidth(t + "...") > maxW) t.remove(t.length() - 1);
-  return t + "...";
-}
-
-// Word-wraps text to maxW in the current font. Fills out[] with up to maxLines lines (the last ends in
-// "..." if the text didn't fit) and returns how many lines the whole text needs.
-static int wrapText(const char *text, int16_t maxW, String *out, int maxLines) {
-  int lines = 0;
-  String line, word;
-  auto push = [&](const String &l) {
-    if (lines < maxLines) out[lines] = l;
-    lines++;
-  };
-  for (const char *p = text;; p++) {
-    if (*p && *p != ' ') {
-      word += *p;
-      continue;
-    }
-    while (word.length() && textWidth(word) > maxW) {  // a word longer than a line: break it
-      int cut = word.length() - 1;
-      while (cut > 1 && textWidth(word.substring(0, cut)) > maxW) cut--;
-      if (line.length()) push(line), line = "";
-      push(word.substring(0, cut));
-      word = word.substring(cut);
-    }
-    if (word.length()) {
-      String joined = line.length() ? line + " " + word : word;
-      if (textWidth(joined) <= maxW) line = joined;
-      else push(line), line = word;
-      word = "";
-    }
-    if (!*p) break;
-  }
-  if (line.length()) push(line);
-  if (lines > maxLines && maxLines > 0) out[maxLines - 1] = ellipsize(out[maxLines - 1] + " ...", maxW);
-  return lines;
-}
-
 // "IN 42 MIN" / "NOW, ENDS IN 20 MIN" / "TOMORROW 09:30" / "TUE 09:00".
 static void formatWhen(char *buf, size_t len, const Class &c, int32_t d, const struct tm &now) {
   static const char *DAYS[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
@@ -316,7 +268,7 @@ static void drawNext(const struct tm &now) {
   display.setFont(FONT_SMALL);
   display.setCursor(MARGIN, CONTENT_TOP + 108);
   display.print(line);
-  if (*c.room) display.setCursor(MARGIN, CONTENT_TOP + 126), display.print(ellipsize(c.room, width));
+  if (*c.room) display.setCursor(MARGIN, CONTENT_TOP + 126), display.print(fitText(c.room, width));
 
   if (n > 1) {  // what's after this one
     const Class &next = classes[up[(peek + 1) % n].index];
@@ -326,7 +278,7 @@ static void drawNext(const struct tm &now) {
     formatHm(hm, sizeof hm, next.start);
     snprintf(line, sizeof line, "then %s  ", up[(peek + 1) % n].delta < 1440 - nowMinutes(now) ? hm : at);
     display.setCursor(MARGIN, CONTENT_BOTTOM - 6);
-    display.print(ellipsize(String(line) + next.module, width));
+    display.print(fitText((String(line) + next.module).c_str(), width));
   }
   drawFooter("next", "details");
 }

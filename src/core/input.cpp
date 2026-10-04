@@ -37,7 +37,13 @@ void inputInit() {
   }
 }
 
+#if UNIDEX_DEV
+static uint32_t virtualHoldUntil;
+void inputVirtualHoldB(uint32_t ms) { virtualHoldUntil = millis() + ms; }
+bool inputBHeld() { return digitalRead(18) == LOW || (int32_t)(virtualHoldUntil - millis()) > 0; }
+#else
 bool inputBHeld() { return digitalRead(18) == LOW; }
+#endif
 
 bool inputAnyDown() {
   for (Button &b : buttons)

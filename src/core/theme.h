@@ -4,21 +4,39 @@
 // Shared look for every screen: two font sizes, fixed margins, thin header and footer.
 extern const GFXfont *const FONT_SMALL;  // header, footer, secondary text
 extern const GFXfont *const FONT_LARGE;  // the one focal element
+extern const GFXfont *const FONT_BOLD;   // headlines of empty states and confirm sheets (9 pt bold)
+extern const GFXfont *const FONT_TINY;   // the "hold" row of the hints (7 pt)
 
 const int16_t MARGIN = 8;
 const int16_t HEADER_H = 24;  // title + 1 px rule
 const int16_t FOOTER_H = 22;  // 1 px rule + button hints
 const int16_t CONTENT_TOP = HEADER_H;
 const int16_t CONTENT_BOTTOM = 200 - FOOTER_H;
+const int16_t HINTS_TOP = 163;  // drawHints' rule: screens using it end their content above this
 
-void drawHeader(const char *title);
+void drawHeader(const char *title, const char *right = nullptr);  // right: a count, page or time
 void drawFooter(const char *aHint, const char *bHint);  // e.g. "next", "select"; "" hides one
+
+// The button hints, two rows: what a press does, then what a hold does. "" leaves one out.
+//   A next              B open
+//   hold A: back        hold B: delete
+void drawHints(const char *a, const char *b, const char *aHold, const char *bHold);
 void drawCentered(const char *text, int16_t cy);        // centred horizontally, cy = vertical centre
 void drawRight(const char *text, int16_t baseline);     // right-aligned to the margin
-String fitText(const char *text, int16_t maxWidth);     // cut from the end to fit the current font
+String fitText(const char *text, int16_t maxWidth);     // cut to fit the current font, ending in "..." if cut
+int16_t textWidth(const char *text);                    // in the current font
+// Word-wraps text to maxW in the current font into up to maxLines lines (the last ends in "..." if the text
+// didn't fit); returns how many lines the whole text needs.
+int wrapText(const char *text, int16_t maxW, String *out, int maxLines);
+
+void drawEmpty(const char *headline, const char *line1, const char *line2 = "");  // centred in the content
+void drawSheet(const char *title, const char *line1, const char *line2 = "");     // a "sure?" box over the screen
+void drawProgress(int16_t cy, int pct);    // a bar; pct < 0 = a block that moves while waiting
+void drawPageDots(int count, int current, int16_t cy);
+void drawToast(const char *text);          // a short message in a black pill just above the hints
 
 // 40x40 launcher icons, one string per row, '#' = ink.
 const int16_t ICON_SIZE = 40;
 extern const char *const ICON_TIMETABLE[], *const ICON_BADGE[], *const ICON_DEX[], *const ICON_CHOOSER[],
-    *const ICON_NOTES[];
+    *const ICON_NOTES[], *const ICON_SETTINGS[];
 void drawIcon(const char *const *icon, int16_t x, int16_t y, uint16_t color, int scale = 1);  // scale 2 = 80x80

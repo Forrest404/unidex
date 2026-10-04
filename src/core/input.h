@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 
 // A = BOOT (next/scroll, long = home), B = PWR (select/action, long = app extra).
 // Reset = both held for 3 s.
@@ -8,3 +9,6 @@ void inputInit();  // the press that woke the board from deep sleep counts as in
 Event inputPoll();  // call often; returns at most one event per call
 bool inputAnyDown();
 bool inputBHeld();  // B is down right now (raw pin, no debounce): for hold-to-talk, which polls it in a loop
+#if UNIDEX_DEV
+void inputVirtualHoldB(uint32_t ms);  // test build: inputBHeld() also reads true for the next `ms`
+#endif

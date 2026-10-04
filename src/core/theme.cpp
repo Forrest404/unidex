@@ -1,10 +1,14 @@
 #include "theme.h"
 #include <Fonts/FreeSans9pt7b.h>
 #include <Fonts/FreeSans18pt7b.h>
+#include <Fonts/FreeSansBold9pt7b.h>
+#include "FreeSans7pt7b.h"
 #include "display.h"
 
 const GFXfont *const FONT_SMALL = &FreeSans9pt7b;
 const GFXfont *const FONT_LARGE = &FreeSans18pt7b;
+const GFXfont *const FONT_BOLD = &FreeSansBold9pt7b;
+const GFXfont *const FONT_TINY = &FreeSans7pt7b;
 
 void drawCentered(const char *text, int16_t cy) {
   int16_t x, y;
@@ -14,11 +18,36 @@ void drawCentered(const char *text, int16_t cy) {
   display.print(text);
 }
 
-void drawHeader(const char *title) {
+void drawHeader(const char *title, const char *right) {
   display.setFont(FONT_SMALL);
+  const int16_t rightW = right && *right ? textWidth(right) + 10 : 0;
   display.setCursor(MARGIN, 16);
-  display.print(title);
+  display.print(fitText(title, display.width() - 2 * MARGIN - rightW));
+  if (rightW) drawRight(right, 16);
   display.drawFastHLine(MARGIN, HEADER_H - 1, display.width() - 2 * MARGIN, GxEPD_BLACK);
+}
+
+void drawHints(const char *a, const char *b, const char *aHold, const char *bHold) {
+  display.drawFastHLine(MARGIN, HINTS_TOP, display.width() - 2 * MARGIN, GxEPD_BLACK);
+  char text[32];
+  display.setFont(FONT_SMALL);
+  if (*a) {
+    display.setCursor(MARGIN, 179);
+    display.printf("A %s", a);
+  }
+  if (*b) {
+    snprintf(text, sizeof text, "B %s", b);
+    drawRight(text, 179);
+  }
+  display.setFont(FONT_TINY);
+  if (*aHold) {
+    display.setCursor(MARGIN, 195);
+    display.printf("hold A: %s", aHold);
+  }
+  if (*bHold) {
+    snprintf(text, sizeof text, "hold B: %s", bHold);
+    drawRight(text, 195);
+  }
 }
 
 void drawFooter(const char *aHint, const char *bHint) {
@@ -36,16 +65,105 @@ void drawFooter(const char *aHint, const char *bHint) {
   }
 }
 
-String fitText(const char *text, int16_t maxWidth) {
-  String s = text;
+int16_t textWidth(const char *text) {
   int16_t x, y;
   uint16_t w, h;
-  display.getTextBounds(s.c_str(), 0, 0, &x, &y, &w, &h);
-  while (s.length() > 1 && w > maxWidth) {
-    s.remove(s.length() - 1);
-    display.getTextBounds(s.c_str(), 0, 0, &x, &y, &w, &h);
+  display.getTextBounds(text, 0, 0, &x, &y, &w, &h);
+  return w;
+}
+
+String fitText(const char *text, int16_t maxWidth) {
+  String s = text;
+  if (textWidth(text) <= maxWidth) return s;
+  while (s.length() > 1 && textWidth((s + "...").c_str()) > maxWidth) s.remove(s.length() - 1);
+  s.trim();
+  return s + "...";
+}
+
+int wrapText(const char *text, int16_t maxW, String *out, int maxLines) {
+  int lines = 0;
+  String line, word;
+  auto push = [&](const String &l) {
+    if (lines < maxLines) out[lines] = l;
+    lines++;
+  };
+  for (const char *p = text;; p++) {
+    if (*p && *p != ' ' && *p != '\n') {
+      word += *p;
+      continue;
+    }
+    while (word.length() && textWidth(word.c_str()) > maxW) {  // a word longer than a line: break it
+      int cut = word.length() - 1;
+      while (cut > 1 && textWidth(word.substring(0, cut).c_str()) > maxW) cut--;
+      if (line.length()) push(line), line = "";
+      push(word.substring(0, cut));
+      word = word.substring(cut);
+    }
+    if (word.length()) {
+      String joined = line.length() ? line + " " + word : word;
+      if (textWidth(joined.c_str()) <= maxW) line = joined;
+      else push(line), line = word;
+      word = "";
+    }
+    if (*p == '\n' && line.length()) push(line), line = "";
+    if (!*p) break;
   }
-  return s;
+  if (line.length()) push(line);
+  if (lines > maxLines && maxLines > 0) out[maxLines - 1] = fitText((out[maxLines - 1] + " ...").c_str(), maxW);
+  return lines;
+}
+
+void drawEmpty(const char *headline, const char *line1, const char *line2) {
+  const int16_t mid = (CONTENT_TOP + HINTS_TOP) / 2 - (*line2 ? 0 : 9);
+  display.setFont(FONT_BOLD);
+  drawCentered(headline, mid - 20);
+  display.setFont(FONT_SMALL);
+  drawCentered(fitText(line1, display.width() - 2 * MARGIN).c_str(), mid + 6);
+  if (*line2) drawCentered(fitText(line2, display.width() - 2 * MARGIN).c_str(), mid + 26);
+}
+
+void drawSheet(const char *title, const char *line1, const char *line2) {
+  const int16_t x = MARGIN + 4, y = CONTENT_TOP + 16, w = display.width() - 2 * x, h = HINTS_TOP - 12 - y;
+  display.fillRoundRect(x, y, w, h, 6, GxEPD_WHITE);
+  display.drawRoundRect(x, y, w, h, 6, GxEPD_BLACK);
+  display.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 5, GxEPD_BLACK);
+  const int16_t mid = y + h / 2;
+  display.setFont(FONT_BOLD);
+  drawCentered(fitText(title, w - 16).c_str(), mid - (*line2 ? 26 : 16));
+  display.setFont(FONT_SMALL);
+  drawCentered(fitText(line1, w - 16).c_str(), mid + (*line2 ? 2 : 12));
+  if (*line2) drawCentered(fitText(line2, w - 16).c_str(), mid + 24);
+}
+
+void drawProgress(int16_t cy, int pct) {
+  const int16_t w = 140, h = 10, x = (display.width() - w) / 2, y = cy - h / 2;
+  display.drawRoundRect(x, y, w, h, 4, GxEPD_BLACK);
+  if (pct >= 0) {
+    display.fillRoundRect(x + 2, y + 2, (w - 4) * min(pct, 100) / 100, h - 4, 2, GxEPD_BLACK);
+  } else {  // no known end: a block that moves along each time the screen is drawn
+    const int16_t bw = 32, span = w - 4 - bw;
+    const int16_t pos = (millis() / 400) % (2 * span / 8) * 8;
+    display.fillRoundRect(x + 2 + (pos <= span ? pos : 2 * span - pos), y + 2, bw, h - 4, 2, GxEPD_BLACK);
+  }
+}
+
+void drawPageDots(int count, int current, int16_t cy) {
+  const int16_t gap = 13, x0 = (display.width() - (count - 1) * gap) / 2;
+  for (int i = 0; i < count; i++) {
+    if (i == current) display.fillCircle(x0 + i * gap, cy, 4, GxEPD_BLACK);
+    else display.drawCircle(x0 + i * gap, cy, 3, GxEPD_BLACK);
+  }
+}
+
+void drawToast(const char *text) {
+  display.setFont(FONT_SMALL);
+  const String t = fitText(text, display.width() - 2 * MARGIN - 24);
+  const int16_t w = textWidth(t.c_str()) + 24, h = 24, x = (display.width() - w) / 2, y = HINTS_TOP - h - 6;
+  display.fillRoundRect(x - 2, y - 2, w + 4, h + 4, 14, GxEPD_WHITE);  // a white rim keeps it off busy content
+  display.fillRoundRect(x, y, w, h, 12, GxEPD_BLACK);
+  display.setTextColor(GxEPD_WHITE);
+  drawCentered(t.c_str(), y + h / 2);
+  display.setTextColor(GxEPD_BLACK);
 }
 
 void drawRight(const char *text, int16_t baseline) {
@@ -273,6 +391,50 @@ const char *const ICON_NOTES[40] = {
   "...................##...................",
   ".............##############.............",
   ".............##############.............",
+  "........................................",
+  "........................................",
+  "........................................",
+};
+
+// Three sliders.
+const char *const ICON_SETTINGS[40] = {
+  "........................................",
+  "........................................",
+  "........................................",
+  "........................................",
+  ".......................########.........",
+  "......................##########........",
+  "......................##......##........",
+  "......................##......##........",
+  "..##################..##......##..####..",
+  "..##################..##......##..####..",
+  "......................##......##........",
+  "......................##......##........",
+  "......................##########........",
+  ".......................########.........",
+  "........................................",
+  "..........########......................",
+  ".........##########.....................",
+  ".........##......##.....................",
+  ".........##......##.....................",
+  "..#####..##......##..#################..",
+  "..#####..##......##..#################..",
+  ".........##......##.....................",
+  ".........##......##.....................",
+  ".........##########.....................",
+  "..........########......................",
+  "........................................",
+  ".................########...............",
+  "................##########..............",
+  "................##......##..............",
+  "................##......##..............",
+  "..############..##......##..##########..",
+  "..############..##......##..##########..",
+  "................##......##..............",
+  "................##......##..............",
+  "................##########..............",
+  ".................########...............",
+  "........................................",
   "........................................",
   "........................................",
   "........................................",

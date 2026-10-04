@@ -1,0 +1,48 @@
+# Phase 1: the home carousel, hold A on home, the no-card screen, Settings from the carousel.
+select Timetable
+shot home-timetable
+press a
+shot home-notes
+press a
+shot home-badge
+press a
+shot home-dex
+press a
+shot home-chooser
+press a
+shot home-settings
+press a
+expect sel=Timetable
+press A
+expect sel=Settings
+shot home-holdA-previous
+
+nocard 1
+select Dex
+press b
+expect screen=No card
+shot nocard
+press b
+shot nocard-retry-toast
+sleep 3200
+shot nocard-toast-gone
+nocard 0
+press b
+expect screen=Dex
+shot nocard-retry-opens
+press A
+expect screen=Home
+
+nocard 1
+select Badge
+press b
+press A
+expect screen=Home
+nocard 0
+
+select Settings
+press b
+expect screen=Settings
+shot settings-opens
+press A
+expect screen=Home

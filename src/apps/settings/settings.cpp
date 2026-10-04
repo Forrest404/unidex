@@ -264,4 +264,4 @@ static void draw() {
 
 static void onExit() {}
 
-extern const App settingsApp = {"Settings", nullptr, onEnter, onButton, draw, onExit};
+extern const App settingsApp = {"Settings", ICON_SETTINGS, onEnter, onButton, draw, onExit};
