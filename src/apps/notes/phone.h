@@ -13,4 +13,5 @@ void phoneActivity();       // a button press counts as use (restarts the idle t
 const char *phoneSsid();    // "unidex-1A2B" (the same for this device every time)
 const char *phonePassword();
 const char *phoneJoinCode();  // what the QR code holds: WIFI:T:WPA;S:<ssid>;P:<password>;;
-uint32_t phoneServed();     // pages served since it started (the screen says when a phone has connected)
+uint32_t phoneServed();     // pages served since it started
+uint32_t phoneConnectedMs();  // how long since a phone first asked for anything (0: none yet)

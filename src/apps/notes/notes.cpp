@@ -491,7 +491,9 @@ static Redraw tick() {
       screen = LIST;
       return Redraw::Partial;
     }
-    return (phoneServed() > 0) != (phoneShown > 0) ? Redraw::Partial : Redraw::None;  // a phone connected
+    // "Phone connected", once its first few requests are answered: a screen refresh holds everything up for
+    // ~0.5 s, and the phone is waiting on those answers to open the page.
+    return !phoneShown && phoneConnectedMs() > 3000 ? Redraw::Partial : Redraw::None;
   }
   const JobStatus js = jobStatus();
   if (js.gen == seenGen) return Redraw::None;
