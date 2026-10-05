@@ -13,6 +13,7 @@
 //   X CLOCK UNSET     -> system time to 0 in RAM only (the clock chip keeps its time); "T <unix>" sets it back
 //   X SEED <n>        -> games start from random seed n (0 = truly random); "OK X SEED"
 //   X FRAMES <n>      -> the game being played runs n frames at once, then shows the result; "OK X FRAMES"
+//   X PLAY <0/1...>   -> like X FRAMES, one frame per character with B held (1) or not (0); "OK X PLAY"
 //   X MANUAL <0|1>    -> games only move on with X FRAMES (not with time), for repeatable screenshots
 //   X SLEEP <ms>      -> "OK X SLEEP", then real deep sleep woken by a timer (RAM is lost, as in use)
 //   X DRY|FAKE|NETFAIL|NOCARD|NOPUSH <0|1>  -> destructive actions only pretend / cloud steps are canned /
@@ -26,7 +27,8 @@ bool devNoCard();
 bool devNoPush();
 uint32_t devSeed();
 bool devManualFrames();
-void devSetFrameStepper(void (*fn)(int frames));  // what X FRAMES calls (the Games app sets it)
+// What X FRAMES and X PLAY call (the Games app sets it). held: B per frame ('1' down), or null for the real B.
+void devSetFrameStepper(void (*fn)(int frames, const char *held));
 void devSetDetail(const char *(*fn)());  // extra state for X STATE ("detail=..."), set by the open app
 #else
 inline bool devDryRun() { return false; }

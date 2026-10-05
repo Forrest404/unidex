@@ -6,8 +6,7 @@ shot g-list
 press a
 shot g-list-2
 pick Jetpack
-press b
-shot g-coming-soon
+shot g-list-last
 press A
 expect screen=Home
 shot g-home-after

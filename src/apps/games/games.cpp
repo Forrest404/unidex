@@ -11,10 +11,8 @@
 #include "../../core/storage.h"
 #include "../../core/theme.h"
 
-extern const Game flappyGame, dinoGame, stackGame;
-// Not built yet: a name and a key, no functions ("Coming soon").
-static const Game JETPACK = {"Jetpack", "g_jet"};
-static const Game *const GAMES[] = {&flappyGame, &dinoGame, &stackGame, &JETPACK};
+extern const Game flappyGame, dinoGame, stackGame, jetpackGame;
+static const Game *const GAMES[] = {&flappyGame, &dinoGame, &stackGame, &jetpackGame};
 static const int GAME_COUNT = sizeof(GAMES) / sizeof(GAMES[0]);
 static const int ROW_H = 26;
 static const uint32_t IDLE_MS = 30000;  // no B for this long mid-round: leave it (so the board can sleep)
@@ -46,8 +44,7 @@ static void drawList() {
     display.setCursor(MARGIN, baseline);
     display.print(GAMES[i]->name);
     char right[16];
-    if (!GAMES[i]->start) snprintf(right, sizeof right, "soon");
-    else snprintf(right, sizeof right, "best %d", best(GAMES[i]));
+    snprintf(right, sizeof right, "best %d", best(GAMES[i]));
     display.setFont(FONT_TINY);
     drawRight(right, baseline);
     display.setFont(FONT_SMALL);
@@ -123,11 +120,12 @@ static Redraw frame() {
 }
 
 #if UNIDEX_DEV
-// Test build: X FRAMES n plays n frames at once (no waiting), then shows the result.
-static void stepFrames(int n) {
+// Test build: X FRAMES n plays n frames at once (no waiting), then shows the result. X PLAY gives B for
+// each frame (`pattern`: '1' = down) instead of the real button.
+static void stepFrames(int n, const char *pattern) {
   if (screen != PLAY) return;
   for (int i = 0; i < n; i++) {
-    const bool held = inputBHeld(), tap = takeTap(held);
+    const bool held = pattern ? pattern[i] == '1' : inputBHeld(), tap = takeTap(held);
     if (game()->step(tap, held) == Step::Over) {
       finish();
       displayShow(drawOver, true);
@@ -159,10 +157,6 @@ static Redraw onButton(Event e) {
         return Redraw::Partial;
       }
       if (e != Event::BShort) return Redraw::None;
-      if (!GAMES[cursor]->start) {
-        launcherToast("Coming soon");
-        return Redraw::Partial;
-      }
       start(cursor);
       return Redraw::Full;
     case PLAY:

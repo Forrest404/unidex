@@ -13,7 +13,7 @@
 
 static bool dryRun, fakeCloud, netFail, noCard, noPush, manualFrames;
 static uint32_t seed;
-static void (*frameStepper)(int);
+static void (*frameStepper)(int, const char *);
 static const char *(*detailFn)();
 
 bool devDryRun() { return dryRun; }
@@ -23,7 +23,7 @@ bool devNoCard() { return noCard; }
 bool devNoPush() { return noPush; }
 uint32_t devSeed() { return seed; }
 bool devManualFrames() { return manualFrames; }
-void devSetFrameStepper(void (*fn)(int)) { frameStepper = fn; }
+void devSetFrameStepper(void (*fn)(int, const char *)) { frameStepper = fn; }
 void devSetDetail(const char *(*fn)()) { detailFn = fn; }
 
 static void printHex(const char *s) {
@@ -90,9 +90,13 @@ bool devUsb(const char *l) {
     seed = strtoul(c + 5, nullptr, 10);
     Serial.println("OK X SEED");
   } else if (strncmp(c, "FRAMES ", 7) == 0) {
-    if (frameStepper) frameStepper(atoi(c + 7));
+    if (frameStepper) frameStepper(atoi(c + 7), nullptr);
     powerActivity();
     Serial.println("OK X FRAMES");
+  } else if (strncmp(c, "PLAY ", 5) == 0) {
+    if (frameStepper) frameStepper(strlen(c + 5), c + 5);
+    powerActivity();
+    Serial.println("OK X PLAY");
   } else if (strcmp(c, "CLOCK UNSET") == 0) {
     const timeval tv = {0, 0};
     settimeofday(&tv, nullptr);
