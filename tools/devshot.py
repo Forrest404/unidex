@@ -5,7 +5,7 @@
   ~/.platformio/penv/bin/python tools/devshot.py shot NAME [--out DIR]
   ~/.platformio/penv/bin/python tools/devshot.py press a b B ...   (a/b = short, A/B = long)
 
-Walkthrough lines: home | select <app> | press <keys...> | hold B <ms> | shot <name> | expect screen=<name> | sleep <ms>
+Walkthrough lines: home | select <app> | waitjob <s> | job | press <keys...> | hold B <ms> | shot <name> | expect screen=<name> | sleep <ms>
                    | dry|fake|netfail|nocard <0|1> | clock unset | # comment
 Pause the Mac agent first (it shares the port). Each run ends with the switches off, and puts the clock back
 if the run unset it.
@@ -139,6 +139,17 @@ class Run:
             self.last = self.dev.press("A")
         self.problems.append("couldn't get back to Home")
 
+    def job(self):
+        """(busy, step, gen, result, note id) from N JOB."""
+        self.dev.s.write(b"N JOB\n")
+        end = time.time() + 5
+        while time.time() < end:
+            l = self.dev.s.readline().decode("ascii", "replace").strip()
+            if l.startswith("OK N JOB"):
+                p = l.split(" ")
+                return p[3], p[4], p[5], bytes.fromhex(p[6]).decode(), bytes.fromhex(p[7]).decode() if len(p) > 7 else ""
+        raise TimeoutError("no reply to N JOB")
+
     def select(self, name):
         """Home, then A until `name` is highlighted."""
         self.home()
@@ -168,9 +179,20 @@ class Run:
             got = self.dev.state().get(k)
             if got != v:
                 self.problems.append(f"expected {k}={v}, got {got} (before shot {len(self.tiles)})")
+        elif w[0] == "waitjob":  # until the Notes background job is idle (or the seconds run out)
+            end = time.time() + int(w[1])
+            while time.time() < end:
+                r = self.job()
+                if r[0] == "0":
+                    break
+                time.sleep(1)
+            else:
+                self.problems.append("the Notes job didn't finish in time")
+        elif w[0] == "job":  # print the job state (step, result)
+            print("  job:", self.job())
         elif w[0] == "sleep":
             time.sleep(int(w[1]) / 1000)
-        elif w[0] in ("dry", "fake", "netfail", "nocard"):
+        elif w[0] in ("dry", "fake", "netfail", "nocard", "nopush"):
             self.dev.cmd(f"X {w[0].upper()} {w[1]}")
         elif w[0] == "clock" and w[1] == "unset":
             self.dev.cmd("X CLOCK UNSET")
@@ -179,7 +201,7 @@ class Run:
             raise ValueError(f"unknown step: {line}")
 
     def finish(self):
-        for sw in ("DRY", "FAKE", "NETFAIL", "NOCARD"):
+        for sw in ("DRY", "FAKE", "NETFAIL", "NOCARD", "NOPUSH"):
             self.dev.cmd(f"X {sw} 0")
         if self.clock_touched:
             self.dev.s.write(f"T {int(time.time())}\n".encode())

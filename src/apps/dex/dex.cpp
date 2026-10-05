@@ -7,6 +7,7 @@
 #include "../../core/devtools.h"
 #include "../../core/display.h"
 #include "../../core/launcher.h"
+#include "../../core/net.h"
 #include "../../core/power.h"
 #include "../../core/storage.h"
 #include "../../core/theme.h"
@@ -145,6 +146,10 @@ static void drawScanning() {
 }
 
 static void scan() {
+  if (netClaimed()) {  // a note is sending in the background: don't pull the WiFi from under it
+    launcherToast("A note is sending");
+    return;
+  }
   displayShow(drawScanning, false);
   ensureLoaded();
 

@@ -17,6 +17,21 @@ static const gpio_num_t PIN_EPD_CS = GPIO_NUM_11;
 static const uint64_t WAKE_MASK = (1ULL << GPIO_NUM_0) | (1ULL << GPIO_NUM_18);
 
 static uint32_t lastActivity;
+static volatile int holds;  // powerHold() calls not yet released (from either core)
+static portMUX_TYPE holdMux = portMUX_INITIALIZER_UNLOCKED;
+
+void powerHold() {
+  portENTER_CRITICAL(&holdMux);
+  holds++;
+  portEXIT_CRITICAL(&holdMux);
+}
+
+void powerRelease() {
+  portENTER_CRITICAL(&holdMux);
+  if (holds > 0) holds--;
+  portEXIT_CRITICAL(&holdMux);
+  lastActivity = millis();  // the full idle time from here, not from before the work
+}
 
 void powerInit() {
   // Set each level before releasing the hold from the last sleep. A released pin floats, and
@@ -49,7 +64,7 @@ void powerActivity() {
 
 void powerSleepIfIdle() {
   // Sleeping with a button held would wake straight away, in a loop.
-  if (millis() - lastActivity < idleMs || inputAnyDown()) return;
+  if (millis() - lastActivity < idleMs || inputAnyDown() || holds) return;
 #if UNIDEX_DEV
   return;  // test build: always awake, so the test tools never find it asleep (USB host detection can drop out)
 #endif
@@ -86,7 +101,7 @@ void powerNap() {
   delay(5);  // test build: no light sleep (see powerSleepIfIdle)
   return;
 #endif
-  if (HWCDC::isPlugged() || inputAnyDown() || idle >= idleMs) {
+  if (HWCDC::isPlugged() || inputAnyDown() || holds || idle >= idleMs) {  // light sleep drops WiFi
     delay(5);
     return;
   }

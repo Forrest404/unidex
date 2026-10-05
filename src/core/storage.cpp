@@ -23,7 +23,7 @@ bool storageExists(const char *path) {
 
 bool storageRename(const char *from, const char *to) {
   if (!storageCardMount()) return false;
-  SD_MMC.remove(to);
+  if (SD_MMC.exists(to)) SD_MMC.remove(to);  // removing a missing file would log an error onto the USB line
   return SD_MMC.rename(from, to);
 }
 

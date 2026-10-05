@@ -2,6 +2,7 @@
 #include <ArduinoJson.h>
 #include <mbedtls/base64.h>
 #include "../../core/credentials.h"
+#include "../../core/devtools.h"
 
 static const char *OPENAI = "api.openai.com", *ANTHROPIC = "api.anthropic.com", *GITHUB = "api.github.com";
 static const char *DEFAULT_OPENAI_MODEL = "gpt-4o-mini", *DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5";
@@ -46,6 +47,11 @@ static const char *failure(int status, const char *service, const String &body) 
 }
 
 const char *cloudTranscribe(const NetPart *audio, int nParts, String &text) {
+  if (devFakeCloud()) {  // test build: no upload, no cost
+    delay(1500);
+    text = "This is a test note from the unidex test tools.";
+    return nullptr;
+  }
   const String key = credGet("openai_key");
   if (!key.length()) return "no OpenAI key";
   static const char *BOUNDARY = "unidexnote7MA4YWxkTrZu0gW";
@@ -111,6 +117,12 @@ static bool readCleanup(const String &reply, NoteText &note) {
 const char *cloudCleanup(NoteText &note, const String &nowLocal) {
   const String provider = credGet("cleanup");
   note.title = firstWords(note.transcript, 4);  // the fallback, kept if cleanup is off or fails
+  if (devFakeCloud()) {  // test build: a canned result
+    delay(1000);
+    note.title = "Test";
+    note.summary = "A test note.";
+    return nullptr;
+  }
   if (provider == "off" || !note.transcript.length()) return nullptr;
   const bool claude = provider == "anthropic";
   const String key = credGet(claude ? "anthropic_key" : "openai_key");
@@ -237,6 +249,11 @@ static String githubHeaders() {
 }
 
 const char *cloudPush(const String &name, const String &markdown, String &path) {
+  if (devFakeCloud() || devNoPush()) {  // test build: nothing goes to GitHub
+    delay(800);
+    path = "test/" + name + ".md";
+    return nullptr;
+  }
   const String repo = credGet("gh_repo"), token = credGet("gh_token");
   if (!repo.length() || !token.length()) return "GitHub not set up";
   String dir = credGet("gh_dir");
@@ -275,6 +292,7 @@ const char *cloudPush(const String &name, const String &markdown, String &path) 
 }
 
 const char *cloudTest(const char *what) {
+  if (netClaimed()) return "busy: a note is sending";
   if (const char *err = netConnect()) return err;
   String body;
   const char *err = nullptr;

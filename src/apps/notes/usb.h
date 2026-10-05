@@ -10,8 +10,10 @@
 //   N CLR <name|all>         -> "OK N CLR"
 //   N TEST <what>            -> "OK N TEST <what> ok" or "OK N TEST <what> fail <reason>"  (wifi, openai,
 //                               anthropic, github; takes a few seconds)
-//   N MIC                    -> records 2 s: "OK N MIC <peak> <rms>" (0-32767) or "OK N MIC fail <reason>"
+//   N MIC [wifi]             -> records 2 s: "OK N MIC <peak> <rms>" (0-32767) or "OK N MIC fail <reason>";
+//                               with "wifi", WiFi is connecting meanwhile (a check for radio hum)
 //   N LIST                   -> "NF <id> <bytes> <text 0|1> <pushed 0|1> <hex title>" per note, then "OK N LIST"
 //   N READ <id>              -> "ND <hex, up to 64 bytes>" lines, then "OK N READ <bytes> <crc32>" (or "ERR")
-//   N DEL <id>               -> "OK N DEL"
+//   N DEL <id>               -> "OK N DEL" ("ERR busy" for the note being sent)
+//   N JOB                    -> "OK N JOB <busy 0|1> <step> <gen> <hex result> <hex note id> <stack bytes left>"
 bool notesUsb(const char *line);

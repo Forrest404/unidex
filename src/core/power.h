@@ -6,4 +6,6 @@ void powerActivity();      // call on every input event to restart the idle time
 void powerSleepIfIdle();   // call from loop(); never returns if it sleeps
 void powerSetSleepSeconds(int s);  // saved in NVS
 int powerSleepSeconds();
+void powerHold();     // stay awake (no light or deep sleep) until the matching powerRelease(): background work
+void powerRelease();
 void powerNap();           // call at the end of loop(): light sleep until a button or the idle deadline

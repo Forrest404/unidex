@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <esp_heap_caps.h>
 #include <esp_rom_crc.h>
+#include <esp_system.h>
 #include <sys/time.h>
 #include "clock.h"
 #include "display.h"
@@ -10,12 +11,13 @@
 #include "launcher.h"
 #include "power.h"
 
-static bool dryRun, fakeCloud, netFail, noCard;
+static bool dryRun, fakeCloud, netFail, noCard, noPush;
 
 bool devDryRun() { return dryRun; }
 bool devFakeCloud() { return fakeCloud; }
 bool devNetFail() { return netFail; }
 bool devNoCard() { return noCard; }
+bool devNoPush() { return noPush; }
 
 static void printHex(const char *s) {
   for (; *s; s++) Serial.printf("%02x", (uint8_t)*s);
@@ -62,7 +64,8 @@ bool devUsb(const char *l) {
     printHex(launcherScreenName());
     Serial.print(" sel=");
     printHex(launcherSelectedName());
-    Serial.printf(" clock=%d dry=%d fake=%d netfail=%d nocard=%d\n", clockValid(), dryRun, fakeCloud, netFail, noCard);
+    Serial.printf(" clock=%d dry=%d fake=%d netfail=%d nocard=%d nopush=%d reset=%d up=%lu\n", clockValid(), dryRun,
+                  fakeCloud, netFail, noCard, noPush, (int)esp_reset_reason(), (unsigned long)(millis() / 1000));
   } else if (strcmp(c, "MEM") == 0) {
     Serial.printf("OK X MEM internal=%u block=%u psram=%u\n", heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
                   heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL), heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
@@ -70,9 +73,10 @@ bool devUsb(const char *l) {
     const timeval tv = {0, 0};
     settimeofday(&tv, nullptr);
     Serial.println("OK X CLOCK");
-  } else if (!strncmp(c, "DRY ", 4) || !strncmp(c, "FAKE ", 5) || !strncmp(c, "NETFAIL ", 8) || !strncmp(c, "NOCARD ", 7)) {
+  } else if (!strncmp(c, "DRY ", 4) || !strncmp(c, "FAKE ", 5) || !strncmp(c, "NETFAIL ", 8) ||
+             !strncmp(c, "NOCARD ", 7) || !strncmp(c, "NOPUSH ", 7)) {
     const bool on = l[strlen(l) - 1] == '1';
-    (c[0] == 'D' ? dryRun : c[0] == 'F' ? fakeCloud : c[1] == 'E' ? netFail : noCard) = on;
+    (c[0] == 'D' ? dryRun : c[0] == 'F' ? fakeCloud : c[1] == 'E' ? netFail : c[2] == 'C' ? noCard : noPush) = on;
     Serial.printf("OK X %s\n", c);
   } else {
     Serial.println("ERR");

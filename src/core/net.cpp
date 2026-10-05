@@ -11,11 +11,16 @@ extern const uint8_t caBundle[] asm("_binary_certs_x509_crt_bundle_bin_start"); 
 
 static const uint32_t WIFI_TIMEOUT_MS = 20000, IO_TIMEOUT_MS = 30000;  // enterprise logins take longer
 
-const char *netConnect() {
+static volatile bool begun;   // netBegin() started a connection that netOff() hasn't ended
+static uint32_t beganAt;
+
+const char *netBegin() {
   const String ssid = credGet("wifi_ssid");
   if (!ssid.length()) return "WiFi not set up";
-  if (devNetFail()) return "WiFi failed";  // test build switch (X NETFAIL 1)
-  if (WiFi.status() == WL_CONNECTED) return nullptr;
+  if (devNetFail()) return "WiFi failed";  // test build switches (X NETFAIL 1, X FAKE 1)
+  if (devFakeCloud() || begun || WiFi.status() == WL_CONNECTED) return nullptr;
+  begun = true;
+  beganAt = millis();
   setCpuFrequencyMhz(240);  // full speed only while the radio is on (as in the Dex scan)
   WiFi.mode(WIFI_STA);
   const String user = credGet("wifi_user");
@@ -35,8 +40,16 @@ const char *netConnect() {
     esp_wifi_sta_wpa2_ent_disable();  // begin() never turns enterprise mode off after an eduroam login
     WiFi.begin(ssid.c_str(), credGet("wifi_pass").c_str());
   }
-  const uint32_t t0 = millis();
-  while (WiFi.status() != WL_CONNECTED && millis() - t0 < WIFI_TIMEOUT_MS) delay(100);
+  return nullptr;
+}
+
+const char *netConnect() {
+  if (const char *err = netBegin()) return err;
+  if (devFakeCloud()) return nullptr;
+  // Time spent connecting since netBegin() counts (it may have started with a recording), with a few
+  // seconds' grace now in case it's nearly there.
+  const uint32_t deadline = max<uint32_t>(beganAt + WIFI_TIMEOUT_MS, millis() + 5000);
+  while (WiFi.status() != WL_CONNECTED && (int32_t)(deadline - millis()) > 0) delay(100);
   powerActivity();
   if (WiFi.status() == WL_CONNECTED) return nullptr;
   const bool missing = WiFi.status() == WL_NO_SSID_AVAIL;
@@ -44,7 +57,12 @@ const char *netConnect() {
   return missing ? "WiFi not found" : "WiFi failed";
 }
 
+static volatile bool claimed;
+void netClaim(bool on) { claimed = on; }
+bool netClaimed() { return claimed; }
+
 void netOff() {
+  begun = false;
   WiFi.disconnect(true);
   WiFi.mode(WIFI_OFF);
   setCpuFrequencyMhz(80);

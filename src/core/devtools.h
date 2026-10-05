@@ -10,17 +10,19 @@
 //   X STATE           -> "OK X STATE screen=<hex> sel=<hex> clock=<0|1> dry=<0|1> fake=<0|1> netfail=<0|1>"
 //   X MEM             -> "OK X MEM internal=<free> block=<largest> psram=<free>"
 //   X CLOCK UNSET     -> system time to 0 in RAM only (the clock chip keeps its time); "T <unix>" sets it back
-//   X DRY|FAKE|NETFAIL|NOCARD <0|1>  -> destructive actions only pretend / cloud steps are canned / WiFi fails /
-//                        the SD card reads as missing
+//   X DRY|FAKE|NETFAIL|NOCARD|NOPUSH <0|1>  -> destructive actions only pretend / cloud steps are canned /
+//                        WiFi fails / the SD card reads as missing / real transcription but nothing sent to GitHub
 #if UNIDEX_DEV
 bool devUsb(const char *line);  // true if the line was an X command
 bool devDryRun();
 bool devFakeCloud();
 bool devNetFail();
 bool devNoCard();
+bool devNoPush();
 #else
 inline bool devDryRun() { return false; }
 inline bool devFakeCloud() { return false; }
 inline bool devNetFail() { return false; }
 inline bool devNoCard() { return false; }
+inline bool devNoPush() { return false; }
 #endif

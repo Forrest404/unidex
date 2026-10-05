@@ -3,9 +3,11 @@
 #include <esp_rom_crc.h>
 #include <math.h>
 #include "cloud.h"
+#include "job.h"
 #include "store.h"
 #include "../../core/audio.h"
 #include "../../core/credentials.h"
+#include "../../core/net.h"
 #include "../../core/power.h"
 #include "../../core/storage.h"
 
@@ -58,7 +60,9 @@ static void status() {
   Serial.printf("NC %d %d %d\nOK N ?\n", card, notes, waiting);
 }
 
-static void micTest() {
+// Records 2 s and reports how loud it was. With `radio`, WiFi is connecting meanwhile (to check it adds no hum).
+static void micTest(bool radio) {
+  if (radio && !jobBusy()) netBegin();
   if (!audioBegin()) {
     Serial.println("OK N MIC fail codec not answering");
     return;
@@ -78,6 +82,7 @@ static void micTest() {
     total += n;
   }
   audioEnd();
+  if (radio && !jobBusy()) netOff();
   powerActivity();
   if (!total) Serial.println("OK N MIC fail no samples");
   else Serial.printf("OK N MIC %d %d\n", peak, (int)sqrt(sum / total));
@@ -142,6 +147,10 @@ bool notesUsb(const char *l) {
       Serial.println("ERR");
     }
   } else if (strcmp(cmd, "CLR") == 0) {
+    if (jobBusy()) {  // the note being sent still needs its keys
+      Serial.println("ERR busy");
+      return true;
+    }
     if (strcmp(arg, "all") == 0) credClearAll();
     else if (credKnown(arg)) credClear(arg);
     Serial.println("OK N CLR");
@@ -151,14 +160,45 @@ bool notesUsb(const char *l) {
     else Serial.printf("OK N TEST %s ok\n", arg);
     powerActivity();
   } else if (strcmp(cmd, "MIC") == 0) {
-    micTest();
+    micTest(strcmp(arg, "wifi") == 0);
   } else if (strcmp(cmd, "LIST") == 0) {
     list();
   } else if (strcmp(cmd, "READ") == 0) {
     read(arg);
   } else if (strcmp(cmd, "DEL") == 0) {
+    if (jobBusy() && strcmp(arg, jobStatus().noteId) == 0) {
+      Serial.println("ERR busy");
+      return true;
+    }
     if (validId(arg)) storeDelete(arg);
     Serial.println("OK N DEL");
+#if UNIDEX_DEV
+  } else if (strcmp(cmd, "UNFAKE") == 0) {
+    // Test build: undoes what a fake-cloud run wrote over real notes. Only a note whose text is the canned
+    // transcript loses its .md, and its .gh only if that holds the fake "test/" path; the recording stays,
+    // so the note is waiting again. "NU <id>" per note.
+    for (const NoteInfo &n : storeList()) {
+      if (!n.text || storeReadNote(n.id).indexOf("test note from the unidex test tools") < 0) continue;
+      const String md = "/notes/" + n.id + ".md", gh = "/notes/" + n.id + ".gh";
+      String ghPath;
+      if (storageExists(gh.c_str())) {
+        fs::File f = storageOpen(gh.c_str());
+        ghPath = f.readString();
+        f.close();
+      }
+      if (ghPath.startsWith("test/")) storageRemove(gh.c_str());
+      storageRemove(md.c_str());
+      Serial.printf("NU %s\n", n.id.c_str());
+    }
+    Serial.println("OK N UNFAKE");
+#endif
+  } else if (strcmp(cmd, "JOB") == 0) {
+    const JobStatus js = jobStatus();
+    Serial.printf("OK N JOB %d %d %lu ", jobBusy(), (int)js.step, (unsigned long)js.gen);
+    printHex(String(js.result));
+    Serial.print(' ');
+    printHex(String(js.noteId));
+    Serial.printf(" %u\n", (unsigned)jobStackLeft());
   } else {
     return false;
   }

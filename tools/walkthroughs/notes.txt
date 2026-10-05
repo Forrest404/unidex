@@ -1,0 +1,38 @@
+# Notes, with the cloud steps faked (no upload, nothing pushed) and deleting as a dry run.
+# Records one 3 s test note; delete it afterwards with N DEL <id> (the id is printed by "job").
+fake 1
+dry 1
+select Notes
+shot n-home-status
+press b
+shot n-main
+press a
+shot n-list
+press b
+shot n-view
+press a
+shot n-view-p2
+press A
+shot n-view-back
+press B
+shot n-confirm
+press a
+shot n-confirm-keep
+press B
+press b
+shot n-delete-dry
+press A
+shot n-list-back-main
+hold B 3000
+shot n-after-release
+sleep 1200
+shot n-job-progress
+waitjob 40
+shot n-job-done
+job
+press a
+shot n-list-with-test
+press A
+press A
+expect screen=Home
+shot n-home-after

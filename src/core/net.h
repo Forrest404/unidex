@@ -5,7 +5,10 @@
 // WiFi with the network saved from the website (credentials.h), and a small HTTPS client that checks
 // certificates against the embedded root CA bundle. Turn WiFi off again as soon as the work is done.
 const char *netConnect();  // nullptr when connected, else a short reason for the screen
+const char *netBegin();    // starts connecting and returns at once (netConnect() then waits for it)
 void netOff();
+void netClaim(bool on);  // background work (a note sending) owns the WiFi: others must not turn it off
+bool netClaimed();
 
 // One piece of a request body: text, a buffer, or the rest of an open file.
 struct NetPart {
