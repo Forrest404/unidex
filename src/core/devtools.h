@@ -8,7 +8,7 @@
 //   X BTN <a|A|b|B|R> -> presses A short, A long, B short, B long, both (restart); replies after the refresh:
 //                        "OK X BTN <refresh kind> <ms>"
 //   X HOLD B <ms>     -> holds B for <ms> (hold-to-talk), same reply
-//   X STATE           -> "OK X STATE screen=<hex> sel=<hex> clock=<0|1> dry=<0|1> fake=<0|1> netfail=<0|1>"
+//   X STATE           -> "OK X STATE screen=<hex> sel=<hex> clock=<0|1> ... detail=<hex>" (detail: from the app)
 //   X MEM             -> "OK X MEM internal=<free> block=<largest> psram=<free>"
 //   X CLOCK UNSET     -> system time to 0 in RAM only (the clock chip keeps its time); "T <unix>" sets it back
 //   X SEED <n>        -> games start from random seed n (0 = truly random); "OK X SEED"
@@ -27,6 +27,7 @@ bool devNoPush();
 uint32_t devSeed();
 bool devManualFrames();
 void devSetFrameStepper(void (*fn)(int frames));  // what X FRAMES calls (the Games app sets it)
+void devSetDetail(const char *(*fn)());  // extra state for X STATE ("detail=..."), set by the open app
 #else
 inline bool devDryRun() { return false; }
 inline bool devFakeCloud() { return false; }

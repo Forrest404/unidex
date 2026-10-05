@@ -5,7 +5,7 @@
   ~/.platformio/penv/bin/python tools/devshot.py shot NAME [--out DIR]
   ~/.platformio/penv/bin/python tools/devshot.py press a b B ...   (a/b = short, A/B = long)
 
-Walkthrough lines: home | select <app> | waitjob <s> | job | seed <n> | manual <0|1> | frames <n> | press <keys...> | hold B <ms> | shot <name> | expect screen=<name> | sleep <ms>
+Walkthrough lines: home | select <app> | pick <game> | waitjob <s> | job | seed <n> | manual <0|1> | frames <n> | press <keys...> | hold B <ms> | shot <name> | expect screen=<name> | sleep <ms>
                    | dry|fake|netfail|nocard <0|1> | clock unset | # comment
 Pause the Mac agent first (it shares the port). Each run ends with the switches off, and puts the clock back
 if the run unset it.
@@ -63,6 +63,7 @@ class Device:
         kv = dict(p.split("=", 1) for p in r.split()[3:])
         kv["screen"] = bytes.fromhex(kv["screen"]).decode()
         kv["sel"] = bytes.fromhex(kv["sel"]).decode()
+        kv["detail"] = bytes.fromhex(kv.get("detail", "")).decode()
         return kv
 
     def press(self, key):
@@ -157,6 +158,14 @@ class Run:
             self.last = self.dev.press("a")
         self.problems.append(f"couldn't find {name} on the home screen")
 
+    def pick(self, name):
+        """In the Games list: A until `name` is highlighted."""
+        for _ in range(8):
+            if self.dev.state()["detail"] == "list:" + name:
+                return
+            self.last = self.dev.press("a")
+        self.problems.append(f"couldn't highlight {name} in the Games list")
+
     def step(self, line):
         w = line.split()
         if not w or w[0].startswith("#"):
@@ -165,6 +174,8 @@ class Run:
             self.home()
         elif w[0] == "select":
             self.select(" ".join(w[1:]))
+        elif w[0] == "pick":
+            self.pick(" ".join(w[1:]))
         elif w[0] == "press":
             for k in w[1:]:
                 self.last = self.dev.press(k)

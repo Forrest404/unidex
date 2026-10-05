@@ -11,10 +11,10 @@
 #include "../../core/storage.h"
 #include "../../core/theme.h"
 
-extern const Game flappyGame;
+extern const Game flappyGame, dinoGame;
 // Not built yet: a name and a key, no functions ("Coming soon").
-static const Game DINO = {"Dino", "g_dino"}, STACK = {"Stack", "g_stack"}, JETPACK = {"Jetpack", "g_jet"};
-static const Game *const GAMES[] = {&flappyGame, &DINO, &STACK, &JETPACK};
+static const Game STACK = {"Stack", "g_stack"}, JETPACK = {"Jetpack", "g_jet"};
+static const Game *const GAMES[] = {&flappyGame, &dinoGame, &STACK, &JETPACK};
 static const int GAME_COUNT = sizeof(GAMES) / sizeof(GAMES[0]);
 static const int ROW_H = 26;
 static const uint32_t IDLE_MS = 30000;  // no B for this long mid-round: leave it (so the board can sleep)
@@ -139,12 +139,17 @@ static void stepFrames(int n) {
 }
 #endif
 
-static void onEnter() {
-  screen = LIST;
 #if UNIDEX_DEV
-  devSetFrameStepper(stepFrames);
-#endif
+// Test build: "list:Dino" (the highlighted game), "play:Dino" or "over:Dino", for X STATE.
+static const char *detail() {
+  static char text[24];
+  const char *where = screen == PLAY ? "play" : screen == OVER ? "over" : "list";
+  snprintf(text, sizeof text, "%s:%s", where, (screen == LIST ? GAMES[cursor] : game())->name);
+  return text;
 }
+#endif
+
+static void onEnter() { screen = LIST; }
 
 static Redraw onButton(Event e) {
   switch (screen) {
@@ -189,6 +194,10 @@ static void draw() {
 }
 
 static Redraw tick() {
+#if UNIDEX_DEV
+  devSetFrameStepper(stepFrames);  // here, not in onEnter: waking from sleep reopens the app without onEnter
+  devSetDetail(detail);
+#endif
   if (screen != PLAY || devManualFrames()) return Redraw::None;
   if (millis() - bAt > IDLE_MS) {  // left alone mid-round: leave it, so the board can sleep
     powerRelease();
@@ -202,6 +211,10 @@ static Redraw tick() {
 static void onExit() {
   if (screen == PLAY) powerRelease();
   screen = LIST;
+#if UNIDEX_DEV
+  devSetFrameStepper(nullptr);
+  devSetDetail(nullptr);
+#endif
 }
 
 static void status(char *out, size_t len) {

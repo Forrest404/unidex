@@ -5,6 +5,7 @@ seed 7
 manual 1
 select Games
 press b
+pick Flappy
 shot f-list
 press b
 shot f-ready

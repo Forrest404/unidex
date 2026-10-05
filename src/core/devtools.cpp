@@ -14,6 +14,7 @@
 static bool dryRun, fakeCloud, netFail, noCard, noPush, manualFrames;
 static uint32_t seed;
 static void (*frameStepper)(int);
+static const char *(*detailFn)();
 
 bool devDryRun() { return dryRun; }
 bool devFakeCloud() { return fakeCloud; }
@@ -23,6 +24,7 @@ bool devNoPush() { return noPush; }
 uint32_t devSeed() { return seed; }
 bool devManualFrames() { return manualFrames; }
 void devSetFrameStepper(void (*fn)(int)) { frameStepper = fn; }
+void devSetDetail(const char *(*fn)()) { detailFn = fn; }
 
 static void printHex(const char *s) {
   for (; *s; s++) Serial.printf("%02x", (uint8_t)*s);
@@ -69,8 +71,10 @@ bool devUsb(const char *l) {
     printHex(launcherScreenName());
     Serial.print(" sel=");
     printHex(launcherSelectedName());
-    Serial.printf(" clock=%d dry=%d fake=%d netfail=%d nocard=%d nopush=%d reset=%d up=%lu\n", clockValid(), dryRun,
-                  fakeCloud, netFail, noCard, noPush, (int)esp_reset_reason(), (unsigned long)(millis() / 1000));
+    Serial.printf(" clock=%d dry=%d fake=%d netfail=%d nocard=%d nopush=%d reset=%d up=%lu detail=", clockValid(),
+                  dryRun, fakeCloud, netFail, noCard, noPush, (int)esp_reset_reason(), (unsigned long)(millis() / 1000));
+    printHex(detailFn ? detailFn() : "");
+    Serial.print('\n');
   } else if (strcmp(c, "MEM") == 0) {
     Serial.printf("OK X MEM internal=%u block=%u psram=%u\n", heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
                   heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL), heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
