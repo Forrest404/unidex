@@ -5,7 +5,7 @@ press b
 shot g-list
 press a
 shot g-list-2
-pick Stack
+pick Jetpack
 press b
 shot g-coming-soon
 press A

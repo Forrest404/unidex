@@ -11,10 +11,10 @@
 #include "../../core/storage.h"
 #include "../../core/theme.h"
 
-extern const Game flappyGame, dinoGame;
+extern const Game flappyGame, dinoGame, stackGame;
 // Not built yet: a name and a key, no functions ("Coming soon").
-static const Game STACK = {"Stack", "g_stack"}, JETPACK = {"Jetpack", "g_jet"};
-static const Game *const GAMES[] = {&flappyGame, &dinoGame, &STACK, &JETPACK};
+static const Game JETPACK = {"Jetpack", "g_jet"};
+static const Game *const GAMES[] = {&flappyGame, &dinoGame, &stackGame, &JETPACK};
 static const int GAME_COUNT = sizeof(GAMES) / sizeof(GAMES[0]);
 static const int ROW_H = 26;
 static const uint32_t IDLE_MS = 30000;  // no B for this long mid-round: leave it (so the board can sleep)
