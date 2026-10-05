@@ -37,27 +37,27 @@ static int score() { return s.score; }
 
 // A cactus: a trunk with an arm on each side, rounded at the top.
 static void drawCactus(const dino::Cactus &c) {
-  const int w = dino::width(c), h = dino::height(c), top = dino::GROUND - h, trunk = c.x + w / 2 - 2;
+  const int x = c.x / dino::U, w = dino::width(c), h = dino::height(c), top = dino::GROUND - h, trunk = x + w / 2 - 2;
   display.fillRoundRect(trunk, top, 4, h, 2, GxEPD_BLACK);
   const int armY = top + h / 4;
-  display.fillRoundRect(c.x, armY, 3, h / 3, 1, GxEPD_BLACK);              // left arm
-  display.fillRect(c.x, armY + h / 3 - 3, trunk - c.x, 3, GxEPD_BLACK);
-  display.fillRoundRect(c.x + w - 3, armY - 3, 3, h / 3, 1, GxEPD_BLACK);  // right arm
-  display.fillRect(trunk + 4, armY + h / 3 - 6, c.x + w - 3 - trunk - 4, 3, GxEPD_BLACK);
+  display.fillRoundRect(x, armY, 3, h / 3, 1, GxEPD_BLACK);              // left arm
+  display.fillRect(x, armY + h / 3 - 3, trunk - x, 3, GxEPD_BLACK);
+  display.fillRoundRect(x + w - 3, armY - 3, 3, h / 3, 1, GxEPD_BLACK);  // right arm
+  display.fillRect(trunk + 4, armY + h / 3 - 6, x + w - 3 - trunk - 4, 3, GxEPD_BLACK);
 }
 
 static void draw() {
   using namespace dino;
   for (const Cactus &c : s.cacti)
-    if (c.x < 200 && c.x + width(c) > 0) drawCactus(c);
+    if (c.x / U < 200 && c.x / U + width(c) > 0) drawCactus(c);
   display.fillRect(0, GROUND, 200, 2, GxEPD_BLACK);  // the ground, with pebbles that scroll past
-  const int shift = (s.score * SPEED) % 40;
+  const int shift = s.frames * SPEED / U % 40;
   for (int x = 40 - shift; x < 200 + 40; x += 40) {
     display.drawFastHLine(x, GROUND + 8, 4, GxEPD_BLACK);
     display.drawFastHLine(x + 22, GROUND + 15, 6, GxEPD_BLACK);
   }
-  const uint8_t *pose = !onGround(s) ? JUMP_POSE : s.score % 2 ? RUN2 : RUN1;
-  display.drawBitmap(DINO_X, GROUND - s.h - DINO_H + 1, pose, DINO_W, DINO_H, GxEPD_BLACK);
+  const uint8_t *pose = !onGround(s) ? JUMP_POSE : s.frames / 5 % 2 ? RUN2 : RUN1;  // legs change every ~0.25 s
+  display.drawBitmap(DINO_X, GROUND - s.h / U - DINO_H + 1, pose, DINO_W, DINO_H, GxEPD_BLACK);
 
   char text[8];
   snprintf(text, sizeof text, "%05d", s.score);
@@ -73,4 +73,4 @@ static void draw() {
   }
 }
 
-extern const Game dinoGame = {"Dino", "g_dino", 480, start, step, draw, score};
+extern const Game dinoGame = {"Dino", "g_dino", FRAME_MS, start, step, draw, score};

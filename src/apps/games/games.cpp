@@ -23,7 +23,7 @@ RTC_DATA_ATTR static uint8_t screen, cursor, playing;  // playing: index of the 
 RTC_DATA_ATTR static int8_t lastGame = -1;              // for the home line
 RTC_DATA_ATTR static int16_t lastBest, lastScore;
 RTC_DATA_ATTR static bool newBest;
-static uint32_t frameAt;   // when the last frame was shown
+static uint32_t frameAt;   // when the last frame was due (frames keep a steady beat)
 static uint32_t bAt;       // the last time B was down (for IDLE_MS)
 static bool tapped;        // B was tapped since the last frame (a quick tap can fall between frames)
 static bool wasHeld;       // B was down at the last frame
@@ -77,11 +77,13 @@ static void start(uint8_t index) {
   wasHeld = inputBHeld();
   frameAt = bAt = millis();
   powerHold();  // no light or deep sleep mid-round: the frames would stop
+  displayFastFrames(true);  // ~40 ms frames; the next normal screen puts the panel back to its own waveform
   screen = PLAY;
 }
 
 static void finish() {
   powerRelease();
+  displayFastFrames(false);
   lastScore = game()->score();
   newBest = lastScore > best(game());
   screen = OVER;
@@ -108,7 +110,8 @@ static bool takeTap(bool held) {
 // One frame of play: step the game, then show it (or end the round).
 static Redraw frame() {
   const bool held = inputBHeld(), tap = takeTap(held);
-  frameAt = millis();
+  // On the beat; if a frame ran long (more than a whole beat behind), start the beat again from now.
+  frameAt = millis() - frameAt < 2u * game()->frameMs ? frameAt + game()->frameMs : millis();
   const Step r = game()->step(tap, held);
   if (r == Step::Over) {
     finish();
@@ -176,7 +179,7 @@ static Redraw onButton(Event e) {
 
 static Redraw onBack() {
   if (screen == LIST) return Redraw::Exit;
-  if (screen == PLAY) powerRelease();  // leaving mid-round: no score
+  if (screen == PLAY) powerRelease(), displayFastFrames(false);  // leaving mid-round: no score
   screen = LIST;
   return Redraw::Full;
 }
@@ -195,6 +198,7 @@ static Redraw tick() {
   if (screen != PLAY || devManualFrames()) return Redraw::None;
   if (millis() - bAt > IDLE_MS) {  // left alone mid-round: leave it, so the board can sleep
     powerRelease();
+    displayFastFrames(false);
     screen = LIST;
     return Redraw::Full;
   }
@@ -203,7 +207,7 @@ static Redraw tick() {
 }
 
 static void onExit() {
-  if (screen == PLAY) powerRelease();
+  if (screen == PLAY) powerRelease(), displayFastFrames(false);
   screen = LIST;
 #if UNIDEX_DEV
   devSetFrameStepper(nullptr);

@@ -1,6 +1,7 @@
 // Checks Stack's rules on a computer (no board needed):
 //   c++ -std=c++17 -O2 -I src/apps/games tools/gametest/stack_test.cpp -o /tmp/stack_test && /tmp/stack_test
 #include <cstdio>
+#include <cstdlib>
 #include "stack_logic.h"
 
 using namespace stack;
@@ -11,13 +12,26 @@ static void check(bool ok, const char *what) {
   failures += !ok;
 }
 
-// Slides (no drop) until a drop would line up with the top row; false if it doesn't within two passes.
-static bool slideToLineUp(State &s) {
-  for (int i = 0; i < 2 * SCREEN; i++) {
-    if (s.seen == top(s).x) return true;
+static int px(const State &s) { return (s.x + U / 2) / U; }
+
+// Slides (no drop) until the block is close enough to lined up for a perfect drop; false if it never gets
+// there within two passes.
+static bool slideToPerfect(State &s) {
+  for (int i = 0; i < 2000; i++) {
+    if (abs(px(s) - top(s).x) <= PERFECT) return true;
     step(s, false);
   }
   return false;
+}
+
+// A started round with the block placed `off` px right of lined up (left if negative), then dropped.
+static State dropAt(int off) {
+  State t;
+  reset(t, 0);
+  step(t, true);
+  t.x = (BASE_X + off) * U;
+  step(t, true);
+  return t;
 }
 
 int main() {
@@ -29,27 +43,26 @@ int main() {
   step(s, true);
   check(!waiting(s) && s.score == 0, "the first press only starts the sliding (nothing dropped)");
 
-  slideToLineUp(s);
-  step(s, true);
-  check(s.score == 1 && s.perfect && top(s).w == BASE_W && !s.cut.w, "a lined-up drop is perfect: full width");
+  bool snaps = true;
+  for (int off = -PERFECT; off <= PERFECT; off++) {
+    const State t = dropAt(off);
+    snaps &= t.score == 1 && t.perfect && top(t).w == BASE_W && top(t).x == BASE_X && !t.cut.w;
+  }
+  check(snaps, "a drop within 3 px of lined up snaps into place: perfect, full width");
 
-  slideToLineUp(s);
-  step(s, false);  // one frame late
-  const int v = speed(s), w = top(s).w;
-  step(s, true);
-  check(s.score == 2 && !s.perfect && top(s).w == w - v && s.cut.w == v, "a drop one frame off cuts one step");
+  const State right = dropAt(6), left = dropAt(-4);
+  check(!right.perfect && top(right).w == BASE_W - 6 && right.cut.w == 6 && right.cut.x == BASE_X + BASE_W &&
+        !left.perfect && top(left).w == BASE_W - 4 && left.cut.w == 4 && left.cut.x == BASE_X - 4,
+        "a drop further off cuts exactly the overhang (6 px right, 4 px left)");
 
   reset(s, 0);
   step(s, true);
-  while (s.seen <= BASE_X) step(s, false);  // one step right of lined up: the block is now two steps right
-  const int shown = s.seen, now = s.x;
-  step(s, true);
-  check(now != shown && top(s).x == shown, "a drop lands where the block was one step ago (on the last picture)");
+  check(slideToPerfect(s), "sliding, the block passes close enough for a perfect drop");
 
   bool stays = true;
-  for (int i = 0; i < 100; i++) {
+  for (int i = 0; i < 3000; i++) {
     step(s, false);
-    stays &= s.x >= 0 && s.x + s.w <= SCREEN;
+    stays &= s.x >= 0 && s.x <= (SCREEN - s.w) * U;
   }
   check(stays, "the sliding block stays on the screen");
 
@@ -57,32 +70,17 @@ int main() {
   s.started = true, s.rows[0] = {100, 20};
   spawn(s);
   int frames = 0;
-  while (frames < 100 && s.seen + s.w > top(s).x && s.seen < top(s).x + top(s).w) step(s, false), frames++;
-  check(frames < 100 && !step(s, true), "a drop that misses the tower ends the round");
-
-  // Every pass lines up exactly, for any top row, width and speed (the grid through the top row's x).
-  bool linesUp = true;
-  for (int score = 0; score < 40; score++)
-    for (int tw = 1; tw <= BASE_W; tw++)
-      for (int tx = 0; tx + tw <= SCREEN; tx++) {
-        State t = State();
-        t.started = true, t.score = score;
-        t.rows[score % KEEP] = {tx, tw};
-        spawn(t);
-        linesUp &= t.x >= 0 && t.x + t.w <= SCREEN && slideToLineUp(t);
-      }
-  check(linesUp, "every block lines up exactly at some frame (all widths, positions and speeds)");
+  while (frames < 1000 && px(s) + s.w > top(s).x && px(s) < top(s).x + top(s).w) step(s, false), frames++;
+  check(frames < 1000 && !step(s, true), "a drop that misses the tower ends the round");
 
   State a = State();
-  check(speed(a) == 12 && (a.score = 8, speed(a) == 16) && (a.score = 16, speed(a) == 20) &&
-        (a.score = 100, speed(a) == SPEED_MAX), "speed: 12, then +4 every 8 blocks, at most 28");
+  check(speed(a) == 120 && (a.score = 8, speed(a) == 160) && (a.score = 16, speed(a) == 200) &&
+        (a.score = 100, speed(a) == SPEED_MAX), "speed: 1.2 px a frame, then +0.4 every 8 blocks, at most 2.8");
 
   reset(s, 0);
   step(s, true);
   bool perfectAll = true;
-  while (s.score < 300 && perfectAll) {
-    perfectAll = slideToLineUp(s) && step(s, true) && s.perfect && top(s).w == BASE_W;
-  }
+  while (s.score < 300 && perfectAll) perfectAll = slideToPerfect(s) && step(s, true) && s.perfect && top(s).w == BASE_W;
   check(perfectAll, "a perfect player places 300 blocks at full width");
 
   printf("%s\n", failures ? "SOME CHECKS FAILED" : "all checks passed");

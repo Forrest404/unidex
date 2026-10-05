@@ -1,6 +1,9 @@
 #pragma once
 #include <stdint.h>
 
+// Game frames: ~40 ms on the panel with the fast waveform (display.h), so a game steps every 48 ms.
+const uint16_t FRAME_MS = 48;
+
 // What one frame did: the round ended, something moved (redraw), or nothing changed (no redraw needed).
 enum class Step : uint8_t { Over, Moved, Still };
 
@@ -9,7 +12,7 @@ enum class Step : uint8_t { Over, Moved, Still };
 struct Game {
   const char *name;
   const char *bestKey;                   // NVS key for the best score (at most 15 characters)
-  uint16_t frameMs;                      // time per frame (e-ink: a partial refresh takes ~0.43 s)
+  uint16_t frameMs;                      // time per frame (FRAME_MS)
   void (*start)(uint32_t seed);          // a new round
   Step (*step)(bool tapped, bool held);  // one frame: tapped = B went down since the last frame
   void (*draw)();                        // the whole play screen

@@ -13,13 +13,23 @@ static void check(bool ok, const char *what) {
   failures += !ok;
 }
 
-// How many frames the bird survives from `s` with the best choices, looking up to `depth` frames ahead.
+// The autopilot chooses every DECIDE frames (~0.5 s, as slow as a person reacting to the screen): a tap at
+// the start of the block, or not, then no taps for the rest of it.
+const int DECIDE = 10;
+
+static bool run(State &s, bool tap) {
+  for (int i = 0; i < DECIDE; i++)
+    if (!step(s, tap && i == 0)) return false;
+  return true;
+}
+
+// How many blocks the bird survives from `s` with the best choices, looking up to `depth` blocks ahead.
 static int survive(const State &s, int depth) {
   if (depth == 0) return 0;
   int best = 0;
   for (bool tap : {false, true}) {
     State t = s;
-    if (!step(t, tap)) continue;
+    if (!run(t, tap)) continue;
     const int n = 1 + survive(t, depth - 1);
     if (n > best) best = n;
     if (best == depth) break;
@@ -27,12 +37,12 @@ static int survive(const State &s, int depth) {
   return best;
 }
 
-// Plays like a careful player: the choice that keeps the bird alive longest over the next 8 frames
-// (preferring not to tap). If even this crashes, a gap was out of reach: the game would be unfair.
+// Plays like a careful player: the choice that keeps the bird alive longest over the next 8 blocks (~4 s,
+// preferring not to tap). If even this crashes, a gap was out of reach: the game would be unfair.
 static bool autopilotTap(const State &s) {
   State a = s, b = s;
-  const int noTap = step(a, false) ? 1 + survive(a, 7) : 0;
-  const int tap = step(b, true) ? 1 + survive(b, 7) : 0;
+  const int noTap = run(a, false) ? 1 + survive(a, 7) : 0;
+  const int tap = run(b, true) ? 1 + survive(b, 7) : 0;
   return tap > noTap;
 }
 
@@ -46,9 +56,11 @@ int main() {
 
   reset(s, 42);
   step(s, true);
-  int frames = 1;
-  while (step(s, false) && frames < 50) frames++;
-  check(frames <= 10, "no taps after the first: the round ends within 10 frames");
+  int frames = 1, top = s.y;
+  while (step(s, false) && frames < 500) frames++, top = s.y < top ? s.y : top;
+  printf("      a flap rises %d px; with no more taps the round ends after %d frames\n", (86 * U - top) / U, frames);
+  check(frames <= 120, "no taps after the first: the round ends within ~6 s");
+  check((86 * U - top) / U >= 20 && (86 * U - top) / U <= 28, "a flap rises about 24 px (as tuned at 2 fps)");
 
   State a, b;
   reset(a, 7);
@@ -56,7 +68,7 @@ int main() {
   bool same = true;
   for (int i = 0; i < 200; i++) {
     const bool tap = autopilotTap(a);
-    const bool ra = step(a, tap), rb = step(b, tap);
+    const bool ra = run(a, tap), rb = run(b, tap);
     same &= ra == rb && a.y == b.y && a.score == b.score;
     if (!ra) break;
   }
@@ -70,9 +82,9 @@ int main() {
     int lastScore = 0, n = 0;
     bool alive = true;
     while (s.score < 100 && n < 20000) {
-      alive = step(s, autopilotTap(s));
+      alive = run(s, autopilotTap(s));
       if (!alive) break;
-      if (s.score - lastScore > 1) fair = false;  // never more than one point in a frame
+      if (s.score - lastScore > 1) fair = false;  // never more than one point at a time
       for (const Pipe &p : s.pipes) inRange &= p.gapY >= GAP_MIN && p.gapY <= GAP_MAX;
       lastScore = s.score;
       n++;

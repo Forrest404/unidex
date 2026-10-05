@@ -7,6 +7,7 @@
 static stack::State s;
 
 static const int ROW_H = 14, GROUND = 184, SLIDE_Y = 60;  // the tower scrolls to keep the sliding row at SLIDE_Y
+static const int SHOW_FRAMES = 15;  // "Perfect!" and the cut-off piece stay up ~0.7 s after a drop
 
 static void start(uint32_t seed) { stack::reset(s, seed); }
 
@@ -38,16 +39,17 @@ static void draw() {
     const Row &r = s.rows[row % KEEP];
     display.fillRect(r.x, y, r.w, ROW_H - 1, GxEPD_BLACK);
   }
-  if (s.cut.w) drawDotted(s.cut.x, rowY(s.score), s.cut.w, ROW_H - 1);
-  const int y = rowY(s.score + 1);  // the sliding block: an outline, not placed yet
-  display.drawRect(s.x, y, s.w, ROW_H - 1, GxEPD_BLACK);
-  display.drawRect(s.x + 1, y + 1, s.w - 2, ROW_H - 3, GxEPD_BLACK);
+  const bool justDropped = s.score && s.since < SHOW_FRAMES;
+  if (justDropped && s.cut.w) drawDotted(s.cut.x, rowY(s.score), s.cut.w, ROW_H - 1);
+  const int x = s.x / U, y = rowY(s.score + 1);  // the sliding block: an outline, not placed yet
+  display.drawRect(x, y, s.w, ROW_H - 1, GxEPD_BLACK);
+  display.drawRect(x + 1, y + 1, s.w - 2, ROW_H - 3, GxEPD_BLACK);
 
   char text[8];
   snprintf(text, sizeof text, "%d", s.score);
   display.setFont(FONT_MEDIUM);
   drawCentered(text, 14);
-  if (s.perfect) {
+  if (justDropped && s.perfect) {
     display.setFont(FONT_SMALL);
     drawCentered("Perfect!", 38);
   }
@@ -61,4 +63,4 @@ static void draw() {
   }
 }
 
-extern const Game stackGame = {"Stack", "g_stack", 480, start, step, draw, score};
+extern const Game stackGame = {"Stack", "g_stack", FRAME_MS, start, step, draw, score};

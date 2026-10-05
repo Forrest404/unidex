@@ -20,21 +20,30 @@ static int apex(bool held) {
   for (Cactus &c : s.cacti) c.x = 10000;  // nothing in the way
   int top = 0;
   step(s, true, held);
-  for (int i = 0; i < 40 && s.h > 0; i++) {
+  for (int i = 0; i < 400 && s.h > 0; i++) {
     top = s.h > top ? s.h : top;
     step(s, false, held);
   }
-  return top;
+  return top / U;
 }
 
-// Frames survived from `s` with the best presses, looking `depth` frames ahead. The press is B being down
-// or up each frame; a tap is B going down.
+// The autopilot chooses B down or up for DECIDE frames at a time (~0.5 s, as slow as a person reacting to the
+// screen); a tap is B going down.
+const int DECIDE = 10;
+
+static bool run(State &s, bool wasDown, bool down) {
+  for (int i = 0; i < DECIDE; i++)
+    if (!step(s, down && !wasDown && i == 0, down)) return false;
+  return true;
+}
+
+// Blocks survived from `s` with the best presses, looking `depth` blocks ahead.
 static int survive(const State &s, bool wasDown, int depth) {
   if (depth == 0) return 0;
   int best = 0;
   for (bool down : {false, true}) {
     State t = s;
-    if (!step(t, down && !wasDown, down)) continue;
+    if (!run(t, wasDown, down)) continue;
     const int n = 1 + survive(t, down, depth - 1);
     if (n > best) best = n;
     if (best == depth) break;
@@ -44,8 +53,8 @@ static int survive(const State &s, bool wasDown, int depth) {
 
 static bool autopilotDown(const State &s, bool wasDown, int depth) {
   State a = s, b = s;
-  const int up = step(a, false, false) ? 1 + survive(a, false, depth - 1) : 0;
-  const int down = step(b, !wasDown, true) ? 1 + survive(b, true, depth - 1) : 0;
+  const int up = run(a, wasDown, false) ? 1 + survive(a, false, depth - 1) : 0;
+  const int down = run(b, wasDown, true) ? 1 + survive(b, true, depth - 1) : 0;
   return down > up;
 }
 
@@ -58,8 +67,8 @@ int main() {
   reset(s, 42);
   step(s, true, false);
   int frames = 1;
-  while (step(s, false, false) && frames < 200) frames++;
-  check(frames < 200, "no presses after the first: the dino hits a cactus");
+  while (step(s, false, false) && frames < 2000) frames++;
+  check(frames < 2000, "no presses after the first: the dino hits a cactus");
 
   const int tapTop = apex(false), heldTop = apex(true);
   printf("      tap jump reaches %d px, held jump %d px (small cactus %d, tall %d)\n", tapTop, heldTop, SMALL_H, TALL_H);
@@ -72,7 +81,7 @@ int main() {
   bool same = true, wasDown = false;
   for (int i = 0; i < 300; i++) {
     const bool down = autopilotDown(a, wasDown, 8);
-    const bool ra = step(a, down && !wasDown, down), rb = step(b, down && !wasDown, down);
+    const bool ra = run(a, wasDown, down), rb = run(b, wasDown, down);
     wasDown = down;
     same &= ra == rb && a.h == b.h && a.score == b.score;
     if (!ra) break;
@@ -87,7 +96,7 @@ int main() {
     bool alive = true;
     while (s.score < 1000 && alive) {
       const bool down = autopilotDown(s, wasDown, 5);
-      alive = step(s, down && !wasDown, down);
+      alive = run(s, wasDown, down);
       wasDown = down;
     }
     if (!alive) {
@@ -95,7 +104,7 @@ int main() {
       crashed++;
     }
   }
-  check(!crashed, "an autopilot looking 2.5 s ahead runs 1000 frames on 50 seeds (every cactus is clearable)");
+  check(!crashed, "an autopilot choosing every 0.5 s, looking 2.5 s ahead, reaches 1000 points on 50 seeds (every cactus is clearable)");
 
   printf("%s\n", failures ? "SOME CHECKS FAILED" : "all checks passed");
   return failures ? 1 : 0;

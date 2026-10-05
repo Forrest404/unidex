@@ -10,6 +10,8 @@ shot home-dex
 press a
 shot home-chooser
 press a
+shot home-games
+press a
 shot home-settings
 press a
 expect sel=Timetable

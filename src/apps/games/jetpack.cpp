@@ -36,7 +36,7 @@ static int score() { return jetpack::score(s); }
 
 // A zapper: a knob at each end and a thick zigzag between.
 static void drawZapper(const jetpack::Zapper &z) {
-  const int cx = z.x + jetpack::ZAP_W / 2, top = z.y + 4, bottom = z.y + z.len - 4;
+  const int cx = z.x / jetpack::U + jetpack::ZAP_W / 2, top = z.y + 4, bottom = z.y + z.len - 4;
   for (int y = top, side = -3; y < bottom; y += 6, side = -side) {
     const int y2 = y + 6 < bottom ? y + 6 : bottom;
     display.drawLine(cx + side, y, cx - side, y2, GxEPD_BLACK);
@@ -52,18 +52,19 @@ static void draw() {
   display.fillRect(0, FLOOR, 200, 2, GxEPD_BLACK);
   for (const Zapper &z : s.zappers) {
     for (int i = 0; i < COINS; i++) {  // a coin: a ring with a mark in the middle
-      const int x = z.coinX + i * COIN_STEP;
+      const int x = z.coinX / U + i * COIN_STEP;
       if (!(z.coins & (1 << i)) || x > 200 || x + COIN < 0) continue;
       display.drawCircle(x + COIN / 2, z.coinY + COIN / 2, COIN / 2, GxEPD_BLACK);
       display.drawFastVLine(x + COIN / 2, z.coinY + 3, COIN - 6, GxEPD_BLACK);
     }
-    if (z.x < 200 && z.x + ZAP_W > 0) drawZapper(z);
+    if (z.x / U < 200 && z.x / U + ZAP_W > 0) drawZapper(z);
   }
-  const uint8_t *pose = !onFloor(s) ? FLY : s.frames % 2 ? RUN2 : RUN1;
-  display.drawBitmap(PILOT_X, s.y, pose, PILOT_W, PILOT_H, GxEPD_BLACK);
+  const uint8_t *pose = !onFloor(s) ? FLY : s.frames / 5 % 2 ? RUN2 : RUN1;  // legs change every ~0.25 s
+  const int y = s.y / U;
+  display.drawBitmap(PILOT_X, y, pose, PILOT_W, PILOT_H, GxEPD_BLACK);
   if (thrusting && !onFloor(s)) {  // the flame under the jetpack: an outline with a small solid core
-    display.drawTriangle(PILOT_X - 1, s.y + 13, PILOT_X + 6, s.y + 13, PILOT_X + 2, s.y + 27, GxEPD_BLACK);
-    display.fillTriangle(PILOT_X + 1, s.y + 15, PILOT_X + 4, s.y + 15, PILOT_X + 2, s.y + 21, GxEPD_BLACK);
+    display.drawTriangle(PILOT_X - 1, y + 13, PILOT_X + 6, y + 13, PILOT_X + 2, y + 27, GxEPD_BLACK);
+    display.fillTriangle(PILOT_X + 1, y + 15, PILOT_X + 4, y + 15, PILOT_X + 2, y + 21, GxEPD_BLACK);
   }
 
   char text[8];
@@ -79,4 +80,4 @@ static void draw() {
   }
 }
 
-extern const Game jetpackGame = {"Jetpack", "g_jet", 480, start, step, draw, score};
+extern const Game jetpackGame = {"Jetpack", "g_jet", FRAME_MS, start, step, draw, score};

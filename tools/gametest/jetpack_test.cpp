@@ -13,8 +13,8 @@ static void check(bool ok, const char *what) {
 }
 
 // The e-ink shows each frame late, so a person can't switch B every frame. The autopilot is held to the
-// same: it picks B down or up for HOLD frames at a time, looking `depth` choices ahead.
-const int HOLD = 2;
+// same: it picks B down or up for HOLD frames (~1 s) at a time, looking `depth` choices ahead.
+const int HOLD = 20;
 
 static bool run(State &s, bool down) {
   for (int i = 0; i < HOLD; i++)
@@ -50,44 +50,44 @@ int main() {
 
   reset(s, 42);
   step(s, true);
-  check(!waiting(s) && s.y < LOWEST, "the first press lifts off");
+  check(!waiting(s) && s.y < LOWEST * U, "the first press lifts off");
 
   reset(s, 7);
   step(s, true);
   bool floorSafe = true;
   int frames = 1;
-  while (frames < 400 && step(s, false)) frames++, floorSafe &= s.y <= LOWEST;
+  while (frames < 4000 && step(s, false)) frames++, floorSafe &= s.y <= LOWEST * U;
   bool hitFloorZapper = false;
-  for (const Zapper &z : s.zappers) hitFloorZapper |= touches(s, z.x, z.y, ZAP_W, z.len) && z.y + z.len == FLOOR;
-  check(frames < 400 && onFloor(s) && hitFloorZapper && floorSafe,
+  for (const Zapper &z : s.zappers) hitFloorZapper |= touches(s, z.x / U, z.y, ZAP_W, z.len) && z.y + z.len == FLOOR;
+  check(frames < 4000 && onFloor(s) && hitFloorZapper && floorSafe,
         "no presses: runs along the floor (safe) until a floor zapper");
 
   reset(s, 7);
   frames = 0;
-  while (frames < 400 && step(s, true)) frames++;
+  while (frames < 4000 && step(s, true)) frames++;
   bool hitCeilingZapper = false;
-  for (const Zapper &z : s.zappers) hitCeilingZapper |= touches(s, z.x, z.y, ZAP_W, z.len) && z.y == CEILING;
-  check(frames < 400 && s.y == CEILING && hitCeilingZapper, "B held: rides the ceiling (safe) until a ceiling zapper");
+  for (const Zapper &z : s.zappers) hitCeilingZapper |= touches(s, z.x / U, z.y, ZAP_W, z.len) && z.y == CEILING;
+  check(frames < 4000 && s.y == CEILING * U && hitCeilingZapper, "B held: rides the ceiling (safe) until a ceiling zapper");
 
   bool limits = true;
   reset(s, 3);
-  for (int i = 0; i < 200; i++) {
+  for (int i = 0; i < 2000; i++) {
     const int before = s.y;
-    if (!step(s, (i / 3) % 2)) break;
+    if (!step(s, (i / 30) % 2)) break;
     const int moved = s.y - before;
-    limits &= moved >= -MAX_V && moved <= MAX_V && s.y >= CEILING && s.y <= LOWEST;
+    limits &= moved >= -MAX_V && moved <= MAX_V && s.y >= CEILING * U && s.y <= LOWEST * U;
   }
   check(limits, "speed stays within the limit and the pilot stays on screen");
 
   State c;  // a coin straight ahead of the pilot: +5 once
   reset(c, 5);
   c.started = true;
-  for (Zapper &z : c.zappers) z.x = 10000, z.coins = 0;
-  c.zappers[0].coinX = PILOT_X + SPEED, c.zappers[0].coinY = LOWEST + 4, c.zappers[0].coins = 1;
+  for (Zapper &z : c.zappers) z.x = 1000000, z.coins = 0;
+  c.zappers[0].coinX = PILOT_X * U + SPEED, c.zappers[0].coinY = LOWEST + 4, c.zappers[0].coins = 1;
   step(c, false);
   const int afterOne = score(c);
-  step(c, false);
-  check(c.coins == 1 && afterOne == 1 + COIN_POINTS && score(c) == 2 + COIN_POINTS, "a coin adds 5, once");
+  for (int i = 0; i < 20; i++) step(c, false);
+  check(c.coins == 1 && afterOne == COIN_POINTS && score(c) == 2 + COIN_POINTS, "a coin adds 5, once");
 
   State a, b;
   reset(a, 9);
@@ -107,7 +107,7 @@ int main() {
     reset(s, seed);
     step(s, true);  // lift off (until the first press the pilot just stands there)
     bool alive = true;
-    while (s.frames < 1000 && alive) alive = run(s, autopilotDown(s, 6));
+    while (s.frames < 10000 && alive) alive = run(s, autopilotDown(s, 6));
     if (!alive) {
       printf("      seed %u: hit a zapper at frame %d\n", seed, s.frames);
       crashed++;
@@ -115,7 +115,7 @@ int main() {
     coins += s.coins;
   }
   printf("      (the autopilot picked up %d coins in all, without trying)\n", coins);
-  check(!crashed, "an autopilot changing B only once a second runs 1000 frames on 50 seeds (always a way through)");
+  check(!crashed, "an autopilot changing B only once a second flies 8 minutes on 50 seeds (always a way through)");
 
   printf("%s\n", failures ? "SOME CHECKS FAILED" : "all checks passed");
   return failures ? 1 : 0;

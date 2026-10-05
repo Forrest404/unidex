@@ -34,15 +34,16 @@ static void drawPipe(int x, int y0, int y1, bool lipAtBottom) {
 static void draw() {
   using namespace flappy;
   for (const Pipe &p : s.pipes) {
-    if (p.x > 200 || p.x + PIPE_W < -LIP) continue;
-    drawPipe(p.x, 0, p.gapY - GAP / 2, true);
-    drawPipe(p.x, p.gapY + GAP / 2, GROUND, false);
+    const int x = p.x / U;
+    if (x > 200 || x + PIPE_W < -LIP) continue;
+    drawPipe(x, 0, p.gapY - GAP / 2, true);
+    drawPipe(x, p.gapY + GAP / 2, GROUND, false);
   }
   // Ground: a line with marks that move with the pipes, so it reads as flying forward.
   display.fillRect(0, GROUND, 200, 2, GxEPD_BLACK);
-  const int shift = (s.pipes[0].x % 16 + 16) % 16;
+  const int shift = (s.pipes[0].x / U % 16 + 16) % 16;
   for (int x = shift - 16; x < 200; x += 16) display.drawLine(x, GROUND + 14, x + 8, GROUND + 3, GxEPD_BLACK);
-  display.drawBitmap(BIRD_X, s.y, BIRD, BIRD_W, BIRD_H, GxEPD_BLACK);
+  display.drawBitmap(BIRD_X, s.y / U, BIRD, BIRD_W, BIRD_H, GxEPD_BLACK);
 
   char text[8];
   snprintf(text, sizeof text, "%d", s.score);
@@ -60,4 +61,4 @@ static void draw() {
   }
 }
 
-extern const Game flappyGame = {"Flappy", "g_flap", 480, start, step, draw, score};
+extern const Game flappyGame = {"Flappy", "g_flap", FRAME_MS, start, step, draw, score};

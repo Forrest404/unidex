@@ -71,8 +71,10 @@ bool devUsb(const char *l) {
     printHex(launcherScreenName());
     Serial.print(" sel=");
     printHex(launcherSelectedName());
-    Serial.printf(" clock=%d dry=%d fake=%d netfail=%d nocard=%d nopush=%d reset=%d up=%lu detail=", clockValid(),
-                  dryRun, fakeCloud, netFail, noCard, noPush, (int)esp_reset_reason(), (unsigned long)(millis() / 1000));
+    Serial.printf(" clock=%d dry=%d fake=%d netfail=%d nocard=%d nopush=%d reset=%d up=%lu refreshes=%lu lastms=%lu detail=",
+                  clockValid(), dryRun, fakeCloud, netFail, noCard, noPush, (int)esp_reset_reason(),
+                  (unsigned long)(millis() / 1000), (unsigned long)displayLastRefresh().count,
+                  (unsigned long)displayLastRefresh().ms);
     printHex(detailFn ? detailFn() : "");
     Serial.print('\n');
   } else if (strcmp(c, "MEM") == 0) {
@@ -97,6 +99,25 @@ bool devUsb(const char *l) {
     if (frameStepper) frameStepper(strlen(c + 5), c + 5);
     powerActivity();
     Serial.println("OK X PLAY");
+  } else if (strncmp(c, "FTEST ", 6) == 0) {  // X FTEST <SPI MHz> <fast frames, 0 = panel's own> <rate>
+    int mhz = 4, frames = 0, rate = 2;
+    sscanf(c + 6, "%d %d %d", &mhz, &frames, &rate);
+    displaySetSpiHz(mhz * 1000000UL);
+    displayFastWave(frames, rate);
+    uint32_t total = 0, busy = 0;
+    static int at;
+    for (int i = 0; i < 20; i++) {  // a moving box and a counter, like a game frame
+      at = i;
+      const uint32_t t0 = millis();
+      displayFrame([] {
+        display.fillRect(10 + (at * 16) % 140, 60, 40, 40, GxEPD_BLACK);
+        display.setCursor(10, 150);
+        display.print(at);
+      });
+      total += millis() - t0, busy += display.epd2.busyMs;
+    }
+    displayFastFrames(false);
+    Serial.printf("OK X FTEST ms=%lu busy=%lu\n", (unsigned long)(total / 20), (unsigned long)(busy / 20));
   } else if (strcmp(c, "CLOCK UNSET") == 0) {
     const timeval tv = {0, 0};
     settimeofday(&tv, nullptr);
