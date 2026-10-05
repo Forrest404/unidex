@@ -74,6 +74,11 @@ bool devUsb(const char *l) {
   } else if (strcmp(c, "MEM") == 0) {
     Serial.printf("OK X MEM internal=%u block=%u psram=%u\n", heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
                   heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL), heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+  } else if (strncmp(c, "SLEEP ", 6) == 0) {
+    Serial.println("OK X SLEEP");
+    Serial.flush();
+    delay(50);
+    powerSleepFor(strtoul(c + 6, nullptr, 10));  // doesn't return: the board boots again after the timer
   } else if (strncmp(c, "MANUAL ", 7) == 0) {
     manualFrames = c[7] == '1';
     Serial.println("OK X MANUAL");

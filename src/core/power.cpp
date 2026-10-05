@@ -17,6 +17,7 @@ static const gpio_num_t PIN_EPD_CS = GPIO_NUM_11;
 static const uint64_t WAKE_MASK = (1ULL << GPIO_NUM_0) | (1ULL << GPIO_NUM_18);
 
 static uint32_t lastActivity;
+static void deepSleep(uint64_t timerUs);
 static volatile int holds;  // powerHold() calls not yet released (from either core)
 static portMUX_TYPE holdMux = portMUX_INITIALIZER_UNLOCKED;
 
@@ -78,9 +79,12 @@ void powerSleepIfIdle() {
     lastCheck = millis();
   }
   if (onUsb) return;
+  deepSleep(0);
+}
 
-  // Keep the panel powered in its own deep sleep (RAM retained), so the first refresh
-  // after waking can be partial. RST/CS stay HIGH so it isn't woken or selected.
+// Keep the panel powered in its own deep sleep (RAM retained), so the first refresh after waking can be
+// partial. RST/CS stay HIGH so it isn't woken or selected. A button wakes it (and, if timerUs, the timer).
+static void deepSleep(uint64_t timerUs) {
   gpio_hold_en(PIN_LATCH);
   gpio_hold_en(PIN_EPD_PWR);
   gpio_hold_en(PIN_EPD_RST);
@@ -90,8 +94,13 @@ void powerSleepIfIdle() {
   storageEnd();  // unmount the SD card cleanly (it stays powered: no switch on its supply)
   esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);  // drop powerNap's timer and GPIO sources
   esp_sleep_enable_ext1_wakeup(WAKE_MASK, ESP_EXT1_WAKEUP_ANY_LOW);
+  if (timerUs) esp_sleep_enable_timer_wakeup(timerUs);
   esp_deep_sleep_start();
 }
+
+#if UNIDEX_DEV
+void powerSleepFor(uint32_t ms) { deepSleep((uint64_t)ms * 1000); }
+#endif
 
 void powerNap() {
   // Light sleep pauses USB, so skip it while a host is connected (the Mac sync needs the port).

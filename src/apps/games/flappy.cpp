@@ -13,7 +13,10 @@ static const uint8_t BIRD[] = {  // 14x12, 1 = black
 
 static void start(uint32_t seed) { flappy::reset(s, seed); }
 
-static bool step(bool tapped, bool) { return flappy::step(s, tapped); }
+static Step step(bool tapped, bool) {
+  if (flappy::waiting(s) && !tapped) return Step::Still;  // nothing moves before the first flap
+  return flappy::step(s, tapped) ? Step::Moved : Step::Over;
+}
 
 static int score() { return s.score; }
 

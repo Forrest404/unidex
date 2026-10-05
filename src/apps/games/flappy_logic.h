@@ -47,6 +47,8 @@ inline void reset(State &s, uint32_t seed) {
   }
 }
 
+inline bool waiting(const State &s) { return !s.started; }
+
 inline bool overlaps(int ax, int ay, int aw, int ah, int bx, int by, int bw, int bh) {
   return ax < bx + bw && bx < ax + aw && ay < by + bh && by < ay + ah;
 }
@@ -54,7 +56,7 @@ inline bool overlaps(int ax, int ay, int aw, int ah, int bx, int by, int bw, int
 // One frame. Returns false when the round is over (the bird hit a pipe or the ground).
 inline bool step(State &s, bool tapped) {
   if (!s.started) {
-    if (!tapped) return true;  // the bird waits for the first flap
+    if (!tapped) return true;  // the bird waits for the first flap (waiting() is true)
     s.started = true;
   }
   s.vy = tapped ? FLAP : (s.vy + GRAVITY > MAX_FALL ? MAX_FALL : s.vy + GRAVITY);
