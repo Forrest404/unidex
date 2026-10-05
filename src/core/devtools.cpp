@@ -81,7 +81,6 @@ bool devUsb(const char *l) {
   } else {
     Serial.println("ERR");
   }
-  Serial.flush();  // push the reply out now: after a big burst (X SHOT) a short line can sit in the USB buffer
-  return true;
+  return true;  // (usbSyncPoll flushes the reply)
 }
 #endif

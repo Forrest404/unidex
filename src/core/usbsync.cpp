@@ -194,6 +194,10 @@ void usbSyncPoll() {
     lastLineAt = millis();
     powerActivity();  // don't fall asleep mid-transfer
     handle(line);
+    // Send the reply now: after a burst of output a short line can sit in the USB buffer. Asking whether the
+    // host is there nudges the data out by itself; flush() only waits once the host has read from us before
+    // (on a fresh connection it would throw the reply away instead).
+    if (Serial) Serial.flush();
   }
 }
 
