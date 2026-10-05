@@ -82,7 +82,7 @@ battery voltage, and reads high while charging over USB. A small lightning bolt 
 
 ### Timetable
 
-The next class or event as a card: "IN 42 MIN" / "NOW, ENDS IN 20 MIN" / "TOMORROW 09:30" on top, the title in
+The next class or event as a card: "IN 42 MIN" / "NOW, UNTIL 16:00" / "TOMORROW 09:30" on top, the title in
 large type (wrapped to 2 lines; a longer title drops to 3 small lines), the time and length, the location, and a
 "then 16:30 Maths" line for what comes after.
 

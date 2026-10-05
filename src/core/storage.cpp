@@ -28,7 +28,8 @@ bool storageRename(const char *from, const char *to) {
 }
 
 bool storageRemove(const char *path) {
-  return storageCardMount() && SD_MMC.remove(path);
+  // Checked first: removing a missing file would log an error onto the USB line.
+  return storageCardMount() && SD_MMC.exists(path) && SD_MMC.remove(path);
 }
 
 int32_t storageGetInt(const char *key, int32_t fallback) {

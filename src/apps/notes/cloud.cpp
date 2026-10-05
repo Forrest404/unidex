@@ -57,7 +57,7 @@ const char *cloudTranscribe(const NetPart *audio, int nParts, String &text) {
   static const char *BOUNDARY = "unidexnote7MA4YWxkTrZu0gW";
   const String pre = String("--") + BOUNDARY +
                      "\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\nwhisper-1\r\n--" + BOUNDARY +
-                     "\r\nContent-Disposition: form-data; name=\"response_format\"\r\n\r\njson\r\n--" + BOUNDARY +
+                     "\r\nContent-Disposition: form-data; name=\"response_format\"\r\n\r\nverbose_json\r\n--" + BOUNDARY +
                      "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"note.wav\"\r\n"
                      "Content-Type: audio/wav\r\n\r\n";
   const String post = String("\r\n--") + BOUNDARY + "--\r\n";
@@ -70,9 +70,17 @@ const char *cloudTranscribe(const NetPart *audio, int nParts, String &text) {
   String body;
   const int status = netHttps(OPENAI, "POST", "/v1/audio/transcriptions", headers, parts.data(), parts.size(), body);
   if (status != 200) return failure(status, "Whisper", body);
-  JsonDocument doc;
-  if (deserializeJson(doc, body)) return "Whisper: bad reply";
-  text = doc["text"] | "";
+  JsonDocument filter, doc;
+  filter["text"] = true;
+  filter["segments"][0]["no_speech_prob"] = true;
+  filter["segments"][0]["avg_logprob"] = true;
+  if (deserializeJson(doc, body, DeserializationOption::Filter(filter))) return "Whisper: bad reply";
+  // On silence or noise Whisper can make up words ("Thank you for watching"). Its own signs: every segment
+  // likely holds no speech and it's unsure of the words. Then there's nothing to keep.
+  bool speech = doc["segments"].isNull();  // no segment details: trust the text
+  for (JsonVariant s : doc["segments"].as<JsonArray>())
+    if (!((s["no_speech_prob"] | 0.0) > 0.6 && (s["avg_logprob"] | 0.0) < -1.0)) speech = true;
+  text = speech ? (doc["text"] | "") : "";
   text.trim();
   return nullptr;
 }

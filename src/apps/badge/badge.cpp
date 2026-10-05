@@ -218,6 +218,16 @@ static Redraw tick() {
 static void onExit() { band = false; }
 
 static void status(char *out, size_t len) {
+  static bool looked;  // after a restart, list the badges once so the line is there before the first visit
+  if (shownCount < 0 && !looked) {
+    looked = true;
+    if (storageCardMount()) {
+      list();
+      const String last = storageGetString("badge");
+      for (int i = 0; i < count; i++)
+        if (names[i] == last) current = i;
+    }
+  }
   if (shownCount > 0) snprintf(out, len, "Badge %d of %d", current + 1, shownCount);
   else if (shownCount == 0) snprintf(out, len, "No badges yet");
   else snprintf(out, len, "Show a name badge");

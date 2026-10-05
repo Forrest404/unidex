@@ -67,18 +67,20 @@ static String fileName(const String &title, const String &id) {  // a safe GitHu
 
 static bool githubOn() { return credGet("gh_on") == "1"; }
 
+static const char *const NO_SPEECH = "Heard nothing";  // finish(): a recording with nothing to keep
+
 // Transcribe (from the audio parts), tidy up, save and push one note. WiFi must be up.
 // Returns nullptr or the reason it stopped; `title` gets the note's title.
 static const char *finish(const String &id, const NetPart *audio, int nParts, bool onCard, String &title) {
   NoteText note;
   publish(JobStep::Transcribing);
   if (const char *err = cloudTranscribe(audio, nParts, note.transcript)) return err;
-  if (!note.transcript.length()) return "heard nothing";
+  if (!note.transcript.length()) return NO_SPEECH;
   publish(JobStep::Tidying);
   const char *cleanupErr = cloudCleanup(note, localIso(id));  // on failure the raw transcript is kept
   title = note.title;
   const String md = noteMarkdown(note, id, localIso(id));
-  if (onCard && !storeSaveNote(id, md)) return "couldn't save to card";
+  if (onCard && !storeSaveNote(id, md)) return "Couldn't save to card";
   if (githubOn()) {
     publish(JobStep::Pushing);
     String path;
@@ -105,6 +107,11 @@ static const char *sweep(const char *skip, int &done) {
       if (!f) continue;
       const NetPart audio[] = {NetPart::rest(f)};
       err = finish(n.id, audio, 1, true, title);
+      f.close();
+      if (err == NO_SPEECH) {  // nothing said: drop it, so it isn't retried (and doesn't hold up the others)
+        storeDelete(n.id);
+        continue;
+      }
       if (err && storeReadNote(n.id).length()) err = nullptr;  // saved; only the cleanup or push failed
     } else if (githubOn() && !n.pushed) {
       publish(JobStep::Pushing);
@@ -141,7 +148,7 @@ static void runNote(Item &it) {
     } else {
       fs::File f = storageOpen(storeWavPath(it.id).c_str());
       const NetPart audio[] = {NetPart::rest(f)};
-      err = f ? finish(it.id, audio, 1, true, title) : "couldn't read the card";
+      err = f ? finish(it.id, audio, 1, true, title) : "Couldn't read the card";
     }
     int done = 0;
     // Older notes still waiting go in the same WiFi session (never with the test build's fake cloud: it would
@@ -150,7 +157,10 @@ static void runNote(Item &it) {
   }
   free(it.samples);
   it.samples = nullptr;
-  if (!err) snprintf(result, sizeof result, "Saved: %s", title.c_str());
+  if (err == NO_SPEECH) {  // like a press too short to be a note: nothing is kept
+    if (saved) storeDelete(it.id);
+    snprintf(result, sizeof result, "Heard nothing: not kept");
+  } else if (!err) snprintf(result, sizeof result, "Saved: %s", title.c_str());
   else if (saved) snprintf(result, sizeof result, "%s (kept)", err);
   else snprintf(result, sizeof result, "%s: not kept", err);
   publish(JobStep::Idle, result);

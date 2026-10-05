@@ -199,9 +199,9 @@ static void drawMain() {
     drawCentered("Hold B", 92);
     display.setFont(FONT_SMALL);
     String line = ascii(message);
-    if (!line.length() && !credHas("wifi_ssid")) line = "set up WiFi on the website";
-    else if (!line.length() && !credHas("openai_key")) line = "add an OpenAI key on the website";
-    else if (!line.length() && !hasCard()) line = githubOn() ? "no SD card: GitHub only" : "no SD card: nothing is kept";
+    if (!line.length() && !credHas("wifi_ssid")) line = "Set up WiFi on the website";
+    else if (!line.length() && !credHas("openai_key")) line = "Add an OpenAI key on the website";
+    else if (!line.length() && !hasCard()) line = githubOn() ? "No SD card: GitHub only" : "No SD card: nothing is kept";
     else if (!line.length() && waiting()) line = String(waiting()) + " waiting: B to sync";
     else if (!line.length()) line = "to record a note";
     drawCentered(fitText(line.c_str(), display.width() - 2 * MARGIN).c_str(), 128);
@@ -306,7 +306,7 @@ static void record() {
   int16_t *samples = (int16_t *)ps_malloc(MAX_SECONDS * AUDIO_RATE * sizeof(int16_t));
   if (!samples || !audioBegin()) {
     free(samples);
-    message = samples ? "microphone not answering" : "not enough memory";
+    message = samples ? "Microphone not answering" : "Not enough memory";
     return;
   }
   size_t count = 0;
@@ -345,9 +345,9 @@ static void syncWaiting() {
   card = -1;
   listed = false;
   ensureList();
-  if (!hasCard()) message = "no SD card: nothing waiting";
+  if (!hasCard()) message = "No SD card: nothing waiting";
   else if (jobBusy()) launcherToast("Already sending");
-  else if (!waiting()) message = "nothing waiting";
+  else if (!waiting()) message = "Nothing waiting";
   else message = "", jobStartSweep();
 }
 
@@ -481,6 +481,11 @@ static void onExit() {
 }
 
 static void status(char *out, size_t len) {
+  static bool looked;  // after a restart, count the notes once so the line is there before the first visit
+  if (noteCount < 0 && !looked) {
+    looked = true;
+    ensureList();
+  }
   if (jobBusy()) snprintf(out, len, "Sending: %s", stepName(jobStatus().step));
   else if (noteCount < 0) snprintf(out, len, "Hold B to record");
   else if (waitingCount) snprintf(out, len, "%d note%s, %d waiting", noteCount, noteCount == 1 ? "" : "s", waitingCount);

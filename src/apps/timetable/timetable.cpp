@@ -179,20 +179,28 @@ static void formatDuration(char *buf, size_t len, int32_t min) {
 
 static void formatHm(char *buf, size_t len, int min) { snprintf(buf, len, "%02d:%02d", min / 60, min % 60); }
 
-static void drawTitle(const char *title, const struct tm &now) {
-  char hm[6] = "";
-  if (clockValid()) formatHm(hm, sizeof hm, nowMinutes(now));
-  drawHeader(title, hm);
+// The title, with "..." when it reached the length kept from the calendar (so it was cut there).
+static String titleOf(const Class &c) {
+  String t = c.module;
+  if (t.length() >= sizeof c.module - 1) t += "...";
+  return t;
+}
+
+// The header: the title, then on the right the time, after `pos` ("2/5") if given.
+static void drawTitle(const char *title, const struct tm &now, const char *pos = "") {
+  char right[16] = "";
+  if (clockValid()) snprintf(right, sizeof right, "%s%s%02d:%02d", pos, *pos ? "  " : "", now.tm_hour, now.tm_min);
+  drawHeader(title, right);
   drawnMinute = clockValid() ? now.tm_min : -1;
 }
 
-// "IN 42 MIN" / "NOW, ENDS IN 20 MIN" / "TOMORROW 09:30" / "TUE 09:00".
+// "IN 42 MIN" / "NOW, UNTIL 16:00" / "TOMORROW 09:30" / "TUE 09:00".
 static void formatWhen(char *buf, size_t len, const Class &c, int32_t d, const struct tm &now) {
   static const char *DAYS[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
   char dur[16], hm[6];
   if (d <= 0) {
-    formatDuration(dur, sizeof dur, d + (c.end - c.start));
-    snprintf(buf, len, "NOW, ENDS IN %s", dur);
+    formatHm(hm, sizeof hm, c.end);
+    snprintf(buf, len, "NOW, UNTIL %s", hm);
   } else if (d < 1440 - nowMinutes(now)) {
     formatDuration(dur, sizeof dur, d);
     snprintf(buf, len, "IN %s", dur);
@@ -256,28 +264,24 @@ static void drawNext(const struct tm &now) {
   peek %= n;
   const Class &c = classes[up[peek].index];
   const int16_t width = display.width() - 2 * MARGIN;
-  drawTitle("Timetable", now);
-
-  char when[32], pos[8];
+  char when[32], pos[8] = "";
+  if (n > 1) snprintf(pos, sizeof pos, "%d/%d", peek + 1, n);  // which of the upcoming events this is
+  drawTitle("Timetable", now, pos);
   formatWhen(when, sizeof when, c, up[peek].delta, now);
   display.setFont(FONT_SMALL);
   display.setCursor(MARGIN, CONTENT_TOP + 16);
-  display.print(when);
-  if (n > 1) {  // which of the upcoming events this is
-    snprintf(pos, sizeof pos, "%d/%d", peek + 1, n);
-    display.setFont(FONT_TINY);
-    drawRight(pos, CONTENT_TOP + 16);
-  }
+  display.print(fitText(when, width));
 
   // The title: large on up to 2 lines, else small on up to 3, centred between the countdown and the rule.
   String lines[3];
   int used, lineH, ascent;
   display.setFont(FONT_LARGE);
-  if ((used = wrapText(c.module, width, lines, 2)) <= 2) {
+  const String title = titleOf(c);
+  if ((used = wrapText(title.c_str(), width, lines, 2)) <= 2) {
     lineH = 28, ascent = 20;
   } else {
     display.setFont(FONT_SMALL);
-    used = min(wrapText(c.module, width, lines, 3), 3);
+    used = min(wrapText(title.c_str(), width, lines, 3), 3);
     lineH = 18, ascent = 13;
   }
   const int16_t top = CONTENT_TOP + 22, bottom = CONTENT_TOP + 78;
@@ -318,7 +322,7 @@ static int detailLines(const Class &c, int32_t d, String *out) {
     int got = wrapText(text, width, part, DETAIL_LINES);
     for (int i = 0; i < got && i < DETAIL_LINES && n < DETAIL_LINES; i++) out[n++] = part[i];
   };
-  add(c.module);
+  add(titleOf(c).c_str());
   if (n < DETAIL_LINES) out[n++] = "";
   // The date it happens on: today plus however many days ahead the start is.
   time_t t = time(nullptr) + (time_t)d * 60;
@@ -495,6 +499,16 @@ static void status(char *out, size_t len) {
   if (!clockValid()) {
     snprintf(out, len, "Time not set");
     return;
+  }
+  static bool looked;  // after a restart, read the card once so the line is there before the first visit
+  if (soonCount < 0 && !looked) {
+    looked = true;
+    if (storageCardMount()) {
+      count = -1;
+      ensureReady();
+      Upcoming up[MAX_UPCOMING];
+      rememberSoon(up, findUpcoming(up, clockLocal()));
+    }
   }
   const time_t now = time(nullptr);
   for (int i = 0; i < soonCount; i++) {

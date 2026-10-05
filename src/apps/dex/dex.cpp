@@ -231,6 +231,7 @@ static void drawMain() {
     display.setTextColor(GxEPD_BLACK);
     drawName(best.ssid, 84);
     snprintf(line, sizeof line, "%s, %d new of %d", RARITY[best.rarity], newCount, nearby);
+    line[0] = toupper(line[0]);  // "Rare, 3 new of 12"
     display.setFont(FONT_SMALL);
     drawCentered(fitText(line, display.width() - 2 * MARGIN).c_str(), 116);
   } else if (scanned) {
@@ -380,6 +381,11 @@ static Redraw onBack() {
 static void onExit() {}
 
 static void status(char *out, size_t len) {
+  static bool looked;  // after a restart, count the finds once so the line is there before the first visit
+  if (dexCount < 0 && !looked) {
+    looked = true;
+    if (storageCardMount()) ensureLoaded();
+  }
   if (dexCount < 0) snprintf(out, len, "Collect WiFi networks");
   else snprintf(out, len, dexCount == 1 ? "1 network found" : "%d networks found", dexCount);
 }
