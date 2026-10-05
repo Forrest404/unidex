@@ -11,7 +11,7 @@
 #include "launcher.h"
 #include "power.h"
 
-static bool dryRun, fakeCloud, netFail, noCard, noPush;
+static bool dryRun, fakeCloud, netFail, noCard, noPush, manualFrames;
 static uint32_t seed;
 static void (*frameStepper)(int);
 
@@ -21,6 +21,7 @@ bool devNetFail() { return netFail; }
 bool devNoCard() { return noCard; }
 bool devNoPush() { return noPush; }
 uint32_t devSeed() { return seed; }
+bool devManualFrames() { return manualFrames; }
 void devSetFrameStepper(void (*fn)(int)) { frameStepper = fn; }
 
 static void printHex(const char *s) {
@@ -73,6 +74,9 @@ bool devUsb(const char *l) {
   } else if (strcmp(c, "MEM") == 0) {
     Serial.printf("OK X MEM internal=%u block=%u psram=%u\n", heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
                   heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL), heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+  } else if (strncmp(c, "MANUAL ", 7) == 0) {
+    manualFrames = c[7] == '1';
+    Serial.println("OK X MANUAL");
   } else if (strncmp(c, "SEED ", 5) == 0) {
     seed = strtoul(c + 5, nullptr, 10);
     Serial.println("OK X SEED");

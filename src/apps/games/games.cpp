@@ -11,10 +11,10 @@
 #include "../../core/storage.h"
 #include "../../core/theme.h"
 
+extern const Game flappyGame;
 // Not built yet: a name and a key, no functions ("Coming soon").
-static const Game FLAPPY = {"Flappy", "g_flap"}, DINO = {"Dino", "g_dino"}, STACK = {"Stack", "g_stack"},
-                  JETPACK = {"Jetpack", "g_jet"};
-static const Game *const GAMES[] = {&FLAPPY, &DINO, &STACK, &JETPACK};
+static const Game DINO = {"Dino", "g_dino"}, STACK = {"Stack", "g_stack"}, JETPACK = {"Jetpack", "g_jet"};
+static const Game *const GAMES[] = {&flappyGame, &DINO, &STACK, &JETPACK};
 static const int GAME_COUNT = sizeof(GAMES) / sizeof(GAMES[0]);
 static const int ROW_H = 26;
 
@@ -80,11 +80,12 @@ static void finish() {
   powerRelease();
   const int score = game->score();
   newBest = score > best(game);
-  if (newBest && !devDryRun()) storagePutInt(game->bestKey, score);
+  screen = OVER;
+  if (devDryRun()) return;  // test build: a test round leaves the scores and the home line alone
+  if (newBest) storagePutInt(game->bestKey, score);
   for (int i = 0; i < GAME_COUNT; i++)
     if (GAMES[i] == game) lastGame = i;
   lastBest = max(score, best(game));
-  screen = OVER;
 }
 
 // One frame of play: step the game, then show it (or end the round).
@@ -165,7 +166,7 @@ static void draw() {
 }
 
 static Redraw tick() {
-  if (screen != PLAY || millis() - frameAt < game->frameMs) return Redraw::None;
+  if (screen != PLAY || devManualFrames() || millis() - frameAt < game->frameMs) return Redraw::None;
   return frame();
 }
 

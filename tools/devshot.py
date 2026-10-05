@@ -5,7 +5,7 @@
   ~/.platformio/penv/bin/python tools/devshot.py shot NAME [--out DIR]
   ~/.platformio/penv/bin/python tools/devshot.py press a b B ...   (a/b = short, A/B = long)
 
-Walkthrough lines: home | select <app> | waitjob <s> | job | seed <n> | frames <n> | press <keys...> | hold B <ms> | shot <name> | expect screen=<name> | sleep <ms>
+Walkthrough lines: home | select <app> | waitjob <s> | job | seed <n> | manual <0|1> | frames <n> | press <keys...> | hold B <ms> | shot <name> | expect screen=<name> | sleep <ms>
                    | dry|fake|netfail|nocard <0|1> | clock unset | # comment
 Pause the Mac agent first (it shares the port). Each run ends with the switches off, and puts the clock back
 if the run unset it.
@@ -190,6 +190,8 @@ class Run:
             print("  job:", self.job())
         elif w[0] == "seed":  # games: a fixed random seed, so a round plays the same every time
             self.dev.cmd(f"X SEED {w[1]}")
+        elif w[0] == "manual":  # games: move on only with "frames" (1), or with time again (0)
+            self.dev.cmd(f"X MANUAL {w[1]}")
         elif w[0] == "frames":  # games: run n frames at once
             self.dev.cmd(f"X FRAMES {w[1]}", timeout=120)
         elif w[0] == "sleep":
@@ -203,6 +205,8 @@ class Run:
             raise ValueError(f"unknown step: {line}")
 
     def finish(self):
+        self.dev.cmd("X SEED 0")
+        self.dev.cmd("X MANUAL 0")
         for sw in ("DRY", "FAKE", "NETFAIL", "NOCARD", "NOPUSH"):
             self.dev.cmd(f"X {sw} 0")
         if self.clock_touched:

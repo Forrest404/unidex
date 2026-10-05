@@ -13,6 +13,7 @@
 //   X CLOCK UNSET     -> system time to 0 in RAM only (the clock chip keeps its time); "T <unix>" sets it back
 //   X SEED <n>        -> games start from random seed n (0 = truly random); "OK X SEED"
 //   X FRAMES <n>      -> the game being played runs n frames at once, then shows the result; "OK X FRAMES"
+//   X MANUAL <0|1>    -> games only move on with X FRAMES (not with time), for repeatable screenshots
 //   X DRY|FAKE|NETFAIL|NOCARD|NOPUSH <0|1>  -> destructive actions only pretend / cloud steps are canned /
 //                        WiFi fails / the SD card reads as missing / real transcription but nothing sent to GitHub
 #if UNIDEX_DEV
@@ -23,6 +24,7 @@ bool devNetFail();
 bool devNoCard();
 bool devNoPush();
 uint32_t devSeed();
+bool devManualFrames();
 void devSetFrameStepper(void (*fn)(int frames));  // what X FRAMES calls (the Games app sets it)
 #else
 inline bool devDryRun() { return false; }
@@ -31,4 +33,5 @@ inline bool devNetFail() { return false; }
 inline bool devNoCard() { return false; }
 inline bool devNoPush() { return false; }
 inline uint32_t devSeed() { return 0; }
+inline bool devManualFrames() { return false; }
 #endif
