@@ -1,4 +1,6 @@
-# Every screen of the current firmware. Nothing here deletes, records or changes a setting.
+# Every screen of the firmware before the redesign (the baseline in shots/before). Kept as a record: its Settings
+# steps use the old controls, so it no longer runs cleanly; the per-app walkthroughs cover the current screens.
+# Nothing here deletes, records or changes a setting.
 # Normal use only: one Dex scan, one Chooser spin (adds to the tally).
 select Timetable
 shot home-timetable

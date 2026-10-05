@@ -172,26 +172,6 @@ bool notesUsb(const char *l) {
     }
     if (validId(arg)) storeDelete(arg);
     Serial.println("OK N DEL");
-#if UNIDEX_DEV
-  } else if (strcmp(cmd, "UNFAKE") == 0) {
-    // Test build: undoes what a fake-cloud run wrote over real notes. Only a note whose text is the canned
-    // transcript loses its .md, and its .gh only if that holds the fake "test/" path; the recording stays,
-    // so the note is waiting again. "NU <id>" per note.
-    for (const NoteInfo &n : storeList()) {
-      if (!n.text || storeReadNote(n.id).indexOf("test note from the unidex test tools") < 0) continue;
-      const String md = "/notes/" + n.id + ".md", gh = "/notes/" + n.id + ".gh";
-      String ghPath;
-      if (storageExists(gh.c_str())) {
-        fs::File f = storageOpen(gh.c_str());
-        ghPath = f.readString();
-        f.close();
-      }
-      if (ghPath.startsWith("test/")) storageRemove(gh.c_str());
-      storageRemove(md.c_str());
-      Serial.printf("NU %s\n", n.id.c_str());
-    }
-    Serial.println("OK N UNFAKE");
-#endif
   } else if (strcmp(cmd, "JOB") == 0) {
     const JobStatus js = jobStatus();
     Serial.printf("OK N JOB %d %d %lu ", jobBusy(), (int)js.step, (unsigned long)js.gen);
