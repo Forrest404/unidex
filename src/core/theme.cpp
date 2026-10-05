@@ -37,7 +37,8 @@ void drawHeader(const char *title, const char *right) {
   display.drawFastHLine(MARGIN, HEADER_H - 1, display.width() - 2 * MARGIN, GxEPD_BLACK);
 }
 
-void drawHints(const char *a, const char *b, const char *aHold, const char *bHold) {
+void drawHints(const char *a, const char *b, const char *bHold) {
+  if (!*a && !*b && !*bHold) return;  // nothing to say: no bar either
   display.drawFastHLine(MARGIN, HINTS_TOP, display.width() - 2 * MARGIN, GxEPD_BLACK);
   char text[32];
   display.setFont(FONT_SMALL);
@@ -50,10 +51,6 @@ void drawHints(const char *a, const char *b, const char *aHold, const char *bHol
     drawRight(text, 179);
   }
   display.setFont(FONT_TINY);
-  if (*aHold) {
-    display.setCursor(MARGIN, 195);
-    display.printf("hold A: %s", aHold);
-  }
   if (*bHold) {
     snprintf(text, sizeof text, "hold B: %s", bHold);
     drawRight(text, 195);

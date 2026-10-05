@@ -58,9 +58,10 @@ Two buttons: **A** = BOOT, **B** = PWR. They mean the same thing everywhere:
 | hold A (~0.3 s) | back one step; from an app's main screen, home; on the home screen, the previous app |
 | hold B | the screen's extra (Today, the picker, rarity, tally, delete, record...) |
 
-Every screen shows its buttons at the bottom in two rows: what a press does, then what a hold does
-(`A next  B open` / `hold A: back  hold B: delete`). Anything that can't be undone asks first in a box
-(A keeps, B goes ahead), and short messages ("Clock set", "Deleted") pop up in a black pill for a moment.
+Every screen shows what A and B do at the bottom (`A next  B open`), with a hold-B extra under B when the
+screen has one (`hold B: delete`). Hold A always goes back, so it isn't shown. Anything that can't be undone
+asks first in a box (A keeps, B goes ahead), and short messages ("Clock set", "Deleted") pop up in a black pill
+for a moment.
 
 The home screen shows one app at a time: its icon, its name, a live line under it ("In 12 min: Maths",
 "3 notes, 1 waiting", "Badge 5 of 12"), and a dot per app. A moves to the next app, B opens it. After the time set

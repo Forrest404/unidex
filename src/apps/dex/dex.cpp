@@ -142,7 +142,7 @@ static void drawScanning() {
   drawHeader("Dex");
   drawEmpty("Looking for networks", "a few seconds...");
   drawProgress(HINTS_TOP - 24, -1);
-  drawHints("", "", "", "");
+  drawHints("", "", "");
 }
 
 static void scan() {
@@ -203,12 +203,6 @@ static void scan() {
   powerActivity();  // the scan took a few seconds
 }
 
-static void drawTitle(const char *title) {
-  char found[16];
-  snprintf(found, sizeof found, "%d found", knownCount);
-  drawHeader(title, found);
-}
-
 // Large font if it fits, else small (cut with "..." if even that is too wide).
 static void drawName(const char *text, int16_t cy) {
   display.setFont(FONT_LARGE);
@@ -217,7 +211,7 @@ static void drawName(const char *text, int16_t cy) {
 }
 
 static void drawMain() {
-  drawTitle("Dex");
+  drawHeader("Dex");
   char line[48];
   display.setFont(FONT_SMALL);
   if (knownCount == 0) {
@@ -241,13 +235,11 @@ static void drawMain() {
     char count[12];
     snprintf(count, sizeof count, "%d", knownCount);
     display.setFont(FONT_LARGE);
-    drawCentered(count, 66);
+    drawCentered(count, 84);
     display.setFont(FONT_SMALL);
-    drawCentered(knownCount == 1 ? "network found" : "networks found", 96);
-    snprintf(line, sizeof line, "last: %s", newest.ssid);
-    drawCentered(fitText(line, display.width() - 2 * MARGIN).c_str(), 132);
+    drawCentered(knownCount == 1 ? "network found" : "networks found", 114);
   }
-  drawHints("list", "scan", "home", "rarity");
+  drawHints("list", "scan", "rarity");
 }
 
 // One page of the whole dex, newest first, read straight from the file (names aren't kept in RAM).
@@ -271,9 +263,7 @@ static int readPage(Find *out) {
 static void drawList() {
   Find rows[PAGE];
   const int n = readPage(rows);
-  char title[24] = "";
-  if (n) snprintf(title, sizeof title, "%d-%d of %d", page * PAGE + 1, page * PAGE + n, knownCount);
-  drawHeader("All finds", title);
+  drawHeader("All finds");
   display.setFont(FONT_SMALL);
   for (int i = 0; i < n; i++) {
     const int16_t baseline = CONTENT_TOP + 22 + i * 26;
@@ -285,11 +275,11 @@ static void drawList() {
     display.print(fitText(rows[i].ssid, display.width() - 2 * MARGIN - tagW - 6));
   }
   if (n == 0) drawEmpty("Nothing yet", "Scan on the Dex screen", "to find networks");
-  drawHints(knownCount > PAGE ? "more" : "", "", "back", "");
+  drawHints(knownCount > PAGE ? "more" : "", "", "");
 }
 
 static void drawStatsRows() {
-  drawTitle("Rarity");
+  drawHeader("Rarity");
   display.setFont(FONT_SMALL);
   const uint8_t order[] = {RARE, STARTER, UNCOMMON, COMMON};
   for (int i = 0; i < 4; i++) {
@@ -304,7 +294,7 @@ static void drawStatsRows() {
 
 static void drawStats() {
   drawStatsRows();
-  drawHints("", "", "back", knownCount ? "clear" : "");
+  drawHints("", "", knownCount ? "clear" : "");
 }
 
 static void drawConfirm() {
@@ -312,7 +302,7 @@ static void drawConfirm() {
   snprintf(line, sizeof line, knownCount == 1 ? "Your 1 find goes." : "All %d finds go.", knownCount);
   drawStatsRows();
   drawSheet("Clear the Dex?", line, "Can't be undone.");
-  drawHints("keep", "clear", "back", "");
+  drawHints("keep", "clear", "");
 }
 
 static void clearDex() {

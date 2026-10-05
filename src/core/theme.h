@@ -15,10 +15,11 @@ const int16_t HINTS_TOP = 163;  // drawHints' rule: screens using it end their c
 
 void drawHeader(const char *title, const char *right = nullptr);  // right: a count, page or time
 
-// The button hints, two rows: what a press does, then what a hold does. "" leaves one out.
+// The button hints: what A and B do, and below on the right a hold-B extra if the screen has one. "" leaves one
+// out. Hold A always goes back, so it isn't shown.
 //   A next              B open
-//   hold A: back        hold B: delete
-void drawHints(const char *a, const char *b, const char *aHold, const char *bHold);
+//                       hold B: delete
+void drawHints(const char *a, const char *b, const char *bHold);
 void drawCentered(const char *text, int16_t cy);        // centred horizontally, cy = vertical centre
 void drawCenteredLine(const char *text, int16_t baseline);  // centred horizontally on a fixed baseline
 void drawRight(const char *text, int16_t baseline);     // right-aligned to the margin

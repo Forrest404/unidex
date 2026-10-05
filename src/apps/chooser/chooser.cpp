@@ -66,7 +66,7 @@ static void drawSpin() {
   drawGrid(n, highlight, false);
   display.setFont(FONT_SMALL);
   drawCentered("...", TEXT_Y);
-  drawHints("", "", "", "");
+  drawHints("", "", "");
 }
 
 static void spin() {
@@ -168,13 +168,13 @@ static void draw() {
   drawCentered(line, TEXT_Y);
   if (screen == CLEAR) {
     drawSheet("Clear the tally?", "Wins go back to 0.", "Can't be undone.");
-    drawHints("keep", "clear", "back", "");
+    drawHints("keep", "clear", "");
   } else if (screen == TALLY) {
-    drawHints("", "", "back", "clear");
+    drawHints("", "", "clear");
   } else if (screen == RESULT) {
-    drawHints("change", "again", "back", "tally");
+    drawHints("change", "again", "tally");
   } else {
-    drawHints("+1", "spin", "home", "tally");
+    drawHints("+1", "spin", "tally");
   }
 }
 

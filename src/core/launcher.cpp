@@ -45,6 +45,7 @@ static void drawBolt(int16_t x, int16_t y) {
 static int shownMinute = -1;  // the minute the home clock shows, -1 = none
 static char shownLine[40];    // the selected app's status line as last drawn
 
+// The home header: the time on the left, the battery (and a bolt while charging) on the right.
 static void drawStatus() {
   char text[16] = "";
   shownMinute = -1;
@@ -53,8 +54,10 @@ static void drawStatus() {
     snprintf(text, sizeof text, "%02d:%02d", now.tm_hour, now.tm_min);
     shownMinute = now.tm_min;
   }
+  drawHeader(text);
+  *text = 0;
   const int pct = batteryPercent();
-  if (pct >= 0) snprintf(text + strlen(text), sizeof text - strlen(text), "%s%d%%", *text ? "  " : "", pct);
+  if (pct >= 0) snprintf(text, sizeof text, "%d%%", pct);
   uint16_t w = 0;
   if (*text) {
     display.setFont(FONT_SMALL);
@@ -71,7 +74,6 @@ static void appStatus(const App *a, char *out, size_t len) {
 
 // Home is a carousel: one app at a time, its icon at double size, its name, a live line, a dot per app.
 static void drawHome() {
-  drawHeader("unidex");
   drawStatus();
   const App *a = APPS[selected];
   drawIcon(a->icon, (display.width() - 2 * ICON_SIZE) / 2, ICON_Y, GxEPD_BLACK, 2);
@@ -83,7 +85,7 @@ static void drawHome() {
     drawCenteredLine(fitText(shownLine, display.width() - 2 * MARGIN).c_str(), LINE_BASE);
   }
   drawPageDots(APP_COUNT, selected, DOTS_Y);
-  drawHints("next", "open", "back", "");
+  drawHints("next", "open", "");
   drawToastIfAny();
 }
 
@@ -134,7 +136,7 @@ void launcherBegin(bool woke) {
 static void drawNoCard() {
   drawHeader(APPS[noCardFor]->name);
   drawEmpty("No SD card", "Put in a FAT32 card,", "then press B");
-  drawHints("", "retry", "home", "");
+  drawHints("", "retry", "");
   drawToastIfAny();
 }
 

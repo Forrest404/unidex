@@ -9,7 +9,7 @@
 
 static const char *DIR = "/badges";
 static const int MAX_BADGES = 32, PER_PAGE = 9;
-static const int16_t THUMB = 46, STEP = THUMB + 4;  // thumbnail size and spacing (4 px gaps)
+static const int16_t THUMB = 40, STEP = THUMB + 4;  // thumbnail size and spacing: 3 rows fit above the hints
 
 // RAM is lost in deep sleep, so the list is rebuilt on first use after a wake.
 static String names[MAX_BADGES];
@@ -120,9 +120,7 @@ static void makeThumb(int i) {
 
 // 3x3 thumbnails, 9 per page; the page follows the cursor.
 static void drawPicker() {
-  char pos[12];
-  snprintf(pos, sizeof pos, "%d/%d", cursor + 1, count);
-  drawHeader("Badges", pos);
+  drawHeader("Badges");
   const int16_t grid = 3 * STEP - 4, gx = (display.width() - grid) / 2;
   const int16_t gy = CONTENT_TOP + (HINTS_TOP - CONTENT_TOP - grid) / 2;
   const int first = cursor / PER_PAGE * PER_PAGE;
@@ -138,7 +136,7 @@ static void drawPicker() {
       display.drawRect(x - 1, y - 1, THUMB + 2, THUMB + 2, GxEPD_BLACK);
     }
   }
-  drawHints(count > 1 ? "next" : "", "open", "back", "");
+  drawHints(count > 1 ? "next" : "", "open", "");
 }
 
 static void onEnter() {
@@ -188,7 +186,7 @@ static Redraw onBack() {
 // The hints over the bottom of the badge, on a white band, for a moment after opening.
 static void drawBand() {
   display.fillRect(0, HINTS_TOP - 3, display.width(), display.height() - HINTS_TOP + 3, GxEPD_WHITE);
-  drawHints(count > 1 ? "next" : "", "pick", "home", count > 1 ? "prev" : "");
+  drawHints(count > 1 ? "next" : "", "pick", count > 1 ? "prev" : "");
 }
 
 static void draw() {
@@ -196,13 +194,13 @@ static void draw() {
   if (count == 0) {
     drawHeader("Badge");
     drawEmpty("No badges yet", "Make them on the", "website, in Tools");
-    drawHints("", "", "home", "");
+    drawHints("", "", "");
   } else if (picking) {
     drawPicker();
   } else if (!drawBmp(names[current])) {
     drawHeader("Badge");
     drawEmpty("Can't read this one", names[current].c_str(), "Not a 1-bit BMP?");
-    drawHints(count > 1 ? "next" : "", "pick", "home", count > 1 ? "prev" : "");
+    drawHints(count > 1 ? "next" : "", "pick", count > 1 ? "prev" : "");
   } else if (band) {
     drawBand();
   }

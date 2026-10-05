@@ -55,7 +55,7 @@ static void drawList() {
   drawRow(INVERT, cursor == INVERT, "Invert", display.inverted ? "on" : "off");
   drawRow(INFO_ROW, cursor == INFO_ROW, "Battery & info", ">");
   drawRow(RESET_ROW, cursor == RESET_ROW, "Reset data", ">");
-  drawHints("next", cursor == SLEEP || cursor == INVERT ? "change" : "open", "home", "");
+  drawHints("next", cursor == SLEEP || cursor == INVERT ? "change" : "open", "");
 }
 
 // Text pieces in a line, centred; the piece at `active` is inverted in a box `boxH` tall.
@@ -97,7 +97,7 @@ static void drawDateTime() {
   display.setFont(FONT_SMALL);
   const char *save[] = {"Save"};
   drawPieces(save, 1, field == SAVE ? 0 : -1, 140, 24);
-  drawHints("next", field == SAVE ? "save" : "+1", "cancel", field == SAVE ? "" : "-1");
+  drawHints("next", field == SAVE ? "save" : "+1", field == SAVE ? "" : "-1");
 }
 
 static void drawInfo() {
@@ -123,7 +123,7 @@ static void drawInfo() {
   drawRow(1, false, "Firmware", VERSION);
   drawRow(2, false, "Storage", storage);
   drawRow(3, false, "Mac sync", sync);
-  drawHints("", "refresh", "back", "");
+  drawHints("", "refresh", "");
 }
 
 static void drawResetRows() {
@@ -134,7 +134,7 @@ static void drawResetRows() {
 
 static void drawReset() {
   drawResetRows();
-  drawHints("next", "clear", "back", "");
+  drawHints("next", "clear", "");
 }
 
 static void drawConfirm() {
@@ -144,7 +144,7 @@ static void drawConfirm() {
   drawResetRows();
   drawSheet(TITLES[resetCursor], WHAT[resetCursor],
             resetCursor == EVERYTHING ? "calendar. Keys stay." : "Can't be undone.");
-  drawHints("keep", resetCursor == EVERYTHING ? "reset" : "clear", "back", "");
+  drawHints("keep", resetCursor == EVERYTHING ? "reset" : "clear", "");
 }
 
 // Clears one thing and says what happened (the honest result: nothing there, no card, done).

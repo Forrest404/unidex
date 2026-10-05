@@ -50,7 +50,7 @@ static void drawList() {
     display.setFont(FONT_SMALL);
     display.setTextColor(GxEPD_BLACK);
   }
-  drawHints("next", "play", "home", "");
+  drawHints("next", "play", "");
 }
 
 static void drawOver() {
@@ -64,7 +64,7 @@ static void drawOver() {
   else snprintf(line, sizeof line, "Best: %d", best(game()));
   drawCentered(line, 112);
   drawCentered("Game over", 136);
-  drawHints("", "again", "back", "");
+  drawHints("", "again", "");
 }
 
 static void drawPlay() { game()->draw(); }

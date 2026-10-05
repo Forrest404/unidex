@@ -183,9 +183,7 @@ static bool sending(const NoteInfo &n) { return jobBusy() && n.id == jobStatus()
 
 static void drawMain() {
   ensureList();
-  char count[16] = "";
-  if (hasCard()) snprintf(count, sizeof count, "%d note%s", (int)notes.size(), notes.size() == 1 ? "" : "s");
-  drawHeader("Notes", count);
+  drawHeader("Notes");
   drawIcon(ICON_NOTES, (display.width() - ICON_SIZE) / 2, CONTENT_TOP + 6, GxEPD_BLACK);
   if (jobBusy()) {  // the online steps, running in the background
     const JobStep step = jobStatus().step;
@@ -206,7 +204,7 @@ static void drawMain() {
     else if (!line.length()) line = "to record a note";
     drawCentered(fitText(line.c_str(), display.width() - 2 * MARGIN).c_str(), 128);
   }
-  drawHints(hasCard() ? "list" : "", waiting() && !jobBusy() ? "sync" : "", "home", jobCanTake() ? "record" : "");
+  drawHints(hasCard() ? "list" : "", waiting() && !jobBusy() ? "sync" : "", jobCanTake() ? "record" : "");
 }
 
 static void drawRecording() {
@@ -222,17 +220,15 @@ static void drawRecording() {
   display.fillRect(x + 2, y + 2, (barW - 4) * recordLevel / 100, 8, GxEPD_BLACK);
   display.setFont(FONT_SMALL);
   drawCentered(recordMs / 1000 + 10 >= MAX_SECONDS ? "nearly at the limit" : "let go to stop", 132);
-  drawHints("", "", "", "");
+  drawHints("", "", "");
 }
 
 static void drawListRows() {
   ensureList();
-  char pos[16] = "";
-  if (notes.size()) snprintf(pos, sizeof pos, "%d/%d", cursor + 1, (int)notes.size());
-  drawHeader("Notes", pos);
+  drawHeader("Notes");
   if (notes.empty()) {
     drawEmpty("No notes yet", "Hold B on the main", "screen to record one");
-    drawHints("", "", "back", "");
+    drawHints("", "", "");
     return;
   }  // (hints for a list with notes: drawList)
   display.setFont(FONT_SMALL);
@@ -256,7 +252,7 @@ static void drawListRows() {
 
 static void drawList() {
   drawListRows();
-  if (notes.size()) drawHints(notes.size() > 1 ? "next" : "", "open", "back", "delete");
+  if (notes.size()) drawHints(notes.size() > 1 ? "next" : "", "open", "delete");
 }
 
 static int viewPages() { return max(1, ((int)lines.size() + LINES - 1) / LINES); }
@@ -268,9 +264,7 @@ static void drawViewText() {
   String title = viewTitle.length() && linesFor == openId ? viewTitle : String(openId);
   for (const NoteInfo &n : notes)
     if (n.id == openId) title = titleOf(n);
-  char pos[8] = "";
-  if (pages > 1) snprintf(pos, sizeof pos, "%d/%d", page + 1, pages);
-  drawHeader(title.c_str(), pos);
+  drawHeader(title.c_str());
   display.setFont(FONT_SMALL);
   for (int i = 0; i < LINES && page * LINES + i < (int)lines.size(); i++) {
     display.setCursor(MARGIN, CONTENT_TOP + 18 + i * LINE_H);
@@ -280,7 +274,7 @@ static void drawViewText() {
 
 static void drawView() {
   drawViewText();
-  drawHints(viewPages() > 1 ? "more" : "", "", "back", hasCard() ? "delete" : "");
+  drawHints(viewPages() > 1 ? "more" : "", "", hasCard() ? "delete" : "");
 }
 
 static void drawConfirm() {
@@ -291,7 +285,7 @@ static void drawConfirm() {
   if (confirmFrom == VIEW) drawViewText();
   else drawListRows();
   drawSheet("Delete this note?", title.c_str(), pushed ? "GitHub copy stays." : "Can't be undone.");
-  drawHints("keep", "delete", "back", "");
+  drawHints("keep", "delete", "");
 }
 
 // --- recording ---

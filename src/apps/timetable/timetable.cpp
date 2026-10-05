@@ -1,4 +1,4 @@
-// Timetable: the next class or event as a card (countdown, title, time, place, what's after).
+// Timetable: the next class or event as a card (when, title, time, place).
 // Weekly classes from /timetable.csv, dated events from /events.csv (Mac sync or the website).
 // A = next event, B = details (full title, place, notes), B long = rest of today.
 #include "../../core/app.h"
@@ -186,10 +186,10 @@ static String titleOf(const Class &c) {
   return t;
 }
 
-// The header: the title, then on the right the time, after `pos` ("2/5") if given.
-static void drawTitle(const char *title, const struct tm &now, const char *pos = "") {
-  char right[16] = "";
-  if (clockValid()) snprintf(right, sizeof right, "%s%s%02d:%02d", pos, *pos ? "  " : "", now.tm_hour, now.tm_min);
+// The header: the title, then the time on the right.
+static void drawTitle(const char *title, const struct tm &now) {
+  char right[8] = "";
+  if (clockValid()) snprintf(right, sizeof right, "%02d:%02d", now.tm_hour, now.tm_min);
   drawHeader(title, right);
   drawnMinute = clockValid() ? now.tm_min : -1;
 }
@@ -237,13 +237,13 @@ static int upcomingOrEmpty(Upcoming *up, const struct tm &now) {
     soonCount = 0;
     drawTitle("Timetable", now);
     drawEmpty("Nothing coming up", "Add events on the", "website or your Mac");
-    drawHints("", "", "home", "");
+    drawHints("", "", "");
     return 0;
   }
   if (!clockValid()) {
     drawTitle("Timetable", now);
     drawEmpty("Time not set", "Press B to sync it,", "or set it in Settings");
-    drawHints("", "sync", "home", "");
+    drawHints("", "sync", "");
     return 0;
   }
   const int n = findUpcoming(up, now);
@@ -251,12 +251,12 @@ static int upcomingOrEmpty(Upcoming *up, const struct tm &now) {
   if (n == 0) {  // e.g. only all-day or finished events left
     drawTitle("Timetable", now);
     drawEmpty("Nothing coming up", "Only all-day or past", "events are left");
-    drawHints("", "", "home", "today");
+    drawHints("", "", "today");
   }
   return n;
 }
 
-// The card: countdown, the title (large, 2 lines), time and length, place, and a peek at what's after.
+// The card: when, the title (large, 2 lines), time and length, and the place.
 static void drawNext(const struct tm &now) {
   Upcoming up[MAX_UPCOMING];
   const int n = upcomingOrEmpty(up, now);
@@ -264,9 +264,8 @@ static void drawNext(const struct tm &now) {
   peek %= n;
   const Class &c = classes[up[peek].index];
   const int16_t width = display.width() - 2 * MARGIN;
-  char when[32], pos[8] = "";
-  if (n > 1) snprintf(pos, sizeof pos, "%d/%d", peek + 1, n);  // which of the upcoming events this is
-  drawTitle("Timetable", now, pos);
+  char when[32];
+  drawTitle("Timetable", now);
   formatWhen(when, sizeof when, c, up[peek].delta, now);
   display.setFont(FONT_SMALL);
   display.setCursor(MARGIN, CONTENT_TOP + 16);
@@ -287,28 +286,19 @@ static void drawNext(const struct tm &now) {
   const int16_t top = CONTENT_TOP + 22, bottom = CONTENT_TOP + 78;
   const int16_t first = top + (bottom - top - used * lineH) / 2 + ascent;
   for (int i = 0; i < used; i++) display.setCursor(MARGIN, first + i * lineH), display.print(lines[i]);
-  display.drawFastHLine(MARGIN, CONTENT_TOP + 81, 40, GxEPD_BLACK);
 
   char span[16], dur[16], line[48];
   formatSpan(span, sizeof span, c);
   formatDuration(dur, sizeof dur, c.end - c.start);
   snprintf(line, sizeof line, "%s   %s", span, dur);
   display.setFont(FONT_SMALL);
-  int16_t y = CONTENT_TOP + 98;
+  const int16_t y = CONTENT_TOP + 96;
   display.setCursor(MARGIN, y);
   display.print(line);
-  if (*c.room) display.setCursor(MARGIN, y += 18), display.print(fitText(c.room, width));
-
-  if (n > 1) {  // what's after this one
-    const Class &next = classes[up[(peek + 1) % n].index];
-    char at[32], hm[6];
-    formatWhen(at, sizeof at, next, up[(peek + 1) % n].delta, now);
-    formatHm(hm, sizeof hm, next.start);
-    snprintf(line, sizeof line, "then %s  ", up[(peek + 1) % n].delta < 1440 - nowMinutes(now) ? hm : at);
-    display.setCursor(MARGIN, y + 18);
-    display.print(fitText((String(line) + next.module).c_str(), width));
-  }
-  drawHints(n > 1 ? "next" : "", "details", "home", "today");
+  String room[2];  // the place on up to 2 lines
+  const int roomLines = *c.room ? min(wrapText(c.room, width, room, 2), 2) : 0;
+  for (int i = 0; i < roomLines; i++) display.setCursor(MARGIN, y + 18 * (i + 1)), display.print(room[i]);
+  drawHints(n > 1 ? "next" : "", "details", "today");
 }
 
 // Everything about the event, as lines of small text: title, date, time and length, place, notes.
@@ -338,7 +328,34 @@ static int detailLines(const Class &c, int32_t d, String *out) {
   if (*c.room) add(c.room);
   if (*c.notes) {
     if (n < DETAIL_LINES) out[n++] = "";
-    add(c.notes);
+    // Calendar notes come as one run of "Label: value" parts ("Event: <title> Lecturers: Dr X Event type:
+    // Lecture"): one part per line, leaving out a part that only repeats the title.
+    String part;
+    auto flush = [&] {
+      part.trim();
+      const bool repeatsTitle = part.startsWith("Event:") && part.indexOf(String(c.module).substring(0, 20)) >= 0;
+      if (part.length() && !repeatsTitle) add(part.c_str());
+      part = "";
+    };
+    String words[48];
+    int nWords = 0;
+    for (const char *p = c.notes; *p && nWords < 48;) {  // split on spaces
+      while (*p == ' ') p++;
+      const char *e = p;
+      while (*e && *e != ' ') e++;
+      if (e > p) words[nWords++] = String(p).substring(0, e - p);
+      p = e;
+    }
+    for (int i = 0; i < nWords; i++) {
+      // A label is a word ending in ':' ("Lecturers:"), or a capitalised word and a lowercase one ending in ':'
+      // ("Event type:"). Each label starts a new line.
+      const bool twoWord = i + 1 < nWords && isupper(words[i][0]) && islower(words[i + 1][0]) &&
+                           words[i + 1].endsWith(":") && !words[i].endsWith(":");
+      if (twoWord || words[i].endsWith(":")) flush();
+      part += words[i] + " ";
+      if (twoWord) part += words[++i] + " ";
+    }
+    flush();
   }
   return n;
 }
@@ -354,16 +371,14 @@ static void drawDetail(const struct tm &now) {
   const int total = detailLines(classes[detailClass], detailDelta, lines);
   const int pages = (total + PAGE_LINES - 1) / PAGE_LINES;
   if (page >= pages) page = 0;
-  char pos[8] = "";
-  if (pages > 1) snprintf(pos, sizeof pos, "%d/%d", page + 1, pages);
-  drawHeader("Details", pos);
+  drawHeader("Details");
   drawnMinute = -1;
   display.setFont(FONT_SMALL);
   for (int i = 0; i < PAGE_LINES && page * PAGE_LINES + i < total; i++) {
     display.setCursor(MARGIN, CONTENT_TOP + 18 + i * LINE_H);
     display.print(lines[page * PAGE_LINES + i]);
   }
-  drawHints(pages > 1 ? "more" : "", "", "back", "");
+  drawHints(pages > 1 ? "more" : "", "", "");
 }
 
 static void drawDay(const struct tm &now) {
@@ -372,7 +387,7 @@ static void drawDay(const struct tm &now) {
   drawTitle("Today", now);
   if (n == 0) {
     drawEmpty("Nothing left today", "Enjoy the free time", "");
-    drawHints("", "", "back", "");
+    drawHints("", "", "");
     return;
   }
   row %= n;
@@ -397,14 +412,14 @@ static void drawDay(const struct tm &now) {
     display.print(fitText(c.module, display.width() - MARGIN - left));
     display.setTextColor(GxEPD_BLACK);
   }
-  drawHints(n > 1 ? "next" : "", "details", "back", "");
+  drawHints(n > 1 ? "next" : "", "details", "");
 }
 
 static void drawSyncing() {
   drawTitle("Timetable", clockLocal());
   drawEmpty("Setting the clock", "WiFi, then a time server", "up to 30 s");
   drawProgress(HINTS_TOP - 14, -1);
-  drawHints("", "", "", "");
+  drawHints("", "", "");
 }
 
 static void openDetail(int16_t cls, int32_t delta, uint8_t from) {
