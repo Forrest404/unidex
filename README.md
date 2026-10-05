@@ -1,6 +1,6 @@
 # unidex
 
-A tiny pocket OS for a 1.54" e-ink board: a home screen and six small apps, driven by two buttons,
+A tiny pocket OS for a 1.54" e-ink board: a home screen and seven small apps, driven by two buttons,
 built to sleep whenever you aren't pressing something, to save battery (battery life not yet measured).
 
 | App | What it does |
@@ -10,6 +10,7 @@ built to sleep whenever you aren't pressing something, to save battery (battery 
 | **Badge** | Flips through full-screen 1-bit images: name tags, logos, photos. Includes a drag-and-drop converter. |
 | **Dex** | A WiFi network collection game. Scan, and every new network name you hear is logged with a rarity. |
 | **Chooser** | Pick 2–6 squares, spin, get a random winner. Keeps a tally. |
+| **Games** | One-button games: Flappy, Dino, Stack and Jetpack (being added one at a time). |
 | **Settings** | Date and time, sleep, invert, battery and info, reset data. |
 
 Built with PlatformIO + Arduino (ESP32-S3). WiFi is never used unless you ask for it (a Dex scan, a Notes recording or sync, or an NTP time sync).
@@ -236,6 +237,12 @@ notes as `.md` files over USB.
   it like an unlocked phone.
 - **HTTPS** is checked against the Mozilla root certificates embedded in the firmware (`certs/`).
 - The note format and the tidy-up prompt follow [forrest-notes](https://github.com/Forrest404/forrest-notes).
+
+### Games
+
+A list of one-button games, each with its best score. **A** picks a game, **B** plays, **hold A** goes back. In a
+game **B** is the one action (tap, or hold); hold A leaves it. The e-ink screen redraws in about 0.4 s, so the games
+run at two or three steps a second, in big steps. Best scores are kept on the device; the home line shows your last.
 
 ### Settings
 

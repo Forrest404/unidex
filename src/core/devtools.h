@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 
 // Test build only (pio run -e dev): USB commands that let tools/devshot.py drive the device and read the
 // screen. In the normal build the switches below are always off and devUsb() doesn't exist.
@@ -10,6 +11,8 @@
 //   X STATE           -> "OK X STATE screen=<hex> sel=<hex> clock=<0|1> dry=<0|1> fake=<0|1> netfail=<0|1>"
 //   X MEM             -> "OK X MEM internal=<free> block=<largest> psram=<free>"
 //   X CLOCK UNSET     -> system time to 0 in RAM only (the clock chip keeps its time); "T <unix>" sets it back
+//   X SEED <n>        -> games start from random seed n (0 = truly random); "OK X SEED"
+//   X FRAMES <n>      -> the game being played runs n frames at once, then shows the result; "OK X FRAMES"
 //   X DRY|FAKE|NETFAIL|NOCARD|NOPUSH <0|1>  -> destructive actions only pretend / cloud steps are canned /
 //                        WiFi fails / the SD card reads as missing / real transcription but nothing sent to GitHub
 #if UNIDEX_DEV
@@ -19,10 +22,13 @@ bool devFakeCloud();
 bool devNetFail();
 bool devNoCard();
 bool devNoPush();
+uint32_t devSeed();
+void devSetFrameStepper(void (*fn)(int frames));  // what X FRAMES calls (the Games app sets it)
 #else
 inline bool devDryRun() { return false; }
 inline bool devFakeCloud() { return false; }
 inline bool devNetFail() { return false; }
 inline bool devNoCard() { return false; }
 inline bool devNoPush() { return false; }
+inline uint32_t devSeed() { return 0; }
 #endif

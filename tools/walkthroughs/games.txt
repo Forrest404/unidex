@@ -1,0 +1,14 @@
+# Games app. Read-only: scores aren't touched (no game is played here).
+select Games
+shot g-home
+press b
+shot g-list
+press a
+shot g-list-2
+press b
+shot g-coming-soon
+press A
+expect screen=Home
+shot g-home-after
+select Settings
+shot g-home-settings-dot

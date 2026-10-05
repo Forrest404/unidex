@@ -12,12 +12,16 @@
 #include "power.h"
 
 static bool dryRun, fakeCloud, netFail, noCard, noPush;
+static uint32_t seed;
+static void (*frameStepper)(int);
 
 bool devDryRun() { return dryRun; }
 bool devFakeCloud() { return fakeCloud; }
 bool devNetFail() { return netFail; }
 bool devNoCard() { return noCard; }
 bool devNoPush() { return noPush; }
+uint32_t devSeed() { return seed; }
+void devSetFrameStepper(void (*fn)(int)) { frameStepper = fn; }
 
 static void printHex(const char *s) {
   for (; *s; s++) Serial.printf("%02x", (uint8_t)*s);
@@ -69,6 +73,13 @@ bool devUsb(const char *l) {
   } else if (strcmp(c, "MEM") == 0) {
     Serial.printf("OK X MEM internal=%u block=%u psram=%u\n", heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
                   heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL), heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+  } else if (strncmp(c, "SEED ", 5) == 0) {
+    seed = strtoul(c + 5, nullptr, 10);
+    Serial.println("OK X SEED");
+  } else if (strncmp(c, "FRAMES ", 7) == 0) {
+    if (frameStepper) frameStepper(atoi(c + 7));
+    powerActivity();
+    Serial.println("OK X FRAMES");
   } else if (strcmp(c, "CLOCK UNSET") == 0) {
     const timeval tv = {0, 0};
     settimeofday(&tv, nullptr);

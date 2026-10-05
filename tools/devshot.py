@@ -5,7 +5,7 @@
   ~/.platformio/penv/bin/python tools/devshot.py shot NAME [--out DIR]
   ~/.platformio/penv/bin/python tools/devshot.py press a b B ...   (a/b = short, A/B = long)
 
-Walkthrough lines: home | select <app> | waitjob <s> | job | press <keys...> | hold B <ms> | shot <name> | expect screen=<name> | sleep <ms>
+Walkthrough lines: home | select <app> | waitjob <s> | job | seed <n> | frames <n> | press <keys...> | hold B <ms> | shot <name> | expect screen=<name> | sleep <ms>
                    | dry|fake|netfail|nocard <0|1> | clock unset | # comment
 Pause the Mac agent first (it shares the port). Each run ends with the switches off, and puts the clock back
 if the run unset it.
@@ -188,6 +188,10 @@ class Run:
                 self.problems.append("the Notes job didn't finish in time")
         elif w[0] == "job":  # print the job state (step, result)
             print("  job:", self.job())
+        elif w[0] == "seed":  # games: a fixed random seed, so a round plays the same every time
+            self.dev.cmd(f"X SEED {w[1]}")
+        elif w[0] == "frames":  # games: run n frames at once
+            self.dev.cmd(f"X FRAMES {w[1]}", timeout=120)
         elif w[0] == "sleep":
             time.sleep(int(w[1]) / 1000)
         elif w[0] in ("dry", "fake", "netfail", "nocard", "nopush"):
