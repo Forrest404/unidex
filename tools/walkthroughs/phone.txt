@@ -1,0 +1,26 @@
+# Notes "Open on phone": the list row, the QR screen, hold A stops it. Leaves the hotspot off.
+# The phone side (scanning, the page) needs a real phone.
+select Notes
+press b
+expect screen=Notes
+press a
+shot p-list
+press a
+press a
+press a
+press a
+press a
+press a
+press a
+press a
+shot p-list-phone-row
+press b
+shot p-qr
+press a
+shot p-qr-press-a
+press A
+shot p-stopped
+press A
+press A
+press A
+expect screen=Home

@@ -15,6 +15,7 @@ This list was compiled from each project's own licence files and package metadat
 | FreeSans fonts (in Adafruit GFX, converted from GNU FreeFont; src/core/FreeSans7pt7b.h converted from FreeFont 20120503 by tools/gfxfont.py) | – | GPL-3.0-or-later with font exception | Free Software Foundation and contributors | https://www.gnu.org/software/freefont/license.html |
 | Adafruit BusIO | 1.17.4 | MIT (see below) | Adafruit Industries | https://github.com/adafruit/Adafruit_BusIO |
 | ArduinoJson | 7.4.3 | MIT (see below) | Benoit Blanchon | https://github.com/bblanchon/ArduinoJson |
+| QRCode (QR code generator) | 0.0.1 | MIT (see below) | 2017 Richard Moore | https://github.com/ricmoo/qrcode |
 | Arduino core for ESP32 (arduino-esp32) | 2.0.17 | LGPL-2.1-or-later (files from the Arduino project) and Apache-2.0 (Espressif files) | Arduino team; Espressif Systems | https://github.com/espressif/arduino-esp32/tree/2.0.17 |
 | ESP-IDF libraries (precompiled in arduino-esp32 2.0.17) | 4.4 | Apache-2.0, plus third-party components under BSD, MIT, ISC and similar licences | Espressif Systems and others | https://github.com/espressif/esp-idf/blob/release/v4.4/docs/en/COPYRIGHT.rst |
 | ESP32 WiFi/PHY libraries | bundled | Apache-2.0 | Espressif Systems | https://github.com/espressif/esp32-wifi-lib |
@@ -110,6 +111,32 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### QRCode (MIT)
+
+```
+The MIT License (MIT)
+
+Copyright (c) 2017 Richard Moore
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 ```
 
 ### forrest-notes (MIT)
