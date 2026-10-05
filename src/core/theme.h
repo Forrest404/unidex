@@ -1,7 +1,7 @@
 #pragma once
 #include <Adafruit_GFX.h>
 
-// Shared look for every screen: two font sizes, fixed margins, thin header and footer.
+// Shared look for every screen: fixed margins, a thin header, the two-row button hints at the bottom.
 extern const GFXfont *const FONT_SMALL;  // header, footer, secondary text
 extern const GFXfont *const FONT_LARGE;  // the one focal element
 extern const GFXfont *const FONT_MEDIUM; // app names on the home screen (12 pt)
@@ -10,13 +10,10 @@ extern const GFXfont *const FONT_TINY;   // the "hold" row of the hints (7 pt)
 
 const int16_t MARGIN = 8;
 const int16_t HEADER_H = 24;  // title + 1 px rule
-const int16_t FOOTER_H = 22;  // 1 px rule + button hints
 const int16_t CONTENT_TOP = HEADER_H;
-const int16_t CONTENT_BOTTOM = 200 - FOOTER_H;
 const int16_t HINTS_TOP = 163;  // drawHints' rule: screens using it end their content above this
 
 void drawHeader(const char *title, const char *right = nullptr);  // right: a count, page or time
-void drawFooter(const char *aHint, const char *bHint);  // e.g. "next", "select"; "" hides one
 
 // The button hints, two rows: what a press does, then what a hold does. "" leaves one out.
 //   A next              B open

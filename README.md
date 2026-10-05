@@ -1,15 +1,16 @@
 # unidex
 
-A tiny pocket OS for a 1.54" e-ink board: a home screen and five small apps, driven by two buttons,
+A tiny pocket OS for a 1.54" e-ink board: a home screen and six small apps, driven by two buttons,
 built to sleep whenever you aren't pressing something, to save battery (battery life not yet measured).
 
 | App | What it does |
 |---|---|
 | **Timetable** | Shows your next class or calendar event with a countdown. Reads a weekly CSV and, optionally, your Apple Calendar (synced from a Mac over USB). |
 | **Notes** | Hold a button and talk: the note is transcribed (OpenAI Whisper), tidied up (OpenAI or Claude), kept on the SD card and optionally pushed to GitHub as Markdown for Obsidian. |
-| **Name Badge** | Flips through full-screen 1-bit images: name tags, logos, photos. Includes a drag-and-drop converter. |
+| **Badge** | Flips through full-screen 1-bit images: name tags, logos, photos. Includes a drag-and-drop converter. |
 | **Dex** | A WiFi network collection game. Scan, and every new network name you hear is logged with a rarity. |
 | **Chooser** | Pick 2–6 squares, spin, get a random winner. Keeps a tally. |
+| **Settings** | Date and time, sleep, invert, battery and info, reset data. |
 
 Built with PlatformIO + Arduino (ESP32-S3). WiFi is never used unless you ask for it (a Dex scan, a Notes recording or sync, or an NTP time sync).
 
@@ -47,20 +48,26 @@ upload within 10 seconds. Still stuck: hold BOOT, tap RESET (or re-plug USB), re
 
 ## Using it
 
-Two buttons: **A** = BOOT, **B** = PWR.
+Two buttons: **A** = BOOT, **B** = PWR. They mean the same thing everywhere:
 
 | Press | Meaning |
 |---|---|
-| A short | next / scroll |
-| A long (hold ~0.3 s) | back to the home screen |
-| B short | select / action |
-| B long | app-specific extra |
+| A | next (row, item, page) |
+| B | select / open / do |
+| hold A (~0.3 s) | back one step; from an app's main screen, home; on the home screen, the previous app |
+| hold B | the screen's extra (Today, the picker, rarity, tally, delete, record...) |
 
-The home screen shows one app at a time, its icon large, with a dot per app underneath: A moves to the next,
-B opens. After 10 seconds without a press the board goes
-into deep sleep (it stays awake while on USB power; see Power below). The screen keeps showing what it last drew (e-ink needs no power for that). The press that
-wakes it also counts: tap A on a sleeping home screen and it wakes and moves the highlight in one go; hold a
-button and it's a long press. Powering on with PWR (from off, on battery) doesn't count, so it can't open an app.
+Every screen shows its buttons at the bottom in two rows: what a press does, then what a hold does
+(`A next  B open` / `hold A: back  hold B: delete`). Anything that can't be undone asks first in a box
+(A keeps, B goes ahead), and short messages ("Clock set", "Deleted") pop up in a black pill for a moment.
+
+The home screen shows one app at a time: its icon, its name, a live line under it ("In 12 min: Maths",
+"3 notes, 1 waiting", "Badge 5 of 12"), and a dot per app. A moves to the next app, B opens it. After the time set
+in Settings (10 s at first) without a press the board goes into deep sleep (it stays awake while on USB power, or
+while a note is still sending; see Power below). The screen keeps showing what it last drew (e-ink needs no power
+for that). The press that wakes it also counts: tap A on a sleeping home screen and it wakes and moves in one go;
+hold a button and it's a long press. Powering on with PWR (from off, on battery) doesn't count, so it can't open an
+app.
 
 **Restart:** hold **A and B together for 1 second** ("Restarting / let go of the buttons"), then let go. It boots
 fresh to the home screen, as after a flash. Files, badges, the Dex, events, settings and the clock are all kept.
@@ -68,10 +75,10 @@ While both are held neither button does its own thing, and it waits for you to l
 download-mode pin.
 
 The top right of the home screen shows the time and battery level, e.g. `14:32  87%`. While the board is awake
-(e.g. on USB) the time updates live each minute. While it's asleep the clock chip keeps counting silently, with no
-wake-ups, and the screen catches up on the next press. B long on home also refreshes the header. The percentage is an estimate from the battery
-voltage, and reads high while charging over USB. A small lightning bolt before it means USB power is present (it can't tell charging from full). The time is
-left out until the clock has been set.
+(e.g. on USB) the time and the live line update each minute. While it's asleep the clock chip keeps counting
+silently, with no wake-ups, and the screen catches up on the next press. The percentage is an estimate from the
+battery voltage, and reads high while charging over USB. A small lightning bolt before it means USB power is present
+(it can't tell charging from full). The time is left out until the clock has been set.
 
 ### Timetable
 
@@ -79,13 +86,14 @@ The next class or event as a card: "IN 42 MIN" / "NOW, ENDS IN 20 MIN" / "TOMORR
 large type (wrapped to 2 lines; a longer title drops to 3 small lines), the time and length, the location, and a
 "then 16:30 Maths" line for what comes after.
 
-- **A**: next upcoming item (up to 5)
+- **A**: next upcoming item (up to 5; "2/5" in the corner)
 - **B**: details: the full title, date, time and length, full location and the event's notes (A pages through long
-  ones, B goes back)
-- **B long**: the rest of today (A scrolls, B returns)
-- When the clock isn't set, **B** syncs it over WiFi instead (if WiFi is set up)
+  ones)
+- **Hold B**: Today, the rest of today's list ("now" for what's on): A moves, B opens that event's details
+- **Hold A**: back (from details, to where you came from)
+- When the clock isn't set, **B** syncs it over WiFi (if WiFi is set up), or set it in Settings
 
-The countdown updates when you press a button, never on a timer, to save power.
+While the board is awake the countdown moves on each minute; asleep, it catches up on the next press.
 Edit `data/timetable.csv` for weekly classes:
 
 ```csv
@@ -127,13 +135,14 @@ re-run `tools/calsync/install.sh` once so the Mac agent sends the longer fields.
 The timezone is hard-coded to London. To change it, edit `TZ_LONDON` (a POSIX TZ string) in
 `src/core/clock.cpp` and `Europe/London` in `tools/calsync/calsync.swift`.
 
-### Name Badge
+### Badge
 
-**A** next, **B** previous. The badge fills the screen with no header. Each flip is a full refresh (no ghosting),
-and the last badge shown is remembered across sleep and power loss.
+**A** next, **hold B** previous, **B** the picker. The badge fills the screen with no header; its buttons show in a
+band along the bottom for a moment when it opens. Each flip is a full refresh (no ghosting), and the last badge shown
+is remembered across sleep and power loss.
 
-**Hold B** for the picker: 3×3 thumbnails, 9 per page. **A** moves, **B** opens the selected badge, **hold B** goes
-back. Thumbnails are decoded once and kept in RAM, so moving is only as slow as the panel's partial refresh.
+The picker: 3×3 thumbnails, 9 per page. **A** moves, **B** opens the selected badge, **hold A** goes back to the
+one you had. Thumbnails are decoded once and kept in RAM, so moving is only as slow as the panel's partial refresh.
 
 Badges are 1-bit, uncompressed BMPs up to 200×200 (smaller ones are centred) in the SD card's `badges/` folder
 (`data/badges/` in the repo is a set to copy there). Files starting with `.` (macOS `._` files) are ignored. They're shown in
@@ -164,10 +173,11 @@ Then copy the BMPs to the card's `badges/` folder.
 
 ### Dex
 
-A WiFi network collection game. **B** scans (about 2 seconds): you get "NEW!" plus the best new find, or "nothing new".
+A WiFi network collection game. **B** scans (about 2 seconds): you get "NEW!" plus the best new find, or
+"Nothing new here" with how many networks are nearby.
 
-- **A**: list of everything found, newest first, 5 per page (A pages, B goes back)
-- **B long**: counts per rarity. Hold **B** again there to clear the dex (then B = yes, A = no)
+- **A**: list of everything found, newest first, 5 per page (A pages)
+- **Hold B**: counts per rarity. **Hold B** again there to clear the Dex (it asks first)
 
 Each network **name** is logged once, however many access points share it. Hidden networks (no name) are
 left out entirely. Rarity, first match wins: `eduroam` = starter; weaker than −80 dBm = rare; open = common;
@@ -180,14 +190,17 @@ be brute-forced back from a plain hash. Wiping the board's NVS changes the salt 
 
 ### Chooser
 
-Opens on 2 squares; **A** cycles 2 → 6. **B** spins: the highlight walks the grid, slowing down, and lands on a
-winner that was picked up front with the hardware random number generator. The reveal inverts the winning square
-("You got #3"). **B** = spin again, **A** = back to the count, **B long** = tally of wins per square.
+Opens on the number of squares you used last; **A** cycles 2 → 6. **B** spins: the highlight walks the grid,
+slowing down, and lands on a winner that was picked up front with the hardware random number generator. The reveal
+inverts the winning square ("It's #3."). **B** = spin again, **A** = change the count, **hold B** = the tally of wins
+per number over every spin (**hold B** there clears it, after asking).
 
 ### Notes
 
 **Hold B** and talk; let go to stop (up to 3 minutes). The screen shows a timer and a level bar while it listens.
-Then, over WiFi, the device:
+About a second after you let go you're back on the Notes screen: the rest happens in the background, with the
+step and a progress bar on screen (and on the home screen's line), so you can keep using the device, or record
+another note, which waits its turn. It doesn't sleep until it's done. Over WiFi, the device:
 
 1. **transcribes** the recording with OpenAI Whisper (`whisper-1`, about $0.006 a minute),
 2. **tidies it up** with OpenAI (`gpt-4o-mini` by default) or Claude (`claude-haiku-4-5` by default), or not at
@@ -198,8 +211,9 @@ Then, over WiFi, the device:
    taken), ready for Obsidian. The original transcript is kept in a folded callout under the clean version.
 
 On the Notes screen: **B** = sync (transcribe recordings made offline, push notes GitHub doesn't have yet),
-**A** = the list. In the list: **A** = next, **B** = open, **hold B** = back. In a note: **A** = next page,
-**B** = back, **hold B** = delete (from the device; a GitHub copy stays).
+**A** = the list. In the list: **A** = next, **B** = open, **hold B** = delete. In a note: **A** = next page,
+**hold B** = delete (it asks first; a GitHub copy stays). **Hold A** goes back. A recording not transcribed yet
+shows when it was made ("2 Oct, 21:50", "waiting").
 
 Set it up on the [Notes page](https://forrest404.github.io/unidex/notes.html): WiFi, the OpenAI key, which
 model tidies up (and the Anthropic key for Claude), and GitHub (repo, branch, folder and a
@@ -225,7 +239,8 @@ notes as `.md` files over USB.
 
 ### Settings
 
-**Hold A on the home screen.** A = next row, B = change or open, A long = home.
+The last app on the home screen. A = next row, B = change or open, hold A = back (in the date editor: leave
+without saving).
 
 - **Date & time**: set the clock by hand (no WiFi or Mac needed). A steps year → month → day → hour →
   minute → Save; B = +1, hold B = −1; B on Save writes it to the clock chip (London time, summer time
@@ -234,9 +249,9 @@ notes as `.md` files over USB.
 - **Invert**: white on black, everywhere (full refresh when switched).
 - **Battery & info**: battery voltage and % ("USB" while plugged in), firmware version, storage used,
   time of the last Mac sync.
-- **Reset data**: Chooser tally, Dex, calendar events, or everything, each behind a confirm. Everything
-  also clears the settings, badge choice and Dex salt, then restarts. The uploaded badges and
-  timetable stay.
+- **Reset data**: Chooser tally, Dex, calendar events, or everything, each behind a confirm, then a message with
+  what happened ("Dex cleared", "Nothing to clear", "No SD card"). Everything also clears the settings, badge
+  choice and Dex salt, then restarts. The uploaded badges, timetable, notes and keys stay.
 
 ## Preparing a unit for sale
 
@@ -287,7 +302,8 @@ the time spent in it.
 src/
   main.cpp              setup/loop: input -> launcher -> sleep
   apps/                 one folder per app (timetable, notes, badge, dex, chooser, settings) + apps.cpp (launcher order)
-  apps/notes/           notes.cpp (screens), store (files on the card), cloud (Whisper, tidy-up, GitHub), usb (N commands)
+  apps/notes/           notes.cpp (screens), job (the online steps in the background), store (files on the card),
+                        cloud (Whisper, tidy-up, GitHub), usb (N commands)
   core/
     launcher.*          splash, home carousel, routes buttons to the open app
     display.*           GxEPD2 wrapper and the refresh rule
@@ -300,9 +316,11 @@ src/
     net.*               WiFi on/off and a small HTTPS client (checks certificates)
     credentials.*       WiFi, API keys and GitHub settings in their own NVS namespace
     usbsync.*           serial protocol for the Mac calendar sync, the Tools page and the Notes page
-    theme.*             fonts, header/footer helpers, 40x40 pixel icons
+    theme.*             fonts, header, button hints, toast, confirm sheet, empty states, 40x40 pixel icons
+    devtools.*          test build only: USB screenshots and virtual buttons (tools/devshot.py)
 data/                   your files, to copy to the SD card: badges/, timetable.csv
-tools/                  badges.py, badge-template.svg, calsync/ (macOS), upload_nostub.py
+tools/                  badges.py, badge-template.svg, calsync/ (macOS), upload_nostub.py, check_unit.py,
+                        devshot.py + walkthroughs/ (screenshots and button walkthroughs), gfxfont.py (fonts)
 site/                   the website: installer (index.html), Tools (badge maker, clock, calendar file), Notes
                         (notes.html/notes.js: WiFi, keys, tests, download), serial.js
 certs/                  root CA bundle embedded in the firmware for HTTPS (see certs/README.md)
@@ -331,20 +349,23 @@ personal badges on your own SD card instead.
 
 ### Adding an app
 
-1. Create `src/apps/<name>/<name>.cpp`. Define static `onEnter`, `onButton`, `draw` and `onExit`, then export
-   `extern const App <name>App = {"Name", ICON_X, onEnter, onButton, draw, onExit};`
-   (any existing app is a template; the interface is in `src/core/app.h`).
+1. Create `src/apps/<name>/<name>.cpp`. Define static `onEnter`, `onButton`, `draw` and `onExit`, and optionally
+   `onBack` (hold A: up a level, `Redraw::Exit` at the top), `status` (the home screen's line) and `tick` (live
+   redraws), then export `extern const App <name>App = {"Name", ICON_X, onEnter, onButton, draw, onExit, onBack,
+   status, tick, needsCard};` (any existing app is a template; the interface is in `src/core/app.h`). Every screen
+   ends with `drawHints()` so its buttons are shown; content stays above `HINTS_TOP`.
 2. Add `<name>App` to the `extern` line and to `APPS[]` in `src/apps/apps.cpp`. That sets the launcher order.
 3. Add a 40×40 icon in `src/core/theme.cpp` / `theme.h` (rows of `#` and `.`).
 
 Rules that keep it fast and cheap on battery:
 
-- **`draw()` paints the whole screen**; the launcher does the refresh. Return `Redraw::Partial` (small change),
-  `Redraw::Full` (whole new image) or `Redraw::None` from `onButton`.
+- **`draw()` paints the whole screen**; the launcher does the refresh. Return `Redraw::Partial` (a change),
+  `Redraw::Full` (whole new image), `Redraw::Tick` (a live update) or `Redraw::None` from `onButton`/`tick`.
 - **RAM is lost in deep sleep** and `onEnter` isn't called again after a wake. Keep state in `RTC_DATA_ATTR`
   variables (survive sleep) or NVS via `storage.h` (survives power loss), and rebuild caches lazily on first use
   (see `ensureList()` in the badge app).
-- **Turn radios on only inside the app and off again** before returning. Nothing redraws on a timer.
+- **Turn radios on only inside the app and off again** before returning (`netClaimed()`: a note is still sending,
+  so leave the WiFi alone). Only `tick` redraws without a press.
 - Flash wear: open a file once, write everything, close it. Never write inside a loop.
 - The home carousel takes any number of apps (one dot each; around 8 still fit across).
 
@@ -358,6 +379,11 @@ apps, when an app asks for one, and after every 10 partials (the counter survive
 
 `platformio.ini` sets `-DDEBUG=0`. Set it to `1` for serial logs (`pio device monitor`, 115200) and a short wait
 for USB on cold boot. The SD card is never formatted on mount, so a failed mount can't erase your files.
+
+`pio run -e dev` builds a test version with USB screenshots and virtual buttons (`src/core/devtools.h`). It never
+sleeps, so flash the normal build again afterwards. `tools/devshot.py run tools/walkthroughs/<app>.txt` presses
+through an app and saves every screen as a PNG (with an `index.html` contact sheet); switches make clearing a dry
+run and the cloud steps fake, so a walkthrough changes nothing.
 
 Uploads run at 115200 baud, and firmware uploads use esptool's ROM loader (`--no-stub`, added by
 `tools/upload_nostub.py`). On this board the faster default and the esptool stub drop the USB link partway

@@ -60,21 +60,6 @@ void drawHints(const char *a, const char *b, const char *aHold, const char *bHol
   }
 }
 
-void drawFooter(const char *aHint, const char *bHint) {
-  const int16_t baseline = display.height() - 6;
-  display.setFont(FONT_SMALL);
-  display.drawFastHLine(MARGIN, CONTENT_BOTTOM, display.width() - 2 * MARGIN, GxEPD_BLACK);
-  if (*aHint) {
-    display.setCursor(MARGIN, baseline);
-    display.printf("A %s", aHint);
-  }
-  if (*bHint) {
-    char b[24];
-    snprintf(b, sizeof b, "B %s", bHint);
-    drawRight(b, baseline);
-  }
-}
-
 int16_t textWidth(const char *text) {
   int16_t x, y;
   uint16_t w, h;

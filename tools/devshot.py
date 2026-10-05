@@ -35,10 +35,8 @@ class Device:
     def __init__(self, port):
         self.s = serial.Serial()
         self.s.port, self.s.baudrate, self.s.timeout = port, 115200, 0.2
-        self.s.rts = False  # RTS before DTR, or the ESP32-S3 resets
-        self.s.dtr = False
+        self.s.rts = False  # leave DTR alone: pyserial sets DTR before RTS, and DTR low with RTS high resets the chip
         self.s.open()
-        self.s.dtr = True
         time.sleep(0.3)
         self.s.reset_input_buffer()
         self.log = []  # anything that isn't a reply (boot messages, crash reports)

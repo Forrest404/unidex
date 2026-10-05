@@ -131,10 +131,6 @@ void launcherBegin(bool woke) {
 
 // --- opening apps ---
 
-static bool needsCard(const App *a) {
-  return a->needsCard || a == &timetableApp || a == &badgeApp || a == &dexApp;  // until those apps set it
-}
-
 static void drawNoCard() {
   drawHeader(APPS[noCardFor]->name);
   drawEmpty("No SD card", "Put in a FAT32 card,", "then press B");
@@ -158,7 +154,7 @@ static void goHome() {
 }
 
 static void openApp(int i) {
-  if (needsCard(APPS[i]) && !storageCardMount()) {  // missing, unreadable or not FAT32
+  if (APPS[i]->needsCard && !storageCardMount()) {  // missing, unreadable or not FAT32
     noCardFor = i;
     current = NO_CARD;
     displayShow(drawNoCard, true);

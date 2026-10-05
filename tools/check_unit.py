@@ -26,10 +26,8 @@ def find_port():
 def ask(port):
     s = serial.Serial()
     s.port, s.baudrate, s.timeout = port, 115200, 0.2
-    s.rts = False  # RTS before DTR, or the ESP32-S3 resets
-    s.dtr = False
+    s.rts = False  # leave DTR alone: pyserial sets DTR before RTS, and DTR low with RTS high resets the chip
     s.open()
-    s.dtr = True
     lines, start, resent = [], time.time(), False
     s.write(b"N ?\n")
     while time.time() < start + 8:
