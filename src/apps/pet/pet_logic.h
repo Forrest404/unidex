@@ -10,6 +10,7 @@ namespace pet {
 enum Layer { BODY, EYES_LAYER, MOUTH, HAT, EXTRA, LAYERS };
 static const char *const LAYER_NAMES[LAYERS] = {"Body", "Eyes", "Mouth", "Hat", "Extra"};
 static const int SIZE = 32;  // each part is SIZE x SIZE pixels
+static const int HAPPY_EYES = 2;  // EYES[2], "Happy": shown while it hops
 
 template <size_t N> constexpr int countOf(const PetPart (&)[N]) { return N; }
 

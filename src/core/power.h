@@ -12,4 +12,5 @@ void powerRelease();
 #if UNIDEX_DEV
 void powerSleepFor(uint32_t ms);  // test build: real deep sleep now, woken by the timer (RAM is lost, as in use)
 #endif
+void powerWakeWithin(uint32_t ms);  // the next light sleep ends within ms (an app's timed redraw, e.g. a blink)
 void powerNap();           // call at the end of loop(): light sleep until a button or the idle deadline

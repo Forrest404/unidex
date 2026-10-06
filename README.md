@@ -220,7 +220,8 @@ be brute-forced back from a plain hash. Wiping the board's NVS changes the salt 
 ### Pet
 
 A cute creature built from five layers: body (blob, cat, bear, bunny, frog, robot), eyes, mouth, hat and an extra
-(blush, scarf, bow tie...). **B** = dress up. In the editor: **A** = next row (Body, Eyes, Mouth, Hat, Extra,
+(blush, scarf, bow tie...). It blinks every few seconds for a minute after your last press. **A** = say hi (it
+hops, with happy eyes and a heart), **B** = dress up. In the editor: **A** = next row (Body, Eyes, Mouth, Hat, Extra,
 Random look, Done), **B** = the next option (on Random look: a new random look; on Done: save), **hold B** = the
 previous option, **hold A** = save and go back. The look is one number in NVS (`pet_look`), so it survives sleep
 and firmware updates; Settings > Reset > Everything puts the default back.

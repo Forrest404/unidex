@@ -1,12 +1,15 @@
 # Pet: the main screen and the dress-up editor. The saved look is put back as it was at the end (keep pet_look);
-# Random is repeatable (seed).
+# Random is repeatable (seed); no blinking (manual), so the shots repeat.
 keep pet_look
 seed 7
+manual 1
 select Pet
 shot pt-home-status
 press b
 expect screen=Pet
 shot pt-main
+press a
+shot pt-main-after-hi
 press b
 shot pt-edit-body
 press b

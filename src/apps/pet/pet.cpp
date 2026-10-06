@@ -1,11 +1,13 @@
 // Pet: a small creature you dress up (body, eyes, mouth, hat, extra), saved in NVS as one number ("pet_look").
-// Main screen: B = edit, hold A = back. Edit: A = next row, B = change it (next option; Random: a new look;
+// Main screen: A = say hi (it hops), B = edit, hold A = back. It blinks every few seconds for a minute after the
+// last press. Edit: A = next row, B = change it (next option; Random: a new look;
 // Done: save), hold B = previous option, hold A = save and back.
 #include <esp_random.h>
 #include "pet_logic.h"
 #include "../../core/app.h"
 #include "../../core/devtools.h"
 #include "../../core/display.h"
+#include "../../core/power.h"
 #include "../../core/storage.h"
 #include "../../core/theme.h"
 
@@ -16,12 +18,29 @@ static const int RANDOM_ROW = pet::LAYERS, DONE_ROW = pet::LAYERS + 1, ROWS = pe
 enum Screen : uint8_t { MAIN, EDIT };
 RTC_DATA_ATTR static uint8_t screen, row;
 RTC_DATA_ATTR static uint32_t draft;  // the look being edited (kept through sleep)
+static bool blinking, heart;
+static int8_t hop;  // pixels above its resting place, while it hops
+static uint32_t nextBlinkAt, openAt, lastPressAt;
+
+static const int16_t REST_Y = HINTS_TOP - 3 - pet::SIZE * MAIN_SCALE;  // low on the screen, with room to hop
+static const uint32_t AWAKE_MS = 60000;  // blinking stops this long after the last press
+
+static const char *const HEART[] = {  // drawn at 2x beside it, mid-hop
+  ".##...##.",
+  "####.####",
+  "#########",
+  "#########",
+  ".#######.",
+  "..#####..",
+  "...###...",
+  "....#....",
+};
 
 static uint32_t savedBits() { return storageGetInt("pet_look", pet::pack(pet::DEFAULT_LOOK)); }
 
-static void drawAvatar(const pet::Look &look, int scale, int16_t y0) {
+static void drawAvatar(const pet::Look &look, int scale, int16_t y0, bool eyesClosed = false) {
   const int16_t x0 = (display.width() - pet::SIZE * scale) / 2;
-  pet::drawLook(look, false, [&](int x, int y, bool ink) {
+  pet::drawLook(look, eyesClosed, [&](int x, int y, bool ink) {
     display.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, ink ? BLACK : WHITE);
   });
 }
@@ -30,10 +49,45 @@ static void save() { storagePutInt("pet_look", pet::pack(pet::unpack(draft))); }
 
 static uint32_t randomNumber() { return devSeed() ? (uint32_t)rand() : esp_random(); }  // test build: repeatable
 
-static void onEnter() { screen = MAIN; }
+static void drawMain() {
+  drawHeader("Pet");
+  pet::Look look = pet::unpack(savedBits());
+  if (hop) look.part[pet::EYES_LAYER] = pet::HAPPY_EYES;
+  drawAvatar(look, MAIN_SCALE, REST_Y - hop, blinking);
+  if (heart)
+    for (int y = 0; y < 8; y++)
+      for (int x = 0; x < 9; x++)
+        if (HEART[y][x] == '#') display.fillRect(166 + x * 2, CONTENT_TOP + 8 + y * 2, 2, 2, BLACK);
+  drawHints("hi", "dress up", "");
+}
+
+// A: a little hop with happy eyes and a heart, as quick animation frames (like the games), then a normal partial
+// refresh to clean up.
+static Redraw sayHi() {
+  static const int8_t HOPS[] = {3, 6, 6, 6, 3, 0};
+  powerHold();
+  displayFastFrames(true);
+  for (size_t i = 0; i < sizeof HOPS; i++) {
+    hop = HOPS[i];
+    heart = i >= 1 && i <= 4;
+    displayFrame(drawMain);
+  }
+  hop = 0;
+  heart = false;
+  displayFastFrames(false);
+  powerRelease();
+  return Redraw::Partial;
+}
+
+static void onEnter() {
+  screen = MAIN;
+  lastPressAt = millis();
+}
 
 static Redraw onButton(Event e) {
+  lastPressAt = millis();
   if (screen == MAIN) {
+    if (e == Event::AShort) return sayHi();
     if (e != Event::BShort) return Redraw::None;
     draft = savedBits();
     row = 0;
@@ -60,6 +114,7 @@ static Redraw onButton(Event e) {
 }
 
 static Redraw onBack() {
+  lastPressAt = millis();
   if (screen == MAIN) return Redraw::Exit;
   save();
   screen = MAIN;
@@ -91,11 +146,8 @@ static void drawEdit() {
 }
 
 static void draw() {
-  if (screen == EDIT) return drawEdit();
-  drawHeader("Pet");
-  const int16_t y = CONTENT_TOP + (HINTS_TOP - CONTENT_TOP - pet::SIZE * MAIN_SCALE) / 2;  // centred
-  drawAvatar(pet::unpack(savedBits()), MAIN_SCALE, y);
-  drawHints("", "dress up", "");
+  if (screen == EDIT) drawEdit();
+  else drawMain();
 }
 
 #if UNIDEX_DEV
@@ -111,8 +163,33 @@ static const char *detail() {
 static Redraw tick() {
 #if UNIDEX_DEV
   devSetDetail(detail);  // here rather than onEnter, which a wake from sleep skips
+  if (devManualFrames()) return Redraw::None;  // test build: no blinking, for repeatable screenshots
 #endif
-  return Redraw::None;
+  // Blink: eyes shut for one refresh every 2.5-6 s. On battery the device naps between presses, so it asks to
+  // be woken in time for the next one.
+  const uint32_t now = millis();
+  if (screen != MAIN) {
+    blinking = false;
+    return Redraw::None;
+  }
+  if (blinking) {
+    if ((int32_t)(now - openAt) < 0) {
+      powerWakeWithin(openAt - now);
+      return Redraw::None;
+    }
+    blinking = false;
+    nextBlinkAt = now + 2500 + esp_random() % 3500;
+    return Redraw::Tick;
+  }
+  if (now - lastPressAt > AWAKE_MS) return Redraw::None;
+  if (nextBlinkAt == 0) nextBlinkAt = now + 2500 + esp_random() % 3500;
+  if ((int32_t)(now - nextBlinkAt) < 0) {
+    powerWakeWithin(nextBlinkAt - now);
+    return Redraw::None;
+  }
+  blinking = true;
+  openAt = now + 120;
+  return Redraw::Tick;
 }
 
 static void onExit() {

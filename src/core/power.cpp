@@ -102,6 +102,10 @@ static void deepSleep(uint64_t timerUs) {
 void powerSleepFor(uint32_t ms) { deepSleep((uint64_t)ms * 1000); }
 #endif
 
+static uint32_t wakeWithin;  // 0: nothing asked for
+
+void powerWakeWithin(uint32_t ms) { wakeWithin = wakeWithin ? min(wakeWithin, ms) : ms; }
+
 void powerNap() {
   // Light sleep pauses USB, so skip it while a host is connected (the Mac sync needs the port).
   // Also skip while a button is held: its release and long-press timing need polling.
@@ -114,7 +118,10 @@ void powerNap() {
     delay(5);
     return;
   }
-  esp_sleep_enable_timer_wakeup((uint64_t)(idleMs - idle) * 1000);  // wake for the deep-sleep check
+  uint32_t napMs = idleMs - idle;  // wake for the deep-sleep check, or sooner if an app asked
+  if (wakeWithin && wakeWithin < napMs) napMs = wakeWithin;
+  wakeWithin = 0;
+  esp_sleep_enable_timer_wakeup((uint64_t)napMs * 1000);
   gpio_wakeup_enable(GPIO_NUM_0, GPIO_INTR_LOW_LEVEL);
   gpio_wakeup_enable(GPIO_NUM_18, GPIO_INTR_LOW_LEVEL);
   esp_sleep_enable_gpio_wakeup();
