@@ -9,5 +9,7 @@ void meetLeave();
 Redraw meetButton(Event e);
 void meetDraw();
 Redraw meetTick();
-// Test build: "meet:<on|off>:<Pets heard>:<searching|connected>:<left|right>:<x0>,<x1>:<strength both ways, dBm>:<latest dBm>:<one in reach 0|1>"
+// Test build: "meet:<on|off>:<Pets heard>:<searching|connected>:<left|right>:<x0>,<x1>:<strength both ways,
+// dBm>:<latest dBm>:<one in reach 0|1>:f<friends>:<ask|list>"
+bool meetBack();  // hold A: closes the friends list or a question; false when Meet itself should close
 const char *meetDetail();

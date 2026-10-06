@@ -57,7 +57,9 @@ If you record other people, tell them first: their voice goes to these services 
   its name (if you gave it one), a random Pet number made on your device (not linked to you or the device), and
   how strongly it hears the nearest other Pet. Each time Meet opens it uses a new random radio address, so the
   device can't be followed by its chip address. Once two devices are connected they also send which act to play.
-  Nothing is stored about the other device, and nothing is sent when Meet is closed.
+  Nothing is sent when Meet is closed. If both of you choose to be friends, each device keeps the other Pet's random
+  number, look and name, and how many times and when you met, on the device only (up to 16 friends; remove one
+  from the friends list, or all with Settings > Reset > Everything).
 
 ## The website
 

@@ -50,7 +50,7 @@ class Device:
             if not l:
                 continue
             out.append(l)
-            if l.startswith("OK X") or l == "ERR":
+            if l.startswith("OK X") or l.startswith("ERR"):  # "ERR busy": in the middle of an animation
                 return out
             if not l.startswith(("XS ", "XD ")):
                 self.log.append(l)
@@ -68,6 +68,9 @@ class Device:
 
     def state(self):
         r = self.cmd("X STATE")[-1]
+        if r == "ERR busy":  # (only from older test builds: X STATE is answered during animations)
+            time.sleep(0.5)
+            return self.state()
         if not r.startswith("OK X STATE"):
             raise RuntimeError(f"not a test build? {r!r}")
         kv = dict(p.split("=", 1) for p in r.split()[3:])
@@ -77,7 +80,13 @@ class Device:
         return kv
 
     def press(self, key):
-        r = self.cmd(f"X BTN {key}")[-1].split()
+        end = time.time() + 90
+        while True:
+            r = self.cmd(f"X BTN {key}")[-1]
+            if r != "ERR busy" or time.time() > end:
+                break
+            time.sleep(0.5)  # it's playing an animation: press when it's done
+        r = r.split()
         return r[3], int(r[4])  # refresh kind, ms
 
     def hold_b(self, ms):

@@ -10,6 +10,7 @@
 //   ACT     (the left device starts an act; both play it from when it arrived): from u32, to u32, act u8, actor u8,
 //           seed u32
 //   ASK     (the right device asks the left one for an act): from u32, to u32, act u8, actor u8
+//   ANSWER  (be friends? this device's answer): from u32, to u32, act u8 (1 yes, 2 not now), actor u8 (0)
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -18,7 +19,7 @@ namespace meet {
 
 static const uint8_t VERSION = 2;
 static const size_t MAX_NAME = 12;
-enum Type : uint8_t { HELLO = 1, CONNECT = 3, ACT = 4, ASK = 5 };
+enum Type : uint8_t { HELLO = 1, CONNECT = 3, ACT = 4, ASK = 5, ANSWER = 6 };
 
 struct Hello {
   uint32_t id, look, heard;
@@ -81,14 +82,14 @@ inline size_t encodeMessage(const Message &m, uint8_t *out) {
   put32(out + 9, m.to);
   if (m.type == CONNECT) return 13;
   out[13] = m.act, out[14] = m.actor;
-  if (m.type == ASK) return 15;
+  if (m.type == ASK || m.type == ANSWER) return 15;
   put32(out + 15, m.seed);
   return 19;
 }
 
 inline bool decodeMessage(const uint8_t *p, size_t len, Message &m) {
   const uint8_t t = typeOf(p, len);
-  const size_t want = t == CONNECT ? 13 : t == ASK ? 15 : t == ACT ? 19 : 0;
+  const size_t want = t == CONNECT ? 13 : t == ASK || t == ANSWER ? 15 : t == ACT ? 19 : 0;
   if (!want || len != want) return false;
   m = {};
   m.type = t;
@@ -234,11 +235,11 @@ class NearbyList {
 static const int ROOM_W = 400, SCREEN_W = 200, PET_W = 96;
 static const int16_t HOME[2] = {(SCREEN_W - PET_W) / 2, SCREEN_W + (SCREEN_W - PET_W) / 2};  // 52 and 252
 
-enum Act : uint8_t { GREET = 1, VISIT, SWAP, TRIP, SAY, ACT_COUNT };
+enum Act : uint8_t { GREET = 1, VISIT, SWAP, TRIP, SAY, GREET_FRIEND, FRIENDS, ACT_COUNT };
 enum Mood : uint8_t { NORMAL, HAPPY };
 
-// What a Pet says: a phrase, or "Hi <the other one's name>!".
-enum : uint8_t { NO_BUBBLE = 0, SAY_HI_NAME = 1, FIRST_PHRASE = 2 };
+// What a Pet says: "Hi <the other one's name>!", "Hi again <name>!", "Friends!", or a phrase.
+enum : uint8_t { NO_BUBBLE = 0, SAY_HI_NAME = 1, SAY_HI_AGAIN = 2, SAY_FRIENDS = 3, FIRST_PHRASE = 4 };
 static const char *const PHRASES[] = {"Nice hat!", "Wanna play?", "Yay!",   "I like your eyes", "Let's go!",
                                       "See you!",  "Hehe",        "Cute!",  "Best friends?",    "Over here!",
                                       "Ooh!",      "Me too!",     "Hello!", "You're fun!"};
@@ -285,6 +286,21 @@ class Script {
         hold(3, [&](Frame &f) { f.pet[0].bubble = SAY_HI_NAME; });
         hold(3, [&](Frame &f) { f.pet[1].bubble = SAY_HI_NAME; });
         happyTogether(2);
+        break;
+      case GREET_FRIEND:  // friends meeting again
+        hold(1, [&](Frame &f) { f.pet[0].bang = f.pet[1].bang = true; });
+        hold(3, [&](Frame &f) { f.pet[0].bubble = SAY_HI_AGAIN, f.pet[1].mood = HAPPY; });
+        hold(3, [&](Frame &f) { f.pet[1].bubble = SAY_HI_AGAIN, f.pet[0].mood = HAPPY; });
+        happyTogether(2);
+        break;
+      case FRIENDS:  // they just became friends: both walk up to the gap, "Friends!", hearts, home again
+        walk2(SCREEN_W - PET_W, SCREEN_W, 4);
+        hold(3, [&](Frame &f) {
+          f.pet[0].bubble = f.pet[1].bubble = SAY_FRIENDS;
+          f.pet[0].mood = f.pet[1].mood = HAPPY;
+        });
+        happyTogether(3);
+        walk2(HOME[0], HOME[1], 4);
         break;
       case VISIT: {
         // The host steps aside to the far side of its screen; the visitor walks over and stands beside it.

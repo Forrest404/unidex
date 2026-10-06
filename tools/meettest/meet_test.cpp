@@ -52,6 +52,9 @@ int main() {
   m = {ASK, 22, 11, 0, SWAP, 1};
   n = encodeMessage(m, p);
   check(decodeMessage(p, n, back) && back.type == ASK && back.act == SWAP && back.seed == 0, "an ASK too");
+  m = {ANSWER, 22, 11, 0, 1, 0};
+  n = encodeMessage(m, p);
+  check(decodeMessage(p, n, back) && back.type == ANSWER && back.act == 1 && n == 15, "an ANSWER too");
   m = {CONNECT, 22, 11};
   n = encodeMessage(m, p);
   check(decodeMessage(p, n, back) && back.type == CONNECT && n == 13, "a CONNECT too");
@@ -149,6 +152,19 @@ int main() {
   for (int f = 0; f < s.count; f++)
     for (int i = 0; i < 2; i++) hiBoth[i] |= s.frames[f].pet[i].bubble == SAY_HI_NAME;
   check(hiBoth[0] && hiBoth[1], "a greeting: each one says hi by name");
+  s.build(GREET_FRIEND, 0, 3, HOME[0], HOME[1]);
+  bool again[2] = {};
+  for (int f = 0; f < s.count; f++)
+    for (int i = 0; i < 2; i++) again[i] |= s.frames[f].pet[i].bubble == SAY_HI_AGAIN;
+  check(again[0] && again[1] && s.x[0] == HOME[0], "friends meeting again: each says hi again");
+  s.build(FRIENDS, 0, 3, HOME[0], HOME[1]);
+  bool atGap = false, saidIt = false;
+  for (int f = 0; f < s.count; f++) {
+    atGap |= s.frames[f].pet[0].x + PET_W == SCREEN_W && s.frames[f].pet[1].x == SCREEN_W;
+    saidIt |= s.frames[f].pet[0].bubble == SAY_FRIENDS && s.frames[f].pet[1].bubble == SAY_FRIENDS;
+  }
+  check(atGap && saidIt && s.x[0] == HOME[0] && s.x[1] == HOME[1],
+        "becoming friends: they meet at the gap, say \"Friends!\" together, and go home");
   s.build(SAY, 1, 3, HOME[0], HOME[1]);
   check(s.frames[0].pet[1].bubble >= FIRST_PHRASE && s.frames[3].pet[0].bubble >= FIRST_PHRASE &&
             s.frames[0].pet[1].bubble != s.frames[3].pet[0].bubble,

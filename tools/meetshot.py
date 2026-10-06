@@ -4,7 +4,8 @@
   ~/.platformio/penv/bin/python tools/meetshot.py [--out shots/meet] [--ports PORT_A PORT_B]
 
 Both open Pet > Meet and search; once each has the other in reach, B on board A connects them (the two screens
-become one room); the greeting plays; A's Pet visits B's screen; B swaps them; then B leaves Meet and A should
+become one room); the greeting plays (then "Be friends?", answered "not now" on both: tools/friendshot.py tests
+friends); A's Pet visits B's screen; B swaps them; then B leaves Meet and A should
 notice they've been parted. Times every act frame on both boards ("XW" lines) to check they stay in step, and
 saves screenshots from both (a-*.png, b-*.png). Keep the boards side by side. Pause the Mac agent first.
 """
@@ -114,6 +115,12 @@ def main():
         states, ok = wait_for(devs, lambda s: ":connected:" in s["detail"], 10)
         if not ok:
             problems.append(f"after {what}: {[s['detail'] for s in states]}")
+        if step == 2:  # strangers: "Be friends?" comes after the greeting; answer "not now" on both for this test
+            wait_for(devs, lambda s: s["detail"].endswith(":ask"), 10)
+            for d in devs:  # (one "not now" closes the question on the other board too)
+                if d.state()["detail"].endswith(":ask"):
+                    d.press("a")
+            time.sleep(1)
         shot(f"{step}-after-{what.split()[0]}")
     devs[1].press("A")  # B leaves Meet: A should notice they've been parted
     states, ok = wait_for(devs[:1], lambda s: ":searching:" in s["detail"], 20)

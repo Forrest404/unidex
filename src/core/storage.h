@@ -15,6 +15,8 @@ int32_t storageGetInt(const char *key, int32_t fallback = 0);
 void storagePutInt(const char *key, int32_t value);
 String storageGetString(const char *key, const char *fallback = "");
 void storagePutString(const char *key, const char *value);
+size_t storageGetBytes(const char *key, void *out, size_t len);  // a saved block: its length, or 0 if none
+void storagePutBytes(const char *key, const void *data, size_t len);
 void storageRemoveKey(const char *key);
 void storageClearKeys();  // every NVS value (settings, tallies, salt...)
 bool storageUsage(uint64_t &used, uint64_t &total);  // card bytes; false with no readable card

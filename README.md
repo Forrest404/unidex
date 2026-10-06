@@ -234,7 +234,11 @@ press B on either one. The two screens then act as one room: the title points to
 (the one whose random Pet number is lower is the left screen). The Pets greet each other, then **B** = your Pet
 visits the other screen (the host steps aside and they talk in speech bubbles), **hold B** = swap screens, **A** =
 say something; every 8-12 s they play something by themselves (a visit, a trip to both screens, a swap, a chat).
-Pull the devices apart and each Pet walks home. Every frame plays on a 500 ms beat from one device's message, so
+Pull the devices apart and each Pet walks home. **Friends:** the first time two Pets meet, both screens ask "Be
+friends?" after the greeting (B yes, A not now); when both say yes they meet at the gap, say "Friends!" and are saved
+on both devices (up to 16, in NVS: `pet_friends`, no SD card needed; Reset > Everything clears them). Friends meeting
+again get their own greeting ("Hi again ...!") and a heart before the name in the title. **A** on the searching
+screen opens the friends list (when you met, how many times; hold B removes one, after asking). Every frame plays on a 500 ms beat from one device's message, so
 the two screens stay within about 50 ms. Closeness comes from the signal strength both ways (the median of the
 last readings): it can tell "within about 15 cm" from "a metre away", but not touching from 15 cm, so meeting
 always needs a press. The radio is only on while Meet is open (2 minutes without a press stops it, 5 while

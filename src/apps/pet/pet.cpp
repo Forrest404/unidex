@@ -197,6 +197,7 @@ static Redraw onBack() {
   lastPressAt = millis();
   if (screen == MAIN) return Redraw::Exit;
   if (screen == MEET) {
+    if (meetBack()) return Redraw::Partial;  // the friends list or its question closes first
     meetLeave();
     screen = MAIN;
     return Redraw::Full;

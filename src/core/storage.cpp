@@ -76,6 +76,23 @@ void storagePutString(const char *key, const char *value) {
   prefs.end();
 }
 
+size_t storageGetBytes(const char *key, void *out, size_t len) {
+  ensureNamespace();
+  Preferences prefs;
+  prefs.begin(NVS_NAMESPACE, true);
+  size_t n = prefs.isKey(key) ? prefs.getBytesLength(key) : 0;
+  if (n) n = n <= len ? prefs.getBytes(key, out, n) : 0;  // too big for `out`: an older or damaged block
+  prefs.end();
+  return n;
+}
+
+void storagePutBytes(const char *key, const void *data, size_t len) {
+  Preferences prefs;
+  prefs.begin(NVS_NAMESPACE, false);
+  prefs.putBytes(key, data, len);
+  prefs.end();
+}
+
 void storageRemoveKey(const char *key) {
   Preferences prefs;
   prefs.begin(NVS_NAMESPACE, false);
