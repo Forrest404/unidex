@@ -11,6 +11,7 @@
 #include "input.h"
 #include "launcher.h"
 #include "power.h"
+#include "storage.h"
 
 static bool dryRun, fakeCloud, netFail, noCard, noPush, demo, manualFrames;
 static uint32_t seed;
@@ -136,6 +137,15 @@ bool devUsb(const char *l) {
     const bool on = l[strlen(l) - 1] == '1';
     (c[0] == 'D' ? dryRun : c[0] == 'F' ? fakeCloud : c[1] == 'E' ? netFail : c[2] == 'C' ? noCard : noPush) = on;
     Serial.printf("OK X %s\n", c);
+  } else if (!strncmp(c, "KEY ", 4)) {
+    char name[16] = "", value[16] = "";
+    if (sscanf(c + 4, "%15s %15s", name, value) == 2) {
+      if (strcmp(value, "none") == 0) storageRemoveKey(name);
+      else storagePutInt(name, strtol(value, nullptr, 10));
+    }
+    const int32_t v = storageGetInt(name, INT32_MIN);  // INT32_MIN: not set
+    if (v == INT32_MIN) Serial.printf("OK X KEY %s none\n", name);
+    else Serial.printf("OK X KEY %s %ld\n", name, (long)v);
   } else if (!strncmp(c, "DEMO ", 5)) {
     demo = c[5] == '1';
     Serial.printf("OK X %s\n", c);

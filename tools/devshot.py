@@ -6,7 +6,7 @@
   ~/.platformio/penv/bin/python tools/devshot.py press a b B ...   (a/b = short, A/B = long)
 
 Walkthrough lines: home | select <app> | pick <game> | waitjob <s> | job | seed <n> | manual <0|1> | frames <n> | play <0/1...> | press <keys...> | hold B <ms> | shot <name> | expect screen=<name> | sleep <ms>
-                   | dry|fake|netfail|nocard|nopush|demo <0|1> | clock unset | # comment
+                   | dry|fake|netfail|nocard|nopush|demo <0|1> | keep <setting> | clock unset | # comment
 Pause the Mac agent first (it shares the port). Each run ends with the switches off, and puts the clock back
 if the run unset it.
 """
@@ -111,6 +111,7 @@ class Run:
     def __init__(self, dev, out, compare):
         self.dev, self.out, self.compare = dev, out, compare
         self.tiles, self.problems, self.clock_touched, self.last = [], [], False, ("-", 0)
+        self.kept = {}  # saved settings to put back at the end (keep <key>)
         os.makedirs(out, exist_ok=True)
 
     def shot(self, name):
@@ -211,6 +212,9 @@ class Run:
             time.sleep(int(w[1]) / 1000)
         elif w[0] in ("dry", "fake", "netfail", "nocard", "nopush", "demo"):
             self.dev.cmd(f"X {w[0].upper()} {w[1]}")
+        elif w[0] == "keep":  # put this saved setting back as it was when the run ends
+            if w[1] not in self.kept:
+                self.kept[w[1]] = self.dev.cmd(f"X KEY {w[1]}")[-1].split()[-1]
         elif w[0] == "clock" and w[1] == "unset":
             self.dev.cmd("X CLOCK UNSET")
             self.clock_touched = True
@@ -218,6 +222,8 @@ class Run:
             raise ValueError(f"unknown step: {line}")
 
     def finish(self):
+        for key, value in self.kept.items():
+            self.dev.cmd(f"X KEY {key} {value}")
         self.dev.cmd("X SEED 0")
         self.dev.cmd("X MANUAL 0")
         for sw in ("DRY", "FAKE", "NETFAIL", "NOCARD", "NOPUSH", "DEMO"):

@@ -1,9 +1,10 @@
 # unidex
 
-**A pocket e-ink OS for the Waveshare ESP32-S3 1.54" e-paper board.** It does five things:
+**A pocket e-ink OS for the Waveshare ESP32-S3 1.54" e-paper board.** It does six things:
 
 - shows your next class with a live countdown;
 - records voice notes, tidied into Markdown for Obsidian;
+- keeps a little pet you dress up;
 - flips through name badges;
 - runs a WiFi collection game and four one-button games;
 - sleeps whenever you aren't pressing a button, to save battery.
@@ -27,6 +28,7 @@ Install it from your browser in a minute, with no tools to set up.
 |---|---|
 | **Timetable** | Shows your next class or calendar event with a countdown. Reads a weekly CSV and, optionally, your Apple Calendar (synced from a Mac over USB). |
 | **Notes** | Hold a button and talk: the note is transcribed (OpenAI Whisper), tidied up (OpenAI or Claude), kept on the SD card and optionally pushed to GitHub as Markdown for Obsidian. |
+| **Pet** | A cute little creature you dress up: pick its body, eyes, mouth, hat and an extra, or shuffle a random look. |
 | **Badge** | Flips through full-screen 1-bit images: name tags, logos, photos. Includes a drag-and-drop converter. |
 | **Dex** | A WiFi network collection game. Scan, and every new network name you hear is logged with a rarity. |
 | **Chooser** | Pick 2–6 squares, spin, get a random winner. Keeps a tally. |
@@ -215,6 +217,14 @@ It only listens for beacons and never connects to anything. Finds are appended t
 8 bytes of SHA-256(salt + BSSID) with a random per-device salt, because a MAC with a known vendor prefix could
 be brute-forced back from a plain hash. Wiping the board's NVS changes the salt and makes everything new again.
 
+### Pet
+
+A cute creature built from five layers: body (blob, cat, bear, bunny, frog, robot), eyes, mouth, hat and an extra
+(blush, scarf, bow tie...). **B** = dress up. In the editor: **A** = next row (Body, Eyes, Mouth, Hat, Extra,
+Random look, Done), **B** = the next option (on Random look: a new random look; on Done: save), **hold B** = the
+previous option, **hold A** = save and go back. The look is one number in NVS (`pet_look`), so it survives sleep
+and firmware updates; Settings > Reset > Everything puts the default back.
+
 ### Chooser
 
 Opens on the number of squares you used last; **A** cycles 2 → 6. **B** spins: the highlight walks the grid,
@@ -334,7 +344,7 @@ the time spent in it.
 ```
 src/
   main.cpp              setup/loop: input -> launcher -> sleep
-  apps/                 one folder per app (timetable, notes, badge, dex, chooser, settings) + apps.cpp (launcher order)
+  apps/                 one folder per app (timetable, notes, pet, badge, dex, chooser, games, settings) + apps.cpp (launcher order)
   apps/notes/           notes.cpp (screens), job (the online steps in the background), store (files on the card),
                         cloud (Whisper, tidy-up, GitHub), usb (N commands)
   core/
