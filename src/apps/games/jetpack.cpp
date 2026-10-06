@@ -39,32 +39,32 @@ static void drawZapper(const jetpack::Zapper &z) {
   const int cx = z.x / jetpack::U + jetpack::ZAP_W / 2, top = z.y + 4, bottom = z.y + z.len - 4;
   for (int y = top, side = -3; y < bottom; y += 6, side = -side) {
     const int y2 = y + 6 < bottom ? y + 6 : bottom;
-    display.drawLine(cx + side, y, cx - side, y2, GxEPD_BLACK);
-    display.drawLine(cx + side + 1, y, cx - side + 1, y2, GxEPD_BLACK);
+    display.drawLine(cx + side, y, cx - side, y2, BLACK);
+    display.drawLine(cx + side + 1, y, cx - side + 1, y2, BLACK);
   }
-  display.fillCircle(cx, top, 4, GxEPD_BLACK);
-  display.fillCircle(cx, bottom, 4, GxEPD_BLACK);
+  display.fillCircle(cx, top, 4, BLACK);
+  display.fillCircle(cx, bottom, 4, BLACK);
 }
 
 static void draw() {
   using namespace jetpack;
-  display.fillRect(0, CEILING - 2, 200, 2, GxEPD_BLACK);
-  display.fillRect(0, FLOOR, 200, 2, GxEPD_BLACK);
+  display.fillRect(0, CEILING - 2, 200, 2, BLACK);
+  display.fillRect(0, FLOOR, 200, 2, BLACK);
   for (const Zapper &z : s.zappers) {
     for (int i = 0; i < COINS; i++) {  // a coin: a ring with a mark in the middle
       const int x = z.coinX / U + i * COIN_STEP;
       if (!(z.coins & (1 << i)) || x > 200 || x + COIN < 0) continue;
-      display.drawCircle(x + COIN / 2, z.coinY + COIN / 2, COIN / 2, GxEPD_BLACK);
-      display.drawFastVLine(x + COIN / 2, z.coinY + 3, COIN - 6, GxEPD_BLACK);
+      display.drawCircle(x + COIN / 2, z.coinY + COIN / 2, COIN / 2, BLACK);
+      display.drawFastVLine(x + COIN / 2, z.coinY + 3, COIN - 6, BLACK);
     }
     if (z.x / U < 200 && z.x / U + ZAP_W > 0) drawZapper(z);
   }
   const uint8_t *pose = !onFloor(s) ? FLY : s.frames / 5 % 2 ? RUN2 : RUN1;  // legs change every ~0.25 s
   const int y = s.y / U;
-  display.drawBitmap(PILOT_X, y, pose, PILOT_W, PILOT_H, GxEPD_BLACK);
+  display.drawBitmap(PILOT_X, y, pose, PILOT_W, PILOT_H, BLACK);
   if (thrusting && !onFloor(s)) {  // the flame under the jetpack: an outline with a small solid core
-    display.drawTriangle(PILOT_X - 1, y + 13, PILOT_X + 6, y + 13, PILOT_X + 2, y + 27, GxEPD_BLACK);
-    display.fillTriangle(PILOT_X + 1, y + 15, PILOT_X + 4, y + 15, PILOT_X + 2, y + 21, GxEPD_BLACK);
+    display.drawTriangle(PILOT_X - 1, y + 13, PILOT_X + 6, y + 13, PILOT_X + 2, y + 27, BLACK);
+    display.fillTriangle(PILOT_X + 1, y + 15, PILOT_X + 4, y + 15, PILOT_X + 2, y + 21, BLACK);
   }
 
   char text[8];
@@ -72,8 +72,8 @@ static void draw() {
   display.setFont(FONT_SMALL);
   drawRight(text, 18);
   if (waiting(s)) {  // before the first press
-    display.fillRoundRect(28, 70, 144, 48, 6, GxEPD_WHITE);
-    display.drawRoundRect(28, 70, 144, 48, 6, GxEPD_BLACK);
+    display.fillRoundRect(28, 70, 144, 48, 6, WHITE);
+    display.drawRoundRect(28, 70, 144, 48, 6, BLACK);
     drawCentered("Hold B to fly", 86);
     display.setFont(FONT_TINY);
     drawCentered("hold A: back", 106);

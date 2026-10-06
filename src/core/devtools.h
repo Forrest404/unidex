@@ -19,6 +19,8 @@
 //   X SLEEP <ms>      -> "OK X SLEEP", then real deep sleep woken by a timer (RAM is lost, as in use)
 //   X DRY|FAKE|NETFAIL|NOCARD|NOPUSH <0|1>  -> destructive actions only pretend / cloud steps are canned /
 //                        WiFi fails / the SD card reads as missing / real transcription but nothing sent to GitHub
+//   X DEMO <0|1>      -> Timetable and Notes show built-in sample classes and notes instead of the card's (for
+//                        screenshots without personal data); nothing on the card changes
 #if UNIDEX_DEV
 bool devUsb(const char *line);  // true if the line was an X command
 bool devDryRun();
@@ -26,6 +28,7 @@ bool devFakeCloud();
 bool devNetFail();
 bool devNoCard();
 bool devNoPush();
+bool devDemo();
 uint32_t devSeed();
 bool devManualFrames();
 // What X FRAMES and X PLAY call (the Games app sets it). held: B per frame ('1' down), or null for the real B.
@@ -37,6 +40,7 @@ inline bool devFakeCloud() { return false; }
 inline bool devNetFail() { return false; }
 inline bool devNoCard() { return false; }
 inline bool devNoPush() { return false; }
+inline bool devDemo() { return false; }
 inline uint32_t devSeed() { return 0; }
 inline bool devManualFrames() { return false; }
 #endif

@@ -219,10 +219,10 @@ static void drawMain() {
   } else if (scanned && newCount > 0) {
     // NEW!: a small inverted tag above the best new find.
     const int16_t tagW = 52, tagH = 20, tagX = (display.width() - tagW) / 2, tagY = CONTENT_TOP + 10;
-    display.fillRoundRect(tagX, tagY, tagW, tagH, 4, GxEPD_BLACK);
-    display.setTextColor(GxEPD_WHITE);
+    display.fillRoundRect(tagX, tagY, tagW, tagH, 4, BLACK);
+    display.setTextColor(WHITE);
     drawCentered("NEW!", tagY + tagH / 2);
-    display.setTextColor(GxEPD_BLACK);
+    display.setTextColor(BLACK);
     drawName(best.ssid, 84);
     snprintf(line, sizeof line, "%s, %d new of %d", RARITY[best.rarity], newCount, nearby);
     line[0] = toupper(line[0]);  // "Rare, 3 new of 12"

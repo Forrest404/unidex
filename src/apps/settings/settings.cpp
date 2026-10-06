@@ -34,12 +34,12 @@ static int daysIn(int year, int month) {
 // One settings row: label left, value right; the selected row is inverted.
 static void drawRow(int i, bool selected, const char *label, const char *val) {
   const int16_t top = CONTENT_TOP + 4 + i * ROW_H, baseline = top + 17;
-  if (selected) display.fillRect(MARGIN - 4, top, display.width() - 2 * (MARGIN - 4), ROW_H - 2, GxEPD_BLACK);
-  display.setTextColor(selected ? GxEPD_WHITE : GxEPD_BLACK);
+  if (selected) display.fillRect(MARGIN - 4, top, display.width() - 2 * (MARGIN - 4), ROW_H - 2, BLACK);
+  display.setTextColor(selected ? WHITE : BLACK);
   display.setCursor(MARGIN, baseline);
   display.print(label);
   drawRight(val, baseline);
-  display.setTextColor(GxEPD_BLACK);
+  display.setTextColor(BLACK);
 }
 
 static void drawList() {
@@ -73,13 +73,13 @@ static void drawPieces(const char *const *pieces, int n, int active, int16_t cy,
     uint16_t pw, ph;
     display.getTextBounds(pieces[i], cursorX, baseline, &px, &py, &pw, &ph);
     if (i == active) {
-      display.fillRect(px - 3, cy - boxH / 2, pw + 6, boxH, GxEPD_BLACK);
-      display.setTextColor(GxEPD_WHITE);
+      display.fillRect(px - 3, cy - boxH / 2, pw + 6, boxH, BLACK);
+      display.setTextColor(WHITE);
     }
     display.setCursor(cursorX, baseline);
     display.print(pieces[i]);
     cursorX = display.getCursorX();
-    display.setTextColor(GxEPD_BLACK);
+    display.setTextColor(BLACK);
   }
 }
 
@@ -120,7 +120,9 @@ static void drawInfo() {
     else strftime(sync, sizeof sync, "%d %b", &s);
   }
   drawRow(0, false, pct >= 0 && batteryCharging() ? "On USB" : "Battery", battery);
-  drawRow(1, false, "Firmware", VERSION);
+  String version = VERSION;  // a build between releases, "v1.4-3-g13bf907": shown as "v1.4-3", which fits
+  if (version.indexOf("-g") > 0) version.remove(version.indexOf("-g"));
+  drawRow(1, false, "Firmware", version.c_str());
   drawRow(2, false, "Storage", storage);
   drawRow(3, false, "Mac sync", sync);
   drawHints("", "refresh", "");

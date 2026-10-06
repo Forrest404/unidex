@@ -36,8 +36,8 @@ static const int16_t ICON_Y = CONTENT_TOP + 2, NAME_BASE = 127, LINE_BASE = 146,
 
 // Small lightning bolt, 7 px wide and 12 tall, with its top-left corner at (x, y).
 static void drawBolt(int16_t x, int16_t y) {
-  display.fillTriangle(x + 4, y, x, y + 7, x + 4, y + 7, GxEPD_BLACK);
-  display.fillTriangle(x + 3, y + 5, x + 7, y + 5, x + 3, y + 12, GxEPD_BLACK);
+  display.fillTriangle(x + 4, y, x, y + 7, x + 4, y + 7, BLACK);
+  display.fillTriangle(x + 3, y + 5, x + 7, y + 5, x + 3, y + 12, BLACK);
 }
 
 // Top right of the home header: "14:32  87%", with a bolt before it on USB power.
@@ -76,7 +76,7 @@ static void appStatus(const App *a, char *out, size_t len) {
 static void drawHome() {
   drawStatus();
   const App *a = APPS[selected];
-  drawIcon(a->icon, (display.width() - 2 * ICON_SIZE) / 2, ICON_Y, GxEPD_BLACK, 2);
+  drawIcon(a->icon, (display.width() - 2 * ICON_SIZE) / 2, ICON_Y, BLACK, 2);
   display.setFont(FONT_MEDIUM);
   drawCenteredLine(a->name, NAME_BASE);
   appStatus(a, shownLine, sizeof shownLine);
@@ -92,10 +92,10 @@ static void drawHome() {
 static void drawSplash() {
   // Mark: 2x2 squares, one filled.
   const int16_t S = 14, G = 4, mx = (200 - 2 * S - G) / 2, my = 56;
-  display.drawRect(mx, my, S, S, GxEPD_BLACK);
-  display.drawRect(mx + S + G, my, S, S, GxEPD_BLACK);
-  display.drawRect(mx, my + S + G, S, S, GxEPD_BLACK);
-  display.fillRect(mx + S + G, my + S + G, S, S, GxEPD_BLACK);
+  display.drawRect(mx, my, S, S, BLACK);
+  display.drawRect(mx + S + G, my, S, S, BLACK);
+  display.drawRect(mx, my + S + G, S, S, BLACK);
+  display.fillRect(mx + S + G, my + S + G, S, S, BLACK);
   display.setFont(FONT_LARGE);
   drawCentered("unidex", 128);
 }

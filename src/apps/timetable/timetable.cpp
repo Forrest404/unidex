@@ -3,6 +3,7 @@
 // A = next event, B = details (full title, place, notes), B long = rest of today.
 #include "../../core/app.h"
 #include "../../core/clock.h"
+#include "../../core/devtools.h"
 #include "../../core/display.h"
 #include "../../core/launcher.h"
 #include "../../core/power.h"
@@ -114,15 +115,52 @@ static void loadFile(const char *path, bool dated) {
   }
 }
 
+#if UNIDEX_DEV
+// Test build, X DEMO 1: sample classes around the current time, for screenshots without anyone's timetable.
+static void loadDemo() {
+  if (!clockValid()) return;
+  const struct tm now = clockLocal();
+  const int at = (now.tm_hour * 60 + now.tm_min) / 5 * 5;  // on a 5-minute mark
+  const struct { int day, start, len; const char *module, *room, *notes; } rows[] = {
+    {0, at + 15, 60, "Maths", "B12", "Bring a calculator. Homework: exercise 4B."},
+    {0, at + 90, 60, "Physics", "Lab 3", "Forces practical: wear goggles."},
+    {0, at + 165, 50, "English", "A4", ""},
+    {1, 9 * 60, 60, "Chemistry", "Lab 1", ""},
+    {1, 10 * 60 + 15, 60, "History", "C2", ""},
+    {1, 11 * 60 + 30, 60, "Computer Science", "IT 2", ""},
+  };
+  for (const auto &r : rows) {
+    if (r.start + r.len > 1440 || count >= MAX_CLASSES) continue;
+    Class c = {};
+    c.date = -1;
+    c.wday = (now.tm_wday + r.day) % 7;
+    c.start = r.start;
+    c.end = r.start + r.len;
+    strlcpy(c.module, r.module, sizeof c.module);
+    strlcpy(c.room, r.room, sizeof c.room);
+    strlcpy(c.notes, r.notes, sizeof c.notes);
+    classes[count++] = c;
+  }
+}
+#endif
+static bool loadedDemo;
+
 static void load() {
   count = 0;
-  loadFile("/timetable.csv", false);
-  loadFile("/events.csv", true);
+  loadedDemo = devDemo();
+#if UNIDEX_DEV
+  if (loadedDemo) loadDemo();
+  else
+#endif
+  {
+    loadFile("/timetable.csv", false);
+    loadFile("/events.csv", true);
+  }
   loadedGeneration = usbSyncGeneration();
 }
 
 static void ensureReady() {
-  if (count < 0 || loadedGeneration != usbSyncGeneration()) load();
+  if (count < 0 || loadedGeneration != usbSyncGeneration() || loadedDemo != devDemo()) load();
 }
 
 static int nowMinutes(const struct tm &now) { return now.tm_hour * 60 + now.tm_min; }
@@ -398,8 +436,8 @@ static void drawDay(const struct tm &now) {
     const Class &c = classes[today[scroll + r]];
     const int16_t top = CONTENT_TOP + 4 + r * ROW_H, baseline = top + 15;
     const bool selected = scroll + r == row;
-    if (selected) display.fillRect(MARGIN - 4, top, display.width() - 2 * (MARGIN - 4), ROW_H, GxEPD_BLACK);
-    display.setTextColor(selected ? GxEPD_WHITE : GxEPD_BLACK);
+    if (selected) display.fillRect(MARGIN - 4, top, display.width() - 2 * (MARGIN - 4), ROW_H, BLACK);
+    display.setTextColor(selected ? WHITE : BLACK);
     char hm[8];
     if (c.allDay) strcpy(hm, "all day");
     else if (c.start <= nowMinutes(now)) strcpy(hm, "now");  // in progress
@@ -410,7 +448,7 @@ static void drawDay(const struct tm &now) {
     const int16_t left = MARGIN + 54;
     display.setCursor(left, baseline);
     display.print(fitText(c.module, display.width() - MARGIN - left));
-    display.setTextColor(GxEPD_BLACK);
+    display.setTextColor(BLACK);
   }
   drawHints(n > 1 ? "next" : "", "details", "");
 }

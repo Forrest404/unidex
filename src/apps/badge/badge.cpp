@@ -103,7 +103,7 @@ static bool drawBmp(const String &name) {
   if (!loadBmp(name, b)) return false;
   for (int16_t y = 0; y < 200; y++)
     for (int16_t x = 0; x < 200; x++)
-      if (b.black(x, y)) display.drawPixel(x, y, GxEPD_BLACK);
+      if (b.black(x, y)) display.drawPixel(x, y, BLACK);
   return true;
 }
 
@@ -127,13 +127,13 @@ static void drawPicker() {
   for (int i = first; i < count && i < first + PER_PAGE; i++) {
     const int16_t x = gx + (i - first) % 3 * STEP, y = gy + (i - first) / 3 * STEP;
     if (!thumbReady[i]) makeThumb(i);
-    display.drawBitmap(x, y, thumbs[i], THUMB, THUMB, GxEPD_BLACK);
+    display.drawBitmap(x, y, thumbs[i], THUMB, THUMB, BLACK);
     if (i == cursor) {  // white gap, then a 2 px frame: stands out even on a dark badge
-      display.drawRect(x - 1, y - 1, THUMB + 2, THUMB + 2, GxEPD_WHITE);
-      display.drawRect(x - 2, y - 2, THUMB + 4, THUMB + 4, GxEPD_BLACK);
-      display.drawRect(x - 3, y - 3, THUMB + 6, THUMB + 6, GxEPD_BLACK);
+      display.drawRect(x - 1, y - 1, THUMB + 2, THUMB + 2, WHITE);
+      display.drawRect(x - 2, y - 2, THUMB + 4, THUMB + 4, BLACK);
+      display.drawRect(x - 3, y - 3, THUMB + 6, THUMB + 6, BLACK);
     } else {
-      display.drawRect(x - 1, y - 1, THUMB + 2, THUMB + 2, GxEPD_BLACK);
+      display.drawRect(x - 1, y - 1, THUMB + 2, THUMB + 2, BLACK);
     }
   }
   drawHints(count > 1 ? "next" : "", "open", "");
@@ -185,7 +185,7 @@ static Redraw onBack() {
 
 // The hints over the bottom of the badge, on a white band, for a moment after opening.
 static void drawBand() {
-  display.fillRect(0, HINTS_TOP - 3, display.width(), display.height() - HINTS_TOP + 3, GxEPD_WHITE);
+  display.fillRect(0, HINTS_TOP - 3, display.width(), display.height() - HINTS_TOP + 3, WHITE);
   drawHints(count > 1 ? "next" : "", "pick", count > 1 ? "prev" : "");
 }
 

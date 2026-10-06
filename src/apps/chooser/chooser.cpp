@@ -30,13 +30,13 @@ static void drawGrid(int count, int8_t inverted, bool showTally) {
   display.setFont(FONT_SMALL);
   for (int i = 0; i < count; i++) {
     const int16_t x = x0 + (i % cols) * (cell + GAP), y = y0 + (i / cols) * (cell + GAP);
-    uint16_t ink = GxEPD_BLACK;
+    uint16_t ink = BLACK;
     if (i == inverted) {
-      display.fillRect(x, y, cell, cell, GxEPD_BLACK);
-      ink = GxEPD_WHITE;
+      display.fillRect(x, y, cell, cell, BLACK);
+      ink = WHITE;
     } else {
-      display.drawRect(x, y, cell, cell, GxEPD_BLACK);
-      display.drawRect(x + 1, y + 1, cell - 2, cell - 2, GxEPD_BLACK);
+      display.drawRect(x, y, cell, cell, BLACK);
+      display.drawRect(x + 1, y + 1, cell - 2, cell - 2, BLACK);
     }
     char label[12];
     display.setTextColor(ink);
@@ -58,7 +58,7 @@ static void drawGrid(int count, int8_t inverted, bool showTally) {
     display.setCursor(x + (cell - tw) / 2 - tx, y + (cell - th) / 2 - ty);
     display.print(fit);
   }
-  display.setTextColor(GxEPD_BLACK);
+  display.setTextColor(BLACK);
 }
 
 static void drawSpin() {

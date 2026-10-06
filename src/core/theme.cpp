@@ -1,16 +1,16 @@
 #include "theme.h"
-#include <Fonts/FreeSans9pt7b.h>
-#include <Fonts/FreeSans12pt7b.h>
-#include <Fonts/FreeSans18pt7b.h>
-#include <Fonts/FreeSansBold9pt7b.h>
-#include "FreeSans7pt7b.h"
+#include "fonts/Sans7pt7b.h"  // Liberation Sans, made by tools/fonts/make.sh
+#include "fonts/Sans9pt7b.h"
+#include "fonts/Sans12pt7b.h"
+#include "fonts/Sans18pt7b.h"
+#include "fonts/SansBold9pt7b.h"
 #include "display.h"
 
-const GFXfont *const FONT_SMALL = &FreeSans9pt7b;
-const GFXfont *const FONT_LARGE = &FreeSans18pt7b;
-const GFXfont *const FONT_MEDIUM = &FreeSans12pt7b;
-const GFXfont *const FONT_BOLD = &FreeSansBold9pt7b;
-const GFXfont *const FONT_TINY = &FreeSans7pt7b;
+const GFXfont *const FONT_SMALL = &Sans9pt7b;
+const GFXfont *const FONT_LARGE = &Sans18pt7b;
+const GFXfont *const FONT_MEDIUM = &Sans12pt7b;
+const GFXfont *const FONT_BOLD = &SansBold9pt7b;
+const GFXfont *const FONT_TINY = &Sans7pt7b;
 
 void drawCentered(const char *text, int16_t cy) {
   int16_t x, y;
@@ -34,12 +34,12 @@ void drawHeader(const char *title, const char *right) {
   display.setCursor(MARGIN, 16);
   display.print(fitText(title, display.width() - 2 * MARGIN - rightW));
   if (rightW) drawRight(right, 16);
-  display.drawFastHLine(MARGIN, HEADER_H - 1, display.width() - 2 * MARGIN, GxEPD_BLACK);
+  display.drawFastHLine(MARGIN, HEADER_H - 1, display.width() - 2 * MARGIN, BLACK);
 }
 
 void drawHints(const char *a, const char *b, const char *bHold) {
   if (!*a && !*b && !*bHold) return;  // nothing to say: no bar either
-  display.drawFastHLine(MARGIN, HINTS_TOP, display.width() - 2 * MARGIN, GxEPD_BLACK);
+  display.drawFastHLine(MARGIN, HINTS_TOP, display.width() - 2 * MARGIN, BLACK);
   char text[32];
   display.setFont(FONT_SMALL);
   if (*a) {
@@ -116,9 +116,9 @@ void drawEmpty(const char *headline, const char *line1, const char *line2) {
 
 void drawSheet(const char *title, const char *line1, const char *line2) {
   const int16_t x = MARGIN, y = CONTENT_TOP + 14, w = display.width() - 2 * x, h = HINTS_TOP - 10 - y;
-  display.fillRoundRect(x, y, w, h, 6, GxEPD_WHITE);
-  display.drawRoundRect(x, y, w, h, 6, GxEPD_BLACK);
-  display.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 5, GxEPD_BLACK);
+  display.fillRoundRect(x, y, w, h, 6, WHITE);
+  display.drawRoundRect(x, y, w, h, 6, BLACK);
+  display.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 5, BLACK);
   const int16_t mid = y + h / 2;
   display.setFont(FONT_BOLD);
   drawCentered(fitText(title, w - 16).c_str(), mid - (*line2 ? 26 : 16));
@@ -129,21 +129,21 @@ void drawSheet(const char *title, const char *line1, const char *line2) {
 
 void drawProgress(int16_t cy, int pct) {
   const int16_t w = 140, h = 10, x = (display.width() - w) / 2, y = cy - h / 2;
-  display.drawRoundRect(x, y, w, h, 4, GxEPD_BLACK);
+  display.drawRoundRect(x, y, w, h, 4, BLACK);
   if (pct >= 0) {
-    display.fillRoundRect(x + 2, y + 2, (w - 4) * min(pct, 100) / 100, h - 4, 2, GxEPD_BLACK);
+    display.fillRoundRect(x + 2, y + 2, (w - 4) * min(pct, 100) / 100, h - 4, 2, BLACK);
   } else {  // no known end: a block that moves along each time the screen is drawn
     const int16_t bw = 32, span = w - 4 - bw;
     const int16_t pos = (millis() / 400) % (2 * span / 8) * 8;
-    display.fillRoundRect(x + 2 + (pos <= span ? pos : 2 * span - pos), y + 2, bw, h - 4, 2, GxEPD_BLACK);
+    display.fillRoundRect(x + 2 + (pos <= span ? pos : 2 * span - pos), y + 2, bw, h - 4, 2, BLACK);
   }
 }
 
 void drawPageDots(int count, int current, int16_t cy) {
   const int16_t gap = 13, x0 = (display.width() - (count - 1) * gap) / 2;
   for (int i = 0; i < count; i++) {
-    if (i == current) display.fillCircle(x0 + i * gap, cy, 4, GxEPD_BLACK);
-    else display.drawCircle(x0 + i * gap, cy, 3, GxEPD_BLACK);
+    if (i == current) display.fillCircle(x0 + i * gap, cy, 4, BLACK);
+    else display.drawCircle(x0 + i * gap, cy, 3, BLACK);
   }
 }
 
@@ -151,11 +151,11 @@ void drawToast(const char *text) {
   display.setFont(FONT_SMALL);
   const String t = fitText(text, display.width() - 2 * MARGIN - 24);
   const int16_t w = textWidth(t.c_str()) + 24, h = 24, x = (display.width() - w) / 2, y = HINTS_TOP - h - 6;
-  display.fillRoundRect(x - 2, y - 2, w + 4, h + 4, 14, GxEPD_WHITE);  // a white rim keeps it off busy content
-  display.fillRoundRect(x, y, w, h, 12, GxEPD_BLACK);
-  display.setTextColor(GxEPD_WHITE);
+  display.fillRoundRect(x - 2, y - 2, w + 4, h + 4, 14, WHITE);  // a white rim keeps it off busy content
+  display.fillRoundRect(x, y, w, h, 12, BLACK);
+  display.setTextColor(WHITE);
   drawCentered(t.c_str(), y + h / 2);
-  display.setTextColor(GxEPD_BLACK);
+  display.setTextColor(BLACK);
 }
 
 void drawRight(const char *text, int16_t baseline) {

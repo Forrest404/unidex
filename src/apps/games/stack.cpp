@@ -26,24 +26,24 @@ static int rowY(int row) {
 
 // The piece a drop cut off: a dotted outline, shown for one frame.
 static void drawDotted(int x, int y, int w, int h) {
-  for (int i = 0; i < w; i += 2) display.drawPixel(x + i, y, GxEPD_BLACK), display.drawPixel(x + i, y + h - 1, GxEPD_BLACK);
-  for (int i = 0; i < h; i += 2) display.drawPixel(x, y + i, GxEPD_BLACK), display.drawPixel(x + w - 1, y + i, GxEPD_BLACK);
+  for (int i = 0; i < w; i += 2) display.drawPixel(x + i, y, BLACK), display.drawPixel(x + i, y + h - 1, BLACK);
+  for (int i = 0; i < h; i += 2) display.drawPixel(x, y + i, BLACK), display.drawPixel(x + w - 1, y + i, BLACK);
 }
 
 static void draw() {
   using namespace stack;
-  if (rowY(0) + ROW_H < 198) display.fillRect(0, rowY(0) + ROW_H, SCREEN, 2, GxEPD_BLACK);  // the ground
+  if (rowY(0) + ROW_H < 198) display.fillRect(0, rowY(0) + ROW_H, SCREEN, 2, BLACK);  // the ground
   for (int row = s.score; row >= 0 && row > s.score - KEEP; row--) {  // placed rows, a white line between
     const int y = rowY(row);
     if (y >= 200) break;
     const Row &r = s.rows[row % KEEP];
-    display.fillRect(r.x, y, r.w, ROW_H - 1, GxEPD_BLACK);
+    display.fillRect(r.x, y, r.w, ROW_H - 1, BLACK);
   }
   const bool justDropped = s.score && s.since < SHOW_FRAMES;
   if (justDropped && s.cut.w) drawDotted(s.cut.x, rowY(s.score), s.cut.w, ROW_H - 1);
   const int x = s.x / U, y = rowY(s.score + 1);  // the sliding block: an outline, not placed yet
-  display.drawRect(x, y, s.w, ROW_H - 1, GxEPD_BLACK);
-  display.drawRect(x + 1, y + 1, s.w - 2, ROW_H - 3, GxEPD_BLACK);
+  display.drawRect(x, y, s.w, ROW_H - 1, BLACK);
+  display.drawRect(x + 1, y + 1, s.w - 2, ROW_H - 3, BLACK);
 
   char text[8];
   snprintf(text, sizeof text, "%d", s.score);
@@ -54,8 +54,8 @@ static void draw() {
     drawCentered("Perfect!", 38);
   }
   if (waiting(s)) {  // before the first press
-    display.fillRoundRect(28, 76, 144, 48, 6, GxEPD_WHITE);
-    display.drawRoundRect(28, 76, 144, 48, 6, GxEPD_BLACK);
+    display.fillRoundRect(28, 76, 144, 48, 6, WHITE);
+    display.drawRoundRect(28, 76, 144, 48, 6, BLACK);
     display.setFont(FONT_SMALL);
     drawCentered("Press B to drop", 92);
     display.setFont(FONT_TINY);

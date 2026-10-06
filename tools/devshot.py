@@ -6,7 +6,7 @@
   ~/.platformio/penv/bin/python tools/devshot.py press a b B ...   (a/b = short, A/B = long)
 
 Walkthrough lines: home | select <app> | pick <game> | waitjob <s> | job | seed <n> | manual <0|1> | frames <n> | play <0/1...> | press <keys...> | hold B <ms> | shot <name> | expect screen=<name> | sleep <ms>
-                   | dry|fake|netfail|nocard <0|1> | clock unset | # comment
+                   | dry|fake|netfail|nocard|nopush|demo <0|1> | clock unset | # comment
 Pause the Mac agent first (it shares the port). Each run ends with the switches off, and puts the clock back
 if the run unset it.
 """
@@ -209,7 +209,7 @@ class Run:
             self.dev.cmd(f"X PLAY {w[1]}", timeout=120)
         elif w[0] == "sleep":
             time.sleep(int(w[1]) / 1000)
-        elif w[0] in ("dry", "fake", "netfail", "nocard", "nopush"):
+        elif w[0] in ("dry", "fake", "netfail", "nocard", "nopush", "demo"):
             self.dev.cmd(f"X {w[0].upper()} {w[1]}")
         elif w[0] == "clock" and w[1] == "unset":
             self.dev.cmd("X CLOCK UNSET")
@@ -220,7 +220,7 @@ class Run:
     def finish(self):
         self.dev.cmd("X SEED 0")
         self.dev.cmd("X MANUAL 0")
-        for sw in ("DRY", "FAKE", "NETFAIL", "NOCARD", "NOPUSH"):
+        for sw in ("DRY", "FAKE", "NETFAIL", "NOCARD", "NOPUSH", "DEMO"):
             self.dev.cmd(f"X {sw} 0")
         if self.clock_touched:
             self.dev.s.write(f"T {int(time.time())}\n".encode())

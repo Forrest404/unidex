@@ -39,8 +39,8 @@ static void drawList() {
   for (int i = 0; i < GAME_COUNT; i++) {
     const int16_t top = CONTENT_TOP + 4 + i * ROW_H, baseline = top + 17;
     const bool sel = i == cursor;
-    if (sel) display.fillRect(MARGIN - 4, top, display.width() - 2 * (MARGIN - 4), ROW_H - 2, GxEPD_BLACK);
-    display.setTextColor(sel ? GxEPD_WHITE : GxEPD_BLACK);
+    if (sel) display.fillRect(MARGIN - 4, top, display.width() - 2 * (MARGIN - 4), ROW_H - 2, BLACK);
+    display.setTextColor(sel ? WHITE : BLACK);
     display.setCursor(MARGIN, baseline);
     display.print(GAMES[i]->name);
     char right[16];
@@ -48,7 +48,7 @@ static void drawList() {
     display.setFont(FONT_TINY);
     drawRight(right, baseline);
     display.setFont(FONT_SMALL);
-    display.setTextColor(GxEPD_BLACK);
+    display.setTextColor(BLACK);
   }
   drawHints("next", "play", "");
 }

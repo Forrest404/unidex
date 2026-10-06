@@ -12,7 +12,7 @@
 #include "launcher.h"
 #include "power.h"
 
-static bool dryRun, fakeCloud, netFail, noCard, noPush, manualFrames;
+static bool dryRun, fakeCloud, netFail, noCard, noPush, demo, manualFrames;
 static uint32_t seed;
 static void (*frameStepper)(int, const char *);
 static const char *(*detailFn)();
@@ -22,6 +22,7 @@ bool devFakeCloud() { return fakeCloud; }
 bool devNetFail() { return netFail; }
 bool devNoCard() { return noCard; }
 bool devNoPush() { return noPush; }
+bool devDemo() { return demo; }
 uint32_t devSeed() { return seed; }
 bool devManualFrames() { return manualFrames; }
 void devSetFrameStepper(void (*fn)(int, const char *)) { frameStepper = fn; }
@@ -37,11 +38,14 @@ static void shot() {
   printHex(launcherScreenName());
   Serial.print('\n');
   char hex[201];
-  for (int row = 0; row < 50; row++) {  // 100 bytes = 4 pixel rows per line
-    for (int i = 0; i < 100; i++) sprintf(hex + 2 * i, "%02x", display.shadow[row * 100 + i]);
+  uint8_t px[100];
+  uint32_t crc = 0;
+  for (int row = 0; row < 50; row++) {  // 100 bytes = 4 pixel rows per line, 1 = black
+    for (int i = 0; i < 100; i++) px[i] = ~display.buf[row * 100 + i], sprintf(hex + 2 * i, "%02x", px[i]);
+    crc = esp_rom_crc32_le(crc, px, sizeof px);
     Serial.printf("XD %s\n", hex);
   }
-  Serial.printf("OK X SHOT %lu\n", (unsigned long)esp_rom_crc32_le(0, display.shadow, sizeof display.shadow));
+  Serial.printf("OK X SHOT %lu\n", (unsigned long)crc);
 }
 
 static void press(Event e) {
@@ -115,11 +119,11 @@ bool devUsb(const char *l) {
       at = i;
       const uint32_t t0 = millis();
       displayFrame([] {
-        display.fillRect(10 + (at * 16) % 140, 60, 40, 40, GxEPD_BLACK);
+        display.fillRect(10 + (at * 16) % 140, 60, 40, 40, BLACK);
         display.setCursor(10, 150);
         display.print(at);
       });
-      total += millis() - t0, busy += display.epd2.busyMs;
+      total += millis() - t0, busy += displayLastRefresh().busyMs;
     }
     displayFastFrames(false);
     Serial.printf("OK X FTEST ms=%lu busy=%lu\n", (unsigned long)(total / 20), (unsigned long)(busy / 20));
@@ -131,6 +135,9 @@ bool devUsb(const char *l) {
              !strncmp(c, "NOCARD ", 7) || !strncmp(c, "NOPUSH ", 7)) {
     const bool on = l[strlen(l) - 1] == '1';
     (c[0] == 'D' ? dryRun : c[0] == 'F' ? fakeCloud : c[1] == 'E' ? netFail : c[2] == 'C' ? noCard : noPush) = on;
+    Serial.printf("OK X %s\n", c);
+  } else if (!strncmp(c, "DEMO ", 5)) {
+    demo = c[5] == '1';
     Serial.printf("OK X %s\n", c);
   } else {
     Serial.println("ERR");

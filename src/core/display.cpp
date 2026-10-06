@@ -4,11 +4,90 @@
 
 static const int PIN_SCK = 12, PIN_MOSI = 13, PIN_CS = 11, PIN_DC = 10, PIN_RST = 9, PIN_BUSY = 8;
 static const int PIN_EPD_PWR = 6;  // panel power switch, active LOW
-static const uint32_t SPI_HZ = 4000000;  // the library's default (X FTEST can try faster)
+static SPISettings spi(4000000, MSBFIRST, SPI_MODE0);  // 4 MHz (X FTEST can try faster)
 
-void displaySetSpiHz(uint32_t hz) { display.epd2.selectSPI(SPI, SPISettings(hz, MSBFIRST, SPI_MODE0)); }
+void displaySetSpiHz(uint32_t hz) { spi = SPISettings(hz, MSBFIRST, SPI_MODE0); }
 
-Display display(Panel(PIN_CS, PIN_DC, PIN_RST, PIN_BUSY));
+Display display;
+
+void Display::drawPixel(int16_t x, int16_t y, uint16_t color) {
+  if (x < 0 || y < 0 || x >= WIDTH || y >= HEIGHT) return;
+  const uint8_t bit = 0x80 >> (x & 7);
+  uint8_t &b = buf[(y * WIDTH + x) >> 3];
+  if (ink(color) == WHITE) b |= bit;
+  else b &= ~bit;
+}
+
+void Display::fillScreen(uint16_t color) { memset(buf, ink(color) == WHITE ? 0xFF : 0x00, sizeof buf); }
+
+// ---- The controller (SSD1681): commands over SPI, DC low for the command byte and high for its data. BUSY is
+// high while it works.
+
+static void send(uint8_t cmd, const uint8_t *data = nullptr, size_t len = 0) {
+  SPI.beginTransaction(spi);
+  digitalWrite(PIN_CS, LOW);
+  digitalWrite(PIN_DC, LOW);
+  SPI.transfer(cmd);
+  digitalWrite(PIN_DC, HIGH);
+  if (len) SPI.writeBytes(data, len);
+  digitalWrite(PIN_CS, HIGH);
+  SPI.endTransaction();
+}
+
+static void send(uint8_t cmd, std::initializer_list<uint8_t> data) { send(cmd, data.begin(), data.size()); }
+
+static void waitBusy(uint32_t timeoutMs) {
+  const uint32_t t0 = millis();
+  delay(1);  // BUSY goes high a moment after the command
+  while (digitalRead(PIN_BUSY) == HIGH && millis() - t0 < timeoutMs) delay(1);
+}
+
+static bool asleep = true;     // in deep sleep: needs a reset before anything else
+static bool powered = false;   // the analog side (the voltages that drive the pixels) is on
+static bool needFull = true;   // RAM doesn't hold what's on screen (cold boot): the next refresh is full
+static bool fastUsed = false;  // our waveform and voltages are loaded, not the panel's own
+static uint8_t fastFrames;     // this refresh: 0 = the panel's own waveform; n = ours, the long phase n frames
+static uint8_t fastRate;       // frame rate code for ours (higher = faster frames)
+static uint32_t busyMs;        // the last refresh: time the panel was busy
+
+// Out of deep sleep (or power-up): reset, then set the panel up. A reset keeps the RAM, so the last image is
+// still there to compare against for a partial refresh.
+static void wake() {
+  if (!asleep) return;
+  digitalWrite(PIN_RST, LOW);
+  delay(10);
+  digitalWrite(PIN_RST, HIGH);
+  delay(10);
+  waitBusy(100);
+  send(0x12);  // software reset: registers back to their defaults, RAM kept
+  waitBusy(100);
+  send(0x01, {(Display::HEIGHT - 1) & 0xFF, (Display::HEIGHT - 1) >> 8, 0x00});  // 200 gate lines, top to bottom
+  send(0x11, {0x03});                                   // RAM address: x then y, both counting up
+  send(0x44, {0x00, Display::WIDTH / 8 - 1});           // RAM x range, in bytes
+  send(0x45, {0x00, 0x00, (Display::HEIGHT - 1) & 0xFF, (Display::HEIGHT - 1) >> 8});  // RAM y range
+  send(0x3C, {0x05});                                   // border: stays white
+  send(0x18, {0x80});                                   // the built-in temperature sensor picks the waveform
+  asleep = powered = fastUsed = false;
+}
+
+// RAM 0x24 is the new image; RAM 0x26 the previous one, which a partial refresh compares against.
+static void writeRam(uint8_t ram) {
+  send(0x4E, {0x00});
+  send(0x4F, {0x00, 0x00});
+  send(ram, display.buf, sizeof display.buf);
+}
+
+// Runs a refresh. The control byte says what the controller does in order: clock on (0x80), analog on (0x40),
+// read the temperature (0x20), load the panel's own waveform (0x10), mode 2 = partial (0x08), show the image
+// (0x04), analog off (0x02), clock off (0x01).
+static void update(uint8_t control, uint32_t timeoutMs) {
+  const uint32_t t0 = millis();
+  send(0x22, {control});
+  send(0x20);
+  waitBusy(timeoutMs);
+  busyMs = millis() - t0;
+  powered = !(control & 0x02);
+}
 
 // The partial waveform Waveshare publishes for this panel (1.54" V2): 153 bytes of waveform (voltage per
 // phase for each pixel change, then phase lengths in frames, frame rates), then the gate, source and VCOM
@@ -30,42 +109,52 @@ static const uint8_t PARTIAL_WAVE[159] = {
 };
 static const int WAVE_LONG_PHASE = 60, WAVE_RATE = 144;
 
-void Panel::refresh(int16_t x, int16_t y, int16_t w, int16_t h) {
-  const uint32_t t0 = millis();
-  if (!fastFrames || _initial_refresh) {
-    GxEPD2_154_D67::refresh(x, y, w, h);
-    busyMs = millis() - t0;
-    return;
-  }
-  // The RAM window is already set: the library wrote this same area just before refreshing it.
+static void loadFastWave() {
   uint8_t wave[sizeof PARTIAL_WAVE];
   memcpy(wave, PARTIAL_WAVE, sizeof wave);
   wave[WAVE_LONG_PHASE] = fastFrames;
   for (int i = WAVE_RATE; i < WAVE_RATE + 6; i++) wave[i] = fastRate << 4 | fastRate;
-  _writeCommand(0x32);  // waveform
-  _writeData(wave, 153);
-  _writeCommand(0x3F);
-  _writeData(wave[153]);
-  _writeCommand(0x03);  // gate voltage
-  _writeData(wave[154]);
-  _writeCommand(0x04);  // source voltages
-  _writeData(wave + 155, 3);
-  _writeCommand(0x2C);  // VCOM
-  _writeData(wave[158]);
+  send(0x32, wave, 153);      // waveform
+  send(0x3F, {wave[153]});
+  send(0x03, {wave[154]});    // gate voltage
+  send(0x04, wave + 155, 3);  // source voltages
+  send(0x2C, {wave[158]});    // VCOM
   fastUsed = true;
-  const uint32_t t1 = millis();
-  _writeCommand(0x22);
-  // Display mode 2 with the waveform above (no reload from OTP). Powering the analog side up again costs
-  // ~90 ms, so only when it's off; it stays on between frames.
-  _writeData(_power_is_on ? 0x0C : 0xCC);
-  _writeCommand(0x20);
-  _waitWhileBusy("fast", 1000);
-  _power_is_on = true;
-  busyMs = millis() - t1;
 }
 
-void Panel::hibernate() {
-  GxEPD2_154_D67::hibernate();  // the next refresh resets the controller: its own waveform and voltages again
+static void refreshFull() {
+  wake();
+  writeRam(0x24);
+  writeRam(0x26);  // both the same, so nothing is left over to compare against
+  update(0xF7, 5000);
+  needFull = false;
+}
+
+static void refreshPartial() {
+  if (needFull) return refreshFull();
+  wake();
+  writeRam(0x24);
+  if (fastFrames) {
+    loadFastWave();
+    // Mode 2 with the waveform above (no reload from the panel). Powering the analog side up again costs
+    // ~90 ms, so only when it's off; it stays on between frames.
+    update(powered ? 0x0C : 0xCC, 1000);
+  } else {
+    update(0xFC, 2000);  // mode 2 with the panel's own waveform; the analog side stays on
+  }
+  // The new image into both RAMs: the previous one for the next comparison, and the current one again
+  // (skipping this second write left the old image showing through on the next refresh).
+  writeRam(0x26);
+  writeRam(0x24);
+}
+
+// Deep sleep: the image stays on the panel with no power. The next refresh resets the controller, which brings
+// back its own waveform and voltages.
+static void sleepPanel() {
+  if (asleep) return;
+  if (powered) update(0x83, 1000);  // analog off
+  send(0x10, {0x01});               // deep sleep, keeping the RAM
+  asleep = true;
   fastUsed = false;
 }
 
@@ -74,11 +163,16 @@ void displayInit(bool initial) {
   digitalWrite(PIN_EPD_PWR, LOW);
   if (initial) delay(10);  // let the panel rail settle; after a wake it stayed powered
 
-  // Must come before display.init(): GxEPD2 calls SPI.begin() with default pins,
-  // which is a no-op once SPI is already started, so these pins stick.
+  pinMode(PIN_CS, OUTPUT);
+  digitalWrite(PIN_CS, HIGH);
+  pinMode(PIN_DC, OUTPUT);
+  digitalWrite(PIN_DC, HIGH);
+  pinMode(PIN_RST, OUTPUT);
+  digitalWrite(PIN_RST, HIGH);
+  pinMode(PIN_BUSY, INPUT);
   SPI.begin(PIN_SCK, -1, PIN_MOSI, PIN_CS);
-  displaySetSpiHz(SPI_HZ);
-  display.init(0, initial);  // no GxEPD2 timing logs: they'd clutter the USB sync line
+  asleep = true;
+  needFull = initial;
   display.setTextWrap(false);  // with wrap on, measuring a long line reports only its first wrapped piece
   display.inverted = storageGetInt("invert", 0);
 }
@@ -101,31 +195,28 @@ DisplayRefresh displayLastRefresh() { return last; }
 
 static void render(void (*draw)(), bool full, char kind) {
   const uint32_t t0 = millis();
-  if (full) display.setFullWindow();
-  else display.setPartialWindow(0, 0, display.width(), display.height());
-  display.firstPage();
-  do {
-    display.fillScreen(GxEPD_WHITE);
-    display.setTextColor(GxEPD_BLACK);
-    draw();
-  } while (display.nextPage());
-  last = {kind, millis() - t0, last.count + 1};
+  display.fillScreen(WHITE);
+  display.setTextColor(BLACK);
+  draw();
+  if (full) refreshFull();
+  else refreshPartial();
+  last = {kind, millis() - t0, last.count + 1, busyMs};
 }
 
 void displayShow(void (*draw)(), bool full) {
-  if (display.epd2.fastUsed) display.hibernate();  // back to the panel's own waveform and voltages
+  if (fastUsed) sleepPanel();  // back to the panel's own waveform and voltages
   full = full || partialsSinceFull >= FULL_EVERY;
   partialsSinceFull = full ? 0 : partialsSinceFull + 1;
   render(draw, full, full ? 'F' : 'P');
-  display.hibernate();  // hibernated e-ink keeps the image
+  sleepPanel();  // e-ink keeps the image
 }
 
 static uint8_t frameWave, frameRate = FAST_RATE;  // the waveform displayFrame uses (0: the panel's own)
 
 void displayFrame(void (*draw)()) {
-  display.epd2.fastFrames = frameWave, display.epd2.fastRate = frameRate;  // only for this frame: any other
-  render(draw, false, 'f');                                                // refresh gets the panel's own
-  display.epd2.fastFrames = 0;
+  fastFrames = frameWave, fastRate = frameRate;  // only for this frame: any other refresh gets the panel's own
+  render(draw, false, 'f');
+  fastFrames = 0;
 }
 
 void displayFastFrames(bool on) {
@@ -138,7 +229,7 @@ void displayFastWave(uint8_t frames, uint8_t rate) { frameWave = frames, frameRa
 #endif
 
 void displayTick(void (*draw)()) {
-  if (display.epd2.fastUsed) display.hibernate();
+  if (fastUsed) sleepPanel();
   render(draw, false, 'T');
-  display.hibernate();
+  sleepPanel();
 }

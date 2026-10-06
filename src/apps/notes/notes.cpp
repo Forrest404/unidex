@@ -49,9 +49,38 @@ static bool hasCard() {
   return card;
 }
 
+#if UNIDEX_DEV
+// Test build, X DEMO 1: sample notes, for screenshots without anyone's notes.
+static const char *const DEMO_NOTES[][2] = {
+  {"Physics: forces recap",
+   "---\ntitle: Physics: forces recap\n---\n> [!summary] Newton's three laws, with the examples from today's class.\n\n"
+   "**Key points**\n- A moving object keeps going at the same speed unless a force acts on it.\n"
+   "- Force = mass x acceleration: twice the force, twice the acceleration.\n"
+   "- Every push has an equal push back.\n\n**To do**\n- Questions 4 to 9 by Friday.\n"},
+  {"Robotics club stall ideas",
+   "---\ntitle: Robotics club stall ideas\n---\n> [!summary] Things to bring and show at the open day stall.\n\n"
+   "- A line-following robot on a short track.\n- Sign-up sheet and stickers.\n"},
+  {"Maths homework plan", "---\ntitle: Maths homework plan\n---\n- Monday: exercise 4B.\n- Wednesday: past paper, section A.\n"},
+  {"Books for English", "---\ntitle: Books for English\n---\n- Of Mice and Men\n- An Inspector Calls\n"},
+  {"Questions for open day", "---\ntitle: Questions for open day\n---\n- How big are the classes?\n- Which clubs run after school?\n"},
+};
+static bool listedDemo;
+#endif
+
 static void ensureList() {
+#if UNIDEX_DEV
+  if (listed && listedDemo != devDemo()) listed = false;
+  listedDemo = devDemo();
+#endif
   if (listed) return;
   notes = hasCard() ? storeList() : std::vector<NoteInfo>();
+#if UNIDEX_DEV
+  if (devDemo()) {
+    notes.clear();
+    for (size_t i = 0; i < sizeof DEMO_NOTES / sizeof *DEMO_NOTES; i++)
+      notes.push_back({"demo" + String(i), DEMO_NOTES[i][0], true, true});
+  }
+#endif
   listed = true;
   if (cursor > notes.size()) cursor = 0;  // row 0 is "Open on phone", the notes follow
   const bool gh = githubOn();
@@ -149,7 +178,12 @@ static String readable(const String &md) {
 static void ensureLines() {
   if (linesFor == openId) return;
   lines.clear();
+#if UNIDEX_DEV
+  const String md = devDemo() && strncmp(openId, "demo", 4) == 0 ? String(DEMO_NOTES[atoi(openId + 4) % 5][1])
+                                                                 : storeReadNote(openId);
+#else
   const String md = storeReadNote(openId);
+#endif
   if (md.length()) wrap(readable(md), lines);
   else wrap("Not transcribed yet. Press B on the Notes screen to sync it when WiFi is set up.", lines);
   linesFor = openId;
@@ -188,7 +222,7 @@ static bool sending(const NoteInfo &n) { return jobBusy() && n.id == jobStatus()
 static void drawMain() {
   ensureList();
   drawHeader("Notes");
-  drawIcon(ICON_NOTES, (display.width() - ICON_SIZE) / 2, CONTENT_TOP + 6, GxEPD_BLACK);
+  drawIcon(ICON_NOTES, (display.width() - ICON_SIZE) / 2, CONTENT_TOP + 6, BLACK);
   if (jobBusy()) {  // the online steps, running in the background
     const JobStep step = jobStatus().step;
     display.setFont(FONT_MEDIUM);
@@ -220,8 +254,8 @@ static void drawRecording() {
   drawCentered(time, 66);
   // Level bar: how loud the last second was.
   const int16_t barW = display.width() - 4 * MARGIN, x = 2 * MARGIN, y = 92;
-  display.drawRect(x, y, barW, 12, GxEPD_BLACK);
-  display.fillRect(x + 2, y + 2, (barW - 4) * recordLevel / 100, 8, GxEPD_BLACK);
+  display.drawRect(x, y, barW, 12, BLACK);
+  display.fillRect(x + 2, y + 2, (barW - 4) * recordLevel / 100, 8, BLACK);
   display.setFont(FONT_SMALL);
   drawCentered(recordMs / 1000 + 10 >= MAX_SECONDS ? "nearly at the limit" : "let go to stop", 132);
   drawHints("", "", "");
@@ -235,12 +269,12 @@ static void drawListRows() {
   for (int r = 0; r < ROWS && first + r <= (int)notes.size(); r++) {
     const int16_t top = CONTENT_TOP + 4 + r * ROW_H, baseline = top + 17;
     const bool sel = first + r == cursor;
-    if (sel) display.fillRect(MARGIN - 4, top, display.width() - 2 * (MARGIN - 4), ROW_H - 2, GxEPD_BLACK);
-    display.setTextColor(sel ? GxEPD_WHITE : GxEPD_BLACK);
+    if (sel) display.fillRect(MARGIN - 4, top, display.width() - 2 * (MARGIN - 4), ROW_H - 2, BLACK);
+    display.setTextColor(sel ? WHITE : BLACK);
     if (first + r == 0) {
       display.setCursor(MARGIN, baseline);
       display.print("Open on phone");
-      display.setTextColor(GxEPD_BLACK);
+      display.setTextColor(BLACK);
       continue;
     }
     const NoteInfo &n = notes[first + r - 1];
@@ -251,7 +285,7 @@ static void drawListRows() {
     display.setFont(FONT_SMALL);
     display.setCursor(MARGIN, baseline);
     display.print(fitText(titleOf(n).c_str(), display.width() - 2 * MARGIN - tagW));
-    display.setTextColor(GxEPD_BLACK);
+    display.setTextColor(BLACK);
   }
 }
 
@@ -270,7 +304,7 @@ static void drawPhone() {
     const int scale = 4, x0 = (display.width() - qr.size * scale) / 2, y0 = CONTENT_TOP + 4;
     for (uint8_t y = 0; y < qr.size; y++)
       for (uint8_t x = 0; x < qr.size; x++)
-        if (qrcode_getModule(&qr, x, y)) display.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, GxEPD_BLACK);
+        if (qrcode_getModule(&qr, x, y)) display.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, BLACK);
   }
   display.setFont(FONT_SMALL);
   drawCenteredLine(phoneShown ? "Phone connected" : "Scan with your camera", 164);
