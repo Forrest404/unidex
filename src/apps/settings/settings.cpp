@@ -107,7 +107,6 @@ static void drawInfo() {
   char battery[24], storage[24], sync[12] = "not yet";
   const int mv = batteryMillivolts(), pct = batteryPercent();
   if (pct < 0) snprintf(battery, sizeof battery, "none");
-  else if (HWCDC::isPlugged()) snprintf(battery, sizeof battery, "%d.%02d V USB", mv / 1000, mv % 1000 / 10);
   else snprintf(battery, sizeof battery, "%d.%02d V %d%%", mv / 1000, mv % 1000 / 10, pct);
   uint64_t used, total;
   if (storageUsage(used, total))
@@ -120,7 +119,7 @@ static void drawInfo() {
     if (s.tm_yday == now.tm_yday && s.tm_year == now.tm_year) strftime(sync, sizeof sync, "%H:%M", &s);
     else strftime(sync, sizeof sync, "%d %b", &s);
   }
-  drawRow(0, false, "Battery", battery);
+  drawRow(0, false, pct >= 0 && batteryCharging() ? "On USB" : "Battery", battery);
   drawRow(1, false, "Firmware", VERSION);
   drawRow(2, false, "Storage", storage);
   drawRow(3, false, "Mac sync", sync);

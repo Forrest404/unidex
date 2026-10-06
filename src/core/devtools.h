@@ -10,6 +10,7 @@
 //   X HOLD B <ms>     -> holds B for <ms> (hold-to-talk), same reply
 //   X STATE           -> "OK X STATE screen=<hex> sel=<hex> clock=<0|1> ... detail=<hex>" (detail: from the app)
 //   X MEM             -> "OK X MEM internal=<free> block=<largest> psram=<free>"
+//   X BATT            -> "OK X BATT mv=<battery mV> pct=<% shown> usb=<0|1> up=<s>"
 //   X CLOCK UNSET     -> system time to 0 in RAM only (the clock chip keeps its time); "T <unix>" sets it back
 //   X SEED <n>        -> games start from random seed n (0 = truly random); "OK X SEED"
 //   X FRAMES <n>      -> the game being played runs n frames at once, then shows the result; "OK X FRAMES"

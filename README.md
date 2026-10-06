@@ -80,8 +80,10 @@ download-mode pin.
 The top right of the home screen shows the time and battery level, e.g. `14:32  87%`. While the board is awake
 (e.g. on USB) the time and the live line update each minute. While it's asleep the clock chip keeps counting
 silently, with no wake-ups, and the screen catches up on the next press. The percentage is an estimate from the
-battery voltage, and reads high while charging over USB. A small lightning bolt before it means USB power is present
-(it can't tell charging from full). The time is left out until the clock has been set.
+battery voltage. A small lightning bolt before it means USB power is present (it can't tell charging from full).
+While charging, the charger lifts the voltage, so the board takes off the lift it saw when plugged in, and once the
+charger is holding the battery at 4.2 V (the last stretch) it counts up to 100% over about 40 minutes: 100% means
+it has been topping up long enough, not a measured full charge. The time is left out until the clock has been set.
 
 ### Timetable
 
@@ -256,7 +258,7 @@ without saving).
   automatic). The next Mac sync or NTP sync replaces it.
 - **Sleep**: 10 / 20 / 30 / 60 s awake after the last press.
 - **Invert**: white on black, everywhere (full refresh when switched).
-- **Battery & info**: battery voltage and % ("USB" while plugged in), firmware version, storage used,
+- **Battery & info**: battery voltage and % (labelled "On USB" while plugged in), firmware version, storage used,
   time of the last Mac sync.
 - **Reset data**: Chooser tally, Dex, calendar events, or everything, each behind a confirm, then a message with
   what happened ("Dex cleared", "Nothing to clear", "No SD card"). Everything also clears the settings, badge

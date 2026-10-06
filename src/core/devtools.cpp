@@ -5,6 +5,7 @@
 #include <esp_rom_crc.h>
 #include <esp_system.h>
 #include <sys/time.h>
+#include "battery.h"
 #include "clock.h"
 #include "display.h"
 #include "input.h"
@@ -77,6 +78,10 @@ bool devUsb(const char *l) {
                   (unsigned long)displayLastRefresh().ms);
     printHex(detailFn ? detailFn() : "");
     Serial.print('\n');
+  } else if (strcmp(c, "BATT") == 0) {
+    const int mv = batteryMillivolts(), pct = batteryPercent();
+    Serial.printf("OK X BATT mv=%d pct=%d usb=%d up=%lu\n", mv, pct, (int)batteryCharging(),
+                  (unsigned long)(millis() / 1000));
   } else if (strcmp(c, "MEM") == 0) {
     Serial.printf("OK X MEM internal=%u block=%u psram=%u\n", heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
                   heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL), heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
