@@ -1,5 +1,6 @@
 # Builds the firmware and publishes the website (site/) with the browser installer to GitHub Pages.
-# Runs on every published release, or by hand from the Actions tab.
+# Runs on every published release, or by hand from the Actions tab. The firmware always comes from the latest
+# release tag, so a run by hand (for website changes) still offers the released version, not whatever is on main.
 name: Website
 
 on:
@@ -31,19 +32,24 @@ jobs:
       - name: Install PlatformIO
         run: pip install platformio
 
-      - name: Build firmware
-        run: pio run
+      - name: Build firmware from the latest release
+        run: |
+          set -e
+          tag="${{ github.event.release.tag_name }}"
+          [ -n "$tag" ] || tag="$(git describe --tags --abbrev=0)"
+          echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
+          git worktree add ../release "$tag"
+          cd ../release && pio run -e epaper154
 
       - name: Collect firmware and write the installer manifests
         run: |
           set -e
           out=site/firmware
           mkdir -p "$out"
-          b=.pio/build/epaper154
+          b=../release/.pio/build/epaper154
           cp "$b/bootloader.bin" "$b/partitions.bin" "$b/firmware.bin" "$out/"
           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin "$out/"
-          version="${{ github.event.release.tag_name }}"
-          [ -n "$version" ] || version="$(git describe --tags --always)"
+          version="$RELEASE_TAG"
           python3 - "$out" "$version" <<'PY'
           import json, sys
           out, version = sys.argv[1], sys.argv[2]

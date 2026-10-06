@@ -1,7 +1,21 @@
 # unidex
 
-A tiny pocket OS for a 1.54" e-ink board: a home screen and seven small apps, driven by two buttons,
-built to sleep whenever you aren't pressing something, to save battery (battery life not yet measured).
+**A pocket e-ink OS for the Waveshare ESP32-S3 1.54" e-paper board.** It does five things:
+
+- shows your next class with a live countdown;
+- records voice notes, tidied into Markdown for Obsidian;
+- flips through name badges;
+- runs a WiFi collection game and four one-button games;
+- sleeps whenever you aren't pressing a button, to save battery.
+
+It runs on two buttons and a battery, and it's open source. Install it from your browser in a minute, with no
+tools to set up.
+
+[![Latest release](https://img.shields.io/github/v/release/Forrest404/unidex)](https://github.com/Forrest404/unidex/releases/latest)
+[![Licence: GPL-3.0](https://img.shields.io/github/license/Forrest404/unidex)](LICENSE)
+[![Install in your browser](https://img.shields.io/badge/install-in%20your%20browser-black)](https://forrest404.github.io/unidex/)
+
+![unidex on the 200×200 e-paper screen: the home screen, Notes, Games, a round of Dino and the Chooser](docs/screens.png)
 
 | App | What it does |
 |---|---|
@@ -10,7 +24,7 @@ built to sleep whenever you aren't pressing something, to save battery (battery 
 | **Badge** | Flips through full-screen 1-bit images: name tags, logos, photos. Includes a drag-and-drop converter. |
 | **Dex** | A WiFi network collection game. Scan, and every new network name you hear is logged with a rarity. |
 | **Chooser** | Pick 2–6 squares, spin, get a random winner. Keeps a tally. |
-| **Games** | One-button games: Flappy, Dino, Stack and Jetpack (being added one at a time). |
+| **Games** | Four one-button games: Flappy, Dino, Stack and Jetpack, with best scores. |
 | **Settings** | Date and time, sleep, invert, battery and info, reset data. |
 
 Built with PlatformIO + Arduino (ESP32-S3). WiFi is never used unless you ask for it (a Dex scan, a Notes recording or sync, or an NTP time sync).
@@ -20,6 +34,8 @@ computer). The same site has [Tools](https://forrest404.github.io/unidex/tools.h
 firmware, clock, calendar and waiting notes in one click), the badge maker, setting the clock, sending a calendar
 file, and the automatic Mac calendar sync; and a
 [Notes](https://forrest404.github.io/unidex/notes.html) page for WiFi, API keys and GitHub.
+
+If unidex is useful to you, a star on GitHub helps other people find it.
 
 ## What you need
 
@@ -342,7 +358,8 @@ starter/                the filesystem the web installer writes: 3 generic badge
 ### The website
 
 `site/` is published to GitHub Pages by `.github/workflows/site.yml` on every **published release** (or by hand
-from the Actions tab). The workflow builds the firmware, builds a filesystem image from `starter/` (not `data/`, so
+from the Actions tab, for website changes). The workflow builds the firmware from the latest release tag (so the site
+always offers a released version), builds a filesystem image from `starter/` (not `data/`, so
 your own badges and timetable stay out of the public installer), and writes two manifests for
 [ESP Web Tools](https://esphome.github.io/esp-web-tools/):
 

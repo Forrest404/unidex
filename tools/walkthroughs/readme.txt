@@ -1,0 +1,41 @@
+# Screens for the README strip (docs/screens.png) and the link preview (site/og.png). Kept free of personal data:
+# no Timetable (class names), no note titles, no Dex list (nearby network names), no badges (photos).
+# Chooser's spin adds one win to its tally (normal use); Dino's score isn't saved (dry run).
+dry 1
+select Notes
+shot r-home-notes
+select Games
+shot r-home-games
+select Chooser
+shot r-home-chooser
+press b
+press b
+shot r-chooser-result
+press A
+press A
+expect screen=Home
+seed 11
+manual 1
+select Games
+press b
+pick Dino
+press b
+play 10000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+play 000000000001111111111000000
+play 00000000000000000000000000000000000000000000000000000000000000000000000000000000000011111111110000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+play 0000111111
+shot r-dino
+manual 0
+press A
+press A
+press A
+expect screen=Home
+select Settings
+press b
+shot r-settings
+press A
+select Notes
+press b
+shot r-notes-main
+press A
+expect screen=Home
