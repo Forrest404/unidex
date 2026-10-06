@@ -1,6 +1,7 @@
 # Pet: the main screen and the dress-up editor. The saved look is put back as it was at the end (keep pet_look);
 # Random is repeatable (seed); no blinking (manual), so the shots repeat.
 keep pet_look
+keep pet
 seed 7
 manual 1
 select Pet
@@ -31,6 +32,21 @@ press a
 press b
 press b
 shot pt-edit-extra
+press a
+shot pt-edit-name-row
+press b
+expect screen=Pet
+shot pt-name
+press a
+press a
+shot pt-name-letter
+press b
+press a
+shot pt-name-second
+press b
+shot pt-name-done-hint
+press b
+shot pt-edit-name-set
 press a
 shot pt-edit-random-row
 press b

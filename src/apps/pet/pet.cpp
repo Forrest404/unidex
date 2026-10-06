@@ -1,8 +1,9 @@
 // Pet: a small creature you dress up (body, eyes, mouth, hat, extra), saved in NVS as one number ("pet_look").
-// Main screen: A = say hi (happy eyes and a heart), B = edit, hold A = back. It blinks every few seconds for a minute after the
-// last press. Edit: A = next row, B = change it (next option; Random: a new look;
-// Done: save), hold B = previous option, hold A = save and back.
+// Main screen: A = say hi (happy eyes and a heart), B = edit, hold B = meet other Pets (meet.cpp), hold A = back.
+// It blinks every few seconds for a minute after the last press. Edit: A = next row, B = change it (next option;
+// Random: a new look; Done: save), hold B = previous option, hold A = save and back.
 #include <esp_random.h>
+#include "meet.h"
 #include "pet.h"
 #include "pet_logic.h"
 #include "../../core/app.h"
@@ -14,11 +15,14 @@
 
 static const int MAIN_SCALE = 4, EDIT_SCALE = 3;  // 128 px on the main screen, 96 px while editing
 static const int16_t EDIT_AVATAR_Y = CONTENT_TOP + 4, ROW_Y = HINTS_TOP - 14;
-static const int RANDOM_ROW = pet::LAYERS, DONE_ROW = pet::LAYERS + 1, ROWS = pet::LAYERS + 2;
+static const int NAME_ROW = pet::LAYERS, RANDOM_ROW = pet::LAYERS + 1, DONE_ROW = pet::LAYERS + 2;
+static const int ROWS = pet::LAYERS + 3;
 
-enum Screen : uint8_t { MAIN, EDIT };
+enum Screen : uint8_t { MAIN, EDIT, MEET, NAME };
 RTC_DATA_ATTR static uint8_t screen, row;
 RTC_DATA_ATTR static uint32_t draft;  // the look being edited (kept through sleep)
+RTC_DATA_ATTR static char places[pet::MAX_NAME + 1];  // the name being edited, a letter a place (pet_logic.h)
+RTC_DATA_ATTR static uint8_t place;                    // the place being chosen
 static bool blinking, happy;
 static uint8_t heart;  // the heart beside it while it's happy: 0 none, else its scale (it pops: 1, then 2)
 static uint32_t nextBlinkAt, openAt, lastPressAt;
@@ -45,6 +49,49 @@ static uint32_t changes;  // counts saves from the website; the screen and the h
 
 void petChanged() { changes++; }
 
+void petDraw(uint32_t look, int scale, int16_t x0, int16_t y0, PetMood mood) {
+  pet::Look l = pet::unpack(look);
+  if (mood == PetMood::Happy) l.part[pet::EYES_LAYER] = pet::HAPPY_EYES;
+  pet::drawLook(l, mood == PetMood::Blink, [&](int x, int y, bool ink) {
+    display.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, ink ? BLACK : WHITE);
+  });
+}
+
+void petDrawTag(const char *name, int16_t cx, int16_t bottom) {
+  if (!name || !*name) return;
+  display.setFont(FONT_TINY);
+  const int16_t w = textWidth(name) + 8, h = 14, x = cx - w / 2, y = bottom - h;
+  display.fillRoundRect(x - 1, y - 1, w + 2, h + 2, 4, WHITE);  // a white rim keeps it clear of what's behind
+  display.fillRoundRect(x, y, w, h, 3, BLACK);
+  display.setTextColor(WHITE);
+  display.setCursor(x + 4, y + 10);
+  display.print(name);
+  display.setTextColor(BLACK);
+}
+
+void petDrawBubble(const char *text, int16_t cx, int16_t bottom) {
+  if (!text || !*text) return;
+  display.setFont(FONT_TINY);
+  const int16_t w = textWidth(text) + 10, h = 15, y = bottom - 4 - h;
+  int16_t x = cx - w / 2;
+  x = max<int16_t>(1, min<int16_t>(x, display.width() - 1 - w));
+  display.fillRoundRect(x, y, w, h, 5, WHITE);
+  display.drawRoundRect(x, y, w, h, 5, BLACK);
+  const int16_t tx = max<int16_t>(x + 6, min<int16_t>(cx, x + w - 7));  // the tail, under the speaker
+  display.fillTriangle(tx - 3, y + h - 1, tx + 3, y + h - 1, tx, bottom, WHITE);
+  display.drawLine(tx - 3, y + h - 1, tx, bottom, BLACK);
+  display.drawLine(tx + 3, y + h - 1, tx, bottom, BLACK);
+  display.setCursor(x + 5, y + 11);
+  display.print(text);
+}
+
+void petDrawHeart(int16_t cx, int16_t cy, int scale) {
+  const int16_t left = cx - 9 * scale / 2, top = cy - 4 * scale;
+  for (int y = 0; y < 8; y++)
+    for (int x = 0; x < 9; x++)
+      if (HEART[y][x] == '#') display.fillRect(left + x * scale, top + y * scale, scale, scale, BLACK);
+}
+
 static void drawAvatar(const pet::Look &look, int scale, int16_t y0, bool eyesClosed = false) {
   const int16_t x0 = (display.width() - pet::SIZE * scale) / 2;
   pet::drawLook(look, eyesClosed, [&](int x, int y, bool ink) {
@@ -62,12 +109,8 @@ static void drawMain() {
   pet::Look look = pet::unpack(petLookBits());
   if (happy) look.part[pet::EYES_LAYER] = pet::HAPPY_EYES;
   drawAvatar(look, MAIN_SCALE, MAIN_Y, blinking);
-  const int16_t left = 175 - 9 * heart / 2, top = CONTENT_TOP + 16 - 4 * heart;  // centred beside the head
-  if (heart)
-    for (int y = 0; y < 8; y++)
-      for (int x = 0; x < 9; x++)
-        if (HEART[y][x] == '#') display.fillRect(left + x * heart, top + y * heart, heart, heart, BLACK);
-  drawHints("hi", "dress up", "");
+  if (heart) petDrawHeart(175, CONTENT_TOP + 16, heart);  // beside the head
+  drawHints("hi", "dress up", "meet");
 }
 
 // A: it stays put (moving leaves smears on e-ink) and gets happy eyes while a heart pops up beside it, small then
@@ -94,15 +137,44 @@ static void onEnter() {
 
 static Redraw onButton(Event e) {
   lastPressAt = millis();
+  if (screen == MEET) return meetButton(e);
   if (screen == MAIN) {
     if (e == Event::AShort) return sayHi();
+    if (e == Event::BLong) {
+      screen = MEET;
+      meetEnter();
+      return Redraw::Full;
+    }
     if (e != Event::BShort) return Redraw::None;
     draft = petLookBits();
     row = 0;
     screen = EDIT;
     return Redraw::Full;  // the avatar changes size: a full refresh leaves no ghost
   }
+  if (screen == NAME) {
+    if (e == Event::AShort || e == Event::BLong) {
+      places[place] = pet::stepChar(places[place], e == Event::AShort ? 1 : -1);
+    } else if (e == Event::BShort && pet::nameDoneAt(places, place)) {
+      char name[pet::MAX_NAME + 1];
+      pet::nameFromPlaces(places, name);
+      if (*name) storagePutString("pet_name", name);
+      else storageRemoveKey("pet_name");
+      petChanged();
+      screen = EDIT;
+    } else if (e == Event::BShort) {
+      place++;
+    } else {
+      return Redraw::None;
+    }
+    return Redraw::Partial;
+  }
   pet::Look look = pet::unpack(draft);
+  if (e == Event::BShort && row == NAME_ROW) {
+    pet::placesFromName(petName().c_str(), places);
+    place = 0;
+    screen = NAME;
+    return Redraw::Partial;
+  }
   if (e == Event::AShort) {
     row = (row + 1) % ROWS;
   } else if (e == Event::BShort && row == DONE_ROW) {
@@ -124,6 +196,15 @@ static Redraw onButton(Event e) {
 static Redraw onBack() {
   lastPressAt = millis();
   if (screen == MAIN) return Redraw::Exit;
+  if (screen == MEET) {
+    meetLeave();
+    screen = MAIN;
+    return Redraw::Full;
+  }
+  if (screen == NAME) {  // back without changing the name
+    screen = EDIT;
+    return Redraw::Partial;
+  }
   save();
   screen = MAIN;
   return Redraw::Full;
@@ -142,6 +223,12 @@ static void drawEdit() {
     snprintf(right, sizeof right, "%s  %d/%d", lp.parts[look.part[row]].name, look.part[row] + 1, lp.count);
     drawRight(right, ROW_Y);
     drawHints("next", "change", "previous");
+  } else if (row == NAME_ROW) {
+    display.setCursor(MARGIN, ROW_Y);
+    display.print("Name");
+    const String name = petName();
+    drawRight(name.length() ? name.c_str() : "none", ROW_Y);
+    drawHints("next", "change", "");
   } else if (row == RANDOM_ROW) {
     display.setCursor(MARGIN, ROW_Y);
     display.print("Random look");
@@ -153,8 +240,44 @@ static void drawEdit() {
   }
 }
 
+// The name a letter at a time: the place being chosen in a black box (a blank place shows as a short line).
+static void drawName() {
+  drawHeader("Name");
+  display.setFont(FONT_MEDIUM);
+  int len = pet::MAX_NAME;
+  while (len > 0 && places[len - 1] == ' ') len--;
+  const int shown = max(len, place + 1);
+  int16_t widths[pet::MAX_NAME], total = 0;
+  for (int i = 0; i < shown; i++) {
+    const char c[2] = {places[i], 0};
+    widths[i] = places[i] == ' ' ? 10 : textWidth(c);
+    total += widths[i] + 2;
+  }
+  const int16_t baseline = CONTENT_TOP + 62;
+  int16_t x = (display.width() - total) / 2;
+  for (int i = 0; i < shown; i++) {
+    const char c[2] = {places[i], 0};
+    if (i == place) {
+      display.fillRoundRect(x - 2, baseline - 21, widths[i] + 4, 28, 3, BLACK);
+      display.setTextColor(WHITE);
+    } else if (places[i] == ' ') {
+      display.drawFastHLine(x + 1, baseline + 2, widths[i] - 2, BLACK);
+    }
+    display.setCursor(x, baseline);
+    display.print(c);
+    display.setTextColor(BLACK);
+    x += widths[i] + 2;
+  }
+  display.setFont(FONT_SMALL);
+  const bool done = pet::nameDoneAt(places, place);
+  drawCentered(done ? "B: that's the name" : "A: letter  B: next place", CONTENT_TOP + 104);
+  drawHints("letter", done ? "done" : "next", "previous");
+}
+
 static void draw() {
-  if (screen == EDIT) drawEdit();
+  if (screen == NAME) drawName();
+  else if (screen == EDIT) drawEdit();
+  else if (screen == MEET) meetDraw();
   else drawMain();
 }
 
@@ -162,6 +285,13 @@ static void draw() {
 // Test build (X STATE detail): "main:<saved look>" or "edit:<row>:<look being edited>", looks in hex.
 static const char *detail() {
   static char buf[32];
+  if (screen == MEET) return meetDetail();
+  if (screen == NAME) {
+    char name[pet::MAX_NAME + 1];
+    pet::nameFromPlaces(places, name);
+    snprintf(buf, sizeof buf, "name:%d:%s", place, name);
+    return buf;
+  }
   if (screen == EDIT) snprintf(buf, sizeof buf, "edit:%d:%05lx", row, (unsigned long)pet::pack(pet::unpack(draft)));
   else snprintf(buf, sizeof buf, "main:%05lx", (unsigned long)pet::pack(pet::unpack(petLookBits())));
   return buf;
@@ -178,6 +308,7 @@ static Redraw tick() {
     if (screen == EDIT) draft = petLookBits();
     return Redraw::Partial;
   }
+  if (screen == MEET) return meetTick();
 #if UNIDEX_DEV
   if (devManualFrames()) return Redraw::None;  // test build: no blinking, for repeatable screenshots
 #endif
@@ -209,6 +340,10 @@ static Redraw tick() {
 }
 
 static void onExit() {
+  if (screen == MEET) {  // leaving the app (e.g. a new badge opened the Badge app): radio off
+    meetLeave();
+    screen = MAIN;
+  }
 #if UNIDEX_DEV
   devSetDetail(nullptr);
 #endif

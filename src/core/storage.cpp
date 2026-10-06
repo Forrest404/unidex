@@ -32,8 +32,20 @@ bool storageRemove(const char *path) {
   return storageCardMount() && SD_MMC.exists(path) && SD_MMC.remove(path);
 }
 
+// A read-only open of a namespace that doesn't exist yet (a new or fully erased board) prints an error line on
+// the USB port, so the first read makes sure it exists.
+static void ensureNamespace() {
+  static bool done;
+  if (done) return;
+  Preferences prefs;
+  prefs.begin(NVS_NAMESPACE, false);
+  prefs.end();
+  done = true;
+}
+
 int32_t storageGetInt(const char *key, int32_t fallback) {
   Preferences prefs;
+  ensureNamespace();
   prefs.begin(NVS_NAMESPACE, true);
   int32_t v = prefs.getInt(key, fallback);
   prefs.end();
@@ -49,6 +61,7 @@ void storagePutInt(const char *key, int32_t value) {
 
 String storageGetString(const char *key, const char *fallback) {
   Preferences prefs;
+  ensureNamespace();
   prefs.begin(NVS_NAMESPACE, true);
   // A missing key: no lookup, since getString() prints an error line on the USB port for one
   String v = prefs.isKey(key) ? prefs.getString(key, fallback) : String(fallback);

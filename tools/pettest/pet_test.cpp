@@ -94,6 +94,26 @@ int main() {
   render(DEFAULT_LOOK, true, b);
   check(memcmp(a, b, sizeof a) != 0, "a blink (closed eyes) changes the picture");
 
+  check(stepChar(' ', 1) == 'A' && stepChar('A', -1) == ' ' && stepChar('-', 1) == ' ' && stepChar(' ', -1) == '-',
+        "letters cycle both ways and wrap round");
+  check(stepChar('!', 1) == 'A', "a character that isn't offered counts as a blank");
+  char places[MAX_NAME + 1], name[MAX_NAME + 1];
+  placesFromName("Mochi", places);
+  check(strlen(places) == MAX_NAME && strncmp(places, "Mochi       ", MAX_NAME) == 0, "a name fills the first places");
+  check(!nameDoneAt(places, 0) && !nameDoneAt(places, 4) && nameDoneAt(places, 5),
+        "B finishes only on a blank with nothing after it");
+  places[2] = ' ';
+  nameFromPlaces(places, name);
+  check(strcmp(name, "Mo hi") == 0 && !nameDoneAt(places, 2), "a blank in the middle stays, and doesn't finish");
+  placesFromName("  Pip  ", places);
+  nameFromPlaces(places, name);
+  check(strcmp(name, "Pip") == 0, "blanks at either end are dropped");
+  placesFromName("ABCDEFGHIJKLMNOP", places);
+  check(strlen(places) == MAX_NAME && nameDoneAt(places, MAX_NAME - 1), "at most 12 places; the last one finishes");
+  placesFromName("", places);
+  nameFromPlaces(places, name);
+  check(name[0] == 0 && nameDoneAt(places, 0), "an empty name: B finishes straight away");
+
   printf(failures ? "\n%d check(s) failed\n" : "\nall checks passed\n", failures);
   return failures ? 1 : 0;
 }

@@ -222,9 +222,24 @@ be brute-forced back from a plain hash. Wiping the board's NVS changes the salt 
 A cute creature built from five layers: body (blob, cat, bear, bunny, frog, robot), eyes, mouth, hat and an extra
 (blush, scarf, bow tie...). It blinks every few seconds for a minute after your last press. **A** = say hi (happy
 eyes and a heart), **B** = dress up. In the editor: **A** = next row (Body, Eyes, Mouth, Hat, Extra,
-Random look, Done), **B** = the next option (on Random look: a new random look; on Done: save), **hold B** = the
-previous option, **hold A** = save and go back. The look is one number in NVS (`pet_look`), so it survives sleep
+Name, Random look, Done), **B** = the next option (on Random look: a new random look; on Done: save), **hold B** = the
+previous option, **hold A** = save and go back. The **Name** row names it on the device, a letter at a time (A = next
+letter, hold B = previous, B = next place; B on an empty place at the end saves): the name shows as a tag over its
+head, like a game's player name. The look is one number in NVS (`pet_look`), so it survives sleep
 and firmware updates; Settings > Reset > Everything puts the default back.
+
+**Meet** (hold B on the Pet): Pets on two devices play together over the radio (ESP-NOW, no router or internet).
+Bring the devices close (the dots fill up; "press B" when it's within reach, typically up to about 15 cm) and
+press B on either one. The two screens then act as one room: the title points to where the other device should be
+(the one whose random Pet number is lower is the left screen). The Pets greet each other, then **B** = your Pet
+visits the other screen (the host steps aside and they talk in speech bubbles), **hold B** = swap screens, **A** =
+say something; every 8-12 s they play something by themselves (a visit, a trip to both screens, a swap, a chat).
+Pull the devices apart and each Pet walks home. Every frame plays on a 500 ms beat from one device's message, so
+the two screens stay within about 50 ms. Closeness comes from the signal strength both ways (the median of the
+last readings): it can tell "within about 15 cm" from "a metre away", but not touching from 15 cm, so meeting
+always needs a press. The radio is only on while Meet is open (2 minutes without a press stops it, 5 while
+connected). Packets and the acts: `src/apps/pet/meet_logic.h` (tested by `tools/meettest`); two-board test:
+`tools/meetshot.py`.
 
 The website's Tools page has a Pet designer: the same parts, a preview, an optional name (up to 12 characters,
 shown at the top of the Pet screen and on the home line: "Say hi to Mochi!"), and Send / Load over USB (`P GET`,

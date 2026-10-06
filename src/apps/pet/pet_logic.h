@@ -3,6 +3,7 @@
 // parts.h. No Arduino code, so it can be checked on a computer (tools/pettest).
 #include <stddef.h>
 #include <stdint.h>
+#include <string.h>
 #include "parts.h"
 
 namespace pet {
@@ -78,6 +79,43 @@ template <typename Pixel> void drawLook(const Look &l, bool eyesClosed, Pixel pi
         else if (c == 'o') pixel(x, y, false);
       }
   }
+}
+
+// Naming on the device, a letter at a time: the name is MAX_NAME places, blank (space) where unused. A cycles the
+// letter in the current place through NAME_CHARS; B moves on, and finishes on a blank with only blanks after it
+// (or on the last place).
+static const int MAX_NAME = 12;
+static const char NAME_CHARS[] = " ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-";
+
+inline char stepChar(char c, int step) {
+  const int n = sizeof NAME_CHARS - 1;
+  const char *at = c ? strchr(NAME_CHARS, c) : nullptr;
+  const int i = at ? (int)(at - NAME_CHARS) : 0;  // anything else counts as a blank
+  return NAME_CHARS[((i + step) % n + n) % n];
+}
+
+inline bool nameDoneAt(const char *places, int pos) {
+  if (pos >= MAX_NAME - 1) return true;
+  for (int i = pos; i < MAX_NAME; i++)
+    if (places[i] != ' ') return false;
+  return true;
+}
+
+// The places as a name: no blanks at either end.
+inline void nameFromPlaces(const char *places, char *out) {
+  int start = 0, end = MAX_NAME;
+  while (start < end && places[start] == ' ') start++;
+  while (end > start && places[end - 1] == ' ') end--;
+  memcpy(out, places + start, end - start);
+  out[end - start] = 0;
+}
+
+// A name into places: printable letters kept, padded with blanks.
+inline void placesFromName(const char *name, char *places) {
+  int i = 0;
+  for (; name[i] && i < MAX_NAME; i++) places[i] = name[i] >= 0x20 && name[i] <= 0x7E ? name[i] : ' ';
+  for (; i < MAX_NAME; i++) places[i] = ' ';
+  places[MAX_NAME] = 0;
 }
 
 }  // namespace pet

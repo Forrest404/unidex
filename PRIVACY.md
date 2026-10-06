@@ -52,6 +52,12 @@ If you record other people, tell them first: their voice goes to these services 
   Nothing is sent anywhere.
 - **Calendar sync (Mac):** the Mac app reads your calendar on your Mac and sends events to the device over USB
   only.
+- **Pet > Meet** talks straight to other unidex devices nearby over the radio (ESP-NOW: no internet, no router).
+  Only while the Meet screen is open, it sends to any device in range, about 1-4 times a second: your Pet's look,
+  its name (if you gave it one), a random Pet number made on your device (not linked to you or the device), and
+  how strongly it hears the nearest other Pet. Each time Meet opens it uses a new random radio address, so the
+  device can't be followed by its chip address. Once two devices are connected they also send which act to play.
+  Nothing is stored about the other device, and nothing is sent when Meet is closed.
 
 ## The website
 

@@ -49,6 +49,23 @@ static void shot() {
   Serial.printf("OK X SHOT %lu\n", (unsigned long)crc);
 }
 
+void devShotDuringAnimation() {
+  static char line[16];
+  static int n;
+  while (Serial.available()) {
+    const char c = Serial.read();
+    if (c == '\n') {
+      line[n] = 0;
+      if (strcmp(line, "X SHOT") == 0 || strcmp(line, "X STATE") == 0) devUsb(line);  // safe: they only report
+      else if (n) Serial.println("ERR busy");  // anything else would act in the middle of the animation
+      if (Serial) Serial.flush();
+      n = 0;
+    } else if (c != '\r' && n < (int)sizeof line - 1) {
+      line[n++] = c;
+    }
+  }
+}
+
 static void press(Event e) {
   const uint32_t count = displayLastRefresh().count;
   powerActivity();

@@ -21,6 +21,7 @@
 //                        WiFi fails / the SD card reads as missing / real transcription but nothing sent to GitHub
 //   X KEY <name> [<int>|none] -> reads (or sets, or removes) one saved number in NVS:
 //                        "OK X KEY <name> <value|none>"; walkthroughs use it to leave a setting as they found it
+// Pet > Meet also prints "XW <step>" as each step of a walk between two devices shows (tools/meetshot.py).
 //   X DEMO <0|1>      -> Timetable and Notes show built-in sample classes and notes instead of the card's (for
 //                        screenshots without personal data); nothing on the card changes
 #if UNIDEX_DEV
@@ -36,6 +37,9 @@ bool devManualFrames();
 // What X FRAMES and X PLAY call (the Games app sets it). held: B per frame ('1' down), or null for the real B.
 void devSetFrameStepper(void (*fn)(int frames, const char *held));
 void devSetDetail(const char *(*fn)());  // extra state for X STATE ("detail=..."), set by the open app
+// During a long animation that blocks the loop: answers X SHOT and X STATE (anything else gets "ERR busy"), so a
+// test can see frames mid-animation. Call between frames.
+void devShotDuringAnimation();
 #else
 inline bool devDryRun() { return false; }
 inline bool devFakeCloud() { return false; }

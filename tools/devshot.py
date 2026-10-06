@@ -6,7 +6,7 @@
   ~/.platformio/penv/bin/python tools/devshot.py press a b B ...   (a/b = short, A/B = long)
 
 Walkthrough lines: home | select <app> | pick <game> | waitjob <s> | job | seed <n> | manual <0|1> | frames <n> | play <0/1...> | press <keys...> | hold B <ms> | shot <name> | expect screen=<name> | sleep <ms>
-                   | dry|fake|netfail|nocard|nopush|demo <0|1> | keep <setting> | clock unset | # comment
+                   | dry|fake|netfail|nocard|nopush|demo <0|1> | keep <setting>|pet | clock unset | # comment
 Pause the Mac agent first (it shares the port). Each run ends with the switches off, and puts the clock back
 if the run unset it.
 """
@@ -54,6 +54,16 @@ class Device:
                 return out
             if not l.startswith(("XS ", "XD ")):
                 self.log.append(l)
+        raise TimeoutError(f"no reply to {line!r}")
+
+    def reply(self, line, prefix, timeout=5):
+        """Sends a line that isn't an X command; returns the reply line starting with prefix."""
+        self.s.write((line + "\n").encode())
+        end = time.time() + timeout
+        while time.time() < end:
+            l = self.s.readline().decode("ascii", "replace").strip()
+            if l.startswith(prefix) or l == "ERR":
+                return l
         raise TimeoutError(f"no reply to {line!r}")
 
     def state(self):
@@ -212,6 +222,9 @@ class Run:
             time.sleep(int(w[1]) / 1000)
         elif w[0] in ("dry", "fake", "netfail", "nocard", "nopush", "demo"):
             self.dev.cmd(f"X {w[0].upper()} {w[1]}")
+        elif w[0] == "keep" and w[1] == "pet":  # the Pet's look and name, put back at the end (P GET / P SET)
+            if "pet" not in self.kept:
+                self.kept["pet"] = self.dev.reply("P GET", "OK P ").split()[2:]
         elif w[0] == "keep":  # put this saved setting back as it was when the run ends
             if w[1] not in self.kept:
                 self.kept[w[1]] = self.dev.cmd(f"X KEY {w[1]}")[-1].split()[-1]
@@ -223,7 +236,10 @@ class Run:
 
     def finish(self):
         for key, value in self.kept.items():
-            self.dev.cmd(f"X KEY {key} {value}")
+            if key == "pet":
+                self.dev.reply("P SET " + " ".join(value), "OK P SET")
+            else:
+                self.dev.cmd(f"X KEY {key} {value}")
         self.dev.cmd("X SEED 0")
         self.dev.cmd("X MANUAL 0")
         for sw in ("DRY", "FAKE", "NETFAIL", "NOCARD", "NOPUSH", "DEMO"):
@@ -276,4 +292,5 @@ def main():
     sys.exit(0 if ok else 1)
 
 
-main()
+if __name__ == "__main__":
+    main()

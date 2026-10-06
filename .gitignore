@@ -3,3 +3,4 @@
 .DS_Store
 src/secrets.h
 shots/
+__pycache__/
