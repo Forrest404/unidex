@@ -33,6 +33,10 @@ void displaySetInverted(bool on);  // saved in NVS; redraw with a full refresh a
 // to clear e-ink ghosting.
 void displayShow(void (*draw)(), bool full);
 
+// After an animation: a partial refresh that drives every pixel, not only the changed ones, so the frames leave
+// no trace, without the black flash of a full refresh. Then the panel sleeps. Counts toward the rule above.
+void displayClean(void (*draw)());
+
 // Animation frame (the Chooser spin and the games): partial refresh, not counted toward the rule above and
 // no sleep. Always finish an animation with a full displayShow() to clear the ghosting.
 void displayFrame(void (*draw)());
@@ -49,7 +53,8 @@ void displaySetSpiHz(uint32_t hz);  // SPI clock to the panel
 // so there's nothing to ghost and no full flash every 10 minutes), then sleep.
 void displayTick(void (*draw)());
 
-// The last refresh: 'F' full, 'P' partial, 'T' tick, 'f' animation frame, and how long it took (test build).
+// The last refresh: 'F' full, 'P' partial, 'T' tick, 'f' animation frame, 'C' clean (displayClean), and how
+// long it took (test build).
 struct DisplayRefresh {
   char kind;
   uint32_t ms;

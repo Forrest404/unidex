@@ -3,6 +3,7 @@
 // last press. Edit: A = next row, B = change it (next option; Random: a new look;
 // Done: save), hold B = previous option, hold A = save and back.
 #include <esp_random.h>
+#include "pet.h"
 #include "pet_logic.h"
 #include "../../core/app.h"
 #include "../../core/devtools.h"
@@ -36,7 +37,13 @@ static const char *const HEART[] = {  // drawn at 2x beside it, mid-hop
   "....#....",
 };
 
-static uint32_t savedBits() { return storageGetInt("pet_look", pet::pack(pet::DEFAULT_LOOK)); }
+uint32_t petLookBits() { return storageGetInt("pet_look", pet::pack(pet::DEFAULT_LOOK)); }
+
+String petName() { return storageGetString("pet_name"); }
+
+static uint32_t changes;  // counts saves from the website; the screen and the home line each notice a new one
+
+void petChanged() { changes++; }
 
 static void drawAvatar(const pet::Look &look, int scale, int16_t y0, bool eyesClosed = false) {
   const int16_t x0 = (display.width() - pet::SIZE * scale) / 2;
@@ -50,8 +57,9 @@ static void save() { storagePutInt("pet_look", pet::pack(pet::unpack(draft))); }
 static uint32_t randomNumber() { return devSeed() ? (uint32_t)rand() : esp_random(); }  // test build: repeatable
 
 static void drawMain() {
-  drawHeader("Pet");
-  pet::Look look = pet::unpack(savedBits());
+  const String name = petName();
+  drawHeader("Pet", name.length() ? name.c_str() : nullptr);
+  pet::Look look = pet::unpack(petLookBits());
   if (hop) look.part[pet::EYES_LAYER] = pet::HAPPY_EYES;
   drawAvatar(look, MAIN_SCALE, REST_Y - hop, blinking);
   if (heart)
@@ -61,8 +69,8 @@ static void drawMain() {
   drawHints("hi", "dress up", "");
 }
 
-// A: a little hop with happy eyes and a heart, as quick animation frames (like the games), then a normal partial
-// refresh to clean up.
+// A: a little hop with happy eyes and a heart, as quick animation frames (like the games), then a refresh that
+// drives every pixel, to clear what the frames leave behind.
 static Redraw sayHi() {
   static const int8_t HOPS[] = {3, 6, 6, 6, 3, 0};
   powerHold();
@@ -75,8 +83,9 @@ static Redraw sayHi() {
   hop = 0;
   heart = false;
   displayFastFrames(false);
+  displayClean(drawMain);  // every pixel driven: no trace of the hop
   powerRelease();
-  return Redraw::Partial;
+  return Redraw::None;
 }
 
 static void onEnter() {
@@ -89,7 +98,7 @@ static Redraw onButton(Event e) {
   if (screen == MAIN) {
     if (e == Event::AShort) return sayHi();
     if (e != Event::BShort) return Redraw::None;
-    draft = savedBits();
+    draft = petLookBits();
     row = 0;
     screen = EDIT;
     return Redraw::Full;  // the avatar changes size: a full refresh leaves no ghost
@@ -155,7 +164,7 @@ static void draw() {
 static const char *detail() {
   static char buf[32];
   if (screen == EDIT) snprintf(buf, sizeof buf, "edit:%d:%05lx", row, (unsigned long)pet::pack(pet::unpack(draft)));
-  else snprintf(buf, sizeof buf, "main:%05lx", (unsigned long)pet::pack(pet::unpack(savedBits())));
+  else snprintf(buf, sizeof buf, "main:%05lx", (unsigned long)pet::pack(pet::unpack(petLookBits())));
   return buf;
 }
 #endif
@@ -163,6 +172,14 @@ static const char *detail() {
 static Redraw tick() {
 #if UNIDEX_DEV
   devSetDetail(detail);  // here rather than onEnter, which a wake from sleep skips
+#endif
+  static uint32_t seen;
+  if (seen != changes) {  // a new look or name from the website
+    seen = changes;
+    if (screen == EDIT) draft = petLookBits();
+    return Redraw::Partial;
+  }
+#if UNIDEX_DEV
   if (devManualFrames()) return Redraw::None;  // test build: no blinking, for repeatable screenshots
 #endif
   // Blink: eyes shut for one refresh every 2.5-6 s. On battery the device naps between presses, so it asks to
@@ -198,6 +215,17 @@ static void onExit() {
 #endif
 }
 
-static void status(char *out, size_t len) { snprintf(out, len, "Say hi!"); }
+static void status(char *out, size_t len) {
+  static int8_t named = -1;  // looked up once, and again after a change (not on every redraw of the home screen)
+  static uint32_t seen;
+  static char name[16];
+  if (named < 0 || seen != changes) {
+    seen = changes;
+    strlcpy(name, petName().c_str(), sizeof name);
+    named = name[0] != 0;
+  }
+  if (named) snprintf(out, len, "Say hi to %s!", name);
+  else snprintf(out, len, "Say hi!");
+}
 
 extern const App petApp = {"Pet", ICON_PET, onEnter, onButton, draw, onExit, onBack, status, tick};

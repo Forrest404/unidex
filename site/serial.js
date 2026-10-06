@@ -211,3 +211,18 @@ export async function notesDelete(dev, id) {
   await dev.send(`N DEL ${id}`);
   if (!(await dev.expect('OK N DEL', 3000))) throw new Error(tooOld);
 }
+
+// --- Pet (the Tools page): its look as 5 hex digits (one per layer, body lowest) and an optional name ---
+
+export async function petGet(dev) {
+  await dev.send('P GET');
+  const line = await dev.expect('OK P ', 3000);
+  if (!line) throw new Error('No reply. Update the firmware (Install page) to use the Pet designer.');
+  const [, , look, name = ''] = line.split(' ');
+  return { look: parseInt(look, 16), name: fromHex(name) };
+}
+
+export async function petSet(dev, look, name) {
+  await dev.send(`P SET ${look.toString(16).padStart(5, '0')} ${toHex(name)}`.trimEnd());
+  if (!(await dev.expect('OK P SET', 3000))) throw new Error('No reply. Update the firmware (Install page) to use the Pet designer.');
+}

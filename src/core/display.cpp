@@ -77,6 +77,27 @@ static void writeRam(uint8_t ram) {
   send(ram, display.buf, sizeof display.buf);
 }
 
+// The opposite of the screen into RAM 0x26: the next partial refresh then sees every pixel as changed and drives
+// all of them, which clears traces of animation frames without a full refresh's black flash.
+static void writeRamInverted() {
+  send(0x4E, {0x00});
+  send(0x4F, {0x00, 0x00});
+  uint8_t chunk[100];
+  SPI.beginTransaction(spi);
+  digitalWrite(PIN_CS, LOW);
+  digitalWrite(PIN_DC, LOW);
+  SPI.transfer(0x26);
+  digitalWrite(PIN_DC, HIGH);
+  for (size_t at = 0; at < sizeof display.buf; at += sizeof chunk) {
+    for (size_t i = 0; i < sizeof chunk; i++) chunk[i] = ~display.buf[at + i];
+    SPI.writeBytes(chunk, sizeof chunk);
+  }
+  digitalWrite(PIN_CS, HIGH);
+  SPI.endTransaction();
+}
+
+static bool driveAll;  // this partial refresh drives every pixel (displayClean)
+
 // Runs a refresh. The control byte says what the controller does in order: clock on (0x80), analog on (0x40),
 // read the temperature (0x20), load the panel's own waveform (0x10), mode 2 = partial (0x08), show the image
 // (0x04), analog off (0x02), clock off (0x01).
@@ -134,6 +155,7 @@ static void refreshPartial() {
   if (needFull) return refreshFull();
   wake();
   writeRam(0x24);
+  if (driveAll) writeRamInverted();
   if (fastFrames) {
     loadFastWave();
     // Mode 2 with the waveform above (no reload from the panel). Powering the analog side up again costs
@@ -201,6 +223,15 @@ static void render(void (*draw)(), bool full, char kind) {
   if (full) refreshFull();
   else refreshPartial();
   last = {kind, millis() - t0, last.count + 1, busyMs};
+}
+
+void displayClean(void (*draw)()) {
+  if (fastUsed) sleepPanel();  // back to the panel's own waveform and voltages
+  partialsSinceFull++;
+  driveAll = true;
+  render(draw, false, 'C');
+  driveAll = false;
+  sleepPanel();
 }
 
 void displayShow(void (*draw)(), bool full) {

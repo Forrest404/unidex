@@ -41,6 +41,14 @@
   #sendStatus, #hint { color: var(--muted); font-size: 13px; margin: 0; text-align: center; min-height: 1em; }
   #err { color: var(--bad); font-size: 13px; margin: 8px 0 0; min-height: 1em; }
   #eventList { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: var(--muted); }
+  .petRow { display: grid; grid-template-columns: 64px 44px 1fr 44px; align-items: center; gap: 8px; margin-top: 8px; }
+  .petRow b { font-size: 13px; }
+  .petRow span { text-align: center; }
+  .petRow button { padding: 9px 0; }
+  #petStage { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  #petStage button { width: 100%; }
+  #petFrame { background: #c9c9c4; padding: 14px; border-radius: 10px; line-height: 0; max-width: 100%; }
+  #petCanvas { width: 224px; }
 </style>
 </head>
 <body>
@@ -123,6 +131,27 @@
       <button id="save" class="secondary" disabled>Download BMP</button>
     </div>
   </div>
+  </section>
+
+  <section id="pet">
+    <h2>Pet</h2>
+    <p class="muted">Dress up the Pet on your device: pick each part, give it a name if you like, then send it. It
+      changes on the device straight away.</p>
+    <div class="grid">
+      <div class="card">
+        <div id="petParts"></div>
+        <button id="petRandom" class="secondary" style="margin-top:14px;width:100%">Random look</button>
+        <label for="petName">Name <span class="hint">(optional, up to 12 characters; shown at the top of the Pet
+          screen)</span></label>
+        <input id="petName" type="text" maxlength="12" placeholder="No name" autocomplete="off" spellcheck="false">
+      </div>
+      <div class="card" id="petStage">
+        <div id="petFrame"><canvas id="petCanvas" width="224" height="224" role="img" aria-label="Pet preview"></canvas></div>
+        <button id="petSend" disabled>Send to device</button>
+        <button id="petLoad" class="secondary" disabled>Load from device</button>
+        <p id="petStatus" class="status">Plug the device in and press one of its buttons to wake it.</p>
+      </div>
+    </div>
   </section>
 
   <section id="clock">
@@ -573,6 +602,72 @@ function encodeBmp(bits) {
   drop.ondragleave = () => drop.classList.remove('over');
   drop.ondrop = e => { e.preventDefault(); e.stopPropagation(); drop.classList.remove('over'); loadIcs(e.dataTransfer.files[0]); };
 }
+</script>
+<script type="module">
+// The Pet designer: the same parts as the device (site/pet-parts.js, made from src/apps/pet/parts.h).
+import { supported, connect, asleepHint, petGet, petSet } from './serial.js';
+import { LAYERS, DEFAULT_LOOK, drawLook, pack, unpack, randomLook, cleanName } from './pet.js';
+
+const $ = id => document.getElementById(id);
+let look = [...DEFAULT_LOOK];
+
+function render() {
+  drawLook($('petCanvas'), look, { scale: 7 });  // 224 px, the size it's shown at
+  LAYERS.forEach((layer, i) => {
+    $(`petPart${i}`).textContent = `${layer.parts[look[i]].name} (${look[i] + 1}/${layer.parts.length})`;
+  });
+}
+
+LAYERS.forEach((layer, i) => {
+  const row = document.createElement('div');
+  row.className = 'petRow';
+  const step = d => () => { look[i] = (look[i] + d + layer.parts.length) % layer.parts.length; render(); };
+  const button = (text, label, d) => {
+    const b = document.createElement('button');
+    b.className = 'secondary';
+    b.textContent = text;
+    b.setAttribute('aria-label', `${label} ${layer.name.toLowerCase()}`);
+    b.onclick = step(d);
+    return b;
+  };
+  const name = document.createElement('span');
+  name.id = `petPart${i}`;
+  name.setAttribute('aria-live', 'polite');
+  const label = document.createElement('b');
+  label.textContent = layer.name;
+  row.append(label, button('‹', 'Previous', -1), name, button('›', 'Next', 1));
+  $('petParts').append(row);
+});
+
+$('petRandom').onclick = () => { look = randomLook(); render(); };
+$('petName').oninput = e => { const c = cleanName(e.target.value); if (c !== e.target.value.trim()) e.target.value = c; };
+
+async function withDevice(work) {
+  const status = $('petStatus');
+  try {
+    status.textContent = 'Connecting…';
+    const dev = await connect();
+    try { status.textContent = await work(dev); } finally { await dev.close(); }
+  } catch (e) {
+    status.textContent = e.name === 'NotFoundError' ? asleepHint : e.message || String(e);
+  }
+}
+
+$('petSend').disabled = $('petLoad').disabled = !supported;
+$('petSend').onclick = () => withDevice(async dev => {
+  const name = cleanName($('petName').value);
+  await petSet(dev, pack(look), name);
+  return name ? `Sent. Say hi to ${name}!` : 'Sent. Open Pet on the device to see it.';
+});
+$('petLoad').onclick = () => withDevice(async dev => {
+  const pet = await petGet(dev);
+  look = unpack(pet.look);
+  $('petName').value = pet.name;
+  render();
+  return 'Loaded the Pet from the device.';
+});
+if (!supported) $('petStatus').textContent = 'Sending needs Chrome or Edge on a computer. You can still design here.';
+render();
 </script>
 </body>
 </html>

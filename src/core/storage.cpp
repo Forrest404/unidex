@@ -50,7 +50,8 @@ void storagePutInt(const char *key, int32_t value) {
 String storageGetString(const char *key, const char *fallback) {
   Preferences prefs;
   prefs.begin(NVS_NAMESPACE, true);
-  String v = prefs.getString(key, fallback);
+  // A missing key: no lookup, since getString() prints an error line on the USB port for one
+  String v = prefs.isKey(key) ? prefs.getString(key, fallback) : String(fallback);
   prefs.end();
   return v;
 }

@@ -5,6 +5,7 @@
 #include "power.h"
 #include "storage.h"
 #include "../apps/notes/usb.h"
+#include "../apps/pet/pet.h"
 #include "devtools.h"
 #include <unidex_version.h>
 
@@ -14,6 +15,7 @@
 //   T <unix seconds>       -> sets the clock, "OK T"
 //   C                      -> "OK C <clock chip registers and system time>" (diagnostics)
 //   N ...                  -> Notes settings, tests and note download (src/apps/notes/usb.h)
+//   P ...                  -> the Pet's look and name (src/apps/pet/pet.h)
 //   S                      -> SD card test: "OK S ...", "F <path> <bytes>" / "D <dir>" lines, "OK S end"
 //   E <count> <crc32>      then <count> lines "YYYY-MM-DD,HH:MM,HH:MM,title,location"
 //                          -> "OK E <crc>" or "ERR"; crc32 (zlib) covers each line plus '\n'
@@ -141,6 +143,8 @@ static void handle(const char *l) {
     Serial.printf("OK C %s\n", status);
   } else if (notesUsb(l)) {
     // Notes setup and note download: "N ..." (src/apps/notes/usb.h)
+  } else if (petUsb(l)) {
+    // the Pet's look and name: "P ..." (src/apps/pet/pet.h)
   } else if (strcmp(l, "S") == 0) {
     storageCardTest();
   } else if (strcmp(l, "L") == 0) {

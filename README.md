@@ -226,6 +226,11 @@ Random look, Done), **B** = the next option (on Random look: a new random look; 
 previous option, **hold A** = save and go back. The look is one number in NVS (`pet_look`), so it survives sleep
 and firmware updates; Settings > Reset > Everything puts the default back.
 
+The website's Tools page has a Pet designer: the same parts, a preview, an optional name (up to 12 characters,
+shown at the top of the Pet screen and on the home line: "Say hi to Mochi!"), and Send / Load over USB (`P GET`,
+`P SET`, src/apps/pet/pet.h). The page's parts come from the firmware's: after changing `src/apps/pet/parts.h`, run
+`python3 tools/pet/export.py` to update `site/pet-parts.js` (`--check` tells you if it's out of date).
+
 ### Chooser
 
 Opens on the number of squares you used last; **A** cycles 2 → 6. **B** spins: the highlight walks the grid,
@@ -403,6 +408,9 @@ Your settings and files stay through the update (`site/update.js` writes only th
   third-party server, so it's a file.
 - **"Sync by itself":** the same sync runs when the device is plugged in and awake while the page is open. It waits
   a few seconds so it doesn't talk over the Mac agent. Both write the calendar, and the last one wins.
+
+**Pet** (Tools): dress up the Pet with a mouse and send it, with an optional name; Load brings back what's on
+the device.
 
 Files live on the SD card, so the installer writes no filesystem image; people copy `starter/` to their card or use
 the badge maker. `data/badges/` holds the same generic set: anything put there is committed and public, so keep
