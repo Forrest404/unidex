@@ -1,5 +1,5 @@
 // Pet: a small creature you dress up (body, eyes, mouth, hat, extra), saved in NVS as one number ("pet_look").
-// Main screen: A = say hi (it hops), B = edit, hold A = back. It blinks every few seconds for a minute after the
+// Main screen: A = say hi (happy eyes and a heart), B = edit, hold A = back. It blinks every few seconds for a minute after the
 // last press. Edit: A = next row, B = change it (next option; Random: a new look;
 // Done: save), hold B = previous option, hold A = save and back.
 #include <esp_random.h>
@@ -19,14 +19,14 @@ static const int RANDOM_ROW = pet::LAYERS, DONE_ROW = pet::LAYERS + 1, ROWS = pe
 enum Screen : uint8_t { MAIN, EDIT };
 RTC_DATA_ATTR static uint8_t screen, row;
 RTC_DATA_ATTR static uint32_t draft;  // the look being edited (kept through sleep)
-static bool blinking, heart;
-static int8_t hop;  // pixels above its resting place, while it hops
+static bool blinking, happy;
+static uint8_t heart;  // the heart beside it while it's happy: 0 none, else its scale (it pops: 1, then 2)
 static uint32_t nextBlinkAt, openAt, lastPressAt;
 
-static const int16_t REST_Y = HINTS_TOP - 3 - pet::SIZE * MAIN_SCALE;  // low on the screen, with room to hop
+static const int16_t MAIN_Y = CONTENT_TOP + (HINTS_TOP - CONTENT_TOP - pet::SIZE * MAIN_SCALE) / 2;  // centred
 static const uint32_t AWAKE_MS = 60000;  // blinking stops this long after the last press
 
-static const char *const HEART[] = {  // drawn at 2x beside it, mid-hop
+static const char *const HEART[] = {  // beside its head while it's happy
   ".##...##.",
   "####.####",
   "#########",
@@ -60,30 +60,29 @@ static void drawMain() {
   const String name = petName();
   drawHeader("Pet", name.length() ? name.c_str() : nullptr);
   pet::Look look = pet::unpack(petLookBits());
-  if (hop) look.part[pet::EYES_LAYER] = pet::HAPPY_EYES;
-  drawAvatar(look, MAIN_SCALE, REST_Y - hop, blinking);
+  if (happy) look.part[pet::EYES_LAYER] = pet::HAPPY_EYES;
+  drawAvatar(look, MAIN_SCALE, MAIN_Y, blinking);
+  const int16_t left = 175 - 9 * heart / 2, top = CONTENT_TOP + 16 - 4 * heart;  // centred beside the head
   if (heart)
     for (int y = 0; y < 8; y++)
       for (int x = 0; x < 9; x++)
-        if (HEART[y][x] == '#') display.fillRect(166 + x * 2, CONTENT_TOP + 8 + y * 2, 2, 2, BLACK);
+        if (HEART[y][x] == '#') display.fillRect(left + x * heart, top + y * heart, heart, heart, BLACK);
   drawHints("hi", "dress up", "");
 }
 
-// A: a little hop with happy eyes and a heart, as quick animation frames (like the games), then a refresh that
-// drives every pixel, to clear what the frames leave behind.
+// A: it stays put (moving leaves smears on e-ink) and gets happy eyes while a heart pops up beside it, small then
+// big; then back to normal with a refresh that drives every pixel, so nothing is left behind.
 static Redraw sayHi() {
-  static const int8_t HOPS[] = {3, 6, 6, 6, 3, 0};
   powerHold();
-  displayFastFrames(true);
-  for (size_t i = 0; i < sizeof HOPS; i++) {
-    hop = HOPS[i];
-    heart = i >= 1 && i <= 4;
-    displayFrame(drawMain);
-  }
-  hop = 0;
-  heart = false;
-  displayFastFrames(false);
-  displayClean(drawMain);  // every pixel driven: no trace of the hop
+  happy = true;
+  heart = 1;
+  displayFrame(drawMain);
+  heart = 2;
+  displayFrame(drawMain);
+  delay(700);
+  happy = false;
+  heart = 0;
+  displayClean(drawMain);
   powerRelease();
   return Redraw::None;
 }
