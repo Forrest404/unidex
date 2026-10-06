@@ -14,10 +14,12 @@ tools to set up.
 **Don't have the board?** A fully assembled and tested unidex is available to pre-order in the UK at
 [unidex-site.vercel.app](https://unidex-site.vercel.app).
 
-[![Latest release](https://img.shields.io/github/v/release/Forrest404/unidex)](https://github.com/Forrest404/unidex/releases/latest)
-[![Licence: GPL-3.0](https://img.shields.io/github/license/Forrest404/unidex)](LICENSE)
-[![Install in your browser](https://img.shields.io/badge/install-in%20your%20browser-black)](https://forrest404.github.io/unidex/)
-[![Pre-order (UK)](https://img.shields.io/badge/pre--order-UK-black)](https://unidex-site.vercel.app)
+<p>
+  <a href="https://github.com/Forrest404/unidex/releases/latest"><img height="36" alt="Latest release" src="https://img.shields.io/github/v/release/Forrest404/unidex?style=for-the-badge"></a>
+  <a href="LICENSE"><img height="36" alt="Licence: GPL-3.0" src="https://img.shields.io/github/license/Forrest404/unidex?style=for-the-badge"></a>
+  <a href="https://forrest404.github.io/unidex/"><img height="36" alt="Install in your browser" src="https://img.shields.io/badge/install-in%20your%20browser-black?style=for-the-badge"></a>
+  <a href="https://unidex-site.vercel.app"><img height="36" alt="Pre-order (UK)" src="https://img.shields.io/badge/pre--order-UK-black?style=for-the-badge"></a>
+</p>
 
 ![unidex on the 200×200 e-paper screen: the home screen, Notes, Games, a round of Dino and the Chooser](docs/screens.png)
 
