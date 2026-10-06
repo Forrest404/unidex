@@ -4,6 +4,8 @@ shot home-timetable
 press a
 shot home-notes
 press a
+shot home-pet
+press a
 shot home-badge
 press a
 shot home-dex

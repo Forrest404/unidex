@@ -1,0 +1,9 @@
+# Pet. Read-only.
+select Pet
+shot pt-home-status
+press b
+expect screen=Pet
+shot pt-main
+press A
+expect screen=Home
+shot pt-home-after
