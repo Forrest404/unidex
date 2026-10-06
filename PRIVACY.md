@@ -60,6 +60,9 @@ If you record other people, tell them first: their voice goes to these services 
   Nothing is sent when Meet is closed. If both of you choose to be friends, each device keeps the other Pet's random
   number, look and name, and how many times and when you met, on the device only (up to 16 friends; remove one
   from the friends list, or all with Settings > Reset > Everything).
+- **Sending a badge** (to a friend, in Meet) sends that badge image to their device only. They see it first, and it
+  is only saved on their SD card if they press keep; if they don't, it's gone from their device's memory. Badges can
+  contain photos or names, so only send what you're happy for your friend to keep.
 
 ## The website
 

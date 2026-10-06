@@ -2,10 +2,13 @@
 #include <esp_random.h>
 #include "friends_logic.h"
 #include "meet_logic.h"
+#include "send_logic.h"
+#include "../badge/badge_file.h"
 #include "pet.h"
 #include "../../core/clock.h"
 #include "../../core/devtools.h"
 #include "../../core/display.h"
+#include "../../core/launcher.h"
 #include "../../core/link.h"
 #include "../../core/storage.h"
 #include "../../core/theme.h"
@@ -65,6 +68,23 @@ static void meetFriend(const meet::Nearby &who) {
 }
 
 static bool isFriend(uint32_t id) { return friendsList().find(id) >= 0; }
+
+// Sending badges to a friend (hold B in the room: a menu with "Swap screens" and "Send a badge").
+static bool menuOpen, picking, waitingVerdict, receiving, previewing;
+static int menuRow, pickAt, pickCount;
+static String pickNames[32];
+static uint32_t waitingSince, rxLast, partnerBusyUntil;
+static send::Offer offer;      // what's coming in
+static send::Receiver rx;
+static uint8_t *rxBuf;         // its bytes (malloc'd for the transfer, freed after)
+static Bmp rxBmp;              // the received badge, checked, for the preview
+
+static bool busyHere() { return asking || menuOpen || picking || waitingVerdict || receiving || previewing; }
+static void rxFree() {
+  free(rxBuf);
+  rxBuf = nullptr;
+  receiving = previewing = false;
+}
 
 // This device's Pet id: random, made the first time, kept in NVS. Sent instead of anything that identifies the
 // device itself.
@@ -134,6 +154,8 @@ static void drawActFrame() {
 
 // --- acts ---
 
+static void keepAlive();  // sends a HELLO when one is due, during a long animation or transfer (below)
+
 // Plays an act: the frames on a beat counted from startAt, so two devices that start together stay in step.
 static void play(uint8_t act, uint8_t actor, uint32_t seed, uint32_t startAt) {
   script.build(act, actor, seed, pos[0], pos[1]);
@@ -143,6 +165,7 @@ static void play(uint8_t act, uint8_t actor, uint32_t seed, uint32_t startAt) {
 #if UNIDEX_DEV
         devShotDuringAnimation();
 #endif
+        keepAlive();  // so the other device never thinks this one has gone, even if it isn't playing along
         delay(5);
       }
       current = &script.frames[k];
@@ -167,7 +190,7 @@ static void play(uint8_t act, uint8_t actor, uint32_t seed, uint32_t startAt) {
   }
 }
 
-static void send(uint8_t type, uint8_t act = 0, uint8_t actor = 0, uint32_t seed = 0) {
+static void tell(uint8_t type, uint8_t act = 0, uint8_t actor = 0, uint32_t seed = 0) {
   meet::Message m = {type, myId(), partner.id, seed, act, actor};
   uint8_t packet[24];
   const size_t n = meet::encodeMessage(m, packet);
@@ -177,11 +200,11 @@ static void send(uint8_t type, uint8_t act = 0, uint8_t actor = 0, uint32_t seed
 // The left device starts an act for both; the right one asks it to.
 static void startAct(uint8_t act, uint8_t actor) {
   if (!amLeft) {
-    send(meet::ASK, act, actor);
+    tell(meet::ASK, act, actor);
     return;
   }
   const uint32_t seed = esp_random();
-  send(meet::ACT, act, actor, seed);
+  tell(meet::ACT, act, actor, seed);
   play(act, actor, seed, millis() + LEAD_MS);
 }
 
@@ -201,6 +224,114 @@ static void connect(const meet::Nearby &who) {
   if (amLeft) startAct(friendsAlready ? meet::GREET_FRIEND : meet::GREET, 0);
 }
 
+// The right device tells the left one when it's busy (a menu, choosing a badge, a preview), so the show waits.
+static void tellBusy() {
+  static bool told;
+  const bool busy = busyHere();
+  if (amLeft || busy == told) return;
+  told = busy;
+  tell(meet::ASK, 0, busy);  // act 0: not an act, "busy" (actor 1) or "free" (0)
+}
+
+// Sends the chosen badge: an offer, then piece by piece, each acknowledged (send_logic.h). Blocks for about a
+// second. Returns a reason it failed, or nullptr.
+static const char *sendBadge(const char *name) {
+  Bmp b;
+  if (!badgeLoad(name, b)) return "That badge can't be read";
+  const int i = nearby.find(partner.id);
+  if (i < 0) return "They've gone";
+  const uint8_t *mac = nearby.at(i).mac;
+  uint8_t pkt[250];
+  // Waits up to ms for an ACK from the partner; keeps hearing HELLOs meanwhile. Returns its index, or -1.
+  auto waitAck = [&](uint32_t ms) -> int {
+    const uint32_t until = millis() + ms;
+    LinkPacket p;
+    meet::Hello h;
+    uint32_t from, to;
+    uint16_t idx;
+    while ((int32_t)(millis() - until) < 0) {
+      keepAlive();
+      if (!linkPoll(p)) {
+        delay(2);
+        continue;
+      }
+      if (meet::decodeHello(p.data, p.len, h) && h.id != myId()) nearby.heard(h, p.mac, millis(), p.rssi, myId());
+      else if (send::decodeAck(p.data, p.len, from, to, idx) && from == partner.id && to == myId()) return idx;
+    }
+    return -1;
+  };
+  send::Offer o = {myId(), partner.id, (uint32_t)b.size, send::crc32(0, b.data, b.size), ""};
+  strlcpy(o.name, name, sizeof o.name);
+  int answer = -1;
+  for (int tries = 0; tries < 8 && answer != send::READY && answer != send::BUSY; tries++) {
+    linkSend(mac, pkt, send::encodeOffer(o, pkt));
+    answer = waitAck(250);
+  }
+  if (answer == send::BUSY) return "They're busy: try again";
+  if (answer != send::READY) return "No answer: try again";
+  for (int piece = 0; piece < send::pieces(b.size); piece++) {
+    bool acked = false;
+    for (int tries = 0; tries < send::TRIES && !acked; tries++) {
+      linkSend(mac, pkt, send::encodeData(myId(), partner.id, piece, b.data, b.size, pkt));
+      for (int ack; !acked && (ack = waitAck(send::ACK_WAIT_MS)) >= 0;) acked = ack == piece;
+    }
+    if (!acked) return "It didn't get through: try again";
+  }
+  nearby.touchAll(millis());
+  return nullptr;
+}
+
+static void drawSheetFrame();  // the room with the current sheet over it (below)
+
+// A badge coming in from the friend in the room: the offer, its pieces, and what they did with ours.
+static void receivePacket(const LinkPacket &p, uint32_t now, bool &changed) {
+  uint8_t pkt[24];
+  send::Offer o;
+  send::Piece d;
+  uint32_t from, to;
+  uint8_t verdict;
+  if (send::decodeOffer(p.data, p.len, o) && o.from == partner.id && o.to == myId()) {
+    const bool ok = isFriend(o.from) && !busyHere() && (rxBuf = (uint8_t *)malloc(o.size));
+    if (ok) {
+      offer = o;
+      rx.begin(rxBuf, o.size, o.crc);
+      receiving = true;
+      rxLast = now;
+      changed = true;
+    }
+    linkSend(p.mac, pkt, send::encodeAck(myId(), o.from, ok ? send::READY : send::BUSY, pkt));
+  } else if (send::decodeData(p.data, p.len, d) && receiving && d.from == partner.id && d.to == myId()) {
+    const int ack = rx.take(d);
+    rxLast = now;
+    if (ack >= 0) linkSend(p.mac, pkt, send::encodeAck(myId(), d.from, ack, pkt));
+    if (rx.complete()) {
+      receiving = false;
+      if (rx.intact() && bmpCheck(rxBuf, rx.size, rxBmp)) {
+        previewing = true;  // shown full screen: B keep, A no thanks
+      } else {
+        for (int i = 0; i < 3; i++, delay(15))
+          linkBroadcast(pkt, send::encodeVerdict(myId(), partner.id, send::FAILED, pkt));
+        rxFree();
+        launcherToast("It arrived damaged");
+      }
+      tellBusy();
+      changed = true;
+    }
+  } else if (send::decodeVerdict(p.data, p.len, from, to, verdict) && waitingVerdict && from == partner.id &&
+             to == myId()) {
+    waitingVerdict = false;
+    char text[40];
+    const char *who = partner.name[0] ? partner.name : "They";
+    const char *what = verdict == send::KEPT        ? "%s kept it!"
+                       : verdict == send::NO_THANKS ? "%s: no thanks"
+                                                    : "%s: not saved";
+    snprintf(text, sizeof text, what, who);
+    launcherToast(text);
+    tellBusy();
+    changed = true;
+  }
+}
+
 // Both said yes: saved as friends on this side; the left device starts the celebration for both.
 static void becomeFriends() {
   asking = false;
@@ -214,7 +345,8 @@ static void disconnect() {
     const uint32_t seed = esp_random();
     play(meet::SWAP, 0, seed, millis());
   }
-  connected = asking = false;
+  connected = asking = menuOpen = picking = waitingVerdict = false;
+  rxFree();
   pos[0] = meet::HOME[0], pos[1] = meet::HOME[1];
 }
 
@@ -231,12 +363,19 @@ static void start() {
 void meetEnter() { start(); }
 
 void meetLeave() {
-  connected = asking = listing = confirmRemove = false;
+  connected = asking = listing = confirmRemove = menuOpen = picking = waitingVerdict = false;
+  rxFree();
   linkStop();
 }
 
 bool meetBack() {
-  if (confirmRemove) confirmRemove = false;
+  if (menuOpen) menuOpen = false;
+  else if (picking) picking = false;
+  else if (previewing) {  // hold A on a badge someone sent: no thanks
+    uint8_t pkt[16];
+    linkBroadcast(pkt, send::encodeVerdict(myId(), partner.id, send::NO_THANKS, pkt));
+    rxFree();
+  } else if (confirmRemove) confirmRemove = false;
   else if (listing) listing = false;
   else return false;
   return true;
@@ -251,6 +390,12 @@ static void sayHello() {
   if (best >= 0) h.heard = meet::packHeard(nearby.at(best).id, nearby.median(best));
   uint8_t packet[meet::HELLO_LEN];
   linkBroadcast(packet, meet::encodeHello(h, packet));
+}
+
+static void keepAlive() {
+  if ((int32_t)(millis() - nextHelloAt) < 0) return;
+  sayHello();
+  nextHelloAt = millis() + HELLO_MS / 4;
 }
 
 Redraw meetButton(Event e) {
@@ -288,14 +433,82 @@ Redraw meetButton(Event e) {
     const int i = nearby.firstInReach();
     if (e != Event::BShort || i < 0) return Redraw::None;
     partner = nearby.at(i);
-    send(meet::CONNECT);
+    tell(meet::CONNECT);
     connect(partner);
     return Redraw::None;
   }
+  if (menuOpen) {  // hold B's menu: "Swap screens" / "Send a badge"
+    if (e == Event::AShort) {
+      menuRow = (menuRow + 1) % 2;
+    } else if (e == Event::BShort) {
+      menuOpen = false;
+      if (menuRow == 0) {
+        tellBusy();
+        startAct(meet::SWAP, mine());
+        return Redraw::None;
+      }
+      if (!isFriend(partner.id)) {
+        launcherToast("Only friends swap badges");
+      } else if (!(pickCount = badgeList(pickNames, 32))) {
+        launcherToast("No badges on the card");
+      } else {
+        picking = true;
+        pickAt = 0;
+        tellBusy();
+        return Redraw::Full;  // a badge fills the screen
+      }
+    } else {
+      return Redraw::None;
+    }
+    tellBusy();
+    return Redraw::Partial;
+  }
+  if (picking) {  // choosing a badge to send
+    if (e == Event::AShort) {
+      pickAt = (pickAt + 1) % pickCount;
+      return Redraw::Partial;
+    }
+    if (e != Event::BShort) return Redraw::None;
+    picking = false;
+    waitingVerdict = true;  // (shows "Sending..." while it goes)
+    displayFrame(drawSheetFrame);
+    const char *problem = sendBadge(pickNames[pickAt].c_str());
+    if (problem) {
+      waitingVerdict = false;
+      launcherToast(problem);
+    } else {
+      waitingSince = millis();
+    }
+    tellBusy();
+    return Redraw::Full;
+  }
+  if (previewing) {  // a badge from a friend: B keep, A no thanks
+    if (e != Event::BShort && e != Event::AShort) return Redraw::None;
+    uint8_t verdict = send::NO_THANKS;
+    if (e == Event::BShort) {
+      const String name = badgeFreeName(badgeNameOk(offer.name) ? offer.name : "from-a-friend.bmp");
+      if (!storageCardMount()) {
+        verdict = send::FAILED;
+        launcherToast("Needs an SD card");
+      } else if (!badgeSave(name.c_str(), rxBuf, rx.size)) {
+        verdict = send::FAILED;
+        launcherToast("Couldn't save it");
+      } else {
+        verdict = send::KEPT;
+        launcherToast(("Kept: " + name).c_str());
+      }
+    }
+    uint8_t pkt[16];
+    for (int i = 0; i < 3; i++, delay(15)) linkBroadcast(pkt, send::encodeVerdict(myId(), partner.id, verdict, pkt));
+    rxFree();
+    tellBusy();
+    return Redraw::Full;
+  }
+  if (waitingVerdict || receiving) return Redraw::None;
   if (asking) {  // "Be friends?": B yes, A not now
     if (myAnswer || (e != Event::BShort && e != Event::AShort)) return Redraw::None;
     myAnswer = e == Event::BShort ? 1 : 2;
-    send(meet::ANSWER, myAnswer);
+    tell(meet::ANSWER, myAnswer);
     lastActAt = millis();  // the room waits its usual gap after the question before playing by itself
     if (myAnswer == 2) asking = false;
     else if (theirAnswer == 1) becomeFriends();
@@ -303,7 +516,12 @@ Redraw meetButton(Event e) {
   }
   if (e == Event::AShort) startAct(meet::SAY, mine());
   else if (e == Event::BShort) startAct(swapped() ? meet::SWAP : meet::VISIT, mine());  // when swapped: go home
-  else if (e == Event::BLong) startAct(meet::SWAP, mine());
+  else if (e == Event::BLong) {  // the menu: swap, or send a badge
+    menuOpen = true;
+    menuRow = 0;
+    tellBusy();
+    return Redraw::Partial;
+  }
   return Redraw::None;
 }
 
@@ -324,7 +542,7 @@ Redraw meetTick() {
     const uint32_t every = nearby.count() ? HELLO_MS / 4 : HELLO_MS;
     nextHelloAt = now + every - every / 10 + esp_random() % (every / 5);
   }
-  bool changed = false;
+  bool changed = false, badgeNews = false;  // badgeNews: a badge arrived, or their answer to ours
   LinkPacket p;
   meet::Hello h;
   meet::Message m;
@@ -339,11 +557,18 @@ Redraw meetTick() {
       if (m.type == meet::CONNECT && !connected && nearby.find(m.from) >= 0) connectFrom = m.from;
       else if (m.type == meet::ACT && connected && m.from == partner.id && !gotAct)
         gotAct = true, act = m, actAt = p.at;
+      else if (m.type == meet::ASK && connected && amLeft && m.from == partner.id && m.act == 0)
+        partnerBusyUntil = m.actor ? now + 60000 : 0, lastActAt = now;  // the right one is busy, or done
       else if (m.type == meet::ASK && connected && amLeft && m.from == partner.id) gotAsk = true, ask = m;
       else if (m.type == meet::ANSWER && connected && m.from == partner.id) theirAnswer = m.act;
+    } else if (connected) {
+      receivePacket(p, now, badgeNews);
     }
   }
   changed |= nearby.forget(now);
+  static bool wasBusy;  // a menu, a badge or a question just ended here: the show waits its usual gap again
+  if (wasBusy && !busyHere()) lastActAt = now;
+  wasBusy = busyHere();
 
   if (!connected) {
     if (connectFrom) {  // they pressed B with this device in reach
@@ -362,6 +587,7 @@ Redraw meetTick() {
         return amLeft ? Redraw::None : Redraw::Partial;
       }
     }
+    if (badgeNews) return previewing ? Redraw::Full : Redraw::Partial;  // a badge fills the screen
     if (gotAct) {  // from the left device: play it in step with it
       play(act.act, act.actor, act.seed, actAt + LEAD_MS);
       return Redraw::None;
@@ -385,7 +611,19 @@ Redraw meetTick() {
       disconnect();
       return Redraw::Partial;
     }
-    if (amLeft && !asking && now - lastActAt > showGap) {  // the show: something happens every 8-12 s
+    if (receiving && now - rxLast > 3000) {  // the pieces stopped coming
+      rxFree();
+      launcherToast("The badge didn't arrive");
+      tellBusy();
+      return Redraw::Partial;
+    }
+    if (waitingVerdict && now - waitingSince > 40000) {  // no answer from them
+      waitingVerdict = false;
+      tellBusy();
+      return Redraw::Partial;
+    }
+    if (amLeft && !busyHere() && (int32_t)(now - partnerBusyUntil) >= 0 && now - lastActAt > showGap) {
+      // the show: something happens every 8-12 s
       const uint8_t pick = esp_random() % 6;
       if (swapped()) startAct(pick < 3 ? meet::SAY : meet::SWAP, esp_random() % 2);
       else startAct(pick < 2 ? meet::VISIT : pick == 2 ? meet::TRIP : pick == 3 ? meet::SWAP : meet::SAY,
@@ -448,8 +686,63 @@ static void drawFriends() {
   }
 }
 
+// A badge full screen, with a white band at the top for a title and the button hints at the bottom.
+static void drawBadgeScreen(const Bmp &b, const char *title, const char *right) {
+  badgeDraw(b);
+  display.fillRect(0, 0, display.width(), CONTENT_TOP, WHITE);
+  drawHeader(title, right);
+  display.fillRect(0, HINTS_TOP, display.width(), display.height() - HINTS_TOP, WHITE);
+}
+
+static void drawRoomOnly() {
+  drawHeaderConnected();
+  for (int i = 0; i < 2; i++) {
+    meet::Actor a = {};
+    a.x = pos[i];
+    drawPet(i, a, false);
+  }
+}
+
+static void drawSheetFrame() {
+  drawRoomOnly();
+  const char *who = partner.name[0] ? partner.name : "them";
+  char line[32];
+  if (receiving) {
+    snprintf(line, sizeof line, "%s is sending", partner.name[0] ? partner.name : "Your friend");
+    drawSheet(line, "a badge...");
+  } else if (waitingVerdict) {
+    snprintf(line, sizeof line, "Sent to %s.", who);
+    drawSheet(line, "Waiting to see if", "they keep it...");
+  }
+  drawHints("", "", "");
+}
+
 void meetDraw() {
   if (listing && !connected && friendsList().count) return drawFriends();
+  if (connected && previewing) {
+    char from[32];
+    snprintf(from, sizeof from, "From %s", partner.name[0] ? partner.name : "a friend");
+    drawBadgeScreen(rxBmp, from, nullptr);
+    drawHints("no thanks", "keep", "");
+    return;
+  }
+  if (connected && picking) {
+    Bmp b;
+    char of[8], title[32];
+    snprintf(of, sizeof of, "%d/%d", pickAt + 1, pickCount);
+    snprintf(title, sizeof title, "Send to %s", partner.name[0] ? partner.name : "friend");
+    if (badgeLoad(pickNames[pickAt].c_str(), b)) drawBadgeScreen(b, title, of);
+    else drawHeader(title, of), drawEmpty("Can't read it", pickNames[pickAt].c_str());
+    drawHints(pickCount > 1 ? "next" : "", "send", "");
+    return;
+  }
+  if (connected && (receiving || waitingVerdict)) return drawSheetFrame();
+  if (connected && menuOpen) {
+    drawRoomOnly();
+    drawSheet(menuRow == 0 ? "> Swap screens" : "  Swap screens", menuRow == 1 ? "> Send a badge" : "  Send a badge");
+    drawHints("next", "choose", "");
+    return;
+  }
   if (error || !linkOn()) {
     drawHeader("Meet");
     if (error) drawEmpty("Can't meet now", error);
@@ -499,7 +792,7 @@ void meetDraw() {
     }
     return;
   }
-  drawHints("say", swapped() ? "home" : "visit", "swap");
+  drawHints("say", swapped() ? "home" : "visit", "more");
 }
 
 const char *meetDetail() {
@@ -510,7 +803,8 @@ const char *meetDetail() {
            connected ? "connected" : "searching", connected ? (amLeft ? "left" : "right") : "", pos[0], pos[1],
            i >= 0 ? nearby.strength(i) : 0, latest, nearby.firstInReach() >= 0);
   const size_t used = strlen(buf);  // then: friends saved, "Be friends?" on screen, the friends list open
-  snprintf(buf + used, sizeof buf - used, ":f%d:%s%s", friendsList().count, asking ? "ask" : "",
-           listing ? "list" : "");
+  snprintf(buf + used, sizeof buf - used, ":f%d:%s%s%s%s%s%s%s", friendsList().count, asking ? "ask" : "",
+           listing ? "list" : "", menuOpen ? "menu" : "", picking ? "pick" : "", waitingVerdict ? "wait" : "",
+           receiving ? "recv" : "", previewing ? "preview" : "");
   return buf;
 }

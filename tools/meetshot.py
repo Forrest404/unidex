@@ -5,7 +5,7 @@
 
 Both open Pet > Meet and search; once each has the other in reach, B on board A connects them (the two screens
 become one room); the greeting plays (then "Be friends?", answered "not now" on both: tools/friendshot.py tests
-friends); A's Pet visits B's screen; B swaps them; then B leaves Meet and A should
+friends); A's Pet visits B's screen; B swaps them (hold B's menu: Swap screens); then B leaves Meet and A should
 notice they've been parted. Times every act frame on both boards ("XW" lines) to check they stay in step, and
 saves screenshots from both (a-*.png, b-*.png). Keep the boards side by side. Pause the Mac agent first.
 """
@@ -105,7 +105,9 @@ def main():
         problems.append("not in reach of each other (keep the boards side by side)")
     shot("1-searching")
     frames = Frames(devs)
-    for step, (board, key, secs) in enumerate([(0, "b", 14), (0, "b", 24), (1, "B", 12)], 2):
+    for step, (board, key, secs) in enumerate([(0, "b", 14), (0, "b", 24), (1, "b", 12)], 2):
+        if step == 4:  # swap: hold B opens the menu; "Swap screens" is its first row
+            devs[board].press("B")
         na, nb, worst = frames.press_and_watch(board, key, secs)
         what = ["connect + greeting", "visit", "swap"][step - 2]
         print(f"{what}: frames A {na}, B {nb}, worst difference {worst if worst is None else round(worst)} ms"

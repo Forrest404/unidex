@@ -232,13 +232,19 @@ and firmware updates; Settings > Reset > Everything puts the default back.
 Bring the devices close (the dots fill up; "press B" when it's within reach, typically up to about 15 cm) and
 press B on either one. The two screens then act as one room: the title points to where the other device should be
 (the one whose random Pet number is lower is the left screen). The Pets greet each other, then **B** = your Pet
-visits the other screen (the host steps aside and they talk in speech bubbles), **hold B** = swap screens, **A** =
-say something; every 8-12 s they play something by themselves (a visit, a trip to both screens, a swap, a chat).
+visits the other screen (the host steps aside and they talk in speech bubbles), **A** = say something, **hold B** =
+a menu: swap screens, or send a badge; every 8-12 s they play something by themselves (a visit, a trip to both screens, a swap, a chat).
 Pull the devices apart and each Pet walks home. **Friends:** the first time two Pets meet, both screens ask "Be
 friends?" after the greeting (B yes, A not now); when both say yes they meet at the gap, say "Friends!" and are saved
 on both devices (up to 16, in NVS: `pet_friends`, no SD card needed; Reset > Everything clears them). Friends meeting
 again get their own greeting ("Hi again ...!") and a heart before the name in the title. **A** on the searching
-screen opens the friends list (when you met, how many times; hold B removes one, after asking). Every frame plays on a 500 ms beat from one device's message, so
+screen opens the friends list (when you met, how many times; hold B removes one, after asking). **Sending a badge**
+(friends only, from hold B's menu): pick one of your badges (full screen, A next, B send); it goes over in 200-byte
+pieces, each acknowledged and resent if lost, checked with a CRC at the end (a badge takes about a second). Your
+friend sees it full screen first ("From ..."): B keeps it in `/badges` (a name that's taken gets "-2", "-3"...), A
+says no thanks, and you see what they did. Nothing is saved without their B; only badges up to 16 KB, and only a
+valid 1-bit BMP. Transfer rules: `src/apps/pet/send_logic.h` (tested by `tools/meettest/send_test.cpp`); two-board
+test: `tools/badgeshot.py`. Every frame plays on a 500 ms beat from one device's message, so
 the two screens stay within about 50 ms. Closeness comes from the signal strength both ways (the median of the
 last readings): it can tell "within about 15 cm" from "a metre away", but not touching from 15 cm, so meeting
 always needs a press. The radio is only on while Meet is open (2 minutes without a press stops it, 5 while

@@ -58,7 +58,8 @@ class Device:
 
     def reply(self, line, prefix, timeout=5):
         """Sends a line that isn't an X command; returns the reply line starting with prefix."""
-        self.s.write((line + "\n").encode())
+        if line:  # (an empty line: just wait for the reply to something already sent)
+            self.s.write((line + "\n").encode())
         end = time.time() + timeout
         while time.time() < end:
             l = self.s.readline().decode("ascii", "replace").strip()

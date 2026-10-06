@@ -6,6 +6,7 @@
 #include "storage.h"
 #include "../apps/notes/usb.h"
 #include "../apps/pet/pet.h"
+#include "../apps/badge/badge_file.h"
 #include "devtools.h"
 #include <unidex_version.h>
 
@@ -26,7 +27,6 @@
 //                          last byte "OK F <name>" or "ERR". Written to a temp file, then renamed.
 static const char *EVENTS = "/events.csv", *EVENTS_TMP = "/events.tmp";
 static const char *BADGE_TMP = "/badges/upload.tmp";
-static const int32_t MAX_BADGE_BYTES = 16384;  // a 200x200 1-bit BMP is 5062
 static const uint32_t STALL_MS = 3000;  // give up on a transfer that stops halfway
 
 static char line[600];  // fits "N SET <name> <hex>" for a 256-character key
@@ -46,15 +46,6 @@ static void abortBadge() {
   badgeLeft = 0;
   if (badgeOut) badgeOut.close();
   storageRemove(BADGE_TMP);
-}
-
-// Lower-case letters, digits and dashes, ending in .bmp: safe as a file name, and sorts like the rest.
-static bool validBadgeName(const char *n) {
-  const size_t len = strlen(n);
-  if (len < 5 || len >= sizeof badgeName || strcmp(n + len - 4, ".bmp") != 0) return false;
-  for (size_t i = 0; i < len - 4; i++)
-    if (!(islower(n[i]) || isdigit(n[i]) || n[i] == '-')) return false;
-  return true;
 }
 
 static int hexValue(char c) {
@@ -154,8 +145,8 @@ static void handle(const char *l) {
     unsigned long crc32 = 0;
     char name[40] = "";
     abortBadge();  // a new upload replaces any unfinished one
-    bool ok = sscanf(l + 2, "%39s %ld %lu", name, &bytes, &crc32) == 3 && validBadgeName(name) &&
-              bytes > 0 && bytes <= MAX_BADGE_BYTES;
+    bool ok = sscanf(l + 2, "%39s %ld %lu", name, &bytes, &crc32) == 3 && badgeNameOk(name) &&
+              bytes > 0 && bytes <= (long)BADGE_MAX_BYTES;
     if (ok) badgeOut = storageOpen(BADGE_TMP, "w");
     if (!ok || !badgeOut) {
       Serial.println("ERR");
