@@ -8,20 +8,20 @@
 - runs a WiFi collection game and four one-button games;
 - sleeps whenever you aren't pressing a button, to save battery.
 
-It runs on two buttons and a battery, and it's open source. Install it from your browser in a minute, with no
-tools to set up.
+It runs on two buttons and a battery, and its code is public: free to use, fork and improve for non-commercial use.
+Install it from your browser in a minute, with no tools to set up.
 
 **Don't have the board?** A fully assembled and tested unidex is available to pre-order in the UK at
 [unidex-site.vercel.app](https://unidex-site.vercel.app).
 
 <p>
   <a href="https://github.com/Forrest404/unidex/releases/latest"><img height="36" alt="Latest release" src="https://img.shields.io/github/v/release/Forrest404/unidex?style=for-the-badge"></a>
-  <a href="LICENSE"><img height="36" alt="Licence: GPL-3.0" src="https://img.shields.io/github/license/Forrest404/unidex?style=for-the-badge"></a>
+  <a href="LICENSE"><img height="36" alt="Licence: PolyForm Noncommercial" src="https://img.shields.io/badge/licence-PolyForm%20Noncommercial-black?style=for-the-badge"></a>
   <a href="https://forrest404.github.io/unidex/"><img height="36" alt="Install in your browser" src="https://img.shields.io/badge/install-in%20your%20browser-black?style=for-the-badge"></a>
   <a href="https://unidex-site.vercel.app"><img height="36" alt="Pre-order (UK)" src="https://img.shields.io/badge/pre--order-UK-black?style=for-the-badge"></a>
 </p>
 
-![unidex on the 200×200 e-paper screen: the home screen, Notes, Games, a round of Dino and the Chooser](docs/screens.png)
+![unidex on the 200×200 e-paper screen: the next class on the home screen, the Timetable countdown, today's classes, the notes list, an open note and a round of Dino](docs/screens.png)
 
 | App | What it does |
 |---|---|
@@ -296,7 +296,7 @@ Settings > Reset > Everything keeps WiFi and API keys, so a unit for someone els
    slot is set, never a value, and ends in **PASS** only if every slot reads `unset`. (Pause the Mac agent or
    close the Notes tab first, so the port is free.)
 3. **Use a fresh SD card** with only the contents of `starter/`: none of your notes, recordings, timetable or badges.
-4. **Include the source link** (https://github.com/Forrest404/unidex, GPL-3.0) in the box.
+4. **Include the source link** (https://github.com/Forrest404/unidex) and the licence notices in the box.
 
 ## How to measure battery life
 
@@ -339,7 +339,7 @@ src/
                         cloud (Whisper, tidy-up, GitHub), usb (N commands)
   core/
     launcher.*          splash, home carousel, routes buttons to the open app
-    display.*           GxEPD2 wrapper and the refresh rule
+    display.*           e-paper driver (SSD1681) and the refresh rule
     input.*             debounce + short/long press events
     battery.*           battery voltage and percent
     power.*             deep sleep, light sleep between polls, wake, pin holds
@@ -454,7 +454,7 @@ Everything here was read from the chip, seen working on the device, or taken fro
 | Flash / PSRAM | 8 MB quad (GD) / 8 MB octal (`memory_type = qio_opi`) | esptool, runtime |
 | USB | Native USB-Serial/JTAG (`303A:1001`), no UART bridge | confirmed |
 | Panel | 1.54" black/white e-paper, 200×200, SSD1681 | confirmed |
-| Driver | GxEPD2 1.6.9, class `GxEPD2_154_D67`, rotation 0 | confirmed |
+| Driver | our own SSD1681 driver (`src/core/display.cpp`), drawing with Adafruit GFX | confirmed |
 | Also on board | SHTC3 temp/humidity, ES8311 audio codec, mic, speaker header | vendor (unused here) |
 | Micro SD slot | SD_MMC 1-bit, FAT32, holds all files | confirmed (mounted a 128 GB SDHC card) |
 
@@ -574,12 +574,27 @@ boot keeps the board busy with the splash for about 3.5 s, so the sender waits u
 - Waveshare example code: https://github.com/waveshareteam/ESP32-S3-ePaper-1.54
   (`user_config.h` pin definitions, `board_power_bsp.cpp`, `epaper_driver_bsp.cpp`, the V2 schematic)
 - PWR/GPIO17 latch behaviour: https://www.espboards.dev/blog/waveshare-esp32-s3-epaper-esphome-climate/
-- Display library: [GxEPD2](https://github.com/ZinggJM/GxEPD2)
+- Waveshare's 1.54" V2 panel driver (MIT): https://github.com/waveshareteam/e-Paper (the partial waveform used
+  for game frames)
 
 ## Licence and source code
 
-Copyright 2026 Forrest. unidex is free software under the GNU General Public License, version 3 or later
+Copyright 2026 Forrest. From version 1.5, unidex is licensed under the **PolyForm Noncommercial License 1.0.0**
 ([LICENSE](LICENSE)). Source code: https://github.com/Forrest404/unidex
+
+In short (the [LICENSE](LICENSE) file is what counts):
+
+- **You can** use it, study it, fork it, change it and share your changes, for non-commercial purposes: personal
+  use, hobby projects, study and research, and use by schools, charities and other non-commercial organisations.
+- **You can't** sell it or use it commercially without written permission from Forrest: for example, selling devices
+  with unidex on them, selling the software, or building it into a paid product. To ask about a commercial licence,
+  open an issue on GitHub.
+- Anyone who gets a copy from you must also get the licence and its `Required Notice:` line.
+
+Contributions are welcome under the terms in [CONTRIBUTING.md](CONTRIBUTING.md).
+
+Releases v1.0 to v1.4 were published under the GNU General Public License v3.0 or later, and those copies carry
+that licence.
 
 What the device and website send where: [PRIVACY.md](PRIVACY.md) (a draft).
 

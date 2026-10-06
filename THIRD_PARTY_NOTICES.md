@@ -1,6 +1,7 @@
 # Third-party notices
 
-unidex is licensed under the GNU General Public License v3.0 or later (see [LICENSE](LICENSE)).
+unidex is licensed under the PolyForm Noncommercial License 1.0.0 (see [LICENSE](LICENSE)). The third-party parts
+below keep their own licences.
 The firmware built from this repository includes, or is built with, the third-party software below.
 Full licence texts not reproduced here are in [licenses/](licenses/).
 
@@ -10,9 +11,9 @@ This list was compiled from each project's own licence files and package metadat
 
 | Component | Version | Licence | Copyright | Source |
 |---|---|---|---|---|
-| GxEPD2 (e-paper driver) | 1.6.9 | GPL-3.0 | Jean-Marc Zingg | https://github.com/ZinggJM/GxEPD2 |
 | Adafruit GFX Library | 1.12.6 | BSD (see below) | Adafruit Industries | https://github.com/adafruit/Adafruit-GFX-Library |
-| FreeSans fonts (in Adafruit GFX, converted from GNU FreeFont; src/core/FreeSans7pt7b.h converted from FreeFont 20120503 by tools/gfxfont.py) | – | GPL-3.0-or-later with font exception | Free Software Foundation and contributors | https://www.gnu.org/software/freefont/license.html |
+| Liberation Sans 2 fonts (src/core/fonts, bitmaps made by tools/fonts/make.sh from the files in tools/fonts) | 2.x | SIL Open Font License 1.1 | 2010 Google Corporation; 2012 Red Hat, Inc. | https://github.com/liberationfonts/liberation-fonts |
+| Partial-refresh waveform for the 1.54" V2 panel (PARTIAL_WAVE in src/core/display.cpp, changed at run time for game frames) | epd1in54_V2 V1.0 | MIT (see below) | Waveshare team | https://github.com/waveshareteam/e-Paper |
 | Adafruit BusIO | 1.17.4 | MIT (see below) | Adafruit Industries | https://github.com/adafruit/Adafruit_BusIO |
 | ArduinoJson | 7.4.3 | MIT (see below) | Benoit Blanchon | https://github.com/bblanchon/ArduinoJson |
 | QRCode (QR code generator) | 0.0.1 | MIT (see below) | 2017 Richard Moore | https://github.com/ricmoo/qrcode |
@@ -70,6 +71,28 @@ INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
 CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 POSSIBILITY OF SUCH DAMAGE.
+```
+
+### Waveshare e-Paper driver code (MIT)
+
+```
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documnetation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to  whom the Software is
+furished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS OR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 ```
 
 ### Adafruit BusIO (MIT)
@@ -165,4 +188,4 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-GPL-3.0: [LICENSE](LICENSE). GPL-2.0, LGPL-2.1, Apache-2.0, MPL-2.0: [licenses/](licenses/).
+GPL-2.0, LGPL-2.1, Apache-2.0, MPL-2.0 and the SIL Open Font License 1.1: [licenses/](licenses/).
