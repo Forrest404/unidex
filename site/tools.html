@@ -10,6 +10,15 @@
           color: var(--muted); cursor: pointer; margin-bottom: 16px; transition: border-color .15s, color .15s, background-color .15s; }
   #drop:hover, #icsDrop:hover { color: var(--fg); background: var(--hover); }
   #drop.over, #icsDrop.over { border-color: var(--fg); color: var(--fg); background: var(--hover); }
+  #syncSteps { list-style: none; padding: 0; margin: 14px 0 0; }
+  #syncSteps li { position: relative; padding: 2px 0 2px 24px; }
+  #syncSteps li::before { position: absolute; left: 0; width: 18px; text-align: center; font-weight: 700; }
+  #syncSteps li.doing::before { content: '…'; color: var(--muted); }
+  #syncSteps li.done::before { content: '✓'; color: var(--ok); }
+  #syncSteps li.skip::before { content: '–'; color: var(--muted); }
+  #syncSteps li.skip { color: var(--muted); }
+  #syncSteps li.fail::before { content: '✗'; color: var(--bad); }
+  .calRow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
   .row { display: flex; gap: 8px; align-items: center; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
   input[type=number] { width: 70px; }
@@ -37,6 +46,28 @@
     Plug it in and press one of its buttons first. Nothing is uploaded to the internet.</p>
   <p id="unsupported" class="unsupported" hidden>Your browser can't talk to USB devices. Use <b>Chrome</b> or
     <b>Edge</b> on a computer. You can still make and download badges below.</p>
+
+  <section id="sync">
+    <h2>Sync everything</h2>
+    <div class="card">
+      <p style="margin-top:0">One click brings the device up to date: the newest firmware (your settings and files
+        stay), the clock, your calendar and any notes waiting to send.</p>
+      <button id="syncAll" disabled>Sync everything</button>
+      <ol id="syncSteps"></ol>
+      <p id="syncStatus" class="status"></p>
+      <label>Calendar file</label>
+      <div class="calRow">
+        <span id="calName" class="muted">none chosen</span>
+        <button class="secondary" id="calPick">Choose…</button>
+        <button class="secondary" id="calForget" hidden>Forget</button>
+      </div>
+      <p class="note" id="calNote">Export your calendar to a <code>.ics</code> file once (see Clock &amp; calendar
+        below) and choose it here; this page remembers it. When your calendar changes, export it again to the same
+        file.</p>
+      <label class="check"><input type="checkbox" id="autoSync"> Sync by itself when the device is plugged in and
+        awake, while this page is open</label>
+    </div>
+  </section>
 
   <section id="badges">
     <h2>Badge maker</h2>
@@ -117,8 +148,9 @@ unidex/tools/calsync/install.sh</pre>
 </main>
 
 <script type="module">
-import ICAL from 'https://cdn.jsdelivr.net/npm/ical.js@2.2.1/dist/ical.min.js';
-import { supported, crc32, connect, asleepHint } from './serial.js';
+import { supported, crc32, connect, asleepHint, knownPort, pickPort, deviceVersion, compareVersions, notesSync } from './serial.js';
+import { latestVersion, updateFirmware } from './update.js';
+import { DAYS_AHEAD, eventsFrom, hmOf, setTime, sendEvents } from './calendar.js';
 
 if (!supported) document.getElementById('unsupported').hidden = false;
 
@@ -321,69 +353,158 @@ function encodeBmp(bits) {
   };
 }
 
+// ---- sync everything: firmware, clock, calendar, notes ----
+{
+  const $ = id => document.getElementById(id);
+  const list = $('syncSteps'), canPickFiles = 'showOpenFilePicker' in window;
+  const say = text => { $('syncStatus').textContent = text; };
+
+  // The calendar file's handle, kept in IndexedDB so the page can read the same file next time.
+  const store = () => new Promise((ok, bad) => {
+    const r = indexedDB.open('unidex', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => ok(r.result);
+    r.onerror = () => bad(r.error);
+  });
+  const kv = async (key, value) => {
+    try {
+      const db = await store();
+      return await new Promise(ok => {
+        const tx = db.transaction('kv', value === undefined ? 'readonly' : 'readwrite');
+        const q = value === undefined ? tx.objectStore('kv').get(key) : tx.objectStore('kv').put(value, key);
+        q.onsuccess = () => ok(q.result);
+        q.onerror = () => ok(null);
+      });
+    } catch (e) {
+      return null;  // private window or blocked storage: nothing remembered
+    }
+  };
+  const showCalendar = async () => {
+    const h = canPickFiles ? await kv('calendar') : null;
+    $('calName').textContent = h ? h.name : canPickFiles ? 'none chosen' : "this browser can't remember files";
+    $('calForget').hidden = !h;
+    $('calPick').hidden = !canPickFiles;
+  };
+  $('calPick').onclick = async () => {
+    try {
+      const [h] = await window.showOpenFilePicker({ types: [{ description: 'Calendar', accept: { 'text/calendar': ['.ics'] } }] });
+      await kv('calendar', h);
+    } catch (e) { /* cancelled */ }
+    showCalendar();
+  };
+  $('calForget').onclick = async () => { await kv('calendar', null); showCalendar(); };
+  showCalendar();
+
+  // One line per step: … while it runs, then ✓ done, – skipped or ✗ failed.
+  let last = null;
+  const step = text => {
+    const li = document.createElement('li');
+    li.className = 'doing';
+    li.textContent = text;
+    list.append(li);
+    return last = { set(t, state) { li.textContent = t; li.className = state; } };
+  };
+
+  // After a firmware update the board restarts: wait for it to come back.
+  async function reconnect() {
+    for (let i = 0; i < 30; i++) {
+      await new Promise(r => setTimeout(r, 1000));
+      const port = await knownPort();
+      if (port) try { return await connect(port); } catch (e) { /* still starting */ }
+    }
+    throw new Error("The device didn't come back after the update. Press one of its buttons, then sync again.");
+  }
+
+  let syncing = false;
+  async function syncAll(auto, givenPort) {
+    if (syncing) return;
+    syncing = true;
+    $('syncAll').disabled = true;
+    list.innerHTML = '';
+    say('');
+    let dev = null;
+    try {
+      // First, while this still counts as a click: permission to read the calendar file again.
+      const file = canPickFiles ? await kv('calendar') : null;
+      let canRead = file && await file.queryPermission({ mode: 'read' }) === 'granted';
+      if (file && !canRead && !auto) canRead = await file.requestPermission({ mode: 'read' }) === 'granted';
+
+      const c = step('Connecting to the device');
+      const port = givenPort || await knownPort() || (auto ? null : await pickPort());
+      if (!port) return c.set('No device: plug it in and press one of its buttons', 'fail');
+      dev = await connect(port);
+      c.set('Connected', 'done');
+
+      const f = step('Checking the firmware');
+      const have = await deviceVersion(dev), latest = await latestVersion();
+      const order = have === null ? -1 : compareVersions(have, latest);  // no reply to V: firmware from before it
+      if (latest && order === -1) {
+        await dev.close();
+        dev = null;
+        await updateFirmware(port, t => f.set(`Updating the firmware to ${latest}: ${t}`, 'doing'));
+        dev = await reconnect();
+        f.set(`Firmware updated to ${latest} (your settings and files stay)`, 'done');
+      } else if (order === null) {
+        f.set(`Firmware ${have}: a test build, left as it is`, 'skip');
+      } else {
+        f.set(`Firmware ${have} is up to date`, 'done');
+      }
+
+      const t = step('Setting the clock');
+      await setTime(dev);
+      t.set(`Clock set to ${hmOf(new Date())}`, 'done');
+
+      const k = step('Calendar');
+      if (!file) {
+        k.set('Calendar: no file chosen (below)', 'skip');
+      } else if (!canRead) {
+        k.set('Calendar: click Sync everything to let this page read the file', 'skip');
+      } else {
+        const lines = eventsFrom(await (await file.getFile()).text());
+        await sendEvents(dev, lines);
+        k.set(`Calendar: ${lines.length} event${lines.length === 1 ? '' : 's'} sent from ${file.name}`, 'done');
+      }
+
+      const n = step('Notes');
+      const r = await notesSync(dev);
+      if (r.started) n.set(`Notes: sending ${r.started} (the device carries on by itself)`, 'done');
+      else if (r.none) n.set('Notes: nothing waiting', 'done');
+      else if (r.busy) n.set('Notes: already sending', 'done');
+      else n.set(`Notes: ${r.fail}`, 'skip');
+      say('All done.');
+    } catch (e) {
+      const why = e.name === 'NotFoundError' ? asleepHint : e.message || String(e);
+      if (last && list.lastChild && list.lastChild.className === 'doing') last.set(`${list.lastChild.textContent}: ${why}`, 'fail');
+      else say(why);
+    } finally {
+      if (dev) await dev.close();
+      syncing = false;
+      $('syncAll').disabled = !supported;
+    }
+  }
+
+  $('syncAll').disabled = !supported;
+  $('syncAll').onclick = () => syncAll(false);
+
+  // Automatic: when a board this page was allowed before appears (plugged in and awake). It waits a few seconds
+  // so it doesn't talk over the Mac calendar agent, which syncs just after the device appears.
+  const AUTO_KEY = 'unidex-auto-sync';
+  let autoOn = false;
+  try { autoOn = localStorage.getItem(AUTO_KEY) === '1'; } catch (e) { /* storage blocked */ }
+  $('autoSync').checked = autoOn;
+  $('autoSync').onchange = () => {
+    autoOn = $('autoSync').checked;
+    try { localStorage.setItem(AUTO_KEY, autoOn ? '1' : '0'); } catch (e) { /* storage blocked */ }
+  };
+  if (supported) navigator.serial.addEventListener('connect', e => {
+    if (autoOn && !syncing) setTimeout(() => syncAll(true, e.target), 5000);
+  });
+}
+
 // ---- clock & calendar ----
 {
   const $ = id => document.getElementById(id);
-  const DAYS_AHEAD = 7, MAX_EVENTS = 64, TZ = 'Europe/London';  // the device shows London time
-
-  // Same cleaning as tools/calsync/calsync.swift: the device font is ASCII, fields are comma-separated.
-  const clean = (s, max) => (s || '').normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^\x20-\x7e]|,/g, '').trim().slice(0, max);
-  const parts = d => Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, year: 'numeric',
-    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
-    .formatToParts(d).map(p => [p.type, p.value]));
-  const dayOf = d => { const p = parts(d); return `${p.year}-${p.month}-${p.day}`; };
-  const hmOf = d => { const p = parts(d); return `${p.hour}:${p.minute}`; };
-
   let lines = null;
-
-  // .ics text -> device lines for today + 7 days (London), soonest first.
-  function eventsFrom(text) {
-    const cal = new ICAL.Component(ICAL.parse(text));
-    for (const tz of cal.getAllSubcomponents('vtimezone')) ICAL.TimezoneService.register(tz);
-    const now = new Date(), first = dayOf(now), last = dayOf(new Date(now.getTime() + DAYS_AHEAD * 86400000));
-    const masters = new Map(), out = [];
-    const vevents = cal.getAllSubcomponents('vevent');
-    for (const v of vevents) if (!v.hasProperty('recurrence-id')) masters.set(v.getFirstPropertyValue('uid'), new ICAL.Event(v));
-    for (const v of vevents) {  // moved or cancelled single occurrences of a repeating event
-      const master = v.hasProperty('recurrence-id') && masters.get(v.getFirstPropertyValue('uid'));
-      if (master) master.relateException(new ICAL.Event(v));
-    }
-    // Lengths match the device (timetable.cpp): title 63, location 47, notes 160.
-    const add = (summary, location, description, start, end, allDay) => {
-      const title = clean(summary, 63), place = clean(location, 47);
-      const notes = clean((description || '').replace(/\s*\n\s*/g, ' / '), 160);
-      if (allDay) {  // one line per day it covers, inside the window (end date is exclusive)
-        for (let d = start.clone(); d.compare(end) < 0; d.addDuration(ICAL.Duration.fromData({ days: 1 }))) {
-          const day = d.toString().slice(0, 10);
-          if (day >= first && day <= last) out.push({ at: new Date(day + 'T00:00:00Z'), line: `${day},,,${title},${place},${notes}` });
-        }
-        return;
-      }
-      const s = start.toJSDate(), e = end.toJSDate(), day = dayOf(s);
-      if (day < first || day > last) return;
-      const endText = dayOf(e) === day ? hmOf(e) : '23:59';  // crossing midnight: cut at 23:59
-      out.push({ at: s, line: `${day},${hmOf(s)},${endText},${title},${place},${notes}` });
-    };
-    const windowEnd = ICAL.Time.fromJSDate(new Date(now.getTime() + (DAYS_AHEAD + 2) * 86400000), true);
-    const windowStart = ICAL.Time.fromJSDate(new Date(now.getTime() - 2 * 86400000), true);
-    for (const ev of masters.values()) {
-      if (ev.component.getFirstPropertyValue('status') === 'CANCELLED') continue;
-      if (!ev.isRecurring()) {
-        add(ev.summary, ev.location, ev.description, ev.startDate, ev.endDate, ev.startDate.isDate);
-        continue;
-      }
-      const it = ev.iterator();
-      for (let next, guard = 0; (next = it.next()) && guard < 5000; guard++) {
-        if (next.compare(windowEnd) > 0) break;
-        if (next.compare(windowStart) < 0) continue;
-        const o = ev.getOccurrenceDetails(next);
-        if (o.item.component.getFirstPropertyValue('status') === 'CANCELLED') continue;
-        add(o.item.summary, o.item.location, o.item.description, o.startDate, o.endDate, o.startDate.isDate);
-      }
-    }
-    return out.sort((a, b) => a.at - b.at).slice(0, MAX_EVENTS).map(e => e.line);
-  }
 
   function loadIcs(file) {
     if (!file) return;
@@ -421,11 +542,6 @@ function encodeBmp(bits) {
     }
   }
 
-  const setTime = async dev => {
-    await dev.send(`T ${Math.round(Date.now() / 1000)}`);
-    if (!await dev.expect('OK T', 3000)) throw new Error('The device did not confirm the time.');
-  };
-
   $('setClock').disabled = !supported;
   $('setClock').onclick = () => withDevice('clockStatus', async dev => {
     await setTime(dev);
@@ -434,10 +550,7 @@ function encodeBmp(bits) {
 
   $('sendIcs').onclick = () => withDevice('icsStatus', async dev => {
     await setTime(dev);
-    const body = lines.map(l => l + '\n').join('');
-    await dev.send(`E ${lines.length} ${crc32(new TextEncoder().encode(body))}`);
-    for (const l of lines) await dev.send(l);
-    if (!await dev.expect('OK E', 5000)) throw new Error('The device did not confirm the events.');
+    await sendEvents(dev, lines);
     return `Sent ${lines.length} event${lines.length === 1 ? '' : 's'} and set the clock. Open Timetable on the device.`;
   });
 

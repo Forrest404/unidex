@@ -6,9 +6,11 @@
 #include "storage.h"
 #include "../apps/notes/usb.h"
 #include "devtools.h"
+#include <unidex_version.h>
 
 // Protocol (text lines, Mac -> device):
 //   ?                      -> "unidex 1"
+//   V                      -> "OK V <firmware version>" (from git, tools/version.py)
 //   T <unix seconds>       -> sets the clock, "OK T"
 //   C                      -> "OK C <clock chip registers and system time>" (diagnostics)
 //   N ...                  -> Notes settings, tests and note download (src/apps/notes/usb.h)
@@ -131,6 +133,8 @@ static void handle(const char *l) {
 #endif
   if (strcmp(l, "?") == 0) {
     Serial.println("unidex 1");
+  } else if (strcmp(l, "V") == 0) {
+    Serial.printf("OK V %s\n", UNIDEX_VERSION);
   } else if (strcmp(l, "C") == 0) {
     char status[96];
     clockStatus(status, sizeof status);

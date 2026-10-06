@@ -32,6 +32,18 @@ static void printHex(const String &s) {
 }
 
 // A note id from the page: digits, letters and dashes only, so it can't reach outside /notes.
+// Notes still to transcribe or push (`notes` gets how many there are). The card must be readable.
+static int waitingNotes(int &notes) {
+  const bool gh = credGet("gh_on") == "1";
+  int waiting = 0;
+  notes = 0;
+  for (const NoteInfo &n : storeList()) {
+    notes++;
+    waiting += !n.text || (!n.pushed && gh);
+  }
+  return waiting;
+}
+
 static void status() {
   // Each line printed separately: credStatus writes them straight to Serial with the "NS " prefix added here.
   struct Prefixed : Print {
@@ -43,14 +55,24 @@ static void status() {
     }
   } out;
   credStatus(out);
-  int notes = 0, waiting = 0;
+  int notes = 0;
   const bool card = storeReady();
-  if (card)
-    for (const NoteInfo &n : storeList()) {
-      notes++;
-      waiting += !n.text || (!n.pushed && credGet("gh_on") == "1");
-    }
+  const int waiting = card ? waitingNotes(notes) : 0;
   Serial.printf("NC %d %d %d\nOK N ?\n", card, notes, waiting);
+}
+
+// The website's one-click sync: sends waiting notes in the background, as B on the Notes screen does.
+static void startSync() {
+  int notes = 0;
+  if (jobBusy()) Serial.println("OK N SYNC busy");
+  else if (!storeReady()) Serial.println("OK N SYNC fail no SD card");
+  else if (!credHas("wifi_ssid")) Serial.println("OK N SYNC fail WiFi not set up");
+  else if (const int waiting = waitingNotes(notes)) {
+    if (jobStartSweep()) Serial.printf("OK N SYNC started %d\n", waiting);
+    else Serial.println("OK N SYNC busy");
+  } else {
+    Serial.println("OK N SYNC none");
+  }
 }
 
 // Records 2 s and reports how loud it was. With `radio`, WiFi is connecting meanwhile (to check it adds no hum).
@@ -165,6 +187,8 @@ bool notesUsb(const char *l) {
     }
     if (storeValidId(arg)) storeDelete(arg);
     Serial.println("OK N DEL");
+  } else if (strcmp(cmd, "SYNC") == 0) {
+    startSync();
   } else if (strcmp(cmd, "JOB") == 0) {
     const JobStatus js = jobStatus();
     Serial.printf("OK N JOB %d %d %lu ", jobBusy(), (int)js.step, (unsigned long)js.gen);

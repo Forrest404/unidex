@@ -71,13 +71,11 @@
   </section>
 </main>
 <script type="module">
-  // Update writes only the app (firmware.bin at 0x10000) and never erases, so NVS settings and the SD card stay.
-  // ESP Web Tools can't do this: it erases the whole device for firmware without Improv Serial.
-  import { ESPLoader, Transport } from 'https://cdn.jsdelivr.net/npm/esptool-js@0.6.0/+esm';
+  // Update writes only the app and never erases (site/update.js), so settings and the SD card stay.
+  import { latestVersion, updateFirmware } from './update.js';
   const $ = id => document.getElementById(id);
   let version = 'unknown';
-  fetch('firmware/update.json').then(r => r.json()).then(m => { version = m.version; $('version').textContent = version; })
-    .catch(() => { $('version').textContent = version; });
+  latestVersion().then(v => { version = v || version; $('version').textContent = version; });
 
   const status = text => { $('updateStatus').textContent = text; };
   if (!('serial' in navigator)) {
@@ -94,29 +92,12 @@
       return;
     }
     $('update').disabled = true;
-    const transport = new Transport(port);
-    const loader = new ESPLoader({ transport, baudrate: 115200, enableTracing: false });  // 115200: no baud switch
     try {
-      status('Connecting…');
-      await loader.main();  // resets into the bootloader and starts the flasher
-      status('Downloading…');
-      const resp = await fetch('firmware/firmware.bin');
-      if (!resp.ok) throw new Error(`download failed (${resp.status})`);
-      const data = new Uint8Array(await resp.arrayBuffer());
-      await loader.writeFlash({
-        fileArray: [{ data, address: 0x10000 }],
-        flashSize: 'keep', flashMode: 'keep', flashFreq: 'keep', eraseAll: false, compress: true,
-        reportProgress: (i, written, total) => status(`Updating… ${Math.floor(written * 100 / total)}%`),
-      });
-      status('Restarting…');
-      await transport.setRTS(true);
-      await new Promise(r => setTimeout(r, 100));
-      await loader.after();
+      await updateFirmware(port, status);
       status(`Updated to ${version}. Your data was kept.`);
     } catch (e) {
       status(`Update failed: ${e.message || e}. Unplug the device, hold BOOT while plugging it back in, then try again.`);
     } finally {
-      await transport.disconnect().catch(() => {});
       $('update').disabled = !('serial' in navigator);
     }
   };

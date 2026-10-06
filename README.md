@@ -16,8 +16,9 @@ built to sleep whenever you aren't pressing something, to save battery (battery 
 Built with PlatformIO + Arduino (ESP32-S3). WiFi is never used unless you ask for it (a Dex scan, a Notes recording or sync, or an NTP time sync).
 
 **Install it from your browser, with no tools needed: https://forrest404.github.io/unidex/** (Chrome or Edge on a
-computer). The same site has [Tools](https://forrest404.github.io/unidex/tools.html): the badge maker, setting the
-clock, sending a calendar file, and the automatic Mac calendar sync; and a
+computer). The same site has [Tools](https://forrest404.github.io/unidex/tools.html): **Sync everything** (newest
+firmware, clock, calendar and waiting notes in one click), the badge maker, setting the clock, sending a calendar
+file, and the automatic Mac calendar sync; and a
 [Notes](https://forrest404.github.io/unidex/notes.html) page for WiFi, API keys and GitHub.
 
 ## What you need
@@ -350,6 +351,22 @@ ESP Web Tools flashes at 115200 baud with a modern esptool stub, which works on 
 problems came from its older bundled esptool together with a baud switch. The Tools page talks to the device with the
 same USB protocol as the Mac agent (`site/serial.js`). Calendar files are parsed with ical.js (repeating events,
 moved or cancelled occurrences, time zones) and sent as London time, like `calsync.swift`.
+
+**Sync everything** (top of Tools) does it all in one click:
+
+1. updates the firmware if the site has a newer release (the device reports its version with `V`, taken from
+   git at build time by `tools/version.py`; a newer or test build is left alone);
+2. sets the clock;
+3. sends the calendar file you chose once, which the page remembers;
+4. starts the device sending notes still waiting (`N SYNC`; the device carries on by itself).
+
+Your settings and files stay through the update (`site/update.js` writes only the app, like Update).
+
+- **The calendar file:** Chrome may ask once per visit before reading the file again. Export the calendar to the
+  same file when it changes. Calendar links (Google, Outlook, iCloud) can't be read by a web page without a
+  third-party server, so it's a file.
+- **"Sync by itself":** the same sync runs when the device is plugged in and awake while the page is open. It waits
+  a few seconds so it doesn't talk over the Mac agent. Both write the calendar, and the last one wins.
 
 Files live on the SD card, so the installer writes no filesystem image; people copy `starter/` to their card or use
 the badge maker. `data/badges/` holds the same generic set: anything put there is committed and public, so keep

@@ -21,9 +21,19 @@ export const crc32 = (() => {
 
 export const asleepHint = 'No device picked. Nothing listed? The board is asleep: press one of its buttons, then try again.';
 
-// Asks the user to pick the board, opens it and says hello. Returns {send, expect, close}.
-export async function connect() {
-  const port = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x303a }] });
+const FILTER = { usbVendorId: 0x303a };
+
+// A board this site was allowed to use before (no picker needed), or null.
+export async function knownPort() {
+  const ports = await navigator.serial.getPorts();
+  return ports.find(p => p.getInfo().usbVendorId === FILTER.usbVendorId) || null;
+}
+
+export const pickPort = () => navigator.serial.requestPort({ filters: [FILTER] });
+
+// Opens the board (`port`, or one the user picks) and says hello. Returns {send, expect, close, port}.
+export async function connect(port) {
+  port = port || await pickPort();
   await port.open({ baudRate: 115200 });
   // The ESP32-S3 resets if RTS is on while DTR is off, so clear RTS first, then DTR.
   await port.setSignals({ requestToSend: false });
@@ -73,7 +83,27 @@ export async function connect() {
     await close();
     throw new Error('No reply. Is unidex installed? Press a button on the device to wake it, then try again.');
   }
-  return { send, expect, close };
+  return { send, expect, close, port };
+}
+
+// The device's firmware version ("v1.4", "v1.4-3-gabc1234"), or null for firmware too old to say.
+export async function deviceVersion(dev) {
+  await dev.send('V');
+  const line = await dev.expect('OK V ', 1500);
+  return line ? line.slice(5).trim() : null;
+}
+
+// -1 if a is older than b, 0 the same, 1 newer; null if either can't be read (a test build, "dev").
+// "v1.4-3-gabc" is 3 commits after v1.4: newer than v1.4, older than v1.5.
+export function compareVersions(a, b) {
+  const parse = v => {
+    const m = /^v?(\d+)\.(\d+)(?:\.(\d+))?(?:-(\d+)-g[0-9a-f]+)?$/.exec(v || '');
+    return m && [+m[1], +m[2], +(m[3] || 0), +(m[4] || 0)];
+  };
+  const x = parse(a), y = parse(b);
+  if (!x || !y) return null;
+  for (let i = 0; i < 4; i++) if (x[i] !== y[i]) return x[i] < y[i] ? -1 : 1;
+  return 0;
 }
 
 // ---- Notes (src/apps/notes/usb.h): settings, connection tests and note download ----
@@ -113,6 +143,19 @@ export async function notesSetLong(dev, name, value) {
     if (!(await dev.expect(`OK N ADD ${name}`, 3000))) throw new Error(`The device didn’t take ${name}.`);
   }
   await notesSet(dev, name, value.slice(i));
+}
+
+// Starts the device sending its waiting notes over its own WiFi (it carries on after the page lets go).
+// {started: n} | {none: true} | {busy: true} | {fail: reason}
+export async function notesSync(dev) {
+  await dev.send('N SYNC');
+  const line = await dev.expect('OK N SYNC', 15000);
+  if (!line) throw new Error(tooOld);
+  const [, , , what, ...rest] = line.split(' ');
+  if (what === 'started') return { started: +rest[0] };
+  if (what === 'none') return { none: true };
+  if (what === 'busy') return { busy: true };
+  return { fail: rest.join(' ') };
 }
 
 export async function notesClear(dev, name = 'all') {

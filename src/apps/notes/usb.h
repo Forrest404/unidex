@@ -15,5 +15,8 @@
 //   N LIST                   -> "NF <id> <bytes> <text 0|1> <pushed 0|1> <hex title>" per note, then "OK N LIST"
 //   N READ <id>              -> "ND <hex, up to 64 bytes>" lines, then "OK N READ <bytes> <crc32>" (or "ERR")
 //   N DEL <id>               -> "OK N DEL" ("ERR busy" for the note being sent)
+//   N SYNC                   -> starts sending waiting notes in the background (as B on the Notes screen):
+//                               "OK N SYNC started <waiting>", "OK N SYNC none", "OK N SYNC busy",
+//                               "OK N SYNC fail <reason>" (no SD card, WiFi not set up); then watch N JOB
 //   N JOB                    -> "OK N JOB <busy 0|1> <step> <gen> <hex result> <hex note id> <stack bytes left>"
 bool notesUsb(const char *line);

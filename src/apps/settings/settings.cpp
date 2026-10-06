@@ -10,8 +10,9 @@
 #include "../../core/storage.h"
 #include "../../core/theme.h"
 #include "../../core/usbsync.h"
+#include <unidex_version.h>
 
-static const char *VERSION = "v1.3";
+static const char *VERSION = UNIDEX_VERSION;  // from git, tools/version.py
 static const int SLEEP_CHOICES[] = {10, 20, 30, 60};
 static const int ROW_H = 26;
 
