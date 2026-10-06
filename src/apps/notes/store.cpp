@@ -10,6 +10,13 @@ static String path(const String &id, const char *ext) { return String(DIR) + "/"
 
 bool storeReady() { return storageCardMount(); }
 
+bool storeValidId(const String &id) {
+  if (!id.length() || id.length() > 24) return false;
+  for (size_t i = 0; i < id.length(); i++)
+    if (!isalnum((unsigned char)id[i]) && id[i] != '-') return false;
+  return true;
+}
+
 String storeNewId() {
   if (clockValid()) {
     time_t t = time(nullptr);

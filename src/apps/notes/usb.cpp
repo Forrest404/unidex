@@ -32,13 +32,6 @@ static void printHex(const String &s) {
 }
 
 // A note id from the page: digits, letters and dashes only, so it can't reach outside /notes.
-static bool validId(const String &id) {
-  if (!id.length() || id.length() > 24) return false;
-  for (size_t i = 0; i < id.length(); i++)
-    if (!isalnum((unsigned char)id[i]) && id[i] != '-') return false;
-  return true;
-}
-
 static void status() {
   // Each line printed separately: credStatus writes them straight to Serial with the "NS " prefix added here.
   struct Prefixed : Print {
@@ -98,7 +91,7 @@ static void list() {
 }
 
 static void read(const String &id) {
-  if (!validId(id)) {
+  if (!storeValidId(id)) {
     Serial.println("ERR");
     return;
   }
@@ -170,7 +163,7 @@ bool notesUsb(const char *l) {
       Serial.println("ERR busy");
       return true;
     }
-    if (validId(arg)) storeDelete(arg);
+    if (storeValidId(arg)) storeDelete(arg);
     Serial.println("OK N DEL");
   } else if (strcmp(cmd, "JOB") == 0) {
     const JobStatus js = jobStatus();

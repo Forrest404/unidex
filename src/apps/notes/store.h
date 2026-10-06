@@ -13,6 +13,7 @@ struct NoteInfo {
 
 bool storeReady();                                   // the card is readable (mounts it on first use)
 String storeNewId();                                 // a fresh id from the clock (or a counter if it isn't set)
+bool storeValidId(const String &id);                 // letters, digits and '-' only: safe to put in a path
 bool storeSaveWav(const String &id, const int16_t *samples, size_t count);
 String storeWavPath(const String &id);
 bool storeSaveNote(const String &id, const String &markdown);
