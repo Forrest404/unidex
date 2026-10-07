@@ -244,7 +244,7 @@ pieces, each acknowledged and resent if lost, checked with a CRC at the end (a b
 friend sees it full screen first ("From ..."): B keeps it in `/badges` (a name that's taken gets "-2", "-3"...), A
 says no thanks, and you see what they did. Nothing is saved without their B; only badges up to 16 KB, and only a
 valid 1-bit BMP. Transfer rules: `src/apps/pet/send_logic.h` (tested by `tools/meettest/send_test.cpp`); two-board
-test: `tools/badgeshot.py`. Every frame plays on a 500 ms beat from one device's message, so
+test: `tools/badgeshot.py`. Every frame plays on a 550 ms beat from one device's message, so
 the two screens stay within about 50 ms. Closeness comes from the signal strength both ways (the median of the
 last readings): it can tell "within about 15 cm" from "a metre away", but not touching from 15 cm, so meeting
 always needs a press. The radio is only on while Meet is open (2 minutes without a press stops it, 5 while

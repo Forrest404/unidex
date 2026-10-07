@@ -215,6 +215,11 @@ static void drawEdit() {
   const pet::Look look = pet::unpack(draft);
   drawHeader("Dress up");
   drawAvatar(look, EDIT_SCALE, EDIT_AVATAR_Y);
+  for (int r = 0; r < ROWS; r++) {  // which row of the editor this is: one dot each
+    const int16_t x = display.width() / 2 + (r * 2 - (ROWS - 1)) * 5, y = EDIT_AVATAR_Y + pet::SIZE * EDIT_SCALE + 5;
+    if (r == row) display.fillCircle(x, y, 3, BLACK);
+    else display.drawPixel(x, y, BLACK), display.drawCircle(x, y, 1, BLACK);
+  }
   display.setFont(FONT_SMALL);
   char right[16];
   if (row < pet::LAYERS) {
@@ -271,7 +276,11 @@ static void drawName() {
   }
   display.setFont(FONT_SMALL);
   const bool done = pet::nameDoneAt(places, place);
-  drawCentered(done ? "B: that's the name" : "A: letter  B: next place", CONTENT_TOP + 104);
+  char counter[24];
+  snprintf(counter, sizeof counter, "letter %d of %d", place + 1, pet::MAX_NAME);
+  display.setFont(FONT_TINY);
+  if (done && len) snprintf(counter, sizeof counter, "%d letter%s", len, len == 1 ? "" : "s");
+  drawCentered(done && !len ? "no name" : counter, CONTENT_TOP + 104);
   drawHints("letter", done ? "done" : "next", "previous");
 }
 
@@ -359,7 +368,10 @@ static void status(char *out, size_t len) {
     strlcpy(name, petName().c_str(), sizeof name);
     named = name[0] != 0;
   }
-  if (named) snprintf(out, len, "Say hi to %s!", name);
+  const int friends = meetFriendCount();
+  if (friends && named) snprintf(out, len, "%s, %d friend%s", name, friends, friends == 1 ? "" : "s");
+  else if (friends) snprintf(out, len, "%d friend%s", friends, friends == 1 ? "" : "s");
+  else if (named) snprintf(out, len, "Say hi to %s!", name);
   else snprintf(out, len, "Say hi!");
 }
 

@@ -18,7 +18,7 @@
 // half. The left device runs the show: it sends each act (meet_logic.h) and both play it on the same beat.
 
 static const uint32_t HELLO_MS = 1000, STOP_MS = 120000, STOP_CONNECTED_MS = 300000;
-static const uint32_t BEAT_MS = 500, LEAD_MS = 1300;  // a frame a beat; an act starts this long after it's sent
+static const uint32_t BEAT_MS = 550, LEAD_MS = 1300;  // a frame a beat (a refresh takes ~0.4 s); then the start delay
 static const uint32_t PARTED_MS = 3000;               // weak this long: they've been parted
 static const int SCALE = 3, SIZE = 32 * SCALE;        // Pets at 96 px
 static const int16_t PY = HINTS_TOP - 4 - SIZE;       // their top, low enough for a tag and a bubble above
@@ -33,14 +33,17 @@ static bool blinking;
 static bool connected, amLeft;
 static meet::Nearby partner;  // the other Pet (copied: kept while it walks away)
 static int16_t pos[2];        // where Pet 0 (left screen's) and Pet 1 stand, in room x
-static uint32_t partedSince, lastActAt, showGap;  // lastActAt: when the last act ended
+static uint32_t partedSince, showGap;
+static uint32_t lastActAt;  // when the last act ended (or they connected): message copies from before it are old news
+static uint32_t calmSince;  // since when nothing has happened here: the show waits showGap after it
 static meet::Script script;
 static const meet::Frame *current;  // the frame being shown during an act
 
 // Friends: asked after a first greeting ("Be friends?"); both must say yes. Kept in NVS ("pet_friends").
 static friends::List buddies;
 static bool buddiesLoaded, asking;  // asking: the "Be friends?" question is on screen
-static uint8_t myAnswer, theirAnswer;  // 0 not yet, 1 yes, 2 not now
+static uint8_t myAnswer, theirAnswer;  // 0 not yet, 1 yes, 2 not now (3 from them: yes, settled already)
+static uint32_t nextAnswerAt;          // a yes is repeated until the question is settled
 static uint32_t askedAt;
 static const uint32_t ASK_MS = 30000;  // the question goes away after this long
 // The friends list (A on the searching screen)
@@ -68,6 +71,8 @@ static void meetFriend(const meet::Nearby &who) {
 }
 
 static bool isFriend(uint32_t id) { return friendsList().find(id) >= 0; }
+
+int meetFriendCount() { return friendsList().count; }
 
 // Sending badges to a friend (hold B in the room: a menu with "Swap screens" and "Send a badge").
 static bool menuOpen, picking, waitingVerdict, receiving, previewing;
@@ -180,9 +185,16 @@ static void play(uint8_t act, uint8_t actor, uint32_t seed, uint32_t startAt) {
   pos[0] = script.x[0], pos[1] = script.x[1];
   if (!devManualFrames()) displayClean(meetDraw);  // drives every pixel: no trail left behind
   nearby.touchAll(millis());  // neither device sent anything meanwhile: that isn't "gone quiet"
-  lastActAt = millis();
+  lastActAt = calmSince = millis();
   showGap = 8000 + esp_random() % 4000;
-  if (act == meet::GREET && !isFriend(partner.id)) {  // a first meeting: ask both owners
+  // Friends or not is decided by the left device's greeting, so the two sides can never disagree for long: a
+  // friends' greeting adds the friend here if this side had lost it; a strangers' greeting asks both again.
+  if (act == meet::GREET_FRIEND && !isFriend(partner.id)) meetFriend(partner);
+  if (act == meet::FRIENDS) {  // the celebration settles it here too, even if their yes never arrived
+    if (!isFriend(partner.id)) meetFriend(partner);
+    asking = false;
+  }
+  if (act == meet::GREET) {  // a first meeting: ask both owners
     asking = true;
     myAnswer = theirAnswer = 0;
     askedAt = millis();
@@ -216,7 +228,7 @@ static void connect(const meet::Nearby &who) {
   amLeft = myId() < who.id;
   pos[0] = meet::HOME[0], pos[1] = meet::HOME[1];
   partedSince = 0;
-  lastActAt = millis();  // also: the other copies of the CONNECT are old news from here
+  lastActAt = calmSince = millis();  // also: the other copies of the CONNECT are old news from here
   showGap = 3000;  // the greeting comes first
   asking = listing = confirmRemove = false;
   const bool friendsAlready = isFriend(who.id);
@@ -348,6 +360,9 @@ static void disconnect() {
   connected = asking = menuOpen = picking = waitingVerdict = false;
   rxFree();
   pos[0] = meet::HOME[0], pos[1] = meet::HOME[1];
+  char text[32];
+  snprintf(text, sizeof text, "%s went home", partner.name[0] ? partner.name : "Your friend");
+  launcherToast(text);
 }
 
 // --- radio ---
@@ -509,7 +524,8 @@ Redraw meetButton(Event e) {
     if (myAnswer || (e != Event::BShort && e != Event::AShort)) return Redraw::None;
     myAnswer = e == Event::BShort ? 1 : 2;
     tell(meet::ANSWER, myAnswer);
-    lastActAt = millis();  // the room waits its usual gap after the question before playing by itself
+    nextAnswerAt = millis() + 300;
+    calmSince = millis();  // the room waits its usual gap after the question before playing by itself
     if (myAnswer == 2) asking = false;
     else if (theirAnswer == 1) becomeFriends();
     return Redraw::Partial;
@@ -558,16 +574,19 @@ Redraw meetTick() {
       else if (m.type == meet::ACT && connected && m.from == partner.id && !gotAct)
         gotAct = true, act = m, actAt = p.at;
       else if (m.type == meet::ASK && connected && amLeft && m.from == partner.id && m.act == 0)
-        partnerBusyUntil = m.actor ? now + 60000 : 0, lastActAt = now;  // the right one is busy, or done
+        partnerBusyUntil = m.actor ? now + 60000 : 0, calmSince = now;  // the right one is busy, or done
       else if (m.type == meet::ASK && connected && amLeft && m.from == partner.id) gotAsk = true, ask = m;
-      else if (m.type == meet::ANSWER && connected && m.from == partner.id) theirAnswer = m.act;
+      else if (m.type == meet::ANSWER && connected && m.from == partner.id) {
+        theirAnswer = m.act == 3 ? 1 : m.act;
+        if (m.act == 1 && !asking && isFriend(partner.id)) tell(meet::ANSWER, 3);  // they missed ours: settled
+      }
     } else if (connected) {
       receivePacket(p, now, badgeNews);
     }
   }
   changed |= nearby.forget(now);
   static bool wasBusy;  // a menu, a badge or a question just ended here: the show waits its usual gap again
-  if (wasBusy && !busyHere()) lastActAt = now;
+  if (wasBusy && !busyHere()) calmSince = now;
   wasBusy = busyHere();
 
   if (!connected) {
@@ -579,12 +598,16 @@ Redraw meetTick() {
     if (asking) {
       if (theirAnswer == 2 || now - askedAt > ASK_MS) {  // "not now" from them, or no answer for a while
         asking = false;
-        lastActAt = now;
+        calmSince = now;
         return Redraw::Partial;
       }
       if (myAnswer == 1 && theirAnswer == 1) {
         becomeFriends();
         return amLeft ? Redraw::None : Redraw::Partial;
+      }
+      if (myAnswer == 1 && (int32_t)(now - nextAnswerAt) >= 0) {  // say yes again, in case it got lost
+        tell(meet::ANSWER, 1);
+        nextAnswerAt = now + 250 + esp_random() % 150;
       }
     }
     if (badgeNews) return previewing ? Redraw::Full : Redraw::Partial;  // a badge fills the screen
@@ -622,7 +645,7 @@ Redraw meetTick() {
       tellBusy();
       return Redraw::Partial;
     }
-    if (amLeft && !busyHere() && (int32_t)(now - partnerBusyUntil) >= 0 && now - lastActAt > showGap) {
+    if (amLeft && !busyHere() && (int32_t)(now - partnerBusyUntil) >= 0 && now - calmSince > showGap) {
       // the show: something happens every 8-12 s
       const uint8_t pick = esp_random() % 6;
       if (swapped()) startAct(pick < 3 ? meet::SAY : meet::SWAP, esp_random() % 2);
@@ -686,12 +709,11 @@ static void drawFriends() {
   }
 }
 
-// A badge full screen, with a white band at the top for a title and the button hints at the bottom.
+// A badge with a title above and the button hints below: shrunk to fit between them, so all of it shows.
 static void drawBadgeScreen(const Bmp &b, const char *title, const char *right) {
-  badgeDraw(b);
-  display.fillRect(0, 0, display.width(), CONTENT_TOP, WHITE);
   drawHeader(title, right);
-  display.fillRect(0, HINTS_TOP, display.width(), display.height() - HINTS_TOP, WHITE);
+  const int16_t size = HINTS_TOP - CONTENT_TOP - 10;  // 129 px
+  badgeDrawFit(b, (display.width() - size) / 2, CONTENT_TOP + 5, size);
 }
 
 static void drawRoomOnly() {
@@ -737,9 +759,24 @@ void meetDraw() {
     return;
   }
   if (connected && (receiving || waitingVerdict)) return drawSheetFrame();
-  if (connected && menuOpen) {
+  if (connected && menuOpen) {  // a small list over the room, the chosen row in black
     drawRoomOnly();
-    drawSheet(menuRow == 0 ? "> Swap screens" : "  Swap screens", menuRow == 1 ? "> Send a badge" : "  Send a badge");
+    static const char *const ROWS[] = {"Swap screens", "Send a badge"};
+    const int16_t x = MARGIN, w = display.width() - 2 * MARGIN, rowH = 30, h = 2 * rowH + 12;
+    const int16_t y = HINTS_TOP - 10 - h;
+    display.fillRoundRect(x, y, w, h, 6, WHITE);
+    display.drawRoundRect(x, y, w, h, 6, BLACK);
+    display.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 5, BLACK);
+    display.setFont(FONT_SMALL);
+    for (int i = 0; i < 2; i++) {
+      const int16_t ry = y + 6 + i * rowH;
+      if (i == menuRow) {
+        display.fillRoundRect(x + 6, ry, w - 12, rowH - 2, 4, BLACK);
+        display.setTextColor(WHITE);
+      }
+      drawCentered(ROWS[i], ry + rowH / 2 - 1);
+      display.setTextColor(BLACK);
+    }
     drawHints("next", "choose", "");
     return;
   }
@@ -753,6 +790,10 @@ void meetDraw() {
   if (!connected) {
     const int reach = nearby.firstInReach(), near = reach >= 0 ? reach : nearby.strongest();
     drawHeader("Meet", reach >= 0 ? "press B" : near >= 0 ? "come closer" : "looking");
+    if (near < 0) {  // nobody yet: say how this works
+      display.setFont(FONT_TINY);
+      drawCentered("Open Meet on another unidex", CONTENT_TOP + 9);
+    }
     if (near >= 0) {  // how close the nearest one is: 5 dots, all filled when it's in reach
       const int span = 60 + meet::NearbyList::REACH_DBM;  // -60 dBm: none filled; REACH_DBM: all five
       const int filled = reach >= 0 ? 5 : constrain((nearby.strength(near) + 60) * 5 / span, 0, 4);

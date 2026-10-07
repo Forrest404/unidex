@@ -10,7 +10,9 @@
 //   ACT     (the left device starts an act; both play it from when it arrived): from u32, to u32, act u8, actor u8,
 //           seed u32
 //   ASK     (the right device asks the left one for an act): from u32, to u32, act u8, actor u8
-//   ANSWER  (be friends? this device's answer): from u32, to u32, act u8 (1 yes, 2 not now), actor u8 (0)
+//   ANSWER  (be friends? this device's answer): from u32, to u32, act u8 (1 yes, 2 not now, 3 yes and already
+//           settled: the reply to a 1 heard after this side became friends), actor u8 (0). A yes is repeated
+//           every ~0.3 s until the question is settled, so a lost or collided packet can't leave one side behind.
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>

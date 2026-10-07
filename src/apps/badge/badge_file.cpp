@@ -68,6 +68,13 @@ void badgeDraw(const Bmp &b) {
       if (b.black(x, y)) display.drawPixel(x, y, BLACK);
 }
 
+void badgeDrawFit(const Bmp &b, int16_t x0, int16_t y0, int16_t size) {
+  for (int16_t y = 0; y < size; y++)
+    for (int16_t x = 0; x < size; x++)
+      if (b.black(x * 200 / size, y * 200 / size)) display.drawPixel(x0 + x, y0 + y, BLACK);
+  display.drawRect(x0 - 2, y0 - 2, size + 4, size + 4, BLACK);  // the badge's edge, so a white one still reads
+}
+
 String badgeFreeName(const char *name) {
   const String base = String(name).substring(0, strlen(name) - 4);
   String n = name;

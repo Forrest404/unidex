@@ -21,10 +21,14 @@ def boards():
 
 
 def open_pet(dev):
+    """Opens the Pet on its main screen (not Dress up, Name or Meet, where presses would change things)."""
     for _ in range(12):  # home: step to Pet
         st = dev.state()
-        if st["screen"] == "Pet":
+        if st["screen"] == "Pet" and st["detail"].startswith("main:"):
             break
+        if st["screen"] == "Pet":  # in Dress up, Name or Meet: back out (hold A) to the main screen
+            dev.press("A")
+            continue
         if st["screen"] != "Home":
             dev.press("A")
         elif st["sel"] == "Pet":

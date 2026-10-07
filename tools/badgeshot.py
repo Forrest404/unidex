@@ -54,6 +54,7 @@ def main():
     def send_one(tag):
         S.press("B")  # hold B: the menu
         S.press("a")  # "Send a badge"
+        shot(f"{tag}-0-menu", (S,))
         S.press("b")
         expect((S,), lambda x: x.endswith("pick"), 10, f"{tag}: picking a badge")
         shot(f"{tag}-1-pick", (S,))

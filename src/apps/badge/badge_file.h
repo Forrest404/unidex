@@ -25,5 +25,6 @@ bool badgeNameOk(const char *name);     // lower-case letters, digits and dashes
 bool bmpCheck(const uint8_t *data, size_t size, Bmp &b);  // an uncompressed 1-bit BMP up to 200x200 (either palette)
 bool badgeLoad(const char *name, Bmp &b);                 // read from /badges and checked
 void badgeDraw(const Bmp &b);                              // the whole 200x200 frame
+void badgeDrawFit(const Bmp &b, int16_t x, int16_t y, int16_t size);  // shrunk to size x size, with a thin frame
 String badgeFreeName(const char *name);  // `name`, or "name-2.bmp", "name-3.bmp"... if it's taken
 bool badgeSave(const char *name, const uint8_t *data, size_t size);  // written to a temp file, then renamed
