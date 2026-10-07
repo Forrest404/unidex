@@ -4,7 +4,7 @@
 
 - shows your next class with a live countdown;
 - records voice notes, tidied into Markdown for Obsidian;
-- keeps a little pet you dress up;
+- keeps a little Pet you dress up, which meets your friends' Pets on their unidex (they visit, chat and swap badges);
 - flips through name badges;
 - runs a WiFi collection game and four one-button games;
 - sleeps whenever you aren't pressing a button, to save battery.
@@ -22,7 +22,7 @@ Install it from your browser in a minute, with no tools to set up.
   <a href="https://unidex-site.vercel.app"><img height="36" alt="Pre-order (UK)" src="https://img.shields.io/badge/pre--order-UK-black?style=for-the-badge"></a>
 </p>
 
-![unidex on the 200×200 e-paper screen: the next class on the home screen, the Timetable countdown, today's classes, the notes list, an open note and a round of Dino](docs/screens.png)
+![unidex on the 200×200 e-paper screen: the next class on the home screen, the Timetable countdown, today's classes, the notes list, an open note, the Pet and a round of Dino](docs/screens.png)
 
 | App | What it does |
 |---|---|

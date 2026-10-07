@@ -1,5 +1,5 @@
 # Home tiles are shot after visiting the app, so their lines come from the sample data too.
-# Screens for the README strip (docs/screens.png) and the link preview (site/og.png). Timetable and Notes show the
+# Screens for the README strip (docs/screens.png) and the link preview (site/og.png): tools/readme_images.py. Timetable and Notes show the
 # test build's sample classes and notes (demo 1), so no one's real timetable or notes appear; no Dex list (nearby
 # network names), no badges (photos). Chooser's spin adds one win to its tally (normal use); Dino's score isn't
 # saved (dry run).
@@ -29,6 +29,14 @@ press A
 press A
 expect screen=Home
 shot r-home-notes
+manual 1
+select Pet
+press b
+expect screen=Pet
+shot r-pet
+press A
+expect screen=Home
+manual 0
 select Chooser
 press b
 press b
