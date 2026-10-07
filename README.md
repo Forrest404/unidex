@@ -26,104 +26,68 @@ Install it from your browser in a minute, with no tools to set up.
 
 | App | What it does |
 |---|---|
-| **Timetable** | Shows your next class or calendar event with a countdown. Reads a weekly CSV and, optionally, your Apple Calendar (synced from a Mac over USB). |
-| **Notes** | Hold a button and talk: the note is transcribed (OpenAI Whisper), tidied up (OpenAI or Claude), kept on the SD card and optionally pushed to GitHub as Markdown for Obsidian. |
-| **Pet** | A cute little creature you dress up: pick its body, eyes, mouth, hat and an extra, or shuffle a random look. |
-| **Badge** | Flips through full-screen 1-bit images: name tags, logos, photos. Includes a drag-and-drop converter. |
-| **Dex** | A WiFi network collection game. Scan, and every new network name you hear is logged with a rarity. |
-| **Chooser** | Pick 2–6 squares, spin, get a random winner. Keeps a tally. |
+| **Timetable** | Your next class or calendar event with a live countdown, and today's list. |
+| **Notes** | Hold a button and talk: the note is transcribed, tidied up and saved, and can go to GitHub for Obsidian. |
+| **Pet** | A cute creature you dress up and name. Bring two unidex together and the Pets visit, chat, become friends and swap badges. |
+| **Badge** | Full-screen name tags, logos and photos. |
+| **Dex** | A WiFi collection game: every new network name nearby is logged with a rarity. |
+| **Chooser** | Pick 2–6 squares, spin, get a random winner. |
 | **Games** | Four one-button games: Flappy, Dino, Stack and Jetpack, with best scores. |
 | **Settings** | Date and time, sleep, invert, battery and info, reset data. |
 
-Built with PlatformIO + Arduino (ESP32-S3). WiFi is never used unless you ask for it (a Dex scan, a Notes recording or sync, or an NTP time sync).
-
-**Install it from your browser, with no tools needed: https://forrest404.github.io/unidex/** (Chrome or Edge on a
-computer). The same site has [Tools](https://forrest404.github.io/unidex/tools.html): **Sync everything** (newest
-firmware, clock, calendar and waiting notes in one click), the badge maker, setting the clock, sending a calendar
-file, and the automatic Mac calendar sync; and a
-[Notes](https://forrest404.github.io/unidex/notes.html) page for WiFi, API keys and GitHub.
-
 If unidex is useful to you, a star on GitHub helps other people find it.
 
-## What you need
+## Getting started
 
-- **Board:** [Waveshare ESP32-S3-ePaper-1.54](https://docs.waveshare.com/ESP32-S3-ePaper-1.54), **V2**
-  (ESP32-S3-PICO-1, 8 MB flash, 8 MB PSRAM, 200×200 black/white e-paper, BOOT + PWR buttons, PCF85063 clock chip).
-  Other boards would need different pins and a different display driver.
-- A USB-C data cable.
-- Optional: a 3.7 V LiPo on the board's battery connector, to use it untethered.
-- [PlatformIO](https://platformio.org/install) (CLI or the VS Code extension).
-- For Notes: an [OpenAI API key](https://platform.openai.com/api-keys) (Whisper), 2.4 GHz WiFi, and optionally an
-  Anthropic key and a GitHub repo.
-- Optional: a Mac for the calendar sync; Python 3 + [Pillow](https://pillow.readthedocs.io) for the badge script.
+**You need:**
 
-## Quick start
+- the [Waveshare ESP32-S3-ePaper-1.54](https://docs.waveshare.com/ESP32-S3-ePaper-1.54) board, **V2** (or a
+  [ready-made unidex](https://unidex-site.vercel.app));
+- a USB-C **data** cable and a computer with Chrome or Edge;
+- a **micro SD card** (FAT32) for your files;
+- optional: a 3.7 V LiPo battery on the board's battery connector, to use it away from USB.
 
-```sh
-git clone https://github.com/Forrest404/unidex.git && cd unidex
-pio run -t upload       # build and flash the firmware
-```
+**Then:**
 
-Files live on a **micro SD card** (FAT32) in the board's slot: copy the contents of `data/` (or `starter/` for the
-generic badges) to the root of the card, so it has `timetable.csv` and a `badges/` folder. WiFi and API keys are
-never compiled in: set them on the [Notes page](https://forrest404.github.io/unidex/notes.html) (over USB). Badges can also be sent
-from the badge maker. Without a readable card, Timetable, Badge and Dex show "No SD card".
+1. **Install:** open **https://forrest404.github.io/unidex/**, plug the board in, press one of its buttons so it's
+   awake, and click **Install**. Nothing to download.
+2. **SD card:** copy the contents of the [`starter`](starter) folder to the card (a few badges and an empty
+   timetable) and put it in the board's slot.
+3. **Your timetable:** send your calendar from the website's [Tools](https://forrest404.github.io/unidex/tools.html)
+   page, or edit `timetable.csv` on the card (see [Timetable](#timetable)).
+4. **Voice notes (optional):** set up WiFi and your API keys on the
+   [Notes](https://forrest404.github.io/unidex/notes.html) page (see [Notes](#notes)).
 
-If upload can't connect: the USB port disappears while the board sleeps, so press a button and start the
-upload within 10 seconds. Still stuck: hold BOOT, tap RESET (or re-plug USB), release BOOT, retry.
+## The buttons
 
-## Using it
-
-Two buttons: **A** = BOOT, **B** = PWR. They mean the same thing everywhere:
+Two buttons: **A** (BOOT) and **B** (PWR). They mean the same thing everywhere:
 
 | Press | Meaning |
 |---|---|
 | A | next (row, item, page) |
 | B | select / open / do |
-| hold A (~0.3 s) | back one step; from an app's main screen, home; on the home screen, the previous app |
-| hold B | the screen's extra (Today, the picker, rarity, tally, delete, record...) |
+| hold A | back; from an app, home; on the home screen, the previous app |
+| hold B | the screen's extra (shown at the bottom, e.g. `hold B: delete`) |
 
-Every screen shows what A and B do at the bottom (`A next  B open`), with a hold-B extra under B when the
-screen has one (`hold B: delete`). Hold A always goes back, so it isn't shown. Anything that can't be undone
-asks first in a box (A keeps, B goes ahead), and short messages ("Clock set", "Deleted") pop up in a black pill
-for a moment.
+Every screen shows what A and B do along the bottom. Anything that can't be undone asks first (A keeps, B goes
+ahead), and short messages ("Clock set", "Deleted") pop up for a moment.
 
-The home screen shows one app at a time: its icon, its name, a live line under it ("In 12 min: Maths",
-"3 notes, 1 waiting", "Badge 5 of 12"), and a dot per app. A moves to the next app, B opens it. After the time set
-in Settings (10 s at first) without a press the board goes into deep sleep (it stays awake while on USB power, or
-while a note is still sending; see Power below). The screen keeps showing what it last drew (e-ink needs no power
-for that). The press that wakes it also counts: tap A on a sleeping home screen and it wakes and moves in one go;
-hold a button and it's a long press. Powering on with PWR (from off, on battery) doesn't count, so it can't open an
-app.
+The home screen shows one app at a time with a live line under it ("In 12 min: Maths", "3 notes", "Mochi,
+2 friends"); A moves to the next app, B opens it. The top right shows the time and battery (`14:32 87%`); a small
+lightning bolt means it's on USB power.
 
-**Restart:** hold **A and B together for 1 second** ("Restarting / let go of the buttons"), then let go. It boots
-fresh to the home screen, as after a flash. Files, badges, the Dex, events, settings and the clock are all kept.
-While both are held neither button does its own thing, and it waits for you to let go because BOOT is the chip's
-download-mode pin.
+- **Sleep:** after a few seconds without a press (10 s, or as set in Settings) it goes to sleep. The screen keeps
+  showing what it last drew; any button wakes it. It stays awake on USB and while a note is still sending.
+- **Restart:** hold **A and B together for 1 second**, then let go. Your files, settings and the clock are kept.
 
-The top right of the home screen shows the time and battery level, e.g. `14:32  87%`. While the board is awake
-(e.g. on USB) the time and the live line update each minute. While it's asleep the clock chip keeps counting
-silently, with no wake-ups, and the screen catches up on the next press. The percentage is an estimate from the
-battery voltage. A small lightning bolt before it means USB power is present (it can't tell charging from full).
-While charging, the charger lifts the voltage, so the board takes off the lift it saw when plugged in, and once the
-charger is holding the battery at 4.2 V (the last stretch) it counts up to 100% over about 40 minutes: 100% means
-it has been topping up long enough, not a measured full charge. The time is left out until the clock has been set.
+## The apps
 
 ### Timetable
 
-The next class or event as a card: "IN 42 MIN" / "NOW, UNTIL 16:00" / "TOMORROW 09:30" on top, the title in
-large type (wrapped to 2 lines; a longer title drops to 3 small lines), the time and length, the location, and a
-"then 16:30 Maths" line for what comes after.
+Your next class or event: "IN 42 MIN" / "NOW, UNTIL 16:00" / "TOMORROW 09:30", the title, the time, the room, and
+what comes next. **A** = the next one, **B** = details (date, time, room, notes), **hold B** = today's list.
 
-- **A**: next upcoming item (up to 5; "2/5" in the corner)
-- **B**: details: the full title, date, time and length, full location and the event's notes (A pages through long
-  ones)
-- **Hold B**: Today, the rest of today's list ("now" for what's on): A moves, B opens that event's details
-- **Hold A**: back (from details, to where you came from)
-- When the clock isn't set, **B** syncs it over WiFi (if WiFi is set up), or set it in Settings
-
-While the board is awake the countdown moves on each minute; asleep, it catches up on the next press.
-Edit `data/timetable.csv` for weekly classes:
+Classes that repeat every week go in `timetable.csv` on the SD card:
 
 ```csv
 day,start,end,module,room
@@ -131,502 +95,123 @@ Mon,09:00,10:00,Maths,B12
 Wed,18:00,19:30,Robotics Club,Lab 1
 ```
 
-`day` is `Mon`…`Sun`; times are 24 h `HH:MM`. The header row is optional, and unparseable rows are skipped.
-Names are cut at 63 characters and rooms at 47. Up to 96 entries in total (classes + calendar events).
-Put it in the root of the SD card.
-
-#### Apple Calendar sync (macOS)
-
-`tools/calsync/` is a small LaunchAgent. Whenever the board is plugged into your Mac **and awake**, it sends the
-current time and the next 7 days of events from all your calendars (repeats expanded).
-
-```sh
-tools/calsync/install.sh              # builds UnidexSync.app, asks for Calendar access, starts the agent
-tools/calsync/install.sh uninstall
-```
-
-Plugging in doesn't wake the board, so press a button; the sync takes about 2 seconds. Log:
-`~/Library/Application Support/UnidexSync/sync.log`. Calendar permission lives in
-System Settings → Privacy & Security → Calendars.
-
-**Stop the agent before flashing** so it doesn't grab the serial port:
-`launchctl bootout gui/$(id -u)/com.forrest.unidex-sync`, and afterwards
-`launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.forrest.unidex-sync.plist`.
-
-Synced events are stored in `/events.csv` on the SD card, one per line:
-`YYYY-MM-DD,HH:MM,HH:MM,title,location,notes` (empty times = all day). Title, location and notes are cut at 63, 47
-and 160 characters and converted to plain ASCII, because the display font has nothing else; commas are dropped and
-line breaks in notes become " / ". Older 5-field lines still work, just without notes. After updating the firmware,
-re-run `tools/calsync/install.sh` once so the Mac agent sends the longer fields.
-
-#### Timezone
-
-The timezone is hard-coded to London. To change it, edit `TZ_LONDON` (a POSIX TZ string) in
-`src/core/clock.cpp` and `Europe/London` in `tools/calsync/calsync.swift`.
-
-### Badge
-
-**A** next, **hold B** previous, **B** the picker. The badge fills the screen with no header; its buttons show in a
-band along the bottom for a moment when it opens. Each flip is a full refresh (no ghosting), and the last badge shown
-is remembered across sleep and power loss.
-
-The picker: 3×3 thumbnails, 9 per page. **A** moves, **B** opens the selected badge, **hold A** goes back to the
-one you had. Thumbnails are decoded once and kept in RAM, so moving is only as slow as the panel's partial refresh.
-
-Badges are 1-bit, uncompressed BMPs up to 200×200 (smaller ones are centred) in the SD card's `badges/` folder
-(`data/badges/` in the repo is a set to copy there). Files starting with `.` (macOS `._` files) are ignored. They're shown in
-filename order, up to 32, so number them: `01-hello.bmp`, `02-…`.
-
-To make one from any image:
-
-- **In the browser:** the badge maker on [Tools](https://forrest404.github.io/unidex/tools.html) (or open
-  `site/tools.html` locally). Drop in an image, pick fit or fill, photo
-  or line art, adjust the lightness. Then either **Send to device**, which puts it straight on the board over USB
-  (Chrome or Edge; plug in and press a button once), and the board opens it at once, or download the BMP for
-  the card's `badges/` folder. Sending never overwrites a badge: a taken number moves to the next free one. It keeps the
-  Dex, events and settings. Nothing goes to the internet.
-- **From the command line** (PNG, JPG, HEIC, …; needs Pillow):
-
-  ```sh
-  python3 tools/badges.py ~/Downloads/photo.jpg    # -> data/badges/<next number>-photo.bmp
-  python3 tools/badges.py --crop selfie.heic       # fill the screen, cutting the edges
-  ```
-
-  Photos are dithered, line art gets clean black-and-white edges (`--dither` / `--no-dither` to force), and
-  transparency becomes white.
-- **In Illustrator, Figma or anything else:** design at 200×200 px in pure black and white (lines thinner than
-  1 px vanish; `tools/badge-template.svg` is a blank artboard), export a PNG at 72 ppi, then run it through the
-  script above.
-
-Then copy the BMPs to the card's `badges/` folder.
-
-### Dex
-
-A WiFi network collection game. **B** scans (about 2 seconds): you get "NEW!" plus the best new find, or
-"Nothing new here" with how many networks are nearby.
-
-- **A**: list of everything found, newest first, 5 per page (A pages)
-- **Hold B**: counts per rarity. **Hold B** again there to clear the Dex (it asks first)
-
-Each network **name** is logged once, however many access points share it. Hidden networks (no name) are
-left out entirely. Rarity, first match wins: `eduroam` = starter; weaker than −80 dBm = rare; open = common;
-everything else = uncommon.
-
-It only listens for beacons and never connects to anything. Finds are appended to `/dex.csv` on the board
-(`hash,ssid,rssi,enc,rarity,first_seen`). The raw BSSID (the access point's MAC) is never stored, only the first
-8 bytes of SHA-256(salt + BSSID) with a random per-device salt, because a MAC with a known vendor prefix could
-be brute-forced back from a plain hash. Wiping the board's NVS changes the salt and makes everything new again.
-
-### Pet
-
-A cute creature built from five layers: body (blob, cat, bear, bunny, frog, robot), eyes, mouth, hat and an extra
-(blush, scarf, bow tie...). It blinks every few seconds for a minute after your last press. **A** = say hi (happy
-eyes and a heart), **B** = dress up. In the editor: **A** = next row (Body, Eyes, Mouth, Hat, Extra,
-Name, Random look, Done), **B** = the next option (on Random look: a new random look; on Done: save), **hold B** = the
-previous option, **hold A** = save and go back. The **Name** row names it on the device, a letter at a time (A = next
-letter, hold B = previous, B = next place; B on an empty place at the end saves): the name shows as a tag over its
-head, like a game's player name. The look is one number in NVS (`pet_look`), so it survives sleep
-and firmware updates; Settings > Reset > Everything puts the default back.
-
-**Meet** (hold B on the Pet): Pets on two devices play together over the radio (ESP-NOW, no router or internet).
-Bring the devices close (the dots fill up; "press B" when it's within reach, typically up to about 15 cm) and
-press B on either one. The two screens then act as one room: the title points to where the other device should be
-(the one whose random Pet number is lower is the left screen). The Pets greet each other, then **B** = your Pet
-visits the other screen (the host steps aside and they talk in speech bubbles), **A** = say something, **hold B** =
-a menu: swap screens, or send a badge; every 8-12 s they play something by themselves (a visit, a trip to both screens, a swap, a chat).
-Pull the devices apart and each Pet walks home. **Friends:** the first time two Pets meet, both screens ask "Be
-friends?" after the greeting (B yes, A not now); when both say yes they meet at the gap, say "Friends!" and are saved
-on both devices (up to 16, in NVS: `pet_friends`, no SD card needed; Reset > Everything clears them). Friends meeting
-again get their own greeting ("Hi again ...!") and a heart before the name in the title. **A** on the searching
-screen opens the friends list (when you met, how many times; hold B removes one, after asking). **Sending a badge**
-(friends only, from hold B's menu): pick one of your badges (full screen, A next, B send); it goes over in 200-byte
-pieces, each acknowledged and resent if lost, checked with a CRC at the end (a badge takes about a second). Your
-friend sees it full screen first ("From ..."): B keeps it in `/badges` (a name that's taken gets "-2", "-3"...), A
-says no thanks, and you see what they did. Nothing is saved without their B; only badges up to 16 KB, and only a
-valid 1-bit BMP. Transfer rules: `src/apps/pet/send_logic.h` (tested by `tools/meettest/send_test.cpp`); two-board
-test: `tools/badgeshot.py`. Every frame plays on a 550 ms beat from one device's message, so
-the two screens stay within about 50 ms. Closeness comes from the signal strength both ways (the median of the
-last readings): it can tell "within about 15 cm" from "a metre away", but not touching from 15 cm, so meeting
-always needs a press. The radio is only on while Meet is open (2 minutes without a press stops it, 5 while
-connected). Packets and the acts: `src/apps/pet/meet_logic.h` (tested by `tools/meettest`); two-board test:
-`tools/meetshot.py`.
-
-The website's Tools page has a Pet designer: the same parts, a preview, an optional name (up to 12 characters,
-shown at the top of the Pet screen and on the home line: "Say hi to Mochi!"), and Send / Load over USB (`P GET`,
-`P SET`, src/apps/pet/pet.h). The page's parts come from the firmware's: after changing `src/apps/pet/parts.h`, run
-`python3 tools/pet/export.py` to update `site/pet-parts.js` (`--check` tells you if it's out of date).
-
-### Chooser
-
-Opens on the number of squares you used last; **A** cycles 2 → 6. **B** spins: the highlight walks the grid,
-slowing down, and lands on a winner that was picked up front with the hardware random number generator. The reveal
-inverts the winning square ("It's #3."). **B** = spin again, **A** = change the count, **hold B** = the tally of wins
-per number over every spin (**hold B** there clears it, after asking).
+Calendar events (Apple, Google, Outlook...) come from the website's Tools page: export a `.ics` file from your
+calendar and send it, or let **Sync everything** send it each time you plug in. On a Mac, the automatic calendar
+sync on the Tools page sends your calendar whenever the board is plugged in and awake. The time zone is London.
 
 ### Notes
 
-**Hold B** and talk; let go to stop (up to 3 minutes). The screen shows a timer and a level bar while it listens.
-About a second after you let go you're back on the Notes screen: the rest happens in the background, with the
-step and a progress bar on screen (and on the home screen's line), so you can keep using the device, or record
-another note, which waits its turn. It doesn't sleep until it's done. Over WiFi, the device:
+**Hold B** and talk; let go to stop (up to 3 minutes). You're back on the screen in about a second; the rest happens
+in the background, with progress on screen:
 
-1. **transcribes** the recording with OpenAI Whisper (`whisper-1`, about $0.006 a minute),
-2. **tidies it up** with OpenAI (`gpt-4o-mini` by default) or Claude (`claude-haiku-4-5` by default), or not at
-   all: a one-word topic title, a one-sentence summary, a clean rewrite (keeping every fact, name and number),
-   topics, and a calendar event if the note describes a dated plan ("dentist next Friday at 3"),
-3. **saves** it to the SD card as Markdown (`/notes/<date-time>.md`, next to the `.wav`), and
-4. if switched on, **pushes** it to `<folder>/<Title>.md` in your GitHub repo (`Title 2.md` if the name is
-   taken), ready for Obsidian. The original transcript is kept in a folded callout under the clean version.
+1. the recording is **transcribed** (OpenAI Whisper, about $0.006 a minute),
+2. **tidied up** (OpenAI or Claude, or not at all): a title, a one-line summary, a clean version that keeps every
+   fact, topics, and a calendar event if you described a dated plan,
+3. **saved** to the SD card as Markdown next to the recording, and
+4. if you switch it on, **sent to your GitHub repo**, ready for Obsidian.
 
-On the Notes screen: **B** = sync (transcribe recordings made offline, push notes GitHub doesn't have yet),
-**A** = the list. In the list: **A** = next, **B** = open, **hold B** = delete. In a note: **A** = next page,
-**hold B** = delete (it asks first; a GitHub copy stays). **Hold A** goes back. A recording not transcribed yet
-shows when it was made ("2 Oct, 21:50", "waiting").
+**B** on the Notes screen sends anything still waiting; **A** opens the list (**B** opens a note, **hold B** deletes
+it). **Open on phone** shows a QR code: join the device's own WiFi and browse, search, share and copy your notes on
+your phone.
 
-Set it up on the [Notes page](https://forrest404.github.io/unidex/notes.html): WiFi, the OpenAI key, which
-model tidies up (and the Anthropic key for Claude), and GitHub (repo, branch, folder and a
+Set it up on the [Notes page](https://forrest404.github.io/unidex/notes.html): WiFi (including eduroam and work
+networks), your OpenAI key, which model tidies up (and an Anthropic key for Claude), and GitHub (a repo and a
 [fine-grained token](https://github.com/settings/personal-access-tokens/new) with Contents: Read and write on that
-repo only). Each has a **Test** button that runs on the device. The page also tests the microphone and downloads
-notes as `.md` files over USB.
+repo only). Each has a **Test** button. Your keys stay on the device: the page can't read them back, and they're
+never in the code or on the card. Treat the device like an unlocked phone: anyone holding it could use them.
 
-- **eduroam / work WiFi** (WPA2-Enterprise): pick "eduroam / work" on the Notes page and add your username. It
-  logs in with PEAP/MSCHAPv2. Without a CA certificate it doesn't check the network's certificate, so a fake access
-  point with the same name could capture that password. You can paste your university's CA certificate (from its IT
-  pages or https://cat.eduroam.org): the device then checks the network's certificate was signed by that CA. The
-  WiFi stack in this Arduino core (ESP-IDF 4.4) can't also check the server's name, so this only stops a fake access
-  point if the CA is the university's own private one. The clock's WiFi time sync uses the same network.
-- **Without an SD card** it works online only: notes go to GitHub (if on), or are shown once and not kept.
-  Recordings made without WiFi are lost unless there's a card.
-- **Keys** live in the device's NVS (namespace `unidex_cred`), never in the code or on the card. The page can't
-  read them back: it only sees whether each is set and the last 4 characters of API keys. Settings → Reset data
-  doesn't remove them; the Notes page's **Clear all keys** and the website's **Install** (full erase) do;
-  **Update** keeps them. Anyone with the device and a USB cable could still run `N TEST` with your keys, so treat
-  it like an unlocked phone.
-- **HTTPS** is checked against the Mozilla root certificates embedded in the firmware (`certs/`).
-- The note format and the tidy-up prompt follow [forrest-notes](https://github.com/Forrest404/forrest-notes).
+### Pet
+
+A cute creature built from a body (blob, cat, bear, bunny, frog, robot), eyes, a mouth, a hat and an extra. It blinks
+every few seconds, and **A** says hi. **B** = Dress up: **A** moves between rows, **B** changes the part, **hold B**
+goes back one. The **Name** row names it a letter at a time; the name shows as a tag over its head. You can also
+dress it up and name it with a mouse on the website's [Tools](https://forrest404.github.io/unidex/tools.html) page.
+
+**Meet** (**hold B** on the Pet) is for two unidex side by side:
+
+1. **Bring them close.** The dots at the top fill up; when it says "press B", press **B** on either one.
+2. **The two screens become one room.** The title shows which way round to hold them. The Pets greet each other,
+   then **B** = your Pet visits the other screen (the other one steps aside and they chat in speech bubbles),
+   **A** = say something, **hold B** = swap screens or send a badge. Every few seconds they play something by
+   themselves.
+3. **Friends:** the first time two Pets meet, both screens ask "Be friends?". If you both say yes, they're friends:
+   a heart, their own greeting next time, and a friends list (**A** on the searching screen).
+4. **Send a badge** to a friend (**hold B** in the room): pick one, and your friend sees it first and chooses whether
+   to keep it.
+5. **Pull them apart** and each Pet walks home.
+
+The radio is only on while Meet is open, talks directly to the other device (no internet), and stops after 2 minutes
+without a press. Your Pet and its friends are kept through restarts and updates.
+
+### Badge
+
+Flips through full-screen badges: **A** next, **hold B** previous, **B** a picker with thumbnails. Make badges in the
+badge maker on the website's [Tools](https://forrest404.github.io/unidex/tools.html) page: drop in any image, adjust
+it, and **Send to device** (it opens straight away) or download it for the card's `badges` folder. They're shown in
+file name order, up to 32.
+
+### Dex
+
+A WiFi collection game. **B** scans for about 2 seconds: "NEW!" and the best new find, or how many are nearby.
+**A** lists everything found; **hold B** shows the counts per rarity. It only listens, never connects, and doesn't
+keep the networks' hardware addresses.
+
+### Chooser
+
+**A** sets the number of squares (2–6), **B** spins and lands on a random winner. **Hold B** shows how often each
+number has won.
 
 ### Games
 
-A list of one-button games, each with its best score. **A** picks a game, **B** plays, **hold A** goes back. In a
-game **B** is the one action (tap, or hold); hold A leaves it. The e-ink screen redraws in about 0.4 s, so the games
-run at two or three steps a second, in big steps. Best scores are kept on the device; the home line shows your last.
+Flappy, Dino, Stack and Jetpack: **A** picks, **B** plays. In a game, **B** is the one action (tap, or hold). Best
+scores are kept on the device.
 
 ### Settings
 
-The last app on the home screen. A = next row, B = change or open, hold A = back (in the date editor: leave
-without saving).
+- **Date & time:** set the clock by hand (it's also set by the website, the Mac sync and WiFi).
+- **Sleep:** 10 / 20 / 30 / 60 seconds awake after the last press.
+- **Invert:** white on black.
+- **Battery & info:** battery voltage and %, firmware version, storage used.
+- **Reset data:** the Chooser tally, the Dex, calendar events, or everything (settings, Dex, tally and calendar; your
+  badges, timetable, notes and keys stay). Each asks first.
 
-- **Date & time**: set the clock by hand (no WiFi or Mac needed). A steps year → month → day → hour →
-  minute → Save; B = +1, hold B = −1; B on Save writes it to the clock chip (London time, summer time
-  automatic). The next Mac sync or NTP sync replaces it.
-- **Sleep**: 10 / 20 / 30 / 60 s awake after the last press.
-- **Invert**: white on black, everywhere (full refresh when switched).
-- **Battery & info**: battery voltage and % (labelled "On USB" while plugged in), firmware version, storage used,
-  time of the last Mac sync.
-- **Reset data**: Chooser tally, Dex, calendar events, or everything, each behind a confirm, then a message with
-  what happened ("Dex cleared", "Nothing to clear", "No SD card"). Everything also clears the settings, badge
-  choice and Dex salt, then restarts. The uploaded badges, timetable, notes and keys stay.
+## The website
 
-## Preparing a unit for sale
+Everything runs in Chrome or Edge on a computer, talking to the device over USB. Nothing is uploaded anywhere.
 
-Settings > Reset > Everything keeps WiFi and API keys, so a unit for someone else needs a full erase:
+- **[Install](https://forrest404.github.io/unidex/):** **Install** puts unidex on a board (it erases the board
+  first); **Update** installs the newest version and keeps your settings, keys and files.
+- **[Tools](https://forrest404.github.io/unidex/tools.html):** **Sync everything** in one click (the newest firmware,
+  the clock, your calendar file, and notes waiting to send), optionally every time you plug in; the badge maker; the
+  Pet designer; the clock and calendar; the automatic Mac calendar sync.
+- **[Notes](https://forrest404.github.io/unidex/notes.html):** WiFi, API keys, GitHub, tests, and downloading notes.
 
-1. **Erase and install.** Use the website's **Install** button (it erases first), or run
-   `pio run -t erase && pio run -t upload`.
-2. **Check it holds no keys.** Run `~/.platformio/penv/bin/python tools/check_unit.py`. It prints only whether each
-   slot is set, never a value, and ends in **PASS** only if every slot reads `unset`. (Pause the Mac agent or
-   close the Notes tab first, so the port is free.)
-3. **Use a fresh SD card** with only the contents of `starter/`: none of your notes, recordings, timetable or badges.
-4. **Include the source link** (https://github.com/Forrest404/unidex) and the licence notices in the box.
+**Updating:** use **Update** on the Install page, or **Sync everything** on Tools, which updates automatically when
+there's a newer release.
 
-## How to measure battery life
+## Battery
 
-Nothing here has been measured yet. Measure with the exact battery you'll ship, and don't state a battery life
-until you have.
+The percentage is an estimate from the battery's voltage. While charging, it climbs slowly to 100% over the last
+stretch rather than jumping there; 100% means it has been topping up long enough. The board can't tell a finished
+plain wall charger from a battery, so it may sleep while on one. Battery life depends on how much you use it: it
+sleeps between presses, and WiFi is only on while Notes sends, during a Dex scan or a time sync.
 
-**You need** a multimeter on its mA / µA range in series with the battery lead (a JST extension cable you can cut,
-or a breakout), or a power profiler such as a Nordic PPK2 supplying 3.7 V in place of the battery. A USB power meter
-won't do: the board stays awake on USB. Unplug USB for every reading.
+## Troubleshooting
 
-**Current in each state** (on a multimeter, use the µA range for deep sleep only; the wake-up surge can blow its fuse):
+- **The website can't find the device:** it's asleep, so press a button and try again. A brand-new board (or one
+  with other firmware): unplug it, hold **BOOT** while plugging it back in, let go, then try again.
+- **"No SD card":** check the card is FAT32 and pushed fully into the slot. Timetable, Badge and Dex need it.
+- **"Time not set":** set it in Settings, or with Set the clock or Sync everything on the Tools page.
 
-| State | How to get there | Current |
-|---|---|---|
-| Deep sleep, SD card in | leave it 10 s on the home screen until it sleeps | |
-| Deep sleep, no SD card | same, card removed | |
-| Awake, idle | press a button and read within 10 s | |
-| Screen refresh | moving between apps (peak) | |
-| Dex scan | Dex, scan (peak and average) | |
-| Notes recording | hold B in Notes | |
-| Notes upload | after the recording, while it sends (WiFi) | |
+## Privacy
 
-**Run-down test**: charge fully, unplug, use it the way a student would, and note when it shuts off. Settings →
-Battery & info shows the voltage along the way.
+unidex has no account, analytics or tracking. What the device and website send where (Notes, the Pet's Meet, the
+website) is in [PRIVACY.md](PRIVACY.md).
 
-| Battery (mAh) | How it was used | Start (date, time) | End (date, time) | Hours |
-|---|---|---|---|---|
-| | | | | |
-
-Rough estimate from the currents: hours ≈ battery mAh × 0.8 ÷ average mA, where the average weights each state by
-the time spent in it.
-
-## Project layout
-
-```
-src/
-  main.cpp              setup/loop: input -> launcher -> sleep
-  apps/                 one folder per app (timetable, notes, pet, badge, dex, chooser, games, settings) + apps.cpp (launcher order)
-  apps/notes/           notes.cpp (screens), job (the online steps in the background), store (files on the card),
-                        cloud (Whisper, tidy-up, GitHub), usb (N commands)
-  core/
-    launcher.*          splash, home carousel, routes buttons to the open app
-    display.*           e-paper driver (SSD1681) and the refresh rule
-    input.*             debounce + short/long press events
-    battery.*           battery voltage and percent
-    power.*             deep sleep, light sleep between polls, wake, pin holds
-    storage.*           files on the SD card + NVS key/value (apps never touch either directly)
-    clock.*             PCF85063 clock chip, NTP
-    audio.*             ES8311 microphone (16 kHz mono, I2S)
-    net.*               WiFi on/off and a small HTTPS client (checks certificates)
-    credentials.*       WiFi, API keys and GitHub settings in their own NVS namespace
-    usbsync.*           serial protocol for the Mac calendar sync, the Tools page and the Notes page
-    theme.*             fonts, header, button hints, toast, confirm sheet, empty states, 40x40 pixel icons
-    devtools.*          test build only: USB screenshots and virtual buttons (tools/devshot.py)
-data/                   your files, to copy to the SD card: badges/, timetable.csv
-tools/                  badges.py, badge-template.svg, calsync/ (macOS), upload_nostub.py, check_unit.py,
-                        devshot.py + walkthroughs/ (screenshots and button walkthroughs), gfxfont.py (fonts)
-site/                   the website: installer (index.html), Tools (badge maker, clock, calendar file), Notes
-                        (notes.html/notes.js: WiFi, keys, tests, download), serial.js
-certs/                  root CA bundle embedded in the firmware for HTTPS (see certs/README.md)
-starter/                the filesystem the web installer writes: 3 generic badges, empty timetable
-.github/workflows/      site.yml: builds the firmware and publishes the website on each release
-```
-
-### The website
-
-`site/` is published to GitHub Pages by `.github/workflows/site.yml` on every **published release** (or by hand
-from the Actions tab, for website changes). The workflow builds the firmware from the latest release tag (so the site
-always offers a released version), builds a filesystem image from `starter/` (not `data/`, so
-your own badges and timetable stay out of the public installer), and writes two manifests for
-[ESP Web Tools](https://esphome.github.io/esp-web-tools/):
-
-- **Install**: bootloader, partitions, boot_app0, app and starter filesystem, offered with a full erase.
-- **Update**: the app only, so badges, the Dex, events and settings stay.
-
-ESP Web Tools flashes at 115200 baud with a modern esptool stub, which works on this board. The PlatformIO upload
-problems came from its older bundled esptool together with a baud switch. The Tools page talks to the device with the
-same USB protocol as the Mac agent (`site/serial.js`). Calendar files are parsed with ical.js (repeating events,
-moved or cancelled occurrences, time zones) and sent as London time, like `calsync.swift`.
-
-**Sync everything** (top of Tools) does it all in one click:
-
-1. updates the firmware if the site has a newer release (the device reports its version with `V`, taken from
-   git at build time by `tools/version.py`; a newer or test build is left alone);
-2. sets the clock;
-3. sends the calendar file you chose once, which the page remembers;
-4. starts the device sending notes still waiting (`N SYNC`; the device carries on by itself).
-
-Your settings and files stay through the update (`site/update.js` writes only the app, like Update).
-
-- **The calendar file:** Chrome may ask once per visit before reading the file again. Export the calendar to the
-  same file when it changes. Calendar links (Google, Outlook, iCloud) can't be read by a web page without a
-  third-party server, so it's a file.
-- **"Sync by itself":** the same sync runs when the device is plugged in and awake while the page is open. It waits
-  a few seconds so it doesn't talk over the Mac agent. Both write the calendar, and the last one wins.
-
-**Pet** (Tools): dress up the Pet with a mouse and send it, with an optional name; Load brings back what's on
-the device.
-
-Files live on the SD card, so the installer writes no filesystem image; people copy `starter/` to their card or use
-the badge maker. `data/badges/` holds the same generic set: anything put there is committed and public, so keep
-personal badges on your own SD card instead.
-
-### Adding an app
-
-1. Create `src/apps/<name>/<name>.cpp`. Define static `onEnter`, `onButton`, `draw` and `onExit`, and optionally
-   `onBack` (hold A: up a level, `Redraw::Exit` at the top), `status` (the home screen's line) and `tick` (live
-   redraws), then export `extern const App <name>App = {"Name", ICON_X, onEnter, onButton, draw, onExit, onBack,
-   status, tick, needsCard};` (any existing app is a template; the interface is in `src/core/app.h`). Every screen
-   ends with `drawHints()` so its buttons are shown; content stays above `HINTS_TOP`.
-2. Add `<name>App` to the `extern` line and to `APPS[]` in `src/apps/apps.cpp`. That sets the launcher order.
-3. Add a 40×40 icon in `src/core/theme.cpp` / `theme.h` (rows of `#` and `.`).
-
-Rules that keep it fast and cheap on battery:
-
-- **`draw()` paints the whole screen**; the launcher does the refresh. Return `Redraw::Partial` (a change),
-  `Redraw::Full` (whole new image), `Redraw::Tick` (a live update) or `Redraw::None` from `onButton`/`tick`.
-- **RAM is lost in deep sleep** and `onEnter` isn't called again after a wake. Keep state in `RTC_DATA_ATTR`
-  variables (survive sleep) or NVS via `storage.h` (survives power loss), and rebuild caches lazily on first use
-  (see `ensureList()` in the badge app).
-- **Turn radios on only inside the app and off again** before returning (`netClaimed()`: a note is still sending,
-  so leave the WiFi alone). Only `tick` redraws without a press.
-- Flash wear: open a file once, write everything, close it. Never write inside a loop.
-- The home carousel takes any number of apps (one dot each; around 8 still fit across).
-
-### The refresh rule
-
-E-ink ghosts. `displayShow()` uses a fast partial refresh by default and a full (flashing) refresh when switching
-apps, when an app asks for one, and after every 10 partials (the counter survives sleep). Animations use
-`displayFrame()` (partials that don't count toward the 10) and must end with a full `displayShow()`.
-
-### Build options
-
-`platformio.ini` sets `-DDEBUG=0`. Set it to `1` for serial logs (`pio device monitor`, 115200) and a short wait
-for USB on cold boot. The SD card is never formatted on mount, so a failed mount can't erase your files.
-
-`pio run -e dev` builds a test version with USB screenshots and virtual buttons (`src/core/devtools.h`). It never
-sleeps, so flash the normal build again afterwards. `tools/devshot.py run tools/walkthroughs/<app>.txt` presses
-through an app and saves every screen as a PNG (with an `index.html` contact sheet); switches make clearing a dry
-run and the cloud steps fake, so a walkthrough changes nothing.
-
-Uploads run at 115200 baud, and firmware uploads use esptool's ROM loader (`--no-stub`, added by
-`tools/upload_nostub.py`). On this board the faster default and the esptool stub drop the USB link partway
-through ("No serial data received"). On USB the board stays awake, otherwise press a button first: its USB port
-disappears while it sleeps.
-
-## Hardware notes
-
-Everything here was read from the chip, seen working on the device, or taken from Waveshare's own example code
-(marked *vendor*, not independently verified).
-
-<details>
-<summary><b>Chip, display and pins</b></summary>
-
-| Item | Value | Source |
-|---|---|---|
-| Chip | ESP32-S3-PICO-1 (LGA56), rev v0.2, 40 MHz crystal | esptool |
-| Flash / PSRAM | 8 MB quad (GD) / 8 MB octal (`memory_type = qio_opi`) | esptool, runtime |
-| USB | Native USB-Serial/JTAG (`303A:1001`), no UART bridge | confirmed |
-| Panel | 1.54" black/white e-paper, 200×200, SSD1681 | confirmed |
-| Driver | our own SSD1681 driver (`src/core/display.cpp`), drawing with Adafruit GFX | confirmed |
-| Also on board | SHTC3 temp/humidity, ES8311 audio codec, mic, speaker header | vendor (unused here) |
-| Micro SD slot | SD_MMC 1-bit, FAT32, holds all files | confirmed (mounted a 128 GB SDHC card) |
-
-| Function | GPIO | Notes |
-|---|---|---|
-| EPD SCK / MOSI | 12 / 13 | SPI, no MISO |
-| EPD CS / DC / RST / BUSY | 11 / 10 / 9 / 8 | |
-| EPD power enable | 6 | **active LOW**; an external pull-up turns the panel off if the pin floats |
-| Audio power enable | 42 | active LOW; LOW only while Notes records, HIGH (off) otherwise |
-| Audio codec (ES8311) | I2S MCLK 14, BCLK 15, WS 38, DOUT 45, DIN 16 | I2C address 0x18 on the clock chip's bus. Mic only (speaker amp pin 46 unused). `src/core/audio.cpp` is a small driver on the legacy I2S API: Espressif's `esp_codec_dev` needs ESP-IDF 5. Confirmed: records |
-| Battery power latch | 17 | **HIGH = stay on**; has a pull-down, so it must be held HIGH, including through deep sleep |
-| BOOT button (A) | 0 | active LOW, RTC GPIO, external 10k pull-up |
-| PWR button (B) | 18 | active LOW, RTC GPIO, external 10k pull-up |
-| I2C SDA / SCL | 47 / 48 | PCF85063 clock (0x51), SHTC3 |
-| RTC interrupt | 5 | active LOW (vendor, unused) |
-| SD CLK / CMD / D0 | 39 / 41 / 40 | SD_MMC 1-bit (D3/CS not connected, pulled up). Separate from the display's SPI pins, so no bus sharing. No card-detect pin, and no power switch: the card stays powered in deep sleep (idle cards draw roughly 50–200 µA) |
-| Battery voltage | 4 (ADC1 ch3) | ×2 divider (R21/R38, 200k 1%), read by `src/core/battery.cpp`. The ADC reads ~2% low: a full battery (charger finished) read 4.08–4.09 V where the cell is ~4.17 V, so readings are scaled by 4170/4085. 100% from 4.15 V (resting LiPo curve); on battery the % only goes down, so noise can't make it bounce |
-
-</details>
-
-<details>
-<summary><b>Buttons and power latch</b></summary>
-
-- **PWR (GPIO18)** is a normal readable input as well as the power button. On battery, pressing it powers the
-  board through the button; firmware must then drive **GPIO17 HIGH** to latch power on, or the board dies the
-  moment you let go. On USB the board is always powered, so the latch makes no difference there.
-- **BOOT (GPIO0)** is a strapping pin: held at reset it enters download mode, but afterwards it's a normal input.
-  Strapping is only sampled on a chip reset, not on a deep-sleep wake, so it's safe as a wake button.
-- Both buttons wake the board from deep sleep (ext1, any-low) as long as GPIO17 is held HIGH.
-- Timing: 30 ms debounce, long press = held 300 ms. The long event fires while still held (so you know when to
-  let go) and the release afterwards is ignored. Presses aren't read during a screen refresh (~0.3–0.5 s).
-
-</details>
-
-<details>
-<summary><b>Power and battery</b></summary>
-
-- Deep sleep after 10 s idle (`IDLE_MS` in `src/core/power.cpp`), never while a button is held.
-- In sleep, GPIO17 stays HIGH, GPIO6 LOW, and the panel's RST/CS HIGH, so the panel sits in its own deep sleep
-  with its RAM intact and the first refresh after a wake is a partial (no flash). At boot each level is set
-  *before* its hold is released; a floating pin would cut battery or panel power.
-- While awake, the main loop light-sleeps between polls and wakes on a button or at the 10 s deadline. It skips
-  light sleep while a button is held and while USB is connected (light sleep pauses USB, which the Mac sync needs).
-- **On USB power it doesn't deep sleep**, so the Mac sync, the badge maker and flashing always find it. The
-  board can't sense USB power directly (USB 5 V isn't wired to any GPIO), so "USB power" means a computer is
-  talking to it, or the battery reads at least 4.19 V (the charger holding it at 4.2 V while topping up). A plain
-  charger that has *finished* charging looks like battery, so it sleeps. Checked at most every 10 s.
-- The CPU runs at 80 MHz (240 MHz only while WiFi is on). WiFi is off except during a Dex scan, Notes and the NTP
-  sync.
-- Datasheet estimates, **not measured** with a meter: about 2 mA awake with light sleep (vs about 20 mA). In deep
-  sleep the chip itself draws µA, but the SD card stays powered (roughly 50–200 µA idle), plus the board's
-  regulator and charger. Real battery life depends on how often you press things: see
-  [How to measure battery life](#how-to-measure-battery-life).
-
-</details>
-
-<details>
-<summary><b>Clock and storage</b></summary>
-
-- Time lives on the onboard **PCF85063** (own crystal, battery-backed through a diode), stored as UTC, so it
-  keeps counting through deep sleep and power-off. It's read once per boot. If its "oscillator stopped" flag is
-  set (never set, or battery lost) the Timetable says "time not set". Every Mac sync writes the Mac's time;
-  NTP over WiFi (B short in Timetable) and Settings → Date & time are the backups.
-- The chip arrived from the factory **stopped and in 12-hour mode** (Control_1 = `0x22`: STOP and 12_24 set), so its
-  time was frozen. Now every set uses the datasheet order (STOP, write the time, start in 24-hour mode), and at
-  boot a stopped or 12-hour chip is started in 24-hour mode. Its frozen time isn't trusted: after a deep-sleep
-  wake the board's own time is written back; after power-on it's set to 2000-01-01, which reads as "not set".
-  The USB command `C` prints the chip's registers and the system time, to check it's counting.
-- Files live on the **micro SD card** (FAT32, root: `timetable.csv`, `badges/`, `dex.csv`, `events.csv`). It's
-  mounted on first use and unmounted before deep sleep; a missing or unreadable card shows "No SD card" in
-  Timetable, Badge and Dex instead of crashing. The USB command `S` prints the card's state and files.
-- Files used to live in LittleFS on internal flash. The first time a card mounts, any of them missing on the card
-  are copied over once (never overwriting); NVS `sd_copied` records that it's done. Small settings live in NVS
-  (namespace `unidex`):
-
-| NVS key | Used by |
-|---|---|
-| `badge` | Badge: filename of the last badge shown |
-| `events_crc` | Mac sync: crc32 of the saved `/events.csv`, to skip identical writes |
-| `ch_w1`…`ch_w6` | Chooser: wins per square |
-| `dex_salt` | Dex: random salt for hashing BSSIDs |
-| `sleep_s` | Settings: seconds awake after the last press (10/20/30/60) |
-| `invert` | Settings: 1 = white on black |
-| `sd_copied` | Storage: the one-time copy from internal flash to the card is done |
-
-</details>
-
-<details>
-<summary><b>Mac sync protocol</b></summary>
-
-Text lines over USB serial, Mac → device (`src/core/usbsync.cpp`, `tools/calsync/calsync.swift`):
-
-| Mac sends | Device replies |
-|---|---|
-| `?` | `unidex 1` |
-| `T <unix seconds>` | `OK T` (clock chip set) |
-| `C` | `OK C ctrl1=.. sec=.. min=.. … sys=<unix>` (clock chip diagnostics) |
-| `S` | `OK S ok <type> <size> MB, <used> MB used`, then `D <dir>` / `F <path> <bytes>` lines, then `OK S end` (or `OK S none …`) |
-| `E <count> <crc32>` + `count` lines `YYYY-MM-DD,HH:MM,HH:MM,title,location` | `OK E <crc>` or `ERR` |
-| `L` (badge maker) | `F <name>` per badge, then `OK L` |
-| `B <name> <bytes> <crc32>` | `OK B` or `ERR` (name: `[a-z0-9-]+.bmp`, max 16 KB) |
-| `D <hex>` (≤ 64 bytes per line) | `K` per line; after the last byte `OK F <name>` (then the board opens it) or `ERR` |
-| `N ?` / `N SET <name> <hex>` / `N CLR <name\|all>` (Notes page) | settings, as `NS <name> <set\|unset> <hex>` lines then `OK N ?`; secrets are never sent back |
-| `N TEST <wifi\|openai\|anthropic\|github>`, `N MIC` | `OK N TEST <what> ok` or `… fail <reason>`; `OK N MIC <peak> <rms>` |
-| `N LIST` / `N READ <id>` / `N DEL <id>` | `NF …` lines then `OK N LIST`; `ND <hex>` lines then `OK N READ <bytes> <crc32>`; `OK N DEL` |
-
-The crc32 (zlib) covers each line plus `\n`. The device writes a temp file and renames it only if the crc matches,
-so a cut transfer never leaves a broken file. Empty times mean an all-day event. Gotchas: the ESP32-S3 resets if
-RTS is asserted while DTR is not, so the sender clears RTS first, then DTR; replies end in `\r\n`; and a cold
-boot keeps the board busy with the splash for about 3.5 s, so the sender waits up to 6 s.
-
-</details>
-
-## Sources
-
-- Waveshare wiki: https://docs.waveshare.com/ESP32-S3-ePaper-1.54
-- Waveshare example code: https://github.com/waveshareteam/ESP32-S3-ePaper-1.54
-  (`user_config.h` pin definitions, `board_power_bsp.cpp`, `epaper_driver_bsp.cpp`, the V2 schematic)
-- PWR/GPIO17 latch behaviour: https://www.espboards.dev/blog/waveshare-esp32-s3-epaper-esphome-climate/
-- Waveshare's 1.54" V2 panel driver (MIT): https://github.com/waveshareteam/e-Paper (the partial waveform used
-  for game frames)
-
-## Licence and source code
+## Licence
 
 Copyright 2026 Forrest. From version 1.5, unidex is licensed under the **PolyForm Noncommercial License 1.0.0**
-([LICENSE](LICENSE)). Source code: https://github.com/Forrest404/unidex
-
-In short (the [LICENSE](LICENSE) file is what counts):
+([LICENSE](LICENSE)). In short (the licence is what counts):
 
 - **You can** use it, study it, fork it, change it and share your changes, for non-commercial purposes: personal
   use, hobby projects, study and research, and use by schools, charities and other non-commercial organisations.
@@ -635,16 +220,13 @@ In short (the [LICENSE](LICENSE) file is what counts):
   open an issue on GitHub.
 - Anyone who gets a copy from you must also get the licence and its `Required Notice:` line.
 
-Contributions are welcome under the terms in [CONTRIBUTING.md](CONTRIBUTING.md).
-
-Releases v1.0 to v1.4 were published under the GNU General Public License v3.0 or later, and those copies carry
-that licence.
-
-What the device and website send where: [PRIVACY.md](PRIVACY.md) (a draft).
-
-Third-party libraries, fonts and data built into the firmware, and their licences, are listed in
+Releases v1.0 to v1.4 were published under the GNU General Public License v3.0 or later, and those copies carry that
+licence. Third-party libraries, fonts and data in the firmware, and their licences:
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
-To run a modified version, build it with PlatformIO (`pio run`) and flash it over USB (`pio run -t upload`), or
-flash a `firmware.bin` from the website's Update button. The board does not check firmware signatures, so any
-build you make will run.
+## For developers
+
+Building from source, the project layout, adding an app, tests, the website, the USB protocol and the hardware
+details are in [docs/DEVELOPING.md](docs/DEVELOPING.md). Contributions are welcome under the terms in
+[CONTRIBUTING.md](CONTRIBUTING.md). The board doesn't check firmware signatures, so any build you make will run
+(`pio run -t upload`).
