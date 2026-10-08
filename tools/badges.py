@@ -1,5 +1,5 @@
-# Makes the 1-bit BMPs in data/badges/. Needs Pillow; works from any folder.
-#   python3 tools/badges.py                   rebuild data/badges/*.bmp from PNG exports sitting next to them
+# Makes the 1-bit BMPs in starter/badges/. Needs Pillow; works from any folder.
+#   python3 tools/badges.py                   rebuild starter/badges/*.bmp from PNG exports sitting next to them
 #   python3 tools/badges.py photo.jpg [...]   add any image(s) as new badges (next number, name from file)
 # Options:
 #   --crop                  fill the whole screen, cutting the edges (added images only; default fits inside)
@@ -9,7 +9,7 @@ from pathlib import Path
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 ROOT = Path(__file__).resolve().parent.parent
-DST, SIZE, MAX_BADGES = ROOT / 'data/badges', 200, 32
+DST, SIZE, MAX_BADGES = ROOT / 'starter/badges', 200, 32
 
 def load(path):
     try:
@@ -38,11 +38,11 @@ def to_1bit(im, dither):
 def save(im, name, src):
     im.save(DST / f'{name}.bmp')
     note = '' if im.size == (SIZE, SIZE) else f'  ({im.width}x{im.height}, will be centred)'
-    print(f'{src} -> data/badges/{name}.bmp{note}')
+    print(f'{src} -> starter/badges/{name}.bmp{note}')
 
 def rebuild(dither):
     sources = sorted(p for p in DST.iterdir() if p.suffix.lower() == '.png')
-    if not sources: sys.exit('no PNGs in data/badges/ - export your artboards there first')
+    if not sources: sys.exit('no PNGs in starter/badges/ - export your artboards there first')
     made = set()
     for src in sources:
         name = re.sub(r'@\d+(\.\d+)?x$', '', src.stem)  # Export for Screens adds "@1x" etc.

@@ -1,0 +1,39 @@
+# Checks every push and pull request: both firmwares build (the normal one and the test build) and every computer
+# test passes (tools/run_tests.sh). Nothing is published from here; the website comes from site.yml.
+name: Checks
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # tags, for the version tools/version.py writes
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - uses: actions/cache@v4
+        with:
+          path: ~/.platformio
+          key: pio-${{ hashFiles('platformio.ini') }}
+
+      - name: Install PlatformIO
+        run: pip install platformio
+
+      - name: Computer tests
+        run: tools/run_tests.sh
+
+      - name: Build the firmware
+        run: pio run -e epaper154
+
+      - name: Build the test firmware
+        run: pio run -e dev

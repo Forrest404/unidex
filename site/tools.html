@@ -15,6 +15,7 @@
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 <style>
   #drop, #icsDrop { border: 2px dashed var(--line-strong); border-radius: 10px; padding: 28px 12px; text-align: center;
@@ -124,7 +125,7 @@
     </div>
 
     <div class="card" id="stage">
-      <div id="frame"><canvas id="out" width="200" height="200"></canvas></div>
+      <div id="frame"><canvas id="out" width="200" height="200" role="img" aria-label="Badge preview"></canvas></div>
       <p id="hint">Preview at 1.5×, as it will look on the panel.</p>
       <button id="send" disabled>Send to device</button>
       <p id="sendStatus">Plug the device in and press one of its buttons to wake it, then Send.</p>
@@ -136,7 +137,7 @@
   <section id="pet">
     <h2>Pet</h2>
     <p class="muted">Dress up the Pet on your device: pick each part, give it a name if you like, then send it. It
-      changes on the device straight away.</p>
+      changes on the device straight away. Needs firmware v1.5 or newer (Install has the newest).</p>
     <div class="grid">
       <div class="card">
         <div id="petParts"></div>
@@ -186,6 +187,13 @@ unidex/tools/calsync/install.sh</pre>
       <code>unidex/tools/calsync/install.sh uninstall</code>.</p>
   </section>
 </main>
+<footer class="foot">
+  <a href="https://github.com/Forrest404/unidex">Source code</a>
+  <a href="https://github.com/Forrest404/unidex/blob/main/LICENSE">Licence</a>
+  <a href="https://github.com/Forrest404/unidex/blob/main/PRIVACY.md">Privacy</a>
+  <a href="https://github.com/Forrest404/unidex/issues">Questions and problems</a>
+  <a href="https://unidex-site.vercel.app">Pre-order (UK)</a>
+</footer>
 
 <script type="module">
 import { supported, crc32, connect, asleepHint, knownPort, pickPort, deviceVersion, compareVersions, notesSync } from './serial.js';

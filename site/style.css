@@ -80,4 +80,10 @@ li + li { margin-top: 2px; }
 .seg input:focus-visible + span { outline: 2px solid var(--fg); outline-offset: -2px; }
 .seg input:disabled + span { cursor: not-allowed; opacity: .5; }
 
+/* Footer on every page */
+.foot { max-width: 760px; margin: 48px auto 0; padding-top: 16px; border-top: 1px solid var(--line); display: flex;
+  flex-wrap: wrap; gap: 6px 18px; font-size: 13px; }
+.foot a { color: var(--muted); text-decoration: none; transition: color .15s; }
+.foot a:hover { color: var(--fg); }
+
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

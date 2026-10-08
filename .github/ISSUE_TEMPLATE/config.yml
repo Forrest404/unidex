@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Report a security problem privately
+    url: https://github.com/Forrest404/unidex/security/advisories/new
+    about: For anything that could expose someone's keys or notes. Please don't open a public issue for these.
+  - name: Getting started and troubleshooting
+    url: https://github.com/Forrest404/unidex#readme
+    about: Install, the buttons, each app and common problems.

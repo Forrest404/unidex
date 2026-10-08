@@ -45,7 +45,6 @@ src/
     link.*              device-to-device radio (ESP-NOW) for the Pet's Meet
     theme.*             fonts, header, button hints, toast, confirm sheet, empty states, 40x40 pixel icons
     devtools.*          test build only: USB screenshots and virtual buttons (tools/devshot.py)
-data/                   your files, to copy to the SD card: badges/, timetable.csv
 tools/                  badges.py, badge-template.svg, calsync/ (macOS), upload_nostub.py, check_unit.py,
                         devshot.py + walkthroughs/ (screenshots and button walkthroughs), gfxfont.py (fonts)
 site/                   the website: installer (index.html), Tools (badge maker, clock, calendar file), Notes
@@ -104,7 +103,10 @@ disappears while it sleeps.
   Each test file's first lines give its build command, e.g.
   `c++ -std=c++17 -O2 -I src/apps/pet tools/meettest/meet_test.cpp -o /tmp/meet_test && /tmp/meet_test`.
   `tools/pettest`, `tools/meettest` (Meet, friends, badge sending), `tools/batterytest`, `tools/notetest`,
-  `tools/gametest`.
+  `tools/gametest`. `tools/run_tests.sh` builds and runs them all.
+- **On GitHub:** every push and pull request runs `.github/workflows/ci.yml`: the computer tests and both firmware
+  builds. Library and platform versions are pinned in `platformio.ini`, so a build only changes when they're
+  changed there.
 - **On one board** (test build): `tools/devshot.py run tools/walkthroughs/<app>.txt` (see above).
 - **On two boards** (both on the test build, side by side): `tools/meetshot.py` (meeting, the shared room, timing),
   `tools/friendshot.py` (friends; `--orders` tries every way two people can answer), `tools/badgeshot.py` (sending a
@@ -173,8 +175,8 @@ Your settings and files stay through the update (`site/update.js` writes only th
 the device.
 
 Files live on the SD card, so the installer writes no filesystem image; people copy `starter/` to their card or use
-the badge maker. `data/badges/` holds the same generic set: anything put there is committed and public, so keep
-personal badges on your own SD card instead.
+the badge maker. `tools/badges.py` makes the badges in `starter/badges/`: anything put there is committed and
+public, so keep personal badges on your own SD card instead.
 
 ## Hardware notes
 

@@ -9,7 +9,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write  # attaches the firmware files to the release
   pages: write
   id-token: write
 
@@ -65,6 +65,19 @@ jobs:
           json.dump(manifest([p for p in parts if p[0] == "firmware.bin"], False), open(f"{out}/update.json", "w"), indent=2)
           PY
           ls -la "$out"
+
+      - name: Attach the firmware files to the release
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          d=$(mktemp -d)
+          for f in bootloader.bin partitions.bin boot_app0.bin firmware.bin; do
+            cp "site/firmware/$f" "$d/unidex-$RELEASE_TAG-$f"
+          done
+          (cd "$d" && sha256sum unidex-* > "unidex-$RELEASE_TAG-SHA256SUMS.txt")
+          gh release upload "$RELEASE_TAG" "$d"/* --clobber
 
       - uses: actions/upload-pages-artifact@v3
         with:

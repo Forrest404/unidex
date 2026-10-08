@@ -1,0 +1,40 @@
+name: Something isn't working
+description: A problem with the device, an app or the website
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting it. Please don't include API keys, passwords, tokens or the text of private notes.
+        A security problem? Report it privately instead: see SECURITY.md.
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what happened instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How to make it happen again
+      placeholder: "1. Open Notes\n2. Hold B...\n"
+  - type: input
+    id: version
+    attributes:
+      label: Firmware version
+      description: On the device, Settings > Battery & info > Firmware.
+      placeholder: v1.5
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where
+      options:
+        - On the device
+        - The website (Install, Tools or Notes)
+        - Both
+  - type: textarea
+    id: extra
+    attributes:
+      label: Anything else
+      description: A photo of the screen, the browser you used (the website needs Chrome or Edge), and so on.
