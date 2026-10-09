@@ -53,7 +53,8 @@
       <div class="card">
         <h2>Install</h2>
         <p class="muted">A fresh start: <b>erases</b> the device's firmware and settings, including the WiFi
-          and keys saved for Notes. Your files live on the micro SD card and aren't touched.</p>
+          and keys saved for Notes. Your files live on the micro SD card and aren't touched, and your Pet's friends
+          come back from it.</p>
         <esp-web-install-button manifest="firmware/install.json">
           <button slot="activate">Install</button>
           <span slot="unsupported" class="unsupported">Your browser can't do this. Use <b>Chrome</b> or <b>Edge</b> on a computer.</span>
@@ -62,7 +63,8 @@
       </div>
       <div class="card">
         <h2>Update</h2>
-        <p class="muted">The newest firmware only. <b>Keeps</b> your badges, Dex, calendar events, notes, settings and keys.</p>
+        <p class="muted">The newest firmware only. <b>Keeps</b> your badges, Dex, calendar events, notes, settings,
+          keys and your Pet.</p>
         <button id="update" class="secondary">Update</button>
         <p id="updateStatus" class="status"></p>
       </div>
@@ -81,8 +83,14 @@
       folder and <code>timetable.csv</code>) to the card. For voice notes, set up WiFi and your keys on
       <a href="notes.html">Notes</a>. On the device:
       <b>A</b> = next, <b>B</b> = select, <b>hold A</b> = back, <b>hold B</b> = the screen's extra (each screen
-      shows its buttons), <b>hold A + B</b> for a second = restart.</p>
-    <p class="note">Version <span id="version">…</span>. Each new release on GitHub updates this page automatically.</p>
+      shows its buttons), <b>hold A + B</b> for a second = restart. The first time it starts, it shows the buttons and a
+      QR code for this page.</p>
+    <p>Low battery? Things that need a lot of power wait with "Battery too low", and a flat device shows "Charge me"
+      and switches itself off: plug it in, then press PWR. Passing it on? Settings &gt; Reset data &gt;
+      <b>Factory reset</b> wipes the WiFi, keys, Pet and settings (format the SD card too).</p>
+    <p class="note">Version <span id="version">…</span>
+      (<a href="https://github.com/Forrest404/unidex/blob/main/CHANGELOG.md">what's new</a>). Each new release on
+      GitHub updates this page automatically.</p>
   </section>
 </main>
 <footer class="foot">

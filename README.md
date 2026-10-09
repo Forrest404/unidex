@@ -7,7 +7,7 @@
 - keeps a little Pet you dress up, which meets your friends' Pets on their unidex (they visit, chat and swap badges);
 - flips through name badges;
 - runs a WiFi collection game and four one-button games;
-- sleeps whenever you aren't pressing a button, to save battery.
+- sleeps whenever you aren't pressing a button, and looks after its battery and your files.
 
 It runs on two buttons and a battery, and its code is public: free to use, fork and improve for non-commercial use.
 Install it from your browser in a minute, with no tools to set up.
@@ -33,7 +33,12 @@ Install it from your browser in a minute, with no tools to set up.
 | **Dex** | A WiFi collection game: every new network name nearby is logged with a rarity. |
 | **Chooser** | Pick 2–6 squares, spin, get a random winner. |
 | **Games** | Four one-button games: Flappy, Dino, Stack and Jetpack, with best scores. |
-| **Settings** | Date and time, sleep, invert, battery and info, reset data. |
+| **Settings** | Date and time, sleep, invert, battery and info, reset data, factory reset. |
+
+**New in v1.6:** it protects a low battery (and switches off when it's flat), saves files so a full card or a
+power cut doesn't lose what was already saved, restarts by itself if it ever freezes, has a factory reset for
+passing it on, welcomes a new owner with the buttons and a link to the website, and keeps your Pet's friends on the
+SD card. Every change: [CHANGELOG.md](CHANGELOG.md).
 
 If unidex is useful to you, a star on GitHub helps other people find it.
 
