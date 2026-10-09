@@ -2,9 +2,9 @@
 // Claude), kept on the SD card and, if switched on, pushed to GitHub as Markdown (for Obsidian). Set up
 // from the website's Notes page. Without a card it still works online, but nothing is kept on the device.
 // The online steps run in the background (job.h): letting go of B returns to the screen at once.
-// Main: hold B = record, B = sync waiting notes, A = list. List: A = next, B = open, hold B = delete; its
-// first row, "Open on phone", starts the hotspot (phone.h) and shows its QR code until hold A.
-// Note: A = next page, hold B = delete. Hold A = back everywhere.
+// Main: hold B = record, B = sync waiting notes, A = list. List: A = next, B = open, hold B = delete.
+// Note: A = next page, B = open on phone (starts the hotspot, phone.h, and shows its QR code until hold A),
+// hold B = delete. Hold A = back everywhere.
 #include <vector>
 #include <qrcode.h>
 #include "job.h"
@@ -83,7 +83,7 @@ static void ensureList() {
   }
 #endif
   listed = true;
-  if (cursor > notes.size()) cursor = 0;  // row 0 is "Open on phone", the notes follow
+  if (cursor >= notes.size()) cursor = 0;
   const bool gh = githubOn();
   waitingCount = 0;
   for (const NoteInfo &i : notes) waitingCount += !i.text || (gh && !i.pushed);
@@ -267,18 +267,12 @@ static void drawListRows() {
   drawHeader("Notes");
   display.setFont(FONT_SMALL);
   const int first = cursor / ROWS * ROWS;
-  for (int r = 0; r < ROWS && first + r <= (int)notes.size(); r++) {
+  for (int r = 0; r < ROWS && first + r < (int)notes.size(); r++) {
     const int16_t top = CONTENT_TOP + 4 + r * ROW_H, baseline = top + 17;
     const bool sel = first + r == cursor;
     if (sel) display.fillRect(MARGIN - 4, top, display.width() - 2 * (MARGIN - 4), ROW_H - 2, BLACK);
     display.setTextColor(sel ? WHITE : BLACK);
-    if (first + r == 0) {
-      display.setCursor(MARGIN, baseline);
-      display.print("Open on phone");
-      display.setTextColor(BLACK);
-      continue;
-    }
-    const NoteInfo &n = notes[first + r - 1];
+    const NoteInfo &n = notes[first + r];
     const char *tag = sending(n) ? "sending" : !n.text || (githubOn() && !n.pushed) ? "waiting" : "";
     display.setFont(FONT_TINY);
     drawRight(tag, baseline);
@@ -292,7 +286,12 @@ static void drawListRows() {
 
 static void drawList() {
   drawListRows();
-  drawHints(notes.size() ? "next" : "", "open", cursor ? "delete" : "");
+  if (notes.empty()) {
+    drawEmpty("No notes yet", "Hold B on the Notes", "screen to record one");
+    drawHints("", "", "");
+    return;
+  }
+  drawHints(notes.size() > 1 ? "next" : "", "open", "delete");
 }
 
 // "Open on phone": the hotspot's QR code (the camera joins with it), then the name and password to type.
@@ -335,7 +334,7 @@ static void drawViewText() {
 
 static void drawView() {
   drawViewText();
-  drawHints(viewPages() > 1 ? "more" : "", "", hasCard() ? "delete" : "");
+  drawHints(viewPages() > 1 ? "more" : "", hasCard() ? "phone" : "", hasCard() ? "delete" : "");
 }
 
 static void drawConfirm() {
@@ -439,7 +438,7 @@ static Redraw onButton(Event e) {
           return Redraw::Partial;
         }
         screen = LIST;
-        cursor = notes.size() ? 1 : 0;  // the newest note ("Open on phone" is the row above it)
+        cursor = 0;  // the newest note
         return Redraw::Partial;
       }
       return Redraw::None;
@@ -447,19 +446,14 @@ static Redraw onButton(Event e) {
       phoneActivity();  // any press keeps the hotspot up
       return Redraw::None;
     case LIST:
-      if (e == Event::AShort && notes.size()) cursor = (cursor + 1) % (notes.size() + 1);
-      else if (e == Event::BShort && cursor == 0) {
-        if (!phoneStart()) {
-          launcherToast("Sending a note: try soon");
-          return Redraw::Partial;
-        }
-        screen = PHONE;
-      } else if (e == Event::BShort) {
-        strlcpy(openId, notes[cursor - 1].id.c_str(), sizeof openId);
+      if (notes.empty()) return Redraw::None;
+      if (e == Event::AShort) cursor = (cursor + 1) % notes.size();
+      else if (e == Event::BShort) {
+        strlcpy(openId, notes[cursor].id.c_str(), sizeof openId);
         page = 0;
         screen = VIEW;
-      } else if (e == Event::BLong && cursor) {
-        strlcpy(openId, notes[cursor - 1].id.c_str(), sizeof openId);
+      } else if (e == Event::BLong) {
+        strlcpy(openId, notes[cursor].id.c_str(), sizeof openId);
         confirmFrom = LIST;
         screen = CONFIRM;
       } else
@@ -468,6 +462,14 @@ static Redraw onButton(Event e) {
     case VIEW:
       if (e == Event::AShort) {
         page++;  // wraps in drawView
+        return Redraw::Partial;
+      }
+      if (e == Event::BShort && hasCard()) {  // read it (and the other notes) on a phone
+        if (!phoneStart()) {
+          launcherToast("Sending a note: try soon");
+          return Redraw::Partial;
+        }
+        screen = PHONE;
         return Redraw::Partial;
       }
       if (e == Event::BLong && hasCard()) {
@@ -508,14 +510,14 @@ static Redraw onBack() {
     case CONFIRM: screen = confirmFrom; break;
     case PHONE:
       phoneStop();
-      screen = LIST;
+      screen = VIEW;
       break;
   }
   return Redraw::Partial;
 }
 
 static void draw() {
-  if (screen == PHONE && !phoneOn()) screen = LIST;  // e.g. after a restart
+  if (screen == PHONE && !phoneOn()) screen = VIEW;  // e.g. after a restart
   if (screen == PHONE) drawPhone();
   else if (screen == LIST) drawList();
   else if (screen == VIEW) drawView();
@@ -528,7 +530,7 @@ static Redraw tick() {
   if (screen == PHONE) {
     phonePoll();
     if (!phoneOn()) {  // stopped itself: nobody used it for a while
-      screen = LIST;
+      screen = VIEW;
       return Redraw::Partial;
     }
     // "Phone connected", once its first few requests are answered: a screen refresh holds everything up for

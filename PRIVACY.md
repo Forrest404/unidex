@@ -47,7 +47,7 @@ If you record other people, tell them first: their voice goes to these services 
 
 ## Other features
 
-- **Notes > Open on phone** turns on the device's own WiFi network (named `unidex-` and 4 characters, with a new
+- **Open on phone** (B in an open note) turns on the device's own WiFi network (named `unidex-` and 4 characters, with a new
   random password each time, shown on the screen and in its QR code). A phone that joins can read, search, play and
   copy your notes and recordings, straight from the device: nothing goes over the internet. Anyone who can see the
   screen can join while it's on, so close it when you're done; it also switches off by itself after 5 minutes unused.

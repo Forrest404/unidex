@@ -117,8 +117,8 @@ in the background, with progress on screen:
 4. if you switch it on, **sent to your GitHub repo**, ready for Obsidian.
 
 **B** on the Notes screen sends anything still waiting; **A** opens the list (**B** opens a note, **hold B** deletes
-it). **Open on phone** shows a QR code: join the device's own WiFi and browse, search, share and copy your notes on
-your phone.
+it). In an open note, **B** is **Open on phone**: it shows a QR code; join the device's own WiFi and browse, search,
+share and copy your notes on your phone. Hold A to stop it.
 
 Set it up on the [Notes page](https://forrest404.github.io/unidex/notes.html): WiFi (including eduroam and work
 networks), your OpenAI key, which model tidies up (and an Anthropic key for Claude), and GitHub (a repo and a
