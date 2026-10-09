@@ -4,9 +4,9 @@ What changed in each release, in short. The full notes are on the
 [releases page](https://github.com/Forrest404/unidex/releases). Update from
 https://forrest404.github.io/unidex/ (Update keeps your settings and files).
 
-## Not released yet
+## v1.6.1 (9 October 2026)
 
-- **Games:** much less ghosting (each frame drives the screen five times longer, with the panel maker's own
+- **Games:** less ghosting (each frame drives the screen five times longer, with the panel maker's own
   balanced waveform), they run at their proper speed whatever the screen takes, and the screen is crisp again
   after a game (it used to stay washed out until a restart).
 - **Notes:** Open on phone moves into the note: open a note, then B.
