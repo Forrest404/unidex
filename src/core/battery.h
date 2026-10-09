@@ -8,5 +8,6 @@ bool batteryCharging();    // USB power seems present (host attached, or voltage
 const char *batteryTooLow();
 bool batteryEmpty();  // flat: time to switch off (power.cpp does)
 #if UNIDEX_DEV
-void batteryFake(int mv);  // test build: pretend the battery reads mv (0: the real reading)
+void batteryFake(int mv);
+void batteryPrintCalls();  // test build: "BC <ms> <mv> <plugged> <charging> <pct>" per % worked out  // test build: pretend the battery reads mv (0: the real reading)
 #endif

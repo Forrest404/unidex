@@ -25,8 +25,32 @@ int batteryMillivolts() {
 
 RTC_DATA_ATTR static battery::State state;  // survives sleep (constant-initialized, so set only at power-up)
 
+#if UNIDEX_DEV
+// Test build: every % worked out (by the screens or the battery log), for X BATTCALLS.
+struct Call {
+  uint32_t ms;
+  int16_t mv;
+  int8_t pct;
+  uint8_t plugged, charging;
+};
+static Call calls[300];
+static uint32_t callCount;
+void batteryPrintCalls() {
+  for (uint32_t i = callCount > 300 ? callCount - 300 : 0; i < callCount; i++) {
+    const Call &c = calls[i % 300];
+    Serial.printf("BC %lu %d %d %d %d\n", (unsigned long)c.ms, c.mv, c.plugged, c.charging, c.pct);
+  }
+}
+#endif
+
 int batteryPercent() {
-  return battery::update(state, batteryMillivolts(), batteryCharging(), millis());
+  const int mv = batteryMillivolts();
+  const bool charging = batteryCharging();
+  const int pct = battery::update(state, mv, charging, millis());
+#if UNIDEX_DEV
+  calls[callCount++ % 300] = {millis(), (int16_t)mv, (int8_t)pct, (uint8_t)HWCDC::isPlugged(), (uint8_t)charging};
+#endif
+  return pct;
 }
 
 const char *batteryTooLow() {

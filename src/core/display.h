@@ -46,6 +46,7 @@ void displayFrame(void (*draw)());
 void displayFastFrames(bool on);
 #if UNIDEX_DEV
 void displayFastWave(uint8_t frames, uint8_t rate);  // test build: try another waveform (X FTEST)
+void displaySetGameFrames(uint8_t frames, uint8_t rate);  // test build: the games' waveform (X GAMEWAVE; 0 = default)
 #endif
 void displaySetSpiHz(uint32_t hz);  // SPI clock to the panel
 

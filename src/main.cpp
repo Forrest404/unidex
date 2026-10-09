@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include "core/clock.h"
+#include "core/devtools.h"
 #include "core/display.h"
 #include "core/input.h"
 #include "core/launcher.h"
@@ -34,6 +35,9 @@ void loop() {
     launcherHandle(e);
   }
   usbSyncPoll();
+#if UNIDEX_DEV
+  devTick();
+#endif
   launcherPoll();
   powerOffIfFlat();
   powerSleepIfIdle();

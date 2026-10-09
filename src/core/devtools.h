@@ -43,6 +43,7 @@ void devSetDetail(const char *(*fn)());  // extra state for X STATE ("detail=...
 // During a long animation that blocks the loop: answers X SHOT and X STATE (anything else gets "ERR busy"), so a
 // test can see frames mid-animation. Call between frames.
 void devShotDuringAnimation();
+void devTick();  // every loop: the battery log (X BATTLOG)
 #else
 inline bool devDryRun() { return false; }
 inline bool devFakeCloud() { return false; }

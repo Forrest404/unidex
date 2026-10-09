@@ -112,8 +112,8 @@ static void update(uint8_t control, uint32_t timeoutMs) {
 
 // The partial waveform Waveshare publishes for this panel (1.54" V2): 153 bytes of waveform (voltage per
 // phase for each pixel change, then phase lengths in frames, frame rates), then the gate, source and VCOM
-// voltages. Game frames use it with the first, long phase shortened (fastFrames frames instead of 15) and the
-// frame rate raised: faster, a little more ghosting, which the full refresh after each round clears.
+// voltages. Game frames use it with the frame rate raised (and the first, long phase fastFrames frames): faster, a
+// little more ghosting, which the full refresh after each round clears.
 static const uint8_t PARTIAL_WAVE[159] = {
   0x00, 0x40, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,  // voltages, one row per kind of pixel change
   0x80, 0x80, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
@@ -180,6 +180,18 @@ static void sleepPanel() {
   fastUsed = false;
 }
 
+// After game frames: the panel switched off and on again, as a restart does. Without it, the panel's own refreshes
+// stayed washed out (soft) after a game until the next restart, however often it refreshed. Its RAM goes with the
+// power, so the next refresh is full (it is anyway after a game).
+static void leaveFastFrames() {
+  sleepPanel();
+  digitalWrite(PIN_EPD_PWR, HIGH);  // off
+  delay(200);
+  digitalWrite(PIN_EPD_PWR, LOW);   // on
+  delay(10);
+  needFull = true;
+}
+
 void displayInit(bool initial) {
   pinMode(PIN_EPD_PWR, OUTPUT);
   digitalWrite(PIN_EPD_PWR, LOW);
@@ -205,10 +217,10 @@ void displaySetInverted(bool on) {
 }
 
 static const int FULL_EVERY = 10;
-// Game frames' waveform: the long phase 3 frames at rate code 7 (the fastest that behaves; higher codes got
-// slower): ~30 ms on the panel, ~40 ms a frame in all. Measured with X FTEST; 8 frames (~69 ms) gives darker
-// blacks if these look too faint.
-static const uint8_t FAST_FRAMES = 3, FAST_RATE = 7;
+// Game frames' waveform: the long phase its full 15 frames, at rate code 7 (the fastest that behaves): ~100 ms on
+// the panel, ~140 ms a frame in all (X FTEST). 3 frames (~70 ms a frame) left heavy ghosting within seconds; the
+// games keep their speed whatever this costs (they catch up on the steps a slow frame takes).
+static const uint8_t FAST_FRAMES = 15, FAST_RATE = 7;
 RTC_DATA_ATTR static int partialsSinceFull;  // survives sleep, so the count is honest
 
 static DisplayRefresh last;
@@ -226,7 +238,7 @@ static void render(void (*draw)(), bool full, char kind) {
 }
 
 void displayClean(void (*draw)()) {
-  if (fastUsed) sleepPanel();  // back to the panel's own waveform and voltages
+  if (fastUsed) leaveFastFrames();  // back to the panel's own waveform, voltages and a clean start
   partialsSinceFull++;
   driveAll = true;
   render(draw, false, 'C');
@@ -235,7 +247,7 @@ void displayClean(void (*draw)()) {
 }
 
 void displayShow(void (*draw)(), bool full) {
-  if (fastUsed) sleepPanel();  // back to the panel's own waveform and voltages
+  if (fastUsed) leaveFastFrames();  // back to the panel's own waveform, voltages and a clean start
   full = full || partialsSinceFull >= FULL_EVERY;
   partialsSinceFull = full ? 0 : partialsSinceFull + 1;
   render(draw, full, full ? 'F' : 'P');
@@ -243,6 +255,7 @@ void displayShow(void (*draw)(), bool full) {
 }
 
 static uint8_t frameWave, frameRate = FAST_RATE;  // the waveform displayFrame uses (0: the panel's own)
+static uint8_t gameFrames = FAST_FRAMES, gameRate = FAST_RATE;  // what displayFastFrames(true) uses
 
 void displayFrame(void (*draw)()) {
   fastFrames = frameWave, fastRate = frameRate;  // only for this frame: any other refresh gets the panel's own
@@ -251,16 +264,20 @@ void displayFrame(void (*draw)()) {
 }
 
 void displayFastFrames(bool on) {
-  frameWave = on ? FAST_FRAMES : 0;
-  frameRate = FAST_RATE;
+  frameWave = on ? gameFrames : 0;
+  frameRate = gameRate;
 }
 
 #if UNIDEX_DEV
 void displayFastWave(uint8_t frames, uint8_t rate) { frameWave = frames, frameRate = rate; }
+void displaySetGameFrames(uint8_t frames, uint8_t rate) {
+  gameFrames = frames ? frames : FAST_FRAMES;
+  gameRate = rate ? rate : FAST_RATE;
+}
 #endif
 
 void displayTick(void (*draw)()) {
-  if (fastUsed) sleepPanel();
+  if (fastUsed) leaveFastFrames();
   render(draw, false, 'T');
   sleepPanel();
 }

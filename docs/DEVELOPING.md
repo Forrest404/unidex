@@ -94,7 +94,9 @@ sleeps, so flash the normal build again afterwards. Its version ends in `-test` 
 changes in `-dirty`), so the website's Sync leaves it alone. For the safety features: `X BATTMV <mv>` pretends the
 battery reads that (`X BATTMV 3400`: low; `3300`: "Charge me", which the test build shows but doesn't act on;
 `0`: the real reading), `X HANG` stops the main loop so the 30 s watchdog restarts the board, and `X WELCOME` shows
-the first-start screens. `tools/devshot.py run tools/walkthroughs/<app>.txt` presses
+the first-start screens. For the screen and battery: `X GAMEWAVE <frames> [rate]` tries another game waveform,
+`X FILL b|w` does a full black or white refresh (several in turn recover a panel left grey), and `X BATTLOG` /
+`X BATTCALLS` print the battery readings and every % worked out. `tools/devshot.py run tools/walkthroughs/<app>.txt` presses
 through an app and saves every screen as a PNG (with an `index.html` contact sheet); switches make clearing a dry
 run and the cloud steps fake, so a walkthrough changes nothing.
 

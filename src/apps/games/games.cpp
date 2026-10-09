@@ -107,17 +107,23 @@ static bool takeTap(bool held) {
   return tap;
 }
 
-// One frame of play: step the game, then show it (or end the round).
+// One frame of play: step the game, then show it (or end the round). Showing a frame can take longer than a step,
+// so the game takes the steps it's behind by (up to 3) before showing: it plays at the same speed either way.
 static Redraw frame() {
   const bool held = inputBHeld(), tap = takeTap(held);
-  // On the beat; if a frame ran long (more than a whole beat behind), start the beat again from now.
-  frameAt = millis() - frameAt < 2u * game()->frameMs ? frameAt + game()->frameMs : millis();
-  const Step r = game()->step(tap, held);
-  if (r == Step::Over) {
-    finish();
-    return Redraw::Full;  // the game-over screen, clearing the frames' ghosting
+  bool moved = false;
+  for (int steps = 0; steps < 3; steps++) {
+    frameAt += game()->frameMs;
+    const Step r = game()->step(tap && steps == 0, held);
+    if (r == Step::Over) {
+      finish();
+      return Redraw::Full;  // the game-over screen, clearing the frames' ghosting
+    }
+    moved |= r == Step::Moved;
+    if (millis() - frameAt < game()->frameMs) break;  // caught up
   }
-  if (r == Step::Moved) displayFrame(drawPlay);
+  if (millis() - frameAt >= 2u * game()->frameMs) frameAt = millis();  // far behind (a stall): the beat from now
+  if (moved) displayFrame(drawPlay);
   powerActivity();
   return Redraw::None;
 }

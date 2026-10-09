@@ -75,6 +75,24 @@ static void press(Event e) {
   Serial.printf("OK X BTN %c %lu\n", r.count != count ? r.kind : '-', (unsigned long)r.ms);
 }
 
+// The battery log: every 5 s the reading, USB and the % shown, for the last hour (X BATTLOG prints it). It keeps
+// going with USB unplugged, so a charge/unplug can be read back afterwards.
+struct BattEntry {
+  uint32_t s;
+  int16_t mv;
+  int8_t pct;
+  uint8_t usb;
+};
+static BattEntry battLog[720];
+static uint32_t battCount, battNext;
+
+void devTick() {
+  if (millis() < battNext) return;
+  battNext = millis() + 5000;
+  battLog[battCount++ % 720] = {millis() / 1000, (int16_t)batteryMillivolts(), (int8_t)batteryPercent(),
+                                (uint8_t)HWCDC::isPlugged()};
+}
+
 bool devUsb(const char *l) {
   if (l[0] != 'X' || l[1] != ' ') return false;
   const char *c = l + 2;
@@ -106,6 +124,15 @@ bool devUsb(const char *l) {
     const int mv = batteryMillivolts(), pct = batteryPercent();
     Serial.printf("OK X BATT mv=%d pct=%d usb=%d up=%lu\n", mv, pct, (int)batteryCharging(),
                   (unsigned long)(millis() / 1000));
+  } else if (strcmp(c, "BATTLOG") == 0) {  // X BATTLOG: "BL <s> <mv> <usb> <pct>" lines, oldest first
+    for (uint32_t i = battCount > 720 ? battCount - 720 : 0; i < battCount; i++) {
+      const BattEntry &e = battLog[i % 720];
+      Serial.printf("BL %lu %d %d %d\n", (unsigned long)e.s, e.mv, e.usb, e.pct);
+    }
+    Serial.println("OK X BATTLOG");
+  } else if (strcmp(c, "BATTCALLS") == 0) {  // X BATTCALLS: every % worked out lately, with what it saw
+    batteryPrintCalls();
+    Serial.println("OK X BATTCALLS");
   } else if (strcmp(c, "MEM") == 0) {
     Serial.printf("OK X MEM internal=%u block=%u psram=%u\n", heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
                   heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL), heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
@@ -128,6 +155,16 @@ bool devUsb(const char *l) {
     if (frameStepper) frameStepper(strlen(c + 5), c + 5);
     powerActivity();
     Serial.println("OK X PLAY");
+  } else if (strncmp(c, "FILL ", 5) == 0) {  // X FILL b|w: the whole screen black or white, with a full refresh
+    static bool black;
+    black = c[5] == 'b';
+    displayShow([] { display.fillScreen(black ? BLACK : WHITE); }, true);
+    Serial.printf("OK X FILL %c %lu\n", c[5], (unsigned long)displayLastRefresh().busyMs);
+  } else if (strncmp(c, "GAMEWAVE ", 9) == 0) {  // X GAMEWAVE <frames> [rate]: the games' waveform, next round on
+    int frames = 0, rate = 0;
+    sscanf(c + 9, "%d %d", &frames, &rate);
+    displaySetGameFrames(frames, rate);
+    Serial.printf("OK X GAMEWAVE %d %d\n", frames, rate);
   } else if (strncmp(c, "FTEST ", 6) == 0) {  // X FTEST <SPI MHz> <fast frames, 0 = panel's own> <rate>
     int mhz = 4, frames = 0, rate = 2;
     sscanf(c + 6, "%d %d %d", &mhz, &frames, &rate);
