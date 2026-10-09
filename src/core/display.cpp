@@ -4,7 +4,9 @@
 
 static const int PIN_SCK = 12, PIN_MOSI = 13, PIN_CS = 11, PIN_DC = 10, PIN_RST = 9, PIN_BUSY = 8;
 static const int PIN_EPD_PWR = 6;  // panel power switch, active LOW
-static SPISettings spi(4000000, MSBFIRST, SPI_MODE0);  // 4 MHz (X FTEST can try faster)
+// 10 MHz: each refresh sends the image two or three times, so a quicker link means less time awake (a screen
+// change 396 -> 378 ms, a game frame 138 -> 120 ms, measured). The panel is rated to 20 MHz; X FTEST tries others.
+static SPISettings spi(10000000, MSBFIRST, SPI_MODE0);
 
 void displaySetSpiHz(uint32_t hz) { spi = SPISettings(hz, MSBFIRST, SPI_MODE0); }
 
