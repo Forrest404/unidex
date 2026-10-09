@@ -114,12 +114,21 @@ void drawEmpty(const char *headline, const char *line1, const char *line2) {
   if (*line2) drawCentered(fitText(line2, display.width() - 2 * MARGIN).c_str(), mid + 26);
 }
 
-void drawSheet(const char *title, const char *line1, const char *line2) {
+void drawSheet(const char *title, const char *line1, const char *line2, const char *line3) {
   const int16_t x = MARGIN, y = CONTENT_TOP + 14, w = display.width() - 2 * x, h = HINTS_TOP - 10 - y;
   display.fillRoundRect(x, y, w, h, 6, WHITE);
   display.drawRoundRect(x, y, w, h, 6, BLACK);
   display.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 5, BLACK);
   const int16_t mid = y + h / 2;
+  if (*line3) {  // three lines: everything moves up a little
+    display.setFont(FONT_BOLD);
+    drawCentered(fitText(title, w - 16).c_str(), mid - 34);
+    display.setFont(FONT_SMALL);
+    drawCentered(fitText(line1, w - 16).c_str(), mid - 6);
+    drawCentered(fitText(line2, w - 16).c_str(), mid + 16);
+    drawCentered(fitText(line3, w - 16).c_str(), mid + 38);
+    return;
+  }
   display.setFont(FONT_BOLD);
   drawCentered(fitText(title, w - 16).c_str(), mid - (*line2 ? 26 : 16));
   display.setFont(FONT_SMALL);

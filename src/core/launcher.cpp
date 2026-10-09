@@ -3,13 +3,16 @@
 #include "battery.h"
 #include "clock.h"
 #include "display.h"
+#include "power.h"
 #include "storage.h"
 #include "usbsync.h"
 #include "theme.h"
 #include "../apps/apps.h"
+#include <qrcode.h>
 
-static const int HOME = -1, NO_CARD = -2;
-RTC_DATA_ATTR static int current = HOME;  // open app, HOME or NO_CARD
+static const int HOME = -1, NO_CARD = -2, WELCOME = -3;
+RTC_DATA_ATTR static int current = HOME;  // open app, HOME, NO_CARD or WELCOME
+RTC_DATA_ATTR static uint8_t welcomePage; // WELCOME: 0 the buttons, 1 the website
 RTC_DATA_ATTR static int noCardFor;       // the app that couldn't open
 RTC_DATA_ATTR static int selected;        // highlighted app on the home screen
 
@@ -25,6 +28,8 @@ void launcherToast(const char *text) {
   strlcpy(toastText, text, sizeof toastText);
   toastAt = millis();
 }
+
+const char *launcherToastText() { return toastText; }
 
 static void drawToastIfAny() {
   if (*toastText) drawToast(toastText);
@@ -100,6 +105,60 @@ static void drawSplash() {
   drawCentered("unidex", 128);
 }
 
+// --- welcome: the first start of a new (or factory reset) device ---
+
+static const char *const SITE = "forrest404.github.io/unidex";
+
+static void drawWelcomeButtons() {
+  drawHeader("Welcome");
+  display.setFont(FONT_MEDIUM);
+  drawCentered("Two buttons", 52);
+  display.setFont(FONT_SMALL);
+  static const char *const ROWS[][2] = {{"A", "next"}, {"B", "choose"}, {"hold A", "back, home"}, {"hold B", "extras"}};
+  for (int i = 0; i < 4; i++) {
+    const int16_t y = 80 + i * 20;
+    display.setCursor(MARGIN + 8, y);
+    display.print(ROWS[i][0]);
+    display.setCursor(84, y);
+    display.print(ROWS[i][1]);
+  }
+  drawHints("next", "next", "");
+}
+
+static void drawWelcomeSite() {
+  drawHeader("Set it up");
+  QRCode qr;
+  uint8_t modules[qrcode_getBufferSize(3)];
+  const String url = String("https://") + SITE;
+  if (qrcode_initText(&qr, modules, 3, ECC_LOW, url.c_str()) == 0) {  // version 3: 29x29, 3 px each
+    const int scale = 3, x0 = (display.width() - qr.size * scale) / 2, y0 = CONTENT_TOP + 6;
+    for (uint8_t y = 0; y < qr.size; y++)
+      for (uint8_t x = 0; x < qr.size; x++)
+        if (qrcode_getModule(&qr, x, y)) display.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, BLACK);
+  }
+  display.setFont(FONT_TINY);
+  drawCentered("WiFi, notes, badges, updates:", 135);
+  drawCentered(SITE, 151);
+  drawHints("previous", "start", "");
+}
+
+static void drawWelcome() {
+  if (welcomePage == 0) drawWelcomeButtons();
+  else drawWelcomeSite();
+}
+
+void launcherShowWelcome() {
+  if (current >= 0) open()->onExit();
+  current = WELCOME;
+  welcomePage = 0;
+  displayShow(drawWelcome, true);
+}
+
+static bool firstStart() {
+  // A device that has used a card already (every one before this screen existed) has "sd_copied" set.
+  return !storageGetInt("welcomed", 0) && !storageGetInt("sd_copied", 0);
+}
+
 // --- restart ---
 
 static const char *restartWhy = "";
@@ -118,6 +177,7 @@ void systemRestart(const char *why) {
   // Wait for release: BOOT (GPIO0) is the download-mode strapping pin, so don't restart with it held.
   while (inputAnyDown()) {
     inputPoll();
+    powerAlive();
     delay(10);
   }
   ESP.restart();
@@ -125,9 +185,14 @@ void systemRestart(const char *why) {
 
 void launcherBegin(bool woke) {
   if (woke) return;  // the screen still shows where you were; the wake press redraws (with the time)
+  const bool first = firstStart();
   current = HOME;  // a fresh boot (power-on, flash or restart) always starts at home
   displayShow(drawSplash, true);
   delay(1200);
+  if (first) {
+    launcherShowWelcome();
+    return;
+  }
   displayShow(drawHome, false);
 }
 
@@ -170,6 +235,16 @@ static void openApp(int i) {
 void launcherHandle(Event e) {
   if (e == Event::Reset) systemRestart("");
   *toastText = 0;  // any press clears a message
+  if (current == WELCOME) {
+    if (e == Event::ALong || (e == Event::BShort && welcomePage == 1)) {  // done (hold A skips it)
+      storagePutInt("welcomed", 1);
+      goHome();
+    } else if (e == Event::AShort || e == Event::BShort) {
+      welcomePage = !welcomePage;
+      displayShow(drawWelcome, false);
+    }
+    return;
+  }
   if (current == NO_CARD) {
     if (e == Event::ALong) goHome();
     if (e == Event::BShort) {
@@ -203,7 +278,7 @@ void launcherHandle(Event e) {
 }
 
 const char *launcherScreenName() {
-  return current == HOME ? "Home" : current == NO_CARD ? "No card" : open()->name;
+  return current == HOME ? "Home" : current == NO_CARD ? "No card" : current == WELCOME ? "Welcome" : open()->name;
 }
 
 const char *launcherSelectedName() { return APPS[selected]->name; }
@@ -220,6 +295,8 @@ void launcherPoll() {
     if (toastOver || minuteChanged || strcmp(line, shownLine) != 0) displayTick(drawHome);
   } else if (current == NO_CARD) {
     if (toastOver) displayTick(drawNoCard);
+  } else if (current == WELCOME) {
+    // nothing changes on its own
   } else {
     const Redraw r = open()->tick ? open()->tick() : Redraw::None;
     if (r != Redraw::None) showApp(r);

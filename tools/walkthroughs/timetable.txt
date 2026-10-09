@@ -25,6 +25,7 @@ press A
 expect screen=Home
 shot t-home-status-after
 clock unset
+select Timetable
 press b
 shot t-clock-unset
 press B

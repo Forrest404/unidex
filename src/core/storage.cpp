@@ -2,14 +2,23 @@
 #include <LittleFS.h>  // only for the one-time copy from internal flash
 #include <Preferences.h>
 #include <SD_MMC.h>
+#include <nvs_flash.h>
 #include "devtools.h"
 
 static const char *NVS_NAMESPACE = "unidex";
 static const int SD_CLK = 39, SD_CMD = 41, SD_D0 = 40;  // Waveshare 04_SD_Card example + schematic
 static bool cardMounted;
 
+// A power cut between the two renames in storageRename leaves only the old copy, under "<path>.old": put it back.
+static void recover(const char *path) {
+  if (SD_MMC.exists(path)) return;
+  const String old = String(path) + ".old";
+  if (SD_MMC.exists(old)) SD_MMC.rename(old, path);
+}
+
 fs::File storageOpen(const char *path, const char *mode) {
   if (!storageCardMount()) return fs::File();
+  if (*mode == 'r') recover(path);
   if (*mode != 'r') {  // FAT won't create a file in a missing folder (e.g. /badges on a new card)
     String dir = String(path).substring(0, String(path).lastIndexOf('/'));
     if (dir.length() && !SD_MMC.exists(dir)) SD_MMC.mkdir(dir);
@@ -18,13 +27,46 @@ fs::File storageOpen(const char *path, const char *mode) {
 }
 
 bool storageExists(const char *path) {
-  return storageCardMount() && SD_MMC.exists(path);
+  if (!storageCardMount()) return false;
+  recover(path);
+  return SD_MMC.exists(path);
 }
 
+// FAT won't rename onto an existing file. The old copy is moved aside first and removed only once the new one is in
+// place, so at every moment one of them is there whole.
 bool storageRename(const char *from, const char *to) {
-  if (!storageCardMount()) return false;
-  if (SD_MMC.exists(to)) SD_MMC.remove(to);  // removing a missing file would log an error onto the USB line
-  return SD_MMC.rename(from, to);
+  if (!storageCardMount() || !SD_MMC.exists(from)) return false;
+  const String old = String(to) + ".old";
+  const bool had = SD_MMC.exists(to);
+  if (had) {
+    if (SD_MMC.exists(old)) SD_MMC.remove(old);  // checked first: removing a missing file logs an error on USB
+    if (!SD_MMC.rename(to, old)) return false;
+  }
+  if (!SD_MMC.rename(from, to)) {
+    if (had) SD_MMC.rename(old, to);
+    return false;
+  }
+  if (had) SD_MMC.remove(old);
+  return true;
+}
+
+bool storageReplace(const char *tmp, const char *to, size_t bytes) {
+  bool ok = storageCardMount();
+  if (ok) {
+    fs::File f = SD_MMC.open(tmp);  // the size the card really has: a full card fails when the file is closed
+    ok = f && !f.isDirectory() && f.size() == bytes;
+  }
+  ok = ok && storageRename(tmp, to);
+  if (!ok) storageRemove(tmp);
+  return ok;
+}
+
+bool storageReadLine(fs::File &f, String &line, size_t max) {
+  line = "";
+  if (!f || !f.available()) return false;
+  for (int c; (c = f.read()) >= 0 && c != '\n';)
+    if (line.length() < max) line += (char)c;
+  return true;
 }
 
 bool storageRemove(const char *path) {
@@ -107,6 +149,11 @@ void storageClearKeys() {
   prefs.end();
 }
 
+void storageEraseAll() {
+  nvs_flash_deinit();
+  nvs_flash_erase();  // the whole NVS partition: our two namespaces and the WiFi driver's saved network
+}
+
 bool storageUsage(uint64_t &used, uint64_t &total) {
   if (!storageCardMount()) return false;
   used = SD_MMC.usedBytes();
@@ -183,4 +230,10 @@ void storageCardTest() {
                 SD_MMC.cardSize() / (1024 * 1024), SD_MMC.usedBytes() / (1024 * 1024));
   listCard("/");
   Serial.println("OK S end");
+}
+
+void storageCardUnmount() {
+  if (!cardMounted) return;
+  SD_MMC.end();
+  cardMounted = false;
 }

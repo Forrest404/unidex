@@ -1,0 +1,19 @@
+# The first-start welcome (X WELCOME: nothing is wiped). "welcomed" is put back as it was at the end.
+keep welcomed
+home
+welcome
+expect screen=Welcome
+shot w-buttons
+press a
+shot w-site
+press a
+shot w-buttons-again
+press b
+shot w-site-again
+press b
+expect screen=Home
+shot w-home
+welcome
+press A
+expect screen=Home
+shot w-skipped

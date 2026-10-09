@@ -5,6 +5,7 @@
 #include <esp_sntp.h>
 #include <sys/time.h>
 #include "net.h"
+#include "power.h"
 
 static const char *TZ_LONDON = "GMT0BST,M3.5.0/1,M10.5.0";
 static const uint8_t PCF_ADDR = 0x51, PCF_CONTROL1 = 0x00, PCF_SECONDS = 0x04;  // 0x04-0x0A: s m h day wday month year
@@ -110,7 +111,10 @@ const char *clockSync() {
     sntp_set_sync_status(SNTP_SYNC_STATUS_RESET);
     configTzTime(TZ_LONDON, "pool.ntp.org", "time.google.com");
     const uint32_t t0 = millis();
-    while (sntp_get_sync_status() != SNTP_SYNC_STATUS_COMPLETED && millis() - t0 < NTP_TIMEOUT_MS) delay(100);
+    while (sntp_get_sync_status() != SNTP_SYNC_STATUS_COMPLETED && millis() - t0 < NTP_TIMEOUT_MS) {
+      powerAlive();
+      delay(100);
+    }
     if (sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED) writeChipNow();
     else err = "no time server";
     sntp_stop();

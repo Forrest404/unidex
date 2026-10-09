@@ -23,6 +23,8 @@ void setup() {
   inputInit();
   displayInit(!woke);
   launcherBegin(woke);
+  powerOffIfFlat();
+  powerWatchdogBegin();
 }
 
 void loop() {
@@ -33,6 +35,7 @@ void loop() {
   }
   usbSyncPoll();
   launcherPoll();
+  powerOffIfFlat();
   powerSleepIfIdle();
   powerNap();
 }

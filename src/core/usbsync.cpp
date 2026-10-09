@@ -33,13 +33,14 @@ static char line[600];  // fits "N SET <name> <hex>" for a 256-character key
 static size_t len;
 static int remaining;              // event lines still to come
 static uint32_t expectedCrc, crc, lastLineAt, generation;
+static size_t written;             // bytes written to the temp file (checked against the card at the end)
 RTC_DATA_ATTR static time_t lastSync;
 static bool unchanged;             // same crc as the saved file: check it, but don't rewrite flash
 static fs::File out;
 
 static char badgeName[32], newBadge[32];  // newBadge: finished upload, not yet shown
 static int32_t badgeLeft;          // bytes still to come
-static uint32_t badgeCrc, badgeExpected;
+static uint32_t badgeCrc, badgeExpected, badgeBytes;
 static fs::File badgeOut;
 
 static void abortBadge() {
@@ -76,7 +77,10 @@ static void badgeData(const char *hex) {
     Serial.println("ERR");
     return;
   }
-  storageRename(BADGE_TMP, (String("/badges/") + badgeName).c_str());
+  if (!storageReplace(BADGE_TMP, (String("/badges/") + badgeName).c_str(), badgeBytes)) {
+    Serial.println("ERR");
+    return;
+  }
   strlcpy(newBadge, badgeName, sizeof newBadge);
   Serial.printf("OK F %s\n", badgeName);
 }
@@ -98,7 +102,10 @@ static void finishEvents() {
     return;
   }
   if (!unchanged) {
-    storageRename(EVENTS_TMP, EVENTS);
+    if (!storageReplace(EVENTS_TMP, EVENTS, written)) {  // no card, or it's full: the saved calendar stays
+      Serial.println("ERR");
+      return;
+    }
     storagePutInt("events_crc", (int32_t)crc);
     generation++;
   }
@@ -117,7 +124,7 @@ static void handle(const char *l) {
   if (remaining > 0) {
     crc = esp_rom_crc32_le(crc, (const uint8_t *)l, strlen(l));
     crc = esp_rom_crc32_le(crc, (const uint8_t *)"\n", 1);
-    if (out) out.println(l);
+    if (out) written += out.println(l);
     if (--remaining == 0) finishEvents();
     return;
   }
@@ -153,7 +160,7 @@ static void handle(const char *l) {
       return;
     }
     strlcpy(badgeName, name, sizeof badgeName);
-    badgeLeft = bytes;
+    badgeLeft = badgeBytes = bytes;
     badgeCrc = 0;
     badgeExpected = crc32;
     Serial.println("OK B");
@@ -165,6 +172,7 @@ static void handle(const char *l) {
     remaining = strtol(l + 2, &end, 10);
     expectedCrc = strtoul(end, nullptr, 10);
     crc = 0;
+    written = 0;
     unchanged = (uint32_t)storageGetInt("events_crc", 0) == expectedCrc && storageExists(EVENTS);
     if (!unchanged) out = storageOpen(EVENTS_TMP, "w");  // one file, written once, then renamed
     if (remaining <= 0) {

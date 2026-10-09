@@ -2,9 +2,12 @@
 #include "input.h"
 #include "storage.h"
 #include "battery.h"
+#include "display.h"
+#include "theme.h"
 #include <Arduino.h>
 #include <driver/gpio.h>
 #include <esp_sleep.h>
+#include <esp_task_wdt.h>
 
 static uint32_t idleMs = 10000;  // Settings: 10, 20, 30 or 60 s (NVS sleep_s)
 
@@ -125,10 +128,51 @@ void powerNap() {
   gpio_wakeup_enable(GPIO_NUM_0, GPIO_INTR_LOW_LEVEL);
   gpio_wakeup_enable(GPIO_NUM_18, GPIO_INTR_LOW_LEVEL);
   esp_sleep_enable_gpio_wakeup();
-  esp_light_sleep_start();
+  esp_light_sleep_start();  // (the watchdog's timer stops in light sleep too)
+  powerAlive();
 }
 
 int powerSleepSeconds() { return idleMs / 1000; }
+
+extern TaskHandle_t loopTaskHandle;  // Arduino's main loop task (cores/esp32/main.cpp)
+static const uint32_t WATCHDOG_S = 30;
+
+void powerWatchdogBegin() {
+  esp_task_wdt_init(WATCHDOG_S, true);  // already started by the system (5 s, idle task only): this sets 30 s
+  enableLoopWDT();                      // the loop feeds it once per pass
+}
+
+void powerAlive() {
+  if (xTaskGetCurrentTaskHandle() == loopTaskHandle) esp_task_wdt_reset();  // only the loop task is watched
+}
+
+static void drawFlat() {
+  drawEmpty("Charge me", "The battery is empty.", "Plug in USB to charge.");
+}
+
+static bool flatShown;
+bool powerFlatShown() { return flatShown; }
+
+void powerOffIfFlat() {
+  static uint32_t lastCheck;
+  static bool checked;
+  bool &shown = flatShown;
+  if (shown || (checked && millis() - lastCheck < 30000)) return;
+  checked = true;
+  lastCheck = millis();
+  if (!batteryEmpty()) return;
+  delay(1000);  // a reading can dip under load (a screen refresh): only act if it's still flat a second later
+  if (!batteryEmpty()) return;
+  shown = true;
+  displayShow(drawFlat, true);
+#if UNIDEX_DEV
+  return;  // test build: stays on, so the test can see the screen
+#endif
+  gpio_hold_dis(PIN_LATCH);
+  digitalWrite(PIN_LATCH, LOW);  // battery power off (on USB the board stays powered, but then it isn't flat)
+  delay(2000);
+  deepSleep(0);  // still running (PWR held down): sleep until a button
+}
 
 void powerSetSleepSeconds(int s) {
   idleMs = s * 1000;

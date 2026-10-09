@@ -17,10 +17,16 @@ int badgeList(String *names, int max) {
   int count = 0;
   fs::File dir = storageOpen(BADGE_DIR);
   if (!dir || !dir.isDirectory()) return 0;
+  String stranded;  // a power cut while a badge was being replaced left only its old copy
   for (fs::File f = dir.openNextFile(); f && count < max; f = dir.openNextFile()) {
     String n = f.name();
     if (n.endsWith(".bmp") && !n.startsWith(".")) names[count++] = n;  // skip macOS "._" files on the card
+    else if (n.endsWith(".bmp.old")) stranded = n.substring(0, n.length() - 4);
   }
+  dir.close();
+  if (stranded.length() && count < max && std::find(names, names + count, stranded) == names + count &&
+      storageExists((String(BADGE_DIR) + "/" + stranded).c_str()))  // puts it back
+    names[count++] = stranded;
   std::sort(names, names + count);
   return count;
 }
@@ -94,5 +100,5 @@ bool badgeSave(const char *name, const uint8_t *data, size_t size) {
     storageRemove(TMP);
     return false;
   }
-  return storageRename(TMP, (String(BADGE_DIR) + "/" + name).c_str());
+  return storageReplace(TMP, (String(BADGE_DIR) + "/" + name).c_str(), size);
 }

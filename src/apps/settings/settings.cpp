@@ -1,4 +1,4 @@
-// Settings: date and time, sleep, invert, battery and info, reset data.
+// Settings: date and time, sleep, invert, battery and info, reset data (one thing, or the whole device).
 // A = next row or field, B = change, open or clear, hold A = back (in the date editor: leave without saving).
 #include "../../core/app.h"
 #include "../../core/battery.h"
@@ -9,6 +9,9 @@
 #include "../../core/power.h"
 #include "../../core/storage.h"
 #include "../../core/theme.h"
+#include "../pet/meet.h"
+#include <LittleFS.h>
+#include <esp_mac.h>
 #include "../../core/usbsync.h"
 #include <unidex_version.h>
 
@@ -16,10 +19,11 @@ static const char *VERSION = UNIDEX_VERSION;  // from git, tools/version.py
 static const int SLEEP_CHOICES[] = {10, 20, 30, 60};
 static const int ROW_H = 26;
 
-enum Screen : uint8_t { LIST, DATETIME, INFO, RESET, CONFIRM };
+enum Screen : uint8_t { LIST, DATETIME, INFO, RESET, CONFIRM, CONFIRM_AGAIN };
 enum Row : uint8_t { DATE, SLEEP, INVERT, INFO_ROW, RESET_ROW, ROWS };
-enum Reset : uint8_t { TALLY, DEX, CALENDAR, EVERYTHING, RESETS };
-static const char *RESET_NAMES[] = {"Chooser tally", "Dex", "Calendar", "Everything"};
+enum Reset : uint8_t { TALLY, DEX, CALENDAR, PET_FRIENDS, EVERYTHING, FACTORY, RESETS };
+static const char *RESET_NAMES[] = {"Chooser tally", "Dex", "Calendar", "Pet friends", "Everything", "Factory reset"};
+static const int RESET_ROW_H = 22;  // six rows fit above the hints
 enum Field : uint8_t { YEAR, MONTH, DAY, HOUR, MINUTE, SAVE, FIELDS };
 
 RTC_DATA_ATTR static uint8_t screen, cursor, resetCursor, field;
@@ -32,9 +36,9 @@ static int daysIn(int year, int month) {
 }
 
 // One settings row: label left, value right; the selected row is inverted.
-static void drawRow(int i, bool selected, const char *label, const char *val) {
-  const int16_t top = CONTENT_TOP + 4 + i * ROW_H, baseline = top + 17;
-  if (selected) display.fillRect(MARGIN - 4, top, display.width() - 2 * (MARGIN - 4), ROW_H - 2, BLACK);
+static void drawRow(int i, bool selected, const char *label, const char *val, int rowH = ROW_H) {
+  const int16_t top = CONTENT_TOP + 4 + i * rowH, baseline = top + rowH / 2 + 4;
+  if (selected) display.fillRect(MARGIN - 4, top, display.width() - 2 * (MARGIN - 4), rowH - 2, BLACK);
   display.setTextColor(selected ? WHITE : BLACK);
   display.setCursor(MARGIN, baseline);
   display.print(label);
@@ -101,6 +105,16 @@ static void drawDateTime() {
   drawHints("next", field == SAVE ? "save" : "+1", field == SAVE ? "" : "-1");
 }
 
+// "unidex-1A2B", so a device can be told apart (when asking for help): the same name as its own WiFi in Notes'
+// Open on phone (src/apps/notes/phone.cpp). The Pet's radio uses a new random address every time instead.
+static const char *deviceId() {
+  static char id[16];
+  uint8_t mac[6];
+  esp_read_mac(mac, ESP_MAC_WIFI_SOFTAP);
+  snprintf(id, sizeof id, "unidex-%02X%02X", mac[4], mac[5]);
+  return id;
+}
+
 static void drawInfo() {
   drawHeader("Battery & info");
   display.setFont(FONT_SMALL);
@@ -120,18 +134,22 @@ static void drawInfo() {
     else strftime(sync, sizeof sync, "%d %b", &s);
   }
   drawRow(0, false, pct >= 0 && batteryCharging() ? "On USB" : "Battery", battery);
-  String version = VERSION;  // a build between releases, "v1.4-3-g13bf907": shown as "v1.4-3", which fits
-  if (version.indexOf("-g") > 0) version.remove(version.indexOf("-g"));
+  // A build between releases, "v1.4-3-g13bf907": shown as "v1.4-3", which fits. A test build's "-dirty" (uncommitted
+  // changes) is left out here to fit too; USB's V command reports it.
+  String version = VERSION;
+  if (version.indexOf("-g") > 0) version.remove(version.indexOf("-g"), 9);
+  version.replace("-dirty", "");
   drawRow(1, false, "Firmware", version.c_str());
   drawRow(2, false, "Storage", storage);
   drawRow(3, false, "Mac sync", sync);
+  drawRow(4, false, "Device", deviceId());
   drawHints("", "refresh", "");
 }
 
 static void drawResetRows() {
   drawHeader("Reset data");
   display.setFont(FONT_SMALL);
-  for (int i = 0; i < RESETS; i++) drawRow(i, i == resetCursor, RESET_NAMES[i], "");
+  for (int i = 0; i < RESETS; i++) drawRow(i, i == resetCursor, RESET_NAMES[i], "", RESET_ROW_H);
 }
 
 static void drawReset() {
@@ -140,13 +158,39 @@ static void drawReset() {
 }
 
 static void drawConfirm() {
-  static const char *TITLES[] = {"Clear the tally?", "Clear the Dex?", "Clear the calendar?", "Reset everything?"};
+  static const char *TITLES[] = {"Clear the tally?", "Clear the Dex?", "Clear the calendar?", "Forget friends?",
+                                 "Reset everything?", "Factory reset?"};
+  // Each line has to fit the box: about 164 px in the small font.
   static const char *WHAT[] = {"Wins go back to 0.", "Forget all networks.", "Synced events go.",
-                               "Settings, Dex, tally,"};
+                               "Your Pet forgets all.", "Settings, Dex, tally", "Wipes WiFi, keys,"};
+  static const char *MORE[] = {"Can't be undone.", "Can't be undone.", "Can't be undone.", "Can't be undone.",
+                               "and calendar go.", "the Pet, all settings."};
+  static const char *LAST[] = {"", "", "", "", "Pet and keys stay.", "Card files stay."};
   drawResetRows();
-  drawSheet(TITLES[resetCursor], WHAT[resetCursor],
-            resetCursor == EVERYTHING ? "calendar. Keys stay." : "Can't be undone.");
-  drawHints("keep", resetCursor == EVERYTHING ? "reset" : "clear", "");
+  if (screen == CONFIRM_AGAIN) {  // the factory reset asks twice
+    drawSheet("Wipe the device?", "Back to as new.", "Can't be undone.");
+    drawHints("keep", "wipe", "");
+    return;
+  }
+  drawSheet(TITLES[resetCursor], WHAT[resetCursor], MORE[resetCursor], LAST[resetCursor]);
+  drawHints("keep", resetCursor == FACTORY ? "next" : resetCursor == EVERYTHING ? "reset" : "clear", "");
+}
+
+// The whole device back to as new, for passing it on: every setting, the WiFi and keys (also the copy the WiFi
+// keeps for itself), the Pet, its friends (and their copy on the card), the calendar and Dex, and anything left in
+// the internal flash from older versions. Notes, badges and the timetable on the card stay: the card can be taken
+// out and wiped on a computer.
+static void factoryReset() {
+  if (devDryRun()) {
+    launcherToast("Dry run: not wiped");
+    return;
+  }
+  for (const char *path : {"/pet/friends.bin", "/pet/friends.bin.old", "/dex.csv", "/events.csv"}) storageRemove(path);
+  LittleFS.begin(false);  // format() needs the partition begin() names (without it, it stops the device)
+  LittleFS.format();
+  LittleFS.end();
+  storageEraseAll();
+  systemRestart("Wiped: as new");
 }
 
 // Clears one thing and says what happened (the honest result: nothing there, no card, done).
@@ -174,9 +218,25 @@ static void clear(uint8_t what) {
     if (what == CALENDAR) storageRemoveKey("events_crc");  // so the next Mac sync writes the events again
     return;
   }
+  if (what == PET_FRIENDS) {
+    const bool any = meetFriendCount() > 0;
+    meetForgetFriends();
+    launcherToast(any ? "Friends forgotten" : "No friends to forget");
+    return;
+  }
+  // Everything: but the Pet stays (its look, name, number and friends), like the WiFi and keys, so friends' devices
+  // still know it. Read before NVS is cleared, written back after.
+  const int32_t petId = storageGetInt("pet_id", 0), look = storageGetInt("pet_look", INT32_MIN);
+  const String petName = storageGetString("pet_name");
+  static uint8_t friendsBlock[1024];
+  const size_t friendsLen = storageGetBytes("pet_friends", friendsBlock, sizeof friendsBlock);
   storageRemove("/dex.csv");
   storageRemove("/events.csv");
   storageClearKeys();  // settings, badge choice, tally, Dex salt (not the WiFi and keys: they're separate)
+  if (petId) storagePutInt("pet_id", petId);
+  if (look != INT32_MIN) storagePutInt("pet_look", look);
+  if (petName.length()) storagePutString("pet_name", petName.c_str());
+  if (friendsLen) storagePutBytes("pet_friends", friendsBlock, friendsLen);
   systemRestart("Starting fresh");
 }
 
@@ -258,7 +318,16 @@ static Redraw onButton(Event e) {
       else return Redraw::None;
       return Redraw::Partial;
     case CONFIRM:
+      if (e == Event::BShort && resetCursor == FACTORY) {
+        screen = CONFIRM_AGAIN;
+        return Redraw::Partial;
+      }
       if (e == Event::BShort) clear(resetCursor);
+      else if (e != Event::AShort) return Redraw::None;
+      screen = RESET;
+      return Redraw::Partial;
+    case CONFIRM_AGAIN:
+      if (e == Event::BShort) factoryReset();
       else if (e != Event::AShort) return Redraw::None;
       screen = RESET;
       return Redraw::Partial;
@@ -270,7 +339,8 @@ static Redraw onBack() {
   switch (screen) {
     case LIST: return Redraw::Exit;
     case DATETIME: launcherToast("Not saved"); screen = LIST; break;
-    case CONFIRM: screen = RESET; break;
+    case CONFIRM:
+    case CONFIRM_AGAIN: screen = RESET; break;
     default: screen = LIST; break;
   }
   return Redraw::Partial;
@@ -281,7 +351,8 @@ static void draw() {
     case DATETIME: drawDateTime(); break;
     case INFO: drawInfo(); break;
     case RESET: drawReset(); break;
-    case CONFIRM: drawConfirm(); break;
+    case CONFIRM:
+    case CONFIRM_AGAIN: drawConfirm(); break;
     default: drawList(); break;
   }
 }

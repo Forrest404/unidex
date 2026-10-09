@@ -47,6 +47,11 @@ If you record other people, tell them first: their voice goes to these services 
 
 ## Other features
 
+- **Notes > Open on phone** turns on the device's own WiFi network (named `unidex-` and 4 characters, with a new
+  random password each time, shown on the screen and in its QR code). A phone that joins can read, search, play and
+  copy your notes and recordings, straight from the device: nothing goes over the internet. Anyone who can see the
+  screen can join while it's on, so close it when you're done; it also switches off by itself after 5 minutes unused.
+
 - **Clock:** the time sync contacts `pool.ntp.org` or `time.google.com`, which see your IP address.
 - **Dex** scans for nearby WiFi networks and keeps network names and salted, hashed router IDs on the SD card.
   Nothing is sent anywhere.
@@ -58,8 +63,9 @@ If you record other people, tell them first: their voice goes to these services 
   how strongly it hears the nearest other Pet. Each time Meet opens it uses a new random radio address, so the
   device can't be followed by its chip address. Once two devices are connected they also send which act to play.
   Nothing is sent when Meet is closed. If both of you choose to be friends, each device keeps the other Pet's random
-  number, look and name, and how many times and when you met, on the device only (up to 16 friends; remove one
-  from the friends list, or all with Settings > Reset > Everything).
+  number, look and name, and how many times and when you met (up to 16 friends), on the device and in a copy on
+  your SD card (`/pet/friends.bin`, so your friends survive a full reinstall). Remove one from the friends list, or
+  all with Settings > Reset data > Pet friends (that clears the card's copy too).
 - **Sending a badge** (to a friend, in Meet) sends that badge image to their device only. They see it first, and it
   is only saved on their SD card if they press keep; if they don't, it's gone from their device's memory. Badges can
   contain photos or names, so only send what you're happy for your friend to keep.
@@ -77,5 +83,7 @@ If you record other people, tell them first: their voice goes to these services 
   Notes already on GitHub stay there until you delete them in your repo.
 - **Keys and WiFi:** **Clear all keys** on the Notes page. It clears unidex's own settings only: anything left by
   other firmware the board ran before stays until a full erase.
-- **Everything on the device:** a full erase (the website's **Install** button), and format the SD card.
+- **Everything on the device:** Settings > Reset data > **Factory reset** (asks twice): your WiFi and keys, the
+  Pet and its friends, every setting, the calendar and the Dex. Notes, badges and the timetable on the SD card stay:
+  format the card on a computer too. A full erase (the website's **Install** button) also clears the board.
 - **Data held by OpenAI, Anthropic or GitHub:** follow their own policies above.

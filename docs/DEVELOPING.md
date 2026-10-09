@@ -36,7 +36,9 @@ src/
     input.*             debounce + short/long press events
     battery.*           battery voltage and percent
     power.*             deep sleep, light sleep between polls, wake, pin holds
-    storage.*           files on the SD card + NVS key/value (apps never touch either directly)
+    storage.*           files on the SD card + NVS key/value (apps never touch either directly); a file that
+                        replaces another is written to a temp file, then storageReplace() checks its size and
+                        swaps it in (the old copy is kept until the new one is in place)
     clock.*             PCF85063 clock chip, NTP
     audio.*             ES8311 microphone (16 kHz mono, I2S)
     net.*               WiFi on/off and a small HTTPS client (checks certificates)
@@ -88,7 +90,11 @@ apps, when an app asks for one, and after every 10 partials (the counter survive
 for USB on cold boot. The SD card is never formatted on mount, so a failed mount can't erase your files.
 
 `pio run -e dev` builds a test version with USB screenshots and virtual buttons (`src/core/devtools.h`). It never
-sleeps, so flash the normal build again afterwards. `tools/devshot.py run tools/walkthroughs/<app>.txt` presses
+sleeps, so flash the normal build again afterwards. Its version ends in `-test` (and any build with uncommitted
+changes in `-dirty`), so the website's Sync leaves it alone. For the safety features: `X BATTMV <mv>` pretends the
+battery reads that (`X BATTMV 3400`: low; `3300`: "Charge me", which the test build shows but doesn't act on;
+`0`: the real reading), `X HANG` stops the main loop so the 30 s watchdog restarts the board, and `X WELCOME` shows
+the first-start screens. `tools/devshot.py run tools/walkthroughs/<app>.txt` presses
 through an app and saves every screen as a PNG (with an `index.html` contact sheet); switches make clearing a dry
 run and the cloud steps fake, so a walkthrough changes nothing.
 
@@ -108,6 +114,8 @@ disappears while it sleeps.
   builds. Library and platform versions are pinned in `platformio.ini`, so a build only changes when they're
   changed there.
 - **On one board** (test build): `tools/devshot.py run tools/walkthroughs/<app>.txt` (see above).
+  `tools/safetyshot.py` checks the low and flat battery, the watchdog and safe saving, and puts everything back
+  (on a board without an SD card it also checks that a calendar or badge is refused rather than reported saved).
 - **On two boards** (both on the test build, side by side): `tools/meetshot.py` (meeting, the shared room, timing),
   `tools/friendshot.py` (friends; `--orders` tries every way two people can answer), `tools/badgeshot.py` (sending a
   badge). They put each board's saved data back afterwards.

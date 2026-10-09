@@ -6,6 +6,7 @@
 #include <freertos/queue.h>
 #include "net.h"
 #include "power.h"
+#include "battery.h"
 
 static const uint8_t CHANNEL = 1;  // every unidex listens on the same channel
 static const uint8_t BROADCAST[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
@@ -76,6 +77,7 @@ static bool addPeer(const uint8_t mac[6]) {
 const char *linkStart() {
   if (on) return nullptr;
   if (netClaimed()) return "WiFi busy: a note is sending";
+  if (const char *low = batteryTooLow()) return low;
   if (!queue) queue = xQueueCreate(16, sizeof(LinkPacket));
   netClaim(true);
   powerHold();  // light sleep would turn the radio off

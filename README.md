@@ -50,7 +50,8 @@ If unidex is useful to you, a star on GitHub helps other people find it.
 **Then:**
 
 1. **Install:** open **https://forrest404.github.io/unidex/**, plug the board in, press one of its buttons so it's
-   awake, and click **Install**. Nothing to download.
+   awake, and click **Install**. Nothing to download. The first time it starts, it shows the buttons and a QR code
+   for the website.
 2. **SD card:** copy the contents of the [`starter`](starter) folder to the card (a few badges and an empty
    timetable) and put it in the board's slot.
 3. **Your timetable:** send your calendar from the website's [Tools](https://forrest404.github.io/unidex/tools.html)
@@ -171,9 +172,13 @@ scores are kept on the device.
 - **Date & time:** set the clock by hand (it's also set by the website, the Mac sync and WiFi).
 - **Sleep:** 10 / 20 / 30 / 60 seconds awake after the last press.
 - **Invert:** white on black.
-- **Battery & info:** battery voltage and %, firmware version, storage used.
-- **Reset data:** the Chooser tally, the Dex, calendar events, or everything (settings, Dex, tally and calendar; your
-  badges, timetable, notes and keys stay). Each asks first.
+- **Battery & info:** battery voltage and %, firmware version, storage used, and the device's name (`unidex-1A2B`,
+  handy when asking for help).
+- **Reset data:** the Chooser tally, the Dex, calendar events, the Pet's friends, or everything (settings, Dex, tally
+  and calendar; your badges, timetable, notes, keys and Pet stay). Each asks first.
+- **Factory reset** (at the bottom of Reset data, asks twice): for passing the device on. It wipes the WiFi and keys,
+  the Pet and its friends, every setting, the calendar and the Dex, then starts like new. Notes, badges and the
+  timetable on the SD card stay: format the card on a computer as well.
 
 ## The website
 
@@ -196,12 +201,19 @@ stretch rather than jumping there; 100% means it has been topping up long enough
 plain wall charger from a battery, so it may sleep while on one. Battery life depends on how much you use it: it
 sleeps between presses, and WiFi is only on while Notes sends, during a Dex scan or a time sync.
 
+When the battery is low, things that need a lot of power (WiFi, the Pet's Meet, Dex scans and recording a note)
+say **"Battery too low"**. When it's flat, the screen shows **"Charge me"** and the device switches itself
+off so the battery isn't drained further; plug in USB to charge it, then press PWR.
+
 ## Troubleshooting
 
 - **The website can't find the device:** it's asleep, so press a button and try again. A brand-new board (or one
   with other firmware): unplug it, hold **BOOT** while plugging it back in, let go, then try again.
 - **"No SD card":** check the card is FAT32 and pushed fully into the slot. Timetable, Badge and Dex need it.
 - **"Time not set":** set it in Settings, or with Set the clock or Sync everything on the Tools page.
+- **It froze:** it restarts by itself after 30 seconds. Or hold **A + B** for a second to restart it now.
+- **Still stuck, or found a bug?** [Open an issue](https://github.com/Forrest404/unidex/issues/new/choose) with the
+  firmware version and what happened. Security problems: see [SECURITY.md](SECURITY.md).
 
 ## Privacy
 

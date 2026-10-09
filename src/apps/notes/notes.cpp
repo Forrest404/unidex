@@ -11,6 +11,7 @@
 #include "phone.h"
 #include "store.h"
 #include "../../core/app.h"
+#include "../../core/battery.h"
 #include "../../core/audio.h"
 #include "../../core/credentials.h"
 #include "../../core/devtools.h"
@@ -351,6 +352,10 @@ static void drawConfirm() {
 // --- recording ---
 
 static void record() {
+  if (const char *low = batteryTooLow()) {  // a brown-out while writing the recording could damage the card
+    launcherToast(low);
+    return;
+  }
   if (!jobCanTake()) {  // the last note is still in memory (no card) or one is already queued
     launcherToast("Still sending a note");
     return;
@@ -372,6 +377,7 @@ static void record() {
   recordLevel = 0;
   displayFrame(drawRecording);
   while (inputBHeld() && count < limit) {
+    powerAlive();
     const size_t n = audioRead(samples + count, min((size_t)1024, limit - count));
     for (size_t i = 0; i < n; i++) peak = max(peak, abs((int)samples[count + i]));
     count += n;

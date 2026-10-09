@@ -126,6 +126,17 @@ int main() {
     check(up == 0, "on battery the % doesn't bounce up with noise");
     check(update(s, restingMv(70), false, 200 * MIN) == 70, "on battery a jump of 5 or more is followed");
   }
+  {
+    // Low and empty: only on battery, and never when no battery is fitted (the pin reads near 0 V).
+    check(level(3900, false) == Level::OK, "3.90 V: OK");
+    check(level(3451, false) == Level::OK, "3.451 V: OK");
+    check(level(3450, false) == Level::LOW_, "3.45 V: low");
+    check(level(3351, false) == Level::LOW_, "3.351 V: low");
+    check(level(3350, false) == Level::EMPTY, "3.35 V: empty");
+    check(level(3000, false) == Level::EMPTY, "3.00 V: empty");
+    check(level(3300, true) == Level::OK, "charging: never low");
+    check(level(100, false) == Level::OK, "no battery fitted: never low");
+  }
   printf(failures ? "\n%d FAILED\n" : "\nall passed\n", failures);
   return failures != 0;
 }

@@ -99,6 +99,8 @@ bool devUsb(const char *l) {
                   (unsigned long)(millis() / 1000), (unsigned long)displayLastRefresh().count,
                   (unsigned long)displayLastRefresh().ms);
     printHex(detailFn ? detailFn() : "");
+    Serial.printf(" flat=%d toast=", (int)powerFlatShown());
+    printHex(launcherToastText());
     Serial.print('\n');
   } else if (strcmp(c, "BATT") == 0) {
     const int mv = batteryMillivolts(), pct = batteryPercent();
@@ -154,6 +156,16 @@ bool devUsb(const char *l) {
     const bool on = l[strlen(l) - 1] == '1';
     (c[0] == 'D' ? dryRun : c[0] == 'F' ? fakeCloud : c[1] == 'E' ? netFail : c[2] == 'C' ? noCard : noPush) = on;
     Serial.printf("OK X %s\n", c);
+  } else if (!strncmp(c, "WELCOME", 7)) {  // X WELCOME: the first-start screens, without wiping anything
+    launcherShowWelcome();
+    Serial.println("OK X WELCOME");
+  } else if (!strcmp(c, "HANG")) {  // X HANG: the main loop stops; the watchdog should restart the device in 30 s
+    Serial.println("OK X HANG");
+    Serial.flush();
+    for (;;) delay(100);
+  } else if (!strncmp(c, "BATTMV ", 7)) {  // X BATTMV <mv>: pretend the battery reads this (0 = real)
+    batteryFake(atoi(c + 7));
+    Serial.printf("OK X BATTMV %d\n", atoi(c + 7));
   } else if (!strncmp(c, "KEY ", 4)) {
     char name[16] = "", value[16] = "";
     if (sscanf(c + 4, "%15s %15s", name, value) == 2) {

@@ -5,6 +5,7 @@
 #include <esp_wpa2.h>
 #include "credentials.h"
 #include "power.h"
+#include "battery.h"
 #include "devtools.h"
 
 extern const uint8_t caBundle[] asm("_binary_certs_x509_crt_bundle_bin_start");  // see certs/README.md
@@ -18,6 +19,7 @@ const char *netBegin() {
   const String ssid = credGet("wifi_ssid");
   if (!ssid.length()) return "WiFi not set up";
   if (devNetFail()) return "WiFi failed";  // test build switches (X NETFAIL 1, X FAKE 1)
+  if (const char *low = batteryTooLow()) return low;
   if (devFakeCloud() || begun || WiFi.status() == WL_CONNECTED) return nullptr;
   begun = true;
   beganAt = millis();
@@ -49,7 +51,10 @@ const char *netConnect() {
   // Time spent connecting since netBegin() counts (it may have started with a recording), with a few
   // seconds' grace now in case it's nearly there.
   const uint32_t deadline = max<uint32_t>(beganAt + WIFI_TIMEOUT_MS, millis() + 5000);
-  while (WiFi.status() != WL_CONNECTED && (int32_t)(deadline - millis()) > 0) delay(100);
+  while (WiFi.status() != WL_CONNECTED && (int32_t)(deadline - millis()) > 0) {
+    powerAlive();
+    delay(100);
+  }
   powerActivity();
   if (WiFi.status() == WL_CONNECTED) return nullptr;
   const bool missing = WiFi.status() == WL_NO_SSID_AVAIL;
@@ -78,6 +83,7 @@ static bool readLine(WiFiClientSecure &c, String &line) {
       if (ch != '\r') line += ch;
     }
     if (!c.connected()) return line.length() > 0;
+    powerAlive();
     delay(2);
   }
   return false;
@@ -96,6 +102,7 @@ static void readBytes(WiFiClientSecure &c, size_t n, String &body, size_t maxBod
     } else if (!c.connected()) {
       break;
     } else {
+      powerAlive();
       delay(2);
     }
   }

@@ -95,9 +95,9 @@ static int splitCsv(const String &line, String *field) {
 // including header rows, are skipped.
 static void loadFile(const char *path, bool dated) {
   fs::File f = storageOpen(path);
-  while (f && f.available() && count < MAX_CLASSES) {
+  for (String line; count < MAX_CLASSES && storageReadLine(f, line);) {
     String field[6];
-    const int n = splitCsv(f.readStringUntil('\n'), field);
+    const int n = splitCsv(line, field);
     if (n < 5) continue;
     Class c = {};
     c.date = dated ? parseDate(field[0]) : -1;
@@ -271,17 +271,18 @@ static void rememberSoon(const Upcoming *up, int n) {
 
 // The empty and "can't show it" states. Returns the number of upcoming events (0 = the screen is drawn).
 static int upcomingOrEmpty(Upcoming *up, const struct tm &now) {
+  if (!clockValid()) {  // first: without the time nothing can be shown, even once events are added
+    soonCount = 0;
+    drawTitle("Timetable", now);
+    drawEmpty("Time not set", "Press B to sync it,", "or set it in Settings");
+    drawHints("", "sync", "");
+    return 0;
+  }
   if (count == 0) {
     soonCount = 0;
     drawTitle("Timetable", now);
     drawEmpty("Nothing coming up", "Add events on the", "website or your Mac");
     drawHints("", "", "");
-    return 0;
-  }
-  if (!clockValid()) {
-    drawTitle("Timetable", now);
-    drawEmpty("Time not set", "Press B to sync it,", "or set it in Settings");
-    drawHints("", "sync", "");
     return 0;
   }
   const int n = findUpcoming(up, now);
@@ -455,7 +456,7 @@ static void drawDay(const struct tm &now) {
 
 static void drawSyncing() {
   drawTitle("Timetable", clockLocal());
-  drawEmpty("Setting the clock", "WiFi, then a time server", "up to 30 s");
+  drawEmpty("Setting the clock", "Over WiFi, up to 30 s");
   drawProgress(HINTS_TOP - 14, -1);
   drawHints("", "", "");
 }
@@ -497,7 +498,6 @@ static Redraw onButton(Event e) {
     page++;  // drawDetail wraps back to the first page after the last
     return Redraw::Partial;
   }
-  if (count == 0) return Redraw::None;
   if (!clockValid()) {  // "Time not set": B syncs over WiFi
     if (e != Event::BShort) return Redraw::None;
     displayShow(drawSyncing, false);
@@ -507,6 +507,7 @@ static Redraw onButton(Event e) {
     peek = 0;
     return Redraw::Partial;
   }
+  if (count == 0) return Redraw::None;
   Upcoming up[MAX_UPCOMING];
   const int n = findUpcoming(up, now);
   if (e == Event::BLong) {

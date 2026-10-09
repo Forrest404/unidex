@@ -18,5 +18,5 @@ The latest release only. Updates come out as new releases on GitHub and the webs
 ## Good to know
 
 - Anyone who has the device and a USB cable can use the keys saved on it. If you lose it, revoke your OpenAI,
-  Anthropic and GitHub keys.
+  Anthropic and GitHub keys. Before passing a device on, use Settings > Reset data > Factory reset.
 - See [PRIVACY.md](PRIVACY.md) for what the device and website keep and send.

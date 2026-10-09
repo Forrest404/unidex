@@ -78,4 +78,17 @@ inline int update(State &s, int mv, bool charging, uint32_t nowMs) {
   return s.shown;
 }
 
+// How much charge is left for heavy work. On USB power, or with no battery fitted (it reads near 0 V), it's always OK.
+// LOW: enough to keep using the device, not for WiFi, the radio or recording (a brown-out in the middle of a card write
+// can damage it). EMPTY: time to switch off, so a flat battery isn't drained further.
+enum class Level { OK, LOW_, EMPTY };
+const int LOW_MV = 3450, EMPTY_MV = 3350;  // warn and refuse heavy work; switch off
+
+inline Level level(int mv, bool charging) {
+  if (charging || mv < NO_BATTERY_MV) return Level::OK;
+  if (mv <= EMPTY_MV) return Level::EMPTY;
+  if (mv <= LOW_MV) return Level::LOW_;
+  return Level::OK;
+}
+
 }  // namespace battery

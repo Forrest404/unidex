@@ -4,6 +4,7 @@
 #include <WiFi.h>
 #include <mbedtls/sha256.h>
 #include "../../core/app.h"
+#include "../../core/battery.h"
 #include "../../core/devtools.h"
 #include "../../core/display.h"
 #include "../../core/launcher.h"
@@ -108,8 +109,8 @@ static void load() {
   if (storageExists(DEX)) {  // opening a missing file would log an error onto the USB line
     fs::File f = storageOpen(DEX);
     Find entry;
-    while (f && f.available())
-      if (parseRow(f.readStringUntil('\n'), entry)) remember(entry.ssid, entry.rarity);
+    for (String line; storageReadLine(f, line);)
+      if (parseRow(line, entry)) remember(entry.ssid, entry.rarity);
   }
   dexCount = knownCount;
 }
@@ -150,6 +151,10 @@ static void scan() {
     launcherToast("A note is sending");
     return;
   }
+  if (const char *low = batteryTooLow()) {
+    launcherToast(low);
+    return;
+  }
   displayShow(drawScanning, false);
   ensureLoaded();
 
@@ -158,7 +163,9 @@ static void scan() {
   int found = WiFi.scanNetworks(false, false /*no hidden networks*/, false, 120 /*ms per channel*/);
   nearby = newCount = 0;
   uint64_t seen[64];  // names nearby (many access points can share one), so "nearby" counts networks
-  String rows;  // new finds, written to flash in one go below
+  String rows;  // new finds, written to the card in one go below
+  static Find newFinds[64];  // the same finds, counted as known only once they're saved
+  int pending = 0;
   for (int i = 0; i < found; i++) {
     char ssid[33];
     strlcpy(ssid, WiFi.SSID(i).c_str(), sizeof ssid);
@@ -173,7 +180,8 @@ static void scan() {
     if (nearby < 64) seen[nearby] = key;
     nearby++;
     uint64_t h = hashBssid(WiFi.BSSID(i));
-    if (isKnown(key)) continue;
+    // Full (MAX_KNOWN): past it, repeats couldn't be told apart.
+    if (isKnown(key) || pending >= 64 || knownCount + pending >= MAX_KNOWN) continue;
     int rssi = WiFi.RSSI(i);
     wifi_auth_mode_t auth = WiFi.encryptionType(i);
     uint8_t r = rarityOf(ssid, rssi, auth);
@@ -181,22 +189,37 @@ static void scan() {
     snprintf(row, sizeof row, "%016llx,%s,%d,%s,%s,%ld\n", (unsigned long long)h, ssid, rssi, encName(auth),
              RARITY[r], (long)time(nullptr));
     rows += row;
-    remember(ssid, r);
-    if (newCount++ == 0 || r > best.rarity) best = newest;
+    strlcpy(newFinds[pending].ssid, ssid, sizeof newFinds[pending].ssid);
+    newFinds[pending++].rarity = r;
   }
   WiFi.scanDelete();
   WiFi.mode(WIFI_OFF);
   setCpuFrequencyMhz(80);
 
   if (rows.length()) {
-    bool fresh = !storageExists(DEX);
+    static const char *const HEADER = "hash,ssid,rssi,enc,rarity,first_seen\n";
+    const bool fresh = !storageExists(DEX);
     fs::File f = storageOpen(DEX, "a");
-    if (fresh) f.print("hash,ssid,rssi,enc,rarity,first_seen\n");
-    f.print(rows);
+    const size_t before = f ? f.size() : 0, want = (fresh ? strlen(HEADER) : 0) + rows.length();
+    if (f && fresh) f.print(HEADER);
+    if (f) f.print(rows);
     f.close();
+    // What the card really has (a full card loses the end when the file is closed): only saved finds count.
+    fs::File check = storageExists(DEX) ? storageOpen(DEX) : fs::File();
+    const bool saved = check && check.size() == before + want;
+    check.close();
+    if (saved) {
+      for (int i = 0; i < pending; i++) {
+        remember(newFinds[i].ssid, newFinds[i].rarity);
+        if (newCount++ == 0 || newFinds[i].rarity > best.rarity) best = newest;
+      }
+    } else {
+      launcherToast("Card full: not saved");
+    }
   }
   scanned = true;
   dexCount = knownCount;
+  if (knownCount >= MAX_KNOWN) launcherToast("The Dex is full");
 #if DEBUG
   Serial.printf("scan: %d nearby, %d new, WiFi mode %d (0 = off)\n", nearby, newCount, (int)WiFi.getMode());
 #endif
@@ -249,8 +272,8 @@ static int readPage(Find *out) {
   if (!storageExists(DEX)) return 0;
   fs::File f = storageOpen(DEX);
   Find entry;
-  while (f && f.available()) {
-    if (!parseRow(f.readStringUntil('\n'), entry)) continue;  // counted exactly as load() does
+  for (String line; storageReadLine(f, line);) {
+    if (!parseRow(line, entry)) continue;  // counted exactly as load() does
     if (row > first - PAGE && row <= first) {
       out[first - row] = entry;
       n++;
@@ -274,7 +297,7 @@ static void drawList() {
     display.setCursor(MARGIN, baseline);
     display.print(fitText(rows[i].ssid, display.width() - 2 * MARGIN - tagW - 6));
   }
-  if (n == 0) drawEmpty("Nothing yet", "Scan on the Dex screen", "to find networks");
+  if (n == 0) drawEmpty("Nothing yet", "Go back and scan", "to find networks");
   drawHints(knownCount > PAGE ? "more" : "", "", "");
 }
 

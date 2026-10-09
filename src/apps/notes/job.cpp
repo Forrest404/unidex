@@ -68,6 +68,7 @@ static String fileName(const String &title, const String &id) {  // a safe GitHu
 static bool githubOn() { return credGet("gh_on") == "1"; }
 
 static const char *const NO_SPEECH = "Heard nothing";  // finish(): a recording with nothing to keep
+static const char *const FULL_PUSHED = "Card full: on GitHub", *const FULL_SHOWN = "Card full: shown once";
 
 // Transcribe (from the audio parts), tidy up, save and push one note. WiFi must be up.
 // Returns nullptr or the reason it stopped; `title` gets the note's title.
@@ -80,18 +81,21 @@ static const char *finish(const String &id, const NetPart *audio, int nParts, bo
   const char *cleanupErr = cloudCleanup(note, localIso(id));  // on failure the raw transcript is kept
   title = note.title;
   const String md = noteMarkdown(note, id, localIso(id));
-  if (onCard && !storeSaveNote(id, md)) return "Couldn't save to card";
-  if (githubOn()) {
-    publish(JobStep::Pushing);
-    String path;
-    if (const char *err = cloudPush(fileName(title, id), md, path)) return err;
-    if (onCard) storeMarkPushed(id, path);
-  }
-  if (!onCard && !githubOn()) {  // nowhere to keep it: the screen shows it once (read after busy goes false)
+  // A full card doesn't lose a note that's already transcribed (and paid for): it still goes to GitHub, and the
+  // screen shows it once.
+  const bool saved = onCard && storeSaveNote(id, md);
+  if (!saved && (onCard || !githubOn())) {  // nowhere else to keep it: shown once (read after busy goes false)
     shownMd = md;
     shownTitle = title;
     hasShown = true;
   }
+  if (githubOn()) {
+    publish(JobStep::Pushing);
+    String path;
+    if (const char *err = cloudPush(fileName(title, id), md, path)) return err;
+    if (saved) storeMarkPushed(id, path);
+  }
+  if (onCard && !saved) return githubOn() ? FULL_PUSHED : FULL_SHOWN;
   return cleanupErr;
 }
 
@@ -161,6 +165,7 @@ static void runNote(Item &it) {
     if (saved) storeDelete(it.id);
     snprintf(result, sizeof result, "Heard nothing: not kept");
   } else if (!err) snprintf(result, sizeof result, "Saved: %s", title.c_str());
+  else if (err == FULL_PUSHED || err == FULL_SHOWN) snprintf(result, sizeof result, "%s", err);
   else if (saved) snprintf(result, sizeof result, "%s (kept)", err);
   else snprintf(result, sizeof result, "%s: not kept", err);
   publish(JobStep::Idle, result);

@@ -61,7 +61,8 @@ bool storeSaveWav(const String &id, const int16_t *samples, size_t count) {
   bool ok = f.write(header, sizeof header) == sizeof header;
   ok = ok && f.write((const uint8_t *)samples, count * 2) == count * 2;  // one write: the card does the buffering
   f.close();
-  return ok && storageRename(tmp.c_str(), p.c_str());
+  if (!ok) storageRemove(tmp.c_str());
+  return ok && storageReplace(tmp.c_str(), p.c_str(), sizeof header + count * 2);
 }
 
 String storeWavPath(const String &id) { return path(id, ".wav"); }
@@ -72,14 +73,26 @@ bool storeSaveNote(const String &id, const String &markdown) {
   if (!f) return false;
   const bool ok = f.print(markdown) == markdown.length();
   f.close();
-  return ok && storageRename(tmp.c_str(), path(id, ".md").c_str());
+  if (!ok) storageRemove(tmp.c_str());
+  return ok && storageReplace(tmp.c_str(), path(id, ".md").c_str(), markdown.length());
 }
 
 String storeReadNote(const String &id) {
   const String p = path(id, ".md");
   if (!storageExists(p.c_str())) return "";  // opening a missing file logs an error onto the USB line
   fs::File f = storageOpen(p.c_str());
-  return f ? f.readString() : String();
+  if (!f) return String();
+  String md;
+  const size_t n = min((size_t)f.size(), (size_t)65536);  // a note is a few KB: a damaged file can't fill the memory
+  if (!md.reserve(n)) return String();
+  uint8_t buf[256];
+  for (size_t left = n; left;) {
+    const int got = f.read(buf, min(left, sizeof buf));
+    if (got <= 0) break;
+    md.concat((const char *)buf, got);
+    left -= got;
+  }
+  return md;
 }
 
 void storeMarkPushed(const String &id, const String &repoPath) {
@@ -123,6 +136,11 @@ std::vector<NoteInfo> storeList() {
     names.push_back(n);
   }
   auto has = [&](const String &n) { return std::find(names.begin(), names.end(), n) != names.end(); };
+  for (String &n : names) {  // a power cut while a file was being replaced: storageExists puts the old copy back
+    if (n.endsWith(".old") && !has(n.substring(0, n.length() - 4)) &&
+        storageExists((String(DIR) + "/" + n.substring(0, n.length() - 4)).c_str()))
+      n.remove(n.length() - 4);
+  }
   for (const String &n : names) {
     const bool wav = n.endsWith(".wav"), md = n.endsWith(".md");
     if (!wav && !md) continue;

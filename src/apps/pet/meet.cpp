@@ -10,6 +10,7 @@
 #include "../../core/display.h"
 #include "../../core/launcher.h"
 #include "../../core/link.h"
+#include "../../core/power.h"
 #include "../../core/storage.h"
 #include "../../core/theme.h"
 
@@ -39,6 +40,37 @@ static uint32_t calmSince;  // since when nothing has happened here: the show wa
 static meet::Script script;
 static const meet::Frame *current;  // the frame being shown during an act
 
+// A copy of the Pet's number and its friends on the SD card, so a board whose memory was wiped (Settings > Reset >
+// Everything keeps them, but a full Install erases everything) still knows its friends, and they still know it.
+static const char *const BACKUP = "/pet/friends.bin", *const BACKUP_TMP = "/pet/friends.tmp";
+struct Backup {
+  char magic[4];  // "UDXF"
+  uint32_t id;
+  friends::List list;
+};
+
+static bool readBackup(Backup &b) {
+  if (!storageCardMount()) return false;
+  fs::File f = storageOpen(BACKUP);
+  if (!f || f.size() != sizeof b || f.read((uint8_t *)&b, sizeof b) != sizeof b) return false;
+  return memcmp(b.magic, "UDXF", 4) == 0 && b.id && b.list.version == friends::VERSION && b.list.count <= friends::MAX;
+}
+
+// This device's Pet number: random, made the first time (or brought back from the card), kept in NVS. Sent instead
+// of anything that identifies the device itself.
+static uint32_t myId() {
+  static uint32_t id;
+  if (!id) {
+    id = storageGetInt("pet_id", 0);
+    if (!id) {
+      Backup b;
+      id = readBackup(b) ? b.id : esp_random() | 1;
+      storagePutInt("pet_id", id);
+    }
+  }
+  return id;
+}
+
 // Friends: asked after a first greeting ("Be friends?"); both must say yes. Kept in NVS ("pet_friends").
 static friends::List buddies;
 static bool buddiesLoaded, asking;  // asking: the "Be friends?" question is on screen
@@ -50,17 +82,51 @@ static const uint32_t ASK_MS = 30000;  // the question goes away after this long
 static bool listing, confirmRemove;
 static int listAt;
 
+static void writeBackup();
+
 static friends::List &friendsList() {
   if (!buddiesLoaded) {
     friends::List saved;
-    if (storageGetBytes("pet_friends", &saved, sizeof saved) == sizeof saved && saved.version == friends::VERSION)
+    Backup b;
+    const bool onCard = readBackup(b);
+    if (storageGetBytes("pet_friends", &saved, sizeof saved) == sizeof saved && saved.version == friends::VERSION) {
       buddies.load(&saved, sizeof saved);
+      // Friends made before the card copy existed (or a card swapped in): copy them over now.
+      if (buddies.count && (!onCard || b.id != myId() || memcmp(&b.list, &buddies, sizeof buddies) != 0))
+        writeBackup();
+    } else if (onCard && b.id == myId()) {  // the memory was wiped: back from the card
+      buddies.load(&b.list, sizeof b.list);
+      storagePutBytes("pet_friends", &buddies, sizeof buddies);
+    }
     buddiesLoaded = true;
   }
   return buddies;
 }
 
-static void saveFriends() { storagePutBytes("pet_friends", &buddies, sizeof buddies); }
+// Saved in NVS, and copied to the card (written whole to a temp file, then renamed, so a copy is never half written).
+static void saveFriends() {
+  storagePutBytes("pet_friends", &buddies, sizeof buddies);
+  writeBackup();
+}
+
+static void writeBackup() {
+  if (!storageCardMount()) return;
+  Backup b;
+  memcpy(b.magic, "UDXF", 4);
+  b.id = myId();
+  b.list = buddies;
+  fs::File f = storageOpen(BACKUP_TMP, "w");
+  if (!f) return;
+  const bool ok = f.write((const uint8_t *)&b, sizeof b) == sizeof b;
+  f.close();
+  if (ok) storageReplace(BACKUP_TMP, BACKUP, sizeof b);
+  else storageRemove(BACKUP_TMP);
+}
+
+void meetForgetFriends() {
+  friendsList().count = 0;
+  saveFriends();
+}
 
 static uint32_t clockNow() { return clockValid() ? (uint32_t)time(nullptr) : 0; }
 
@@ -93,17 +159,6 @@ static void rxFree() {
 
 // This device's Pet id: random, made the first time, kept in NVS. Sent instead of anything that identifies the
 // device itself.
-static uint32_t myId() {
-  static uint32_t id;
-  if (!id) {
-    id = storageGetInt("pet_id", 0);
-    if (!id) {
-      id = esp_random() | 1;
-      storagePutInt("pet_id", id);
-    }
-  }
-  return id;
-}
 
 static int mine() { return amLeft ? 0 : 1; }  // which of the room's two Pets is this device's
 static int16_t offset() { return amLeft ? 0 : meet::SCREEN_W; }
@@ -408,6 +463,7 @@ static void sayHello() {
 }
 
 static void keepAlive() {
+  powerAlive();  // the loop watchdog: an act or a badge transfer can take longer than it allows
   if ((int32_t)(millis() - nextHelloAt) < 0) return;
   sayHello();
   nextHelloAt = millis() + HELLO_MS / 4;

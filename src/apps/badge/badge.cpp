@@ -134,7 +134,7 @@ static Redraw onBack() {
 // The hints over the bottom of the badge, on a white band, for a moment after opening.
 static void drawBand() {
   display.fillRect(0, HINTS_TOP - 3, display.width(), display.height() - HINTS_TOP + 3, WHITE);
-  drawHints(count > 1 ? "next" : "", "pick", count > 1 ? "prev" : "");
+  drawHints(count > 1 ? "next" : "", "pick", count > 1 ? "previous" : "");
 }
 
 static void draw() {
@@ -148,7 +148,7 @@ static void draw() {
   } else if (!drawBmp(names[current])) {
     drawHeader("Badge");
     drawEmpty("Can't read this one", names[current].c_str(), "Not a 1-bit BMP?");
-    drawHints(count > 1 ? "next" : "", "pick", count > 1 ? "prev" : "");
+    drawHints(count > 1 ? "next" : "", "pick", count > 1 ? "previous" : "");
   } else if (band) {
     drawBand();
   }
