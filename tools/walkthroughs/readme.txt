@@ -2,8 +2,34 @@
 # Screens for the README strip (docs/screens.png) and the link preview (site/og.png): tools/readme_images.py. Timetable and Notes show the
 # test build's sample classes and notes (demo 1), so no one's real timetable or notes appear; no Dex list (nearby
 # network names), no badges (photos). Chooser's spin adds one win to its tally (normal use); Dino's score isn't
-# saved (dry run).
+# saved (dry run). The welcome is shown with X WELCOME ("welcomed" put back after); the factory reset is a dry run.
 dry 1
+keep welcomed
+home
+welcome
+shot r-welcome
+press a
+shot r-welcome-site
+press b
+expect screen=Home
+select Settings
+press b
+press a
+press a
+press a
+press a
+press b
+press a
+press a
+press a
+press a
+press a
+press b
+shot r-factory
+press a
+press A
+press A
+expect screen=Home
 demo 1
 select Timetable
 press b

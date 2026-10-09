@@ -22,7 +22,7 @@ Install it from your browser in a minute, with no tools to set up.
   <a href="https://unidex-site.vercel.app"><img height="36" alt="Pre-order (UK)" src="https://img.shields.io/badge/pre--order-UK-black?style=for-the-badge"></a>
 </p>
 
-![unidex on the 200×200 e-paper screen: the next class on the home screen, the Timetable countdown, today's classes, the notes list, an open note, the Pet and a round of Dino](docs/screens.png)
+![unidex on the 200×200 e-paper screen. Top row: the next class on the home screen, the Timetable countdown, today's classes, the notes list and an open note. Bottom row: the welcome a new device shows (the buttons, then a QR code for the website), the Pet, the factory reset question and a round of Dino](docs/screens.png)
 
 | App | What it does |
 |---|---|

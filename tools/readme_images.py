@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The README's strip of screens (docs/screens.png) and the website's link preview (site/og.png), from the screenshots
+"""The README's screens in two rows (docs/screens.png) and the website's link preview (site/og.png), from the screenshots
 tools/walkthroughs/readme.txt takes (devshot.py, 600x600 at 3x):
 
   ~/.platformio/penv/bin/python tools/devshot.py run tools/walkthroughs/readme.txt --out shots/readme
@@ -13,7 +13,8 @@ from PIL import Image, ImageDraw, ImageFont
 shots = sys.argv[1]
 repo = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..")
 PAPER, INK, BG, EDGE = (240, 239, 233), (26, 26, 26), (255, 255, 255), (60, 60, 60)
-STRIP = ["r-home-timetable", "r-timetable", "r-today", "r-notes-list", "r-note", "r-pet", "r-dino"]
+ROWS = [["r-home-timetable", "r-timetable", "r-today", "r-notes-list", "r-note"],
+        ["r-welcome", "r-welcome-site", "r-pet", "r-factory", "r-dino"]]
 
 
 def screen(name, size):
@@ -25,14 +26,13 @@ def screen(name, size):
     return framed
 
 
-tiles = [screen(n, 400) for n in STRIP]  # 2x
-gap, pad = 24, 24
-width = pad * 2 + sum(t.width for t in tiles) + gap * (len(tiles) - 1)
-strip = Image.new("RGB", (width, pad * 2 + tiles[0].height), BG)
-x = pad
-for t in tiles:
-    strip.paste(t, (x, pad))
-    x += t.width + gap
+rows = [[screen(n, 400) for n in row] for row in ROWS]  # 2x
+gap, pad, tile = 24, 24, rows[0][0].width
+cols = max(len(r) for r in rows)
+strip = Image.new("RGB", (pad * 2 + cols * tile + gap * (cols - 1), pad * 2 + len(rows) * tile + gap * (len(rows) - 1)), BG)
+for j, row in enumerate(rows):
+    for i, t in enumerate(row):
+        strip.paste(t, (pad + i * (tile + gap), pad + j * (tile + gap)))
 strip.save(os.path.join(repo, "docs", "screens.png"), optimize=True)
 print("docs/screens.png", strip.size)
 
