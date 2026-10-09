@@ -158,7 +158,9 @@ static void scan() {
   displayShow(drawScanning, false);
   ensureLoaded();
 
-  setCpuFrequencyMhz(240);  // full speed only while the radio is on
+  // 160 MHz while the radio is on: a scan took the same time as at 240 (2.24 s) but 3.3 s at 80, where the radio
+  // stays on longer.
+  setCpuFrequencyMhz(160);
   WiFi.mode(WIFI_STA);
   int found = WiFi.scanNetworks(false, false /*no hidden networks*/, false, 120 /*ms per channel*/);
   nearby = newCount = 0;
