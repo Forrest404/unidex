@@ -1,8 +1,8 @@
 # Contributing
 
-Fixes and improvements are welcome: fork the repository, make your change and open a pull request.
+Fixes and improvements are welcome. Fork the repository, make your change and open a pull request.
 
-unidex is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE): anyone may use, fork and improve it
+unidex is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE). Anyone may use, fork and improve it
 for non-commercial purposes, and only Forrest may use it commercially (for example, on the devices Forrest sells).
 So that contributions can go into every copy of unidex, including those, by opening a pull request or otherwise
 sending a contribution you agree that:
@@ -13,4 +13,4 @@ sending a contribution you agree that:
    unidex under the project's licence.
 3. You keep the copyright in your contribution.
 
-If you don't agree, please don't send a contribution; open an issue describing the change instead.
+If you don't agree, that's fine. Please don't send a contribution, and open an issue describing the change instead.

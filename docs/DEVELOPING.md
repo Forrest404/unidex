@@ -1,6 +1,7 @@
 # Developing unidex
 
-How unidex is built, tested and published, for anyone changing the code. Using it: see the [README](../README.md).
+This is for anyone changing the code: how unidex is built, tested and published. If you just want to use it, start
+with the [README](../README.md).
 
 ## Building from source
 
@@ -12,10 +13,11 @@ git clone https://github.com/Forrest404/unidex.git && cd unidex
 pio run -t upload       # build and flash the firmware (keeps the settings saved on the board)
 ```
 
-If the upload can't connect: the USB port disappears while the board sleeps, so press a button and start the upload
-within 10 seconds. Still stuck: hold BOOT, tap RESET (or re-plug USB), release BOOT, try again.
+If the upload can't connect, remember that the USB port disappears while the board sleeps. Press a button and start
+the upload within 10 seconds. If that doesn't help, hold BOOT, tap RESET (or re-plug USB), release BOOT and try
+again.
 
-WiFi and API keys are never compiled in: they're set over USB from the website's Notes page. The firmware version
+WiFi and API keys are never compiled in. You set them over USB from the website's Notes page. The firmware version
 comes from git (`tools/version.py`).
 
 ## Project layout
@@ -66,132 +68,145 @@ starter/                files to copy to a new SD card: 3 generic badges, an emp
 2. Add `<name>App` to the `extern` line and to `APPS[]` in `src/apps/apps.cpp`. That sets the launcher order.
 3. Add a 40×40 icon in `src/core/theme.cpp` / `theme.h` (rows of `#` and `.`).
 
-Rules that keep it fast and cheap on battery:
+A few rules keep an app fast and easy on the battery:
 
-- **`draw()` paints the whole screen**; the launcher does the refresh. Return `Redraw::Partial` (a change),
-  `Redraw::Full` (whole new image), `Redraw::Tick` (a live update) or `Redraw::None` from `onButton`/`tick`.
-- **RAM is lost in deep sleep** and `onEnter` isn't called again after a wake. Keep state in `RTC_DATA_ATTR`
-  variables (survive sleep) or NVS via `storage.h` (survives power loss), and rebuild caches lazily on first use
-  (see `ensureList()` in the badge app).
-- **Turn radios on only inside the app and off again** before returning (`netClaimed()`: a note is still sending,
-  so leave the WiFi alone). Only `tick` redraws without a press.
-- Flash wear: open a file once, write everything, close it. Never write inside a loop.
-- The home carousel takes any number of apps (one dot each; around 8 still fit across).
+- **`draw()` paints the whole screen** and the launcher does the refresh. From `onButton` or `tick`, return
+  `Redraw::Partial` (a change), `Redraw::Full` (a whole new image), `Redraw::Tick` (a live update) or
+  `Redraw::None`.
+- **RAM is lost in deep sleep**, and `onEnter` isn't called again after a wake. Keep state in `RTC_DATA_ATTR`
+  variables (they survive sleep) or in NVS via `storage.h` (it survives power loss), and rebuild caches lazily on
+  first use (see `ensureList()` in the badge app).
+- **Turn a radio on only inside the app, and off again** before returning. `netClaimed()` tells you a note is still
+  sending, so leave the WiFi alone then. Only `tick` redraws without a press.
+- To limit flash wear, open a file once, write everything and close it. Never write inside a loop.
+- The home carousel takes any number of apps, with one dot each. Around 8 still fit across.
 
 ## The refresh rule
 
-E-ink ghosts. `displayShow()` uses a fast partial refresh by default and a full (flashing) refresh when switching
-apps, when an app asks for one, and after every 10 partials (the counter survives sleep). Animations use
-`displayFrame()` (partials that don't count toward the 10) and must end with a full `displayShow()`.
+E-ink leaves faint ghosts of earlier images. `displayShow()` uses a fast partial refresh by default, and a full
+(flashing) refresh when you switch apps, when an app asks for one, and after every 10 partials (the counter survives
+sleep). Animations use `displayFrame()`, whose partials don't count toward the 10, and must end with a full
+`displayShow()`.
 
 ## Build options and the test build
 
-`platformio.ini` sets `-DDEBUG=0`. Set it to `1` for serial logs (`pio device monitor`, 115200) and a short wait
-for USB on cold boot. The SD card is never formatted on mount, so a failed mount can't erase your files.
+`platformio.ini` sets `-DDEBUG=0`. Set it to `1` for serial logs (`pio device monitor`, 115200) and a short wait for
+USB on cold boot. The SD card is never formatted on mount, so a failed mount can't erase your files.
 
 `pio run -e dev` builds a test version with USB screenshots and virtual buttons (`src/core/devtools.h`). It never
 sleeps, so flash the normal build again afterwards. Its version ends in `-test` (and any build with uncommitted
-changes in `-dirty`), so the website's Sync leaves it alone. For the safety features: `X BATTMV <mv>` pretends the
-battery reads that (`X BATTMV 3400`: low; `3300`: "Charge me", which the test build shows but doesn't act on;
-`0`: the real reading), `X HANG` stops the main loop so the 30 s watchdog restarts the board, and `X WELCOME` shows
-the first-start screens. For the screen and battery: `X GAMEWAVE <frames> [rate]` tries another game waveform,
-`X FILL b|w` does a full black or white refresh (several in turn recover a panel left grey), and `X BATTLOG` /
-`X BATTCALLS` print the battery readings and every % worked out. `tools/devshot.py run tools/walkthroughs/<app>.txt` presses
-through an app and saves every screen as a PNG (with an `index.html` contact sheet); switches make clearing a dry
-run and the cloud steps fake, so a walkthrough changes nothing.
+changes ends in `-dirty`), so the website's Sync leaves it alone.
+
+The test build has a few commands for the safety features:
+
+- `X BATTMV <mv>` pretends the battery reads that voltage. `X BATTMV 3400` is low, and `3300` shows "Charge me"
+  (the test build shows it but doesn't act on it). `0` goes back to the real reading.
+- `X HANG` stops the main loop, so the 30 s watchdog restarts the board.
+- `X WELCOME` shows the first-start screens.
+
+And a few for the screen and battery:
+
+- `X GAMEWAVE <frames> [rate]` tries another game waveform.
+- `X FILL b|w` does a full black or white refresh. Several in turn can recover a panel left grey.
+- `X BATTLOG` and `X BATTCALLS` print the battery readings and every % worked out.
+
+`tools/devshot.py run tools/walkthroughs/<app>.txt` presses through an app and saves every screen as a PNG, with an
+`index.html` contact sheet. Clearing is a dry run and the cloud steps are fake, so a walkthrough changes nothing.
 
 Uploads run at 115200 baud, and firmware uploads use esptool's ROM loader (`--no-stub`, added by
-`tools/upload_nostub.py`). On this board the faster default and the esptool stub drop the USB link partway
-through ("No serial data received"). On USB the board stays awake, otherwise press a button first: its USB port
+`tools/upload_nostub.py`). On this board the faster default and the esptool stub drop the USB link partway through
+("No serial data received"). On USB the board stays awake. Otherwise, press a button first, because its USB port
 disappears while it sleeps.
 
 ## Tests
 
-- **On a computer** (no board): the rules that don't need hardware live in small headers with their own checks.
-  Each test file's first lines give its build command, e.g.
+- **On a computer** (no board). The rules that don't need hardware live in small headers with their own checks.
+  Each test file's first lines give its build command, for example
   `c++ -std=c++17 -O2 -I src/apps/pet tools/meettest/meet_test.cpp -o /tmp/meet_test && /tmp/meet_test`.
   `tools/pettest`, `tools/meettest` (Meet, friends, badge sending), `tools/batterytest`, `tools/notetest`,
   `tools/gametest`. `tools/run_tests.sh` builds and runs them all.
-- **On GitHub:** every push and pull request runs `.github/workflows/ci.yml`: the computer tests and both firmware
-  builds. Library and platform versions are pinned in `platformio.ini`, so a build only changes when they're
-  changed there.
-- **On one board** (test build): `tools/devshot.py run tools/walkthroughs/<app>.txt` (see above).
-  `tools/safetyshot.py` checks the low and flat battery, the watchdog and safe saving, and puts everything back
-  (on a board without an SD card it also checks that a calendar or badge is refused rather than reported saved).
-- **On two boards** (both on the test build, side by side): `tools/meetshot.py` (meeting, the shared room, timing),
-  `tools/friendshot.py` (friends; `--orders` tries every way two people can answer), `tools/badgeshot.py` (sending a
-  badge). They put each board's saved data back afterwards.
+- **On GitHub.** Every push and pull request runs `.github/workflows/ci.yml`, which runs the computer tests and
+  builds both firmwares. Library and platform versions are pinned in `platformio.ini`, so a build only changes
+  when you change them there.
+- **On one board** (test build). Use `tools/devshot.py run tools/walkthroughs/<app>.txt` (see above).
+  `tools/safetyshot.py` checks the low and flat battery, the watchdog and safe saving, and puts everything back.
+  On a board without an SD card, it also checks that a calendar or badge is refused rather than reported saved.
+- **On two boards** (both on the test build, side by side). `tools/meetshot.py` covers meeting, the shared room and
+  timing. `tools/friendshot.py` covers friends (`--orders` tries every way two people can answer), and
+  `tools/badgeshot.py` covers sending a badge. They put each board's saved data back afterwards.
 
 ## The Pet
 
-- **Parts:** `src/apps/pet/parts.h` holds the art (32×32 per part, `#` ink, `o` paper, `.` see-through). The website's
-  Pet designer uses the same parts: after changing them, run `python3 tools/pet/export.py` to update
-  `site/pet-parts.js` (`--check` says if it's out of date).
-- **Meet** (`meet.cpp`, rules in `meet_logic.h`): devices say hello over ESP-NOW about once a second (four times a
-  second with someone nearby), each with a random radio address per session. Closeness is the signal strength both
-  ways: it tells "within about 15 cm" from "a metre away", not touching from 15 cm, so meeting needs a press. Once
-  connected, the device with the lower Pet number is the left screen and runs the show: it sends each act, and both
-  play the same frames on a 550 ms beat from when the message arrived (they stay within about 50 ms). Everything is
-  sent three times; copies that arrive before the last act ended are ignored.
-- **Friends** (`friends_logic.h`): up to 16, in NVS (`pet_friends`). A "yes" is repeated until both sides have
+- **Parts.** `src/apps/pet/parts.h` holds the art (32×32 per part, `#` ink, `o` paper, `.` see-through). The website's
+  Pet designer uses the same parts, so after changing them, run `python3 tools/pet/export.py` to update
+  `site/pet-parts.js` (`--check` tells you if it's out of date).
+- **Meet** (`meet.cpp`, with the rules in `meet_logic.h`). Devices say hello over ESP-NOW about once a second (four
+  times a second with someone nearby), each with a random radio address per session. Closeness comes from the
+  signal strength measured both ways. It can tell "within about 15 cm" from "a metre away", but not touching from
+  15 cm, which is why meeting needs a press. Once connected, the device with the lower Pet number is the left screen
+  and runs the show: it sends each act, and both devices play the same frames on a 550 ms beat counted from when the
+  message arrived (they stay within about 50 ms of each other). Everything is sent three times, and copies that
+  arrive before the last act ended are ignored.
+- **Friends** (`friends_logic.h`). Up to 16, in NVS (`pet_friends`). A "yes" is repeated until both sides have
   settled.
-- **Sending a badge** (`send_logic.h`): an offer, then 200-byte pieces, each acknowledged and resent if lost, and a
-  CRC over the whole file; the receiver checks it's a valid 1-bit BMP before showing it.
-- **USB:** `P GET` / `P SET <look hex> <name hex>` (the Tools page's Pet designer).
+- **Sending a badge** (`send_logic.h`). An offer, then 200-byte pieces that are each acknowledged and resent if
+  lost, and a CRC over the whole file. The receiver checks it's a valid 1-bit BMP before showing it.
+- **USB.** `P GET` and `P SET <look hex> <name hex>`, used by the Tools page's Pet designer.
 
 ## Calendar files and the Mac sync
 
-Weekly classes come from `timetable.csv` in the SD card's root (`day,start,end,module,room`, `day` is `Mon`…`Sun`,
-24 h times). Synced events are stored in `/events.csv`, one per line:
-`YYYY-MM-DD,HH:MM,HH:MM,title,location,notes` (empty times = all day). Title, location and notes are cut at 63, 47
-and 160 characters and converted to plain ASCII (the display font has nothing else). Up to 96 entries in total.
+Weekly classes come from `timetable.csv` in the SD card's root (`day,start,end,module,room`, where `day` is
+`Mon`…`Sun` and times are 24 h). Synced events are stored in `/events.csv`, one per line:
+`YYYY-MM-DD,HH:MM,HH:MM,title,location,notes` (empty times mean all day). Title, location and notes are cut at 63, 47
+and 160 characters and converted to plain ASCII, because the display font has nothing else. There's room for up to
+96 entries in total.
 
-The Mac agent (`tools/calsync/`, `tools/calsync/install.sh`) sends the time and the next 7 days of events whenever
-the board is plugged in and awake. The timezone is London: `TZ_LONDON` in `src/core/clock.cpp` and `Europe/London`
-in `tools/calsync/calsync.swift`.
+The Mac agent (`tools/calsync/`, installed with `tools/calsync/install.sh`) sends the time and the next 7 days of
+events whenever the board is plugged in and awake. The time zone is London: `TZ_LONDON` in `src/core/clock.cpp` and
+`Europe/London` in `tools/calsync/calsync.swift`.
 
 ## The website
 
-`site/` is published to GitHub Pages by `.github/workflows/site.yml` on every **published release** (or by hand
-from the Actions tab, for website changes). The workflow builds the firmware from the latest release tag (so the site
-always offers a released version), and writes two manifests for
+`site/` is published to GitHub Pages by `.github/workflows/site.yml` on every **published release**, or by hand from
+the Actions tab when only the website changed. The workflow builds the firmware from the latest release tag, so the
+site always offers a released version, and writes two manifests for
 [ESP Web Tools](https://esphome.github.io/esp-web-tools/):
 
-- **Install**: bootloader, partitions, boot_app0 and the app, offered with a full erase.
-- **Update**: the app only, so badges, the Dex, events and settings stay.
+- **Install** has the bootloader, partitions, boot_app0 and the app, and is offered with a full erase.
+- **Update** has the app only, so badges, the Dex, events and settings stay.
 
 ESP Web Tools flashes at 115200 baud with a modern esptool stub, which works on this board. The PlatformIO upload
 problems came from its older bundled esptool together with a baud switch. The Tools page talks to the device with the
-same USB protocol as the Mac agent (`site/serial.js`). Calendar files are parsed with ical.js (repeating events,
-moved or cancelled occurrences, time zones) and sent as London time, like `calsync.swift`.
+same USB protocol as the Mac agent (`site/serial.js`). Calendar files are parsed with ical.js (it handles repeating
+events, moved or cancelled occurrences and time zones) and sent as London time, like `calsync.swift`.
 
-**Sync everything** (top of Tools) does it all in one click:
+**Sync everything** (at the top of Tools) does it all in one click:
 
-1. updates the firmware if the site has a newer release (the device reports its version with `V`, taken from
-   git at build time by `tools/version.py`; a newer or test build is left alone);
-2. sets the clock;
-3. sends the calendar file you chose once, which the page remembers;
-4. starts the device sending notes still waiting (`N SYNC`; the device carries on by itself).
+1. It updates the firmware if the site has a newer release. The device reports its version with `V`, taken from git
+   at build time by `tools/version.py`, and a newer or test build is left alone.
+2. It sets the clock.
+3. It sends the calendar file you chose once, which the page remembers.
+4. It tells the device to send notes still waiting (`N SYNC`), and the device carries on by itself.
 
-Your settings and files stay through the update (`site/update.js` writes only the app, like Update).
+Your settings and files stay through the update, because `site/update.js` writes only the app, like Update.
 
-- **The calendar file:** Chrome may ask once per visit before reading the file again. Export the calendar to the
-  same file when it changes. Calendar links (Google, Outlook, iCloud) can't be read by a web page without a
-  third-party server, so it's a file.
-- **"Sync by itself":** the same sync runs when the device is plugged in and awake while the page is open. It waits
+- **The calendar file.** Chrome may ask once per visit before it reads the file again. Export the calendar to the
+  same file whenever it changes. A web page can't read calendar links (Google, Outlook, iCloud) without a
+  third-party server, so it has to be a file.
+- **"Sync by itself".** The same sync runs when the device is plugged in and awake while the page is open. It waits
   a few seconds so it doesn't talk over the Mac agent. Both write the calendar, and the last one wins.
 
-**Pet** (Tools): dress up the Pet with a mouse and send it, with an optional name; Load brings back what's on
+On **Pet** (Tools), you dress up the Pet with a mouse and send it, with an optional name. Load brings back what's on
 the device.
 
-Files live on the SD card, so the installer writes no filesystem image; people copy `starter/` to their card or use
-the badge maker. `tools/badges.py` makes the badges in `starter/badges/`: anything put there is committed and
+Files live on the SD card, so the installer writes no filesystem image. People copy `starter/` to their card or use
+the badge maker. `tools/badges.py` makes the badges in `starter/badges/`, and anything put there is committed and
 public, so keep personal badges on your own SD card instead.
 
 ## Hardware notes
 
 Everything here was read from the chip, seen working on the device, or taken from Waveshare's own example code
-(marked *vendor*, not independently verified).
+(marked *vendor*, which means it hasn't been independently verified).
 
 <details>
 <summary><b>Chip, display and pins</b></summary>
