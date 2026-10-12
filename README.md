@@ -10,13 +10,13 @@ It runs on two buttons and a battery. The code is public, and you're free to use
 non-commercial use. Installing takes about a minute from your browser, with no tools to set up.
 
 **Don't have the board?** Pre-orders for a fully assembled and tested unidex are now closed. To hear when more are
-available, join the wait list at [unidex-site.vercel.app](https://unidex-site.vercel.app).
+available, join the wait list at [unidex.shop](https://www.unidex.shop).
 
 <p>
   <a href="https://github.com/Forrest404/unidex/releases/latest"><img height="36" alt="Latest release" src="https://img.shields.io/github/v/release/Forrest404/unidex?style=for-the-badge"></a>
   <a href="LICENSE"><img height="36" alt="Licence: PolyForm Noncommercial" src="https://img.shields.io/badge/licence-PolyForm%20Noncommercial-black?style=for-the-badge"></a>
   <a href="https://forrest404.github.io/unidex/"><img height="36" alt="Install in your browser" src="https://img.shields.io/badge/install-in%20your%20browser-black?style=for-the-badge"></a>
-  <a href="https://unidex-site.vercel.app"><img height="36" alt="Join the wait list" src="https://img.shields.io/badge/join%20the-wait%20list-black?style=for-the-badge"></a>
+  <a href="https://www.unidex.shop"><img height="36" alt="Join the wait list" src="https://img.shields.io/badge/join%20the-wait%20list-black?style=for-the-badge"></a>
 </p>
 
 ![unidex on the 200×200 e-paper screen. Top row: the next class on the home screen, the Timetable countdown, today's classes, the notes list and an open note. Bottom row: the welcome a new device shows (the buttons, then a QR code for the website), the Pet, the factory reset question and a round of Dino](docs/screens.png)
@@ -44,7 +44,7 @@ If unidex is useful to you, a star on GitHub helps other people find it.
 **You'll need:**
 
 - the [Waveshare ESP32-S3-ePaper-1.54](https://docs.waveshare.com/ESP32-S3-ePaper-1.54) board, **V2** (or a
-  ready-made unidex: [join the wait list](https://unidex-site.vercel.app));
+  ready-made unidex: [join the wait list](https://www.unidex.shop));
 - a USB-C **data** cable and a computer with Chrome or Edge;
 - a **micro SD card** (FAT32) for your files;
 - optionally, a 3.7 V LiPo battery on the board's battery connector, so you can use it away from USB.
