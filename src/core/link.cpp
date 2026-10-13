@@ -81,7 +81,7 @@ const char *linkStart() {
   if (!queue) queue = xQueueCreate(16, sizeof(LinkPacket));
   netClaim(true);
   powerHold();  // light sleep would turn the radio off
-  setCpuFrequencyMhz(240);
+  setCpuFrequencyMhz(160);
   WiFi.mode(WIFI_STA);
   WiFi.setSleep(false);  // modem sleep misses packets
   uint8_t mac[6];

@@ -3,8 +3,9 @@
 #include <esp_sleep.h>
 
 static const uint32_t DEBOUNCE_MS = 30;  // no bounce seen at this value in STEP 0
-static const uint32_t LONG_MS = 300;     // tuned on the device in STEP 2
-static const uint32_t RESET_MS = 1000;   // both buttons held this long = restart
+static const uint32_t LONG_MS = 250;     // tuned on the device in STEP 2
+static const uint32_t RESET_MS = 1500;   // both buttons held this long = restart
+static const uint32_t GUARD_MS = 3000;   // ...or this long when the main loop is stuck (resetGuard)
 
 struct Button {
   int pin;
@@ -22,6 +23,26 @@ static Button buttons[] = {
 static Event pending = Event::None;  // a wake tap that was over before we could see it
 static bool resetSent;
 
+// Restarts even when the main loop is stuck and the screen frozen: a small task of its own, on the other core,
+// watches the buttons. Both held GUARD_MS, then let go: restart. It waits for the release because A is GPIO0,
+// which held at a reset starts the chip in download mode (a blank, "frozen" device) instead of unidex. When the
+// loop is running, the normal restart (RESET_MS, with the "Restarting" screen) happens first.
+static void resetGuard(void *) {
+  uint32_t heldSince = 0;
+  bool armed = false;
+  for (;;) {
+    const bool a = digitalRead(0) == LOW, b = digitalRead(18) == LOW;
+    if (a && b) {
+      if (!heldSince) heldSince = millis();
+      if (millis() - heldSince >= GUARD_MS) armed = true;
+    } else {
+      heldSince = 0;
+      if (armed && !a && !b) esp_restart();
+    }
+    vTaskDelay(pdMS_TO_TICKS(50));
+  }
+}
+
 void inputInit() {
   // After a deep-sleep wake the press that woke us counts as input. After power-on it doesn't:
   // holding PWR to switch on would otherwise open an app.
@@ -34,6 +55,11 @@ void inputInit() {
     b.longSent = held && !buttonWake;  // power-on press: its release produces nothing
     b.changedAt = 0;                   // a held wake press started at about boot time
     if (!held && (wokeBy & (1ULL << b.pin))) pending = b.shortEv;  // tapped and released during boot
+  }
+  static bool guarding;
+  if (!guarding) {
+    xTaskCreatePinnedToCore(resetGuard, "resetGuard", 2048, nullptr, 5, nullptr, 0);  // the loop runs on core 1
+    guarding = true;
   }
 }
 
@@ -58,7 +84,7 @@ Event inputPoll() {
     return e;
   }
   uint32_t now = millis();
-  // Both held: neither gives its own events (no "home" on the way to a restart), and after 3 s: Reset.
+  // Both held: neither gives its own events (no "home" on the way to a restart), and after RESET_MS: Reset.
   Button &a = buttons[0], &b = buttons[1];
   if (a.down && b.down) {
     a.longSent = b.longSent = true;

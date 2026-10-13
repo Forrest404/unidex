@@ -21,6 +21,13 @@ int main(int argc, char **argv) {
   check(firstLine("one\ntwo  three", 100) == "one two three" && firstLine("aaaa bbbb cccc", 9) == "aaaa bbbb\u2026" && firstLine("aaaa bbbb cccc", 8) == "aaaa\u2026",
         "first line: one line, cut at a space");
   check(firstLine("\xc3\xa9\xc3\xa9\xc3\xa9\xc3\xa9", 3) == "\xc3\xa9\u2026", "never cut inside a UTF-8 character");
+  size_t f, l;
+  check(byteRange("0-1", 1000, f, l) && f == 0 && l == 1, "range 0-1 (what Safari asks first)");
+  check(byteRange("500-", 1000, f, l) && f == 500 && l == 999, "range to the end");
+  check(byteRange("-100", 1000, f, l) && f == 900 && l == 999, "the last 100 bytes");
+  check(byteRange("0-5000", 1000, f, l) && l == 999, "an end past the file is cut to the file");
+  check(!byteRange("1000-", 1000, f, l) && !byteRange("5-2", 1000, f, l) && !byteRange("x-1", 1000, f, l) &&
+            !byteRange("-", 1000, f, l) && !byteRange("0-1", 0, f, l), "impossible ranges are refused (416)");
   check(whenOf("20261005-130440") == "5 Oct 2026, 13:04", "the date comes from the note's id");
   check(whenOf("note-7") == "note-7" && whenOf("20261305-130440") == "20261305-130440", "odd ids stay as they are");
 

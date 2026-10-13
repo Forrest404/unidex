@@ -68,3 +68,5 @@ bool batteryCharging() {
 #endif
   return HWCDC::isPlugged() || batteryMillivolts() >= 4190;  // the charger holds 4.20 V while topping up
 }
+
+bool batteryToppingUp() { return state.toppingUp; }

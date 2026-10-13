@@ -6,6 +6,7 @@
 #include "phone_page.h"
 #include "phone_text.h"
 #include "store.h"
+#include "../../core/storage.h"
 #include "../../core/devtools.h"
 #include "../../core/net.h"
 #include "../../core/power.h"
@@ -40,7 +41,7 @@ static const char *phoneTimes() {
 // real request queues behind it. Each request is answered and closed straight away.
 
 struct Request {
-  String path, query, host;
+  String path, query, host, range;  // range: the Range header's value ("bytes=0-1"), if any
   String arg(const char *name) const {  // a query value, %XX-decoded
     const String all = "&" + query, key = String("&") + name + "=";
     const int at = all.indexOf(key);
@@ -59,13 +60,20 @@ struct Connection {
   WiFiClient client;
   String head;  // the request so far, up to the blank line after the headers
   uint32_t since;
+  fs::File file;     // a recording being sent, a piece per loop turn (other requests carry on meanwhile)
+  size_t remaining;  // bytes of it still to send
 };
 static const int CONNECTIONS = 6;
 static const uint32_t REQUEST_WAIT_MS = 4000;  // an empty connection is dropped after this
 static Connection connections[CONNECTIONS];
 
 static String header(int code, const char *type, size_t len, const String &headers = "") {
-  const char *status = code == 200 ? "OK" : code == 204 ? "No Content" : code == 302 ? "Found" : "Not Found";
+  const char *status = code == 200   ? "OK"
+                       : code == 204 ? "No Content"
+                       : code == 206 ? "Partial Content"
+                       : code == 302 ? "Found"
+                       : code == 416 ? "Range Not Satisfiable"
+                                     : "Not Found";
   return "HTTP/1.1 " + String(code) + " " + status + "\r\nContent-Type: " + type + "\r\nContent-Length: " + String(len) +
          "\r\nCache-Control: no-store\r\nConnection: close\r\n" + headers + "\r\n";
 }
@@ -167,7 +175,31 @@ static void sendExport(WiFiClient &c) {
   reply(c, 200, "text/plain; charset=utf-8", all, "Content-Disposition: attachment; filename=\"unidex notes.txt\"\r\n");
 }
 
-static void handle(WiFiClient &c, const Request &r) {
+// A recording, from the card. Phones ask for pieces ("Range: bytes=start-end") to play and seek, and need the
+// answer 206 with Content-Range for that; without a Range the whole file comes. ?dl=1 makes it a download.
+// Only the headers go out here: the bytes follow from serveHttp, a piece at a time.
+static void startAudio(Connection &conn, const Request &r) {
+  const String id = r.arg("id");
+  conn.file = storeValidId(id) ? storageOpen(storeWavPath(id).c_str()) : fs::File();
+  if (!conn.file || conn.file.isDirectory()) return reply(conn.client, 404, "text/plain", String("Not found"));
+  const size_t total = conn.file.size();
+  size_t first = 0, last = total ? total - 1 : 0;
+  const bool ranged = r.range.startsWith("bytes=");
+  if (ranged && !byteRange(r.range.substring(6).c_str(), total, first, last)) {
+    conn.file.close();
+    return reply(conn.client, 416, "text/plain", "", 0, "Content-Range: bytes */" + String(total) + "\r\n");
+  }
+  String headers = "Accept-Ranges: bytes\r\n";
+  if (ranged) headers += "Content-Range: bytes " + String(first) + "-" + String(last) + "/" + String(total) + "\r\n";
+  if (r.arg("dl") == "1") headers += "Content-Disposition: attachment; filename=\"unidex " + id + ".wav\"\r\n";
+  const String head = header(ranged ? 206 : 200, "audio/wav", last - first + 1, headers);
+  conn.client.write((const uint8_t *)head.c_str(), head.length());
+  conn.file.seek(first);
+  conn.remaining = last - first + 1;
+}
+
+static void handle(Connection &conn, const Request &r) {
+  WiFiClient &c = conn.client;
   const uint32_t t0 = millis();
   const String self = WiFi.softAPIP().toString();
   if (r.path == "/favicon.ico" || r.path.startsWith("/apple-touch-icon")) return reply(c, 204, "text/plain", "", 0);
@@ -195,6 +227,9 @@ static void handle(WiFiClient &c, const Request &r) {
   } else if (r.path == "/export.txt") {
     sendExport(c);
     logRequest("export", t0);
+  } else if (r.path == "/audio") {
+    startAudio(conn, r);
+    logRequest("audio", t0);
   } else {
     sendPage(c);
     logRequest("page", t0);
@@ -210,6 +245,12 @@ static Request parseRequest(const String &head) {  // "GET /path?query HTTP/1.1"
   r.query = q < 0 ? "" : target.substring(q + 1);
   String lower = head;
   lower.toLowerCase();
+  const int range = lower.indexOf("\nrange:");
+  if (range >= 0) {
+    r.range = head.substring(range + 7, head.indexOf('\r', range + 7));
+    r.range.trim();
+    r.range.replace(" ", "");
+  }
   const int h = lower.indexOf("\nhost:");
   if (h >= 0) {
     r.host = head.substring(h + 6, head.indexOf('\r', h + 6));
@@ -231,11 +272,25 @@ static void serveHttp() {
       if (connections[i].since < connections[slot].since) slot = i;  // all busy: the one waiting longest goes
     }
     connections[slot].client.stop();
+    connections[slot].file.close();
     incoming.setNoDelay(true);  // small replies go out at once
-    connections[slot] = {incoming, "", millis()};
+    connections[slot] = {incoming, "", millis(), fs::File(), 0};
   }
   for (Connection &conn : connections) {
     if (!conn.client) continue;
+    if (conn.remaining) {  // sending a recording: the next piece
+      static uint8_t piece[4096];
+      const size_t n = conn.file.read(piece, min(conn.remaining, sizeof piece));
+      const size_t sent = n && conn.client.connected() ? conn.client.write(piece, n) : 0;
+      conn.remaining = sent == n && n ? conn.remaining - n : 0;
+      lastUse = millis();  // still in use: no idle stop mid-playback
+      if (conn.remaining) continue;
+      conn.file.close();
+      conn.client.stop();
+      conn.client = WiFiClient();
+      conn.head = "";
+      continue;
+    }
     uint8_t buf[256];
     while (conn.client.available() && conn.head.length() < 4096) {
       const int n = conn.client.read(buf, sizeof buf);
@@ -243,7 +298,8 @@ static void serveHttp() {
       conn.head.concat((const char *)buf, n);
     }
     if (conn.head.indexOf("\r\n\r\n") >= 0) {
-      handle(conn.client, parseRequest(conn.head));
+      handle(conn, parseRequest(conn.head));
+      if (conn.remaining) continue;  // a recording: it goes out over the next loop turns
     } else if (conn.client.connected() && millis() - conn.since < REQUEST_WAIT_MS && conn.head.length() < 4096) {
       continue;  // still waiting for the request
     }
@@ -298,7 +354,8 @@ bool phoneStart() {
 void phoneStop() {
   if (!on) return;
   dns.stop();
-  for (Connection &conn : connections) conn.client.stop(), conn.client = WiFiClient(), conn.head = "";
+  for (Connection &conn : connections)
+    conn.client.stop(), conn.client = WiFiClient(), conn.head = "", conn.file.close(), conn.remaining = 0;
   http.end();
   WiFi.softAPdisconnect(true);
   WiFi.mode(WIFI_OFF);
