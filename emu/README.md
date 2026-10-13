@@ -8,7 +8,7 @@ running behind a simulated screen and two buttons. The page is `site/try.html`.
 You need Emscripten (emsdk 3.1.74), and the libraries PlatformIO fetches (`pio run -e dev` once).
 
 ```sh
-EMSDK_ENV=~/emsdk/emsdk_env.sh sh emu/build.sh     # writes emu/out/ and site/emu/ (neither is committed)
+EMSDK_ENV=~/emsdk/emsdk_env.sh bash emu/build.sh     # writes emu/out/ and site/emu/ (neither is committed)
 cd site && python3 -m http.server 8000             # then open http://localhost:8000/try.html
 ```
 

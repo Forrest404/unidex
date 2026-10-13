@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/bin/bash
 # Builds the browser emulator: the firmware's own apps compiled to WebAssembly with Emscripten.
 # Output: emu/out/unidex.js and unidex.wasm. Needs emcc (source emsdk_env.sh first, or set EMSDK_ENV).
 set -e
