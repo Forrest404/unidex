@@ -9,6 +9,8 @@ after its battery and your files as it goes.
 It runs on two buttons and a battery. The code is public, and you're free to use, fork and improve it for
 non-commercial use. Installing takes about a minute from your browser, with no tools to set up.
 
+Featured on [XDA](https://www.xda-developers.com/open-source-os-waveshare-esp32-s3-epaper/).
+
 **Don't have the board?** Pre-orders for a fully assembled and tested unidex are now closed. To hear when more are
 available, join the wait list at [unidex.shop](https://www.unidex.shop).
 
