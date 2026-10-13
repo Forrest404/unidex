@@ -37,3 +37,10 @@ jobs:
 
       - name: Build the test firmware
         run: pio run -e dev
+
+      - name: Build the browser emulator
+        run: |
+          git clone --depth 1 --branch 3.1.74 https://github.com/emscripten-core/emsdk.git ~/emsdk
+          ~/emsdk/emsdk install 3.1.74
+          ~/emsdk/emsdk activate 3.1.74
+          EMSDK_ENV=~/emsdk/emsdk_env.sh sh emu/build.sh

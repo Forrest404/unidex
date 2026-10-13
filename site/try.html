@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>unidex: try it in your browser</title>
+<meta name="description" content="Try unidex in your browser: the real apps from the firmware, running on a simulated e-ink screen with two buttons. Sample data only.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<style>
+  .stage { display: flex; gap: 32px; align-items: flex-start; justify-content: center; flex-wrap: wrap; margin: 8px 0 32px; }
+  .device { background: #2b2b2f; border-radius: 22px; padding: 22px 22px 18px; width: min(100%, 320px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .25); }
+  .screen { background: #ece9df; border-radius: 6px; padding: 8px; }
+  #screen { display: block; width: 100%; height: auto; aspect-ratio: 1; image-rendering: pixelated; background: #e9e6da; }
+  #screen.flash { filter: invert(1); }
+  .buttons { display: flex; justify-content: space-between; gap: 16px; margin-top: 18px; }
+  .buttons button { flex: 1; min-height: 56px; border-radius: 28px; background: #3c3c42; color: #ececee;
+                    border: 1px solid #55555c; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .buttons button.down { background: #ececee; color: #18181b; }
+  .buttons small { display: block; font-weight: 400; opacity: .7; }
+  .help { max-width: 320px; }
+  .help dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 6px 14px; }
+  .help dt { font-weight: 600; white-space: nowrap; }
+  .help dd { margin: 0; color: var(--muted); }
+  #status { min-height: 1.6em; color: var(--muted); }
+  .opts { display: flex; gap: 18px; flex-wrap: wrap; margin-top: 14px; }
+</style>
+</head>
+<body>
+<nav>
+  <a class="brand" href="./">unidex</a>
+  <a href="./">Install</a>
+  <a href="try.html" aria-current="page">Try it</a>
+  <a href="tools.html">Tools</a>
+  <a href="notes.html">Notes</a>
+  <a href="https://github.com/Forrest404/unidex">Source code</a>
+</nav>
+<main>
+  <h1>Try unidex</h1>
+  <p class="sub">This is the real firmware code running in your browser, with a simulated screen and two buttons. It
+    shows sample classes and notes; nothing here is yours and nothing is saved.</p>
+
+  <div class="stage">
+    <div class="device">
+      <div class="screen"><canvas id="screen" width="200" height="200" aria-label="The unidex screen"></canvas></div>
+      <div class="buttons">
+        <button id="btnA" type="button" aria-label="Button A (BOOT)">A<small>BOOT</small></button>
+        <button id="btnB" type="button" aria-label="Button B (PWR)">B<small>PWR</small></button>
+      </div>
+    </div>
+    <div class="help card">
+      <h2>The buttons</h2>
+      <dl>
+        <dt>A</dt><dd>Next. Keys: <b>A</b> or left arrow.</dd>
+        <dt>B</dt><dd>Choose. Keys: <b>B</b>, space or enter.</dd>
+        <dt>Hold A</dt><dd>Go back, or home.</dd>
+        <dt>Hold B</dt><dd>The screen's extra, shown at the bottom.</dd>
+      </dl>
+      <div class="opts">
+        <label class="check"><input type="checkbox" id="eink" checked> E-ink flash</label>
+        <button class="secondary" id="restart" type="button">Restart</button>
+      </div>
+      <p id="status" role="status">Loading…</p>
+    </div>
+  </div>
+
+  <section>
+    <h2>What works here</h2>
+    <p>Timetable, Notes (sample notes to read), Pet, Badge, Dex, Chooser, the games and Settings run the same code
+      as the device. What needs hardware doesn't: there is no WiFi, microphone, radio (Meet) or USB sync, so voice
+      notes, scans, Open on phone and Meet say they aren't available. The screen refreshes instantly here; a real
+      e-ink screen takes a moment, and the flash option imitates a full refresh.</p>
+    <p>Want the real thing? <a href="./">Install it on a board</a>, or
+      <a href="https://www.unidex.shop">join the wait list</a>.</p>
+  </section>
+</main>
+<script src="emu/unidex.js"></script>
+<script src="emu.js"></script>
+</body>
+</html>

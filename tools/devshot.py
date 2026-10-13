@@ -4,6 +4,7 @@
   ~/.platformio/penv/bin/python tools/devshot.py run tools/walkthroughs/home.txt [--out shots/x] [--compare shots/y]
   ~/.platformio/penv/bin/python tools/devshot.py shot NAME [--out DIR]
   ~/.platformio/penv/bin/python tools/devshot.py press a b B ...   (a/b = short, A/B = long)
+  ... run tools/walkthroughs/home.txt --emu     the same, against the browser emulator (emu/build.sh first)
 
 Walkthrough lines: home | welcome | select <app> | pick <game> | waitjob <s> | job | seed <n> | manual <0|1> | frames <n> | play <0/1...> | press <keys...> | hold B <ms> | shot <name> | expect screen=<name> | sleep <ms>
                    | dry|fake|netfail|nocard|nopush|demo <0|1> | keep <setting>|pet | clock unset | # comment
@@ -11,6 +12,7 @@ Pause the Mac agent first (it shares the port). Each run ends with the switches 
 if the run unset it.
 """
 import argparse
+import atexit
 import html
 import os
 import struct
@@ -18,10 +20,44 @@ import sys
 import time
 import zlib
 
+import queue
+import subprocess
+import threading
+
 import serial
 from serial.tools import list_ports
 
 SCALE = 3
+
+
+class EmuSerial:
+    """The browser emulator (emu/) behind the same few calls pyserial has, through emu/test/bridge.cjs."""
+
+    def __init__(self):
+        here = os.path.dirname(os.path.abspath(__file__))
+        self.p = subprocess.Popen(["node", os.path.join(here, "..", "emu", "test", "bridge.cjs")],
+                                  stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        atexit.register(self.close)
+        self.q = queue.Queue()
+        threading.Thread(target=lambda: [self.q.put(l) for l in self.p.stdout], daemon=True).start()
+        self.timeout = 0.2
+
+    def write(self, b):
+        self.p.stdin.write(b)
+        self.p.stdin.flush()
+
+    def readline(self):
+        try:
+            return self.q.get(timeout=self.timeout)
+        except queue.Empty:
+            return b""
+
+    def reset_input_buffer(self):
+        while not self.q.empty():
+            self.q.get_nowait()
+
+    def close(self):
+        self.p.kill()
 
 
 def find_port():
@@ -33,6 +69,12 @@ def find_port():
 
 class Device:
     def __init__(self, port):
+        if port == "emu":
+            self.s = EmuSerial()
+            time.sleep(1.5)  # the emulator starts up
+            self.s.reset_input_buffer()
+            self.log = []
+            return
         self.s = serial.Serial()
         self.s.port, self.s.baudrate, self.s.timeout = port, 115200, 0.2
         self.s.rts = False  # leave DTR alone: pyserial sets DTR before RTS, and DTR low with RTS high resets the chip
@@ -283,8 +325,9 @@ def main():
     ap.add_argument("--out", default="shots/latest")
     ap.add_argument("--compare")
     ap.add_argument("--port")
+    ap.add_argument("--emu", action="store_true", help="run against the browser emulator (emu/build.sh first)")
     a = ap.parse_args()
-    dev = Device(a.port or find_port())
+    dev = Device("emu" if a.emu else a.port or find_port())
     run = Run(dev, a.out, a.compare)
     try:
         if a.what == "run":

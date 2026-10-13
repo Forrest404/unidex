@@ -2,7 +2,6 @@
 #include "../../src/core/net.h"
 #include "../../src/core/link.h"
 #include "../../src/core/audio.h"
-#include "../../src/core/usbsync.h"
 static const char *NO_NET = "Not in the demo";
 const char *netConnect() { return NO_NET; }
 const char *netBegin() { return NO_NET; }
@@ -19,7 +18,3 @@ bool linkPoll(LinkPacket &) { return false; }
 bool audioBegin() { return false; }
 size_t audioRead(int16_t *, size_t) { return 0; }
 void audioEnd() {}
-void usbSyncPoll() {}
-uint32_t usbSyncGeneration() { return 0; }
-time_t usbSyncLastTime() { return 0; }
-bool usbSyncTakeNewBadge(char *, size_t) { return false; }

@@ -41,6 +41,18 @@ jobs:
           git worktree add ../release "$tag"
           cd ../release && pio run -e epaper154
 
+      - name: Build the browser emulator (the Try it page)
+        run: |
+          set -e
+          if [ ! -f ../release/emu/build.sh ]; then echo "this release has no emulator"; exit 0; fi
+          git clone --depth 1 --branch 3.1.74 https://github.com/emscripten-core/emsdk.git ~/emsdk
+          ~/emsdk/emsdk install 3.1.74
+          ~/emsdk/emsdk activate 3.1.74
+          export EMSDK_ENV=~/emsdk/emsdk_env.sh
+          (cd ../release && sh emu/build.sh)
+          mkdir -p site/emu
+          cp ../release/emu/out/unidex.js ../release/emu/out/unidex.wasm site/emu/
+
       - name: Collect firmware and write the installer manifests
         run: |
           set -e
