@@ -4,3 +4,4 @@
 src/secrets.h
 shots/
 __pycache__/
+emu/out/

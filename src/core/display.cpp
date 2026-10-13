@@ -1,7 +1,10 @@
 #include "display.h"
-#include <SPI.h>
 #include "storage.h"
+#ifndef UNIDEX_EMU
+#include <SPI.h>
+#endif
 
+#ifndef UNIDEX_EMU
 static const int PIN_SCK = 12, PIN_MOSI = 13, PIN_CS = 11, PIN_DC = 10, PIN_RST = 9, PIN_BUSY = 8;
 static const int PIN_EPD_PWR = 6;  // panel power switch, active LOW
 // 10 MHz: each refresh sends the image two or three times, so a quicker link means less time awake (a screen
@@ -9,6 +12,7 @@ static const int PIN_EPD_PWR = 6;  // panel power switch, active LOW
 static SPISettings spi(10000000, MSBFIRST, SPI_MODE0);
 
 void displaySetSpiHz(uint32_t hz) { spi = SPISettings(hz, MSBFIRST, SPI_MODE0); }
+#endif
 
 Display display;
 
@@ -22,6 +26,7 @@ void Display::drawPixel(int16_t x, int16_t y, uint16_t color) {
 
 void Display::fillScreen(uint16_t color) { memset(buf, ink(color) == WHITE ? 0xFF : 0x00, sizeof buf); }
 
+#ifndef UNIDEX_EMU
 // ---- The controller (SSD1681): commands over SPI, DC low for the command byte and high for its data. BUSY is
 // high while it works.
 
@@ -212,6 +217,22 @@ void displayInit(bool initial) {
   display.setTextWrap(false);  // with wrap on, measuring a long line reports only its first wrapped piece
   display.inverted = storageGetInt("invert", 0);
 }
+
+#else  // the browser build (emu/): no panel; a refresh hands the buffer to the page
+extern "C" void emuPresent(const uint8_t *buf, char kind);
+static bool needFull, fastUsed, driveAll;
+static uint8_t fastFrames, fastRate;
+static uint32_t busyMs;
+static void refreshFull() { emuPresent(display.buf, 'F'); }
+static void refreshPartial() { emuPresent(display.buf, driveAll ? 'C' : fastFrames ? 'f' : 'P'); }
+static void sleepPanel() {}
+static void leaveFastFrames() { fastUsed = false; }
+void displayInit(bool) {
+  display.setTextWrap(false);
+  display.inverted = storageGetInt("invert", 0);
+}
+void displaySetSpiHz(uint32_t) {}
+#endif
 
 void displaySetInverted(bool on) {
   display.inverted = on;
