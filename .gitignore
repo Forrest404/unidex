@@ -5,4 +5,5 @@ src/secrets.h
 shots/
 __pycache__/
 emu/out/
-site/emu/
+emu/web/unidex.js
+emu/web/unidex.wasm

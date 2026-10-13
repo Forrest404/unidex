@@ -1,15 +1,16 @@
 # The browser emulator
 
 The firmware's own apps (everything in `src/` except the hardware drivers) compiled to WebAssembly with Emscripten,
-running behind a simulated screen and two buttons. The page is `site/try.html`.
+running behind a simulated screen and two buttons. It is for testing on this computer only: the test page is
+`emu/web/try.html`, outside `site/`, so the website workflow never publishes it.
 
 ## Build and run
 
 You need Emscripten (emsdk 3.1.74), and the libraries PlatformIO fetches (`pio run -e dev` once).
 
 ```sh
-EMSDK_ENV=~/emsdk/emsdk_env.sh bash emu/build.sh     # writes emu/out/ and site/emu/ (neither is committed)
-cd site && python3 -m http.server 8000             # then open http://localhost:8000/try.html
+EMSDK_ENV=~/emsdk/emsdk_env.sh bash emu/build.sh     # writes emu/out/ and emu/web/unidex.* (not committed)
+python3 -m http.server 8000                        # from the repo folder; open http://localhost:8000/emu/web/try.html
 ```
 
 ## How it works

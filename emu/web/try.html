@@ -5,8 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>unidex: try it in your browser</title>
 <meta name="description" content="Try unidex in your browser: the real apps from the firmware, running on a simulated e-ink screen with two buttons. Sample data only.">
-<link rel="icon" href="favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="style.css">
+<link rel="icon" href="../../site/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="../../site/style.css">
 <style>
   .stage { display: flex; gap: 32px; align-items: flex-start; justify-content: center; flex-wrap: wrap; margin: 8px 0 32px; }
   .device { background: #2b2b2f; border-radius: 22px; padding: 22px 22px 18px; width: min(100%, 320px);
@@ -29,12 +29,8 @@
 </head>
 <body>
 <nav>
-  <a class="brand" href="./">unidex</a>
-  <a href="./">Install</a>
-  <a href="try.html" aria-current="page">Try it</a>
-  <a href="tools.html">Tools</a>
-  <a href="notes.html">Notes</a>
-  <a href="https://github.com/Forrest404/unidex">Source code</a>
+  <a class="brand" href="try.html">unidex emulator</a>
+  <span class="muted">local test page, not published</span>
 </nav>
 <main>
   <h1>Try unidex</h1>
@@ -71,11 +67,9 @@
       as the device. What needs hardware doesn't: there is no WiFi, microphone, radio (Meet) or USB sync, so voice
       notes, scans, Open on phone and Meet say they aren't available. The screen refreshes instantly here; a real
       e-ink screen takes a moment, and the flash option imitates a full refresh.</p>
-    <p>Want the real thing? <a href="./">Install it on a board</a>, or
-      <a href="https://www.unidex.shop">join the wait list</a>.</p>
   </section>
 </main>
-<script src="emu/unidex.js"></script>
+<script src="unidex.js"></script>
 <script src="emu.js"></script>
 </body>
 </html>

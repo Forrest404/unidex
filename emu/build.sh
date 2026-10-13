@@ -19,6 +19,5 @@ em++ -std=gnu++17 -O2 -DUNIDEX_EMU=1 -DARDUINO=100 -DUNIDEX_DEV=1 -DDEBUG=0 \
   -sASYNCIFY -sALLOW_MEMORY_GROWTH -sMODULARIZE -sEXPORT_NAME=createUnidex -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,HEAPU8,UTF8ToString \
   -o emu/out/unidex.js
 
-# The page loads it from site/emu/ (not committed: built from the source, as the firmware is).
-mkdir -p site/emu
-cp emu/out/unidex.js emu/out/unidex.wasm site/emu/
+# The test page (emu/web/try.html) loads it from there. Nothing here is part of the published website.
+cp emu/out/unidex.js emu/out/unidex.wasm emu/web/
