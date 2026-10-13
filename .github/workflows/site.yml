@@ -48,7 +48,7 @@ jobs:
           git clone --depth 1 --branch 3.1.74 https://github.com/emscripten-core/emsdk.git ~/emsdk
           ~/emsdk/emsdk install 3.1.74
           ~/emsdk/emsdk activate 3.1.74
-          export EMSDK_ENV=~/emsdk/emsdk_env.sh
+          export EMSDK_ENV="$HOME/emsdk/emsdk_env.sh"
           (cd ../release && sh emu/build.sh)
           mkdir -p site/emu
           cp ../release/emu/out/unidex.js ../release/emu/out/unidex.wasm site/emu/
