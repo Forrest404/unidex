@@ -5,6 +5,7 @@
 // Notes on the SD card, one set of files per note in /notes, named by its id (YYYYMMDD-HHMMSS):
 //   <id>.wav   the recording (kept)
 //   <id>.md    the finished note; a .wav without one is still waiting to be transcribed
+//              (a recording where nothing was heard also gets one, titled "Heard nothing", so it is kept)
 //   <id>.gh    the note is on GitHub (holds the path in the repo)
 struct NoteInfo {
   String id, title;

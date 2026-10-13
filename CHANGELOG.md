@@ -4,6 +4,11 @@ What changed in each release, in short. The full notes are on the
 [releases page](https://github.com/Forrest404/unidex/releases). To update, use
 https://forrest404.github.io/unidex/ (Update keeps your settings and files).
 
+## Unreleased
+
+- **Notes:** a recording where Whisper hears nothing is no longer deleted. It stays on the card as a note called
+  "Heard nothing" (it isn't sent to GitHub or transcribed again), and you can delete it yourself.
+
 ## v1.6.1 (9 October 2026)
 
 - **Games:** less ghosting, because each frame now drives the screen five times longer, using the panel maker's own
