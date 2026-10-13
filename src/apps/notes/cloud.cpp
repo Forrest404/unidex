@@ -49,6 +49,7 @@ static const char *failure(int status, const char *service, const String &body) 
 const char *cloudTranscribe(const NetPart *audio, int nParts, String &text) {
   if (devFakeCloud()) {  // test build: no upload, no cost
     delay(1500);
+    if (devFailNote()) return "Whisper: error 400";
     text = devEmptyHeard() ? "" : "This is a test note from the unidex test tools.";
     return nullptr;
   }
@@ -272,8 +273,11 @@ const char *cloudPush(const String &name, const String &markdown, String &path) 
   String body, file;
   for (int n = 1; n <= 9 && !file.length(); n++) {
     const String candidate = n == 1 ? name : name + " " + n;
-    const int status = netHttps(GITHUB, "GET", (base + urlPath(candidate) + ".md").c_str(), githubHeaders(), nullptr, 0,
-                                body, 2048);
+    // On the branch notes are pushed to: another branch can hold a file of the same name.
+    const String branch = credGet("gh_branch");
+    const String ref = branch.length() ? "?ref=" + urlPath(branch) : String();
+    const int status = netHttps(GITHUB, "GET", (base + urlPath(candidate) + ".md" + ref).c_str(), githubHeaders(),
+                                nullptr, 0, body, 2048);
     if (status == 404) file = candidate;
     else if (status != 200) return failure(status, "GitHub", body);
   }

@@ -8,6 +8,9 @@ https://forrest404.github.io/unidex/ (Update keeps your settings and files).
 
 - **Notes:** a recording where Whisper hears nothing is no longer deleted. It stays on the card as a note called
   "Heard nothing" (it isn't sent to GitHub or transcribed again), and you can delete it yourself.
+- **Notes:** one note that can't be sent (a recording the service rejects, or a file GitHub refuses) no longer holds
+  up the ones behind it. The rest sync, and the screen says how many are stuck. The check for an existing GitHub file
+  now looks on the branch notes are pushed to.
 
 ## v1.6.1 (9 October 2026)
 

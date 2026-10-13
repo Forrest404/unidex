@@ -14,6 +14,8 @@
 #include "storage.h"
 
 static bool dryRun, fakeCloud, netFail, noCard, noPush, demo, manualFrames, emptyHeard;
+static int failNotes;
+static String sweepPrefix;
 static uint32_t seed;
 static void (*frameStepper)(int, const char *);
 static const char *(*detailFn)();
@@ -24,6 +26,9 @@ bool devNetFail() { return netFail; }
 bool devNoCard() { return noCard; }
 bool devNoPush() { return noPush; }
 bool devEmptyHeard() { return emptyHeard; }
+bool devFailNote() { return failNotes > 0 && failNotes--; }
+bool devSweepOn() { return fakeCloud && sweepPrefix.length(); }
+bool devSweepAllows(const String &id) { return !fakeCloud || (sweepPrefix.length() && id.startsWith(sweepPrefix)); }
 bool devDemo() { return demo; }
 uint32_t devSeed() { return seed; }
 bool devManualFrames() { return manualFrames; }
@@ -135,8 +140,9 @@ bool devUsb(const char *l) {
     batteryPrintCalls();
     Serial.println("OK X BATTCALLS");
   } else if (strcmp(c, "MEM") == 0) {
-    Serial.printf("OK X MEM internal=%u block=%u psram=%u\n", heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
-                  heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL), heap_caps_get_free_size(MALLOC_CAP_SPIRAM));
+    Serial.printf("OK X MEM internal=%u block=%u psram=%u psblock=%u\n", heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
+                  heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL), heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
+                  heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM));
   } else if (strncmp(c, "SLEEP ", 6) == 0) {
     Serial.println("OK X SLEEP");
     Serial.flush();
@@ -193,6 +199,12 @@ bool devUsb(const char *l) {
              !strncmp(c, "NOCARD ", 7) || !strncmp(c, "NOPUSH ", 7)) {
     const bool on = l[strlen(l) - 1] == '1';
     (c[0] == 'D' ? dryRun : c[0] == 'F' ? fakeCloud : c[1] == 'E' ? netFail : c[2] == 'C' ? noCard : noPush) = on;
+    Serial.printf("OK X %s\n", c);
+  } else if (!strncmp(c, "SWEEPONLY", 9)) {  // X SWEEPONLY <prefix>: fake syncs touch only these notes
+    sweepPrefix = c[9] == ' ' ? String(c + 10) : String();
+    Serial.printf("OK X %s\n", c);
+  } else if (!strncmp(c, "FAILNOTE ", 9)) {
+    failNotes = atoi(c + 9);
     Serial.printf("OK X %s\n", c);
   } else if (!strncmp(c, "EMPTY ", 6)) {  // X EMPTY <0|1>: the canned transcription hears nothing
     emptyHeard = l[strlen(l) - 1] == '1';

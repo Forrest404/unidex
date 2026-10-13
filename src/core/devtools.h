@@ -1,4 +1,5 @@
 #pragma once
+#include <Arduino.h>
 #include <stdint.h>
 
 // Test build only (pio run -e dev): USB commands that let tools/devshot.py drive the device and read the
@@ -19,6 +20,8 @@
 //   X SLEEP <ms>      -> "OK X SLEEP", then real deep sleep woken by a timer (RAM is lost, as in use)
 //   X DRY|FAKE|NETFAIL|NOCARD|NOPUSH <0|1>  -> destructive actions only pretend / cloud steps are canned /
 //                        WiFi fails / the SD card reads as missing / real transcription but nothing sent to GitHub
+//   X SWEEPONLY <prefix>  -> with FAKE on, a sync (sweep) handles only notes whose id starts with prefix (none: off)
+//   X FAILNOTE <n>    -> with FAKE on, the next n canned transcriptions fail with "Whisper: error 400"
 //   X EMPTY <0|1>     -> with FAKE on, the canned transcription hears nothing (the "Heard nothing" note)
 //   X WELCOME         -> the first-start welcome screens (finishing them saves "welcomed" = 1)
 //   X HANG            -> the main loop stops for good: the loop watchdog restarts the device after 30 s
@@ -36,6 +39,9 @@ bool devNetFail();
 bool devNoCard();
 bool devNoPush();
 bool devEmptyHeard();
+bool devFailNote();                       // consumes one of X FAILNOTE's failures
+bool devSweepOn();                        // X SWEEPONLY is set
+bool devSweepAllows(const String &id);    // a sync may handle this note
 bool devDemo();
 uint32_t devSeed();
 bool devManualFrames();
@@ -51,6 +57,9 @@ inline bool devDryRun() { return false; }
 inline bool devFakeCloud() { return false; }
 inline bool devNetFail() { return false; }
 inline bool devEmptyHeard() { return false; }
+inline bool devFailNote() { return false; }
+inline bool devSweepOn() { return false; }
+inline bool devSweepAllows(const String &) { return true; }
 inline bool devNoCard() { return false; }
 inline bool devNoPush() { return false; }
 inline bool devDemo() { return false; }

@@ -111,10 +111,22 @@ static const char *finish(const String &id, const NetPart *audio, int nParts, bo
   return cleanupErr;
 }
 
+// True for an error that is about one note (the service refused this recording or file), so the others can go on.
+// Anything else (no WiFi, a bad key, no credit, no key set) would fail the same way for every note.
+static bool aboutThisNote(const char *err) {
+  return strstr(err, "error 400") || strstr(err, "error 413") || strstr(err, "error 422") ||
+         strstr(err, "bad reply") || strstr(err, "name taken") || strstr(err, "Couldn't read");
+}
+
 // Transcribes waiting recordings and pushes notes that aren't on GitHub yet (WiFi is up). Skips `skip`.
-static const char *sweep(const char *skip, int &done) {
+// A note that can't be done is passed over (it stays waiting) and the rest carry on; the first such reason is
+// returned at the end, so the screen still says something went wrong.
+static const char *sweep(const char *skip, int &done, int &stuck) {
+  static char firstErr[48];
+  firstErr[0] = 0;
   for (const NoteInfo &n : storeList()) {
     if (n.id == skip) continue;
+    if (!devSweepAllows(n.id)) continue;
     String title = n.title;
     const char *err = nullptr;
     setNote(n.id.c_str());
@@ -138,10 +150,15 @@ static const char *sweep(const char *skip, int &done) {
     } else {
       continue;
     }
+    if (err && aboutThisNote(err)) {
+      if (!firstErr[0]) snprintf(firstErr, sizeof firstErr, "%s", err);
+      stuck++;
+      continue;
+    }
     if (err) return err;
     done++;
   }
-  return nullptr;
+  return firstErr[0] ? firstErr : nullptr;
 }
 
 static void runNote(Item &it) {
@@ -167,10 +184,10 @@ static void runNote(Item &it) {
       const NetPart audio[] = {NetPart::rest(f)};
       err = f ? finish(it.id, audio, 1, true, title) : "Couldn't read the card";
     }
-    int done = 0;
+    int done = 0, stuck = 0;
     // Older notes still waiting go in the same WiFi session (never with the test build's fake cloud: it would
     // give real notes the canned text).
-    if (!err && it.onCard && !devFakeCloud()) sweep(it.id, done);
+    if (!err && it.onCard && (!devFakeCloud() || devSweepOn())) sweep(it.id, done, stuck);
   }
   free(it.samples);
   it.samples = nullptr;
@@ -189,10 +206,11 @@ static void runSweep() {
   char result[48];
   publish(JobStep::Connecting, "");
   const char *err = netConnect();
-  int done = 0;
-  if (!err && devFakeCloud()) err = "fake cloud: sync skipped";
-  if (!err) err = sweep("", done);
-  if (err) snprintf(result, sizeof result, done ? "%s (%d done)" : "%s", err, done);
+  int done = 0, stuck = 0;
+  if (!err && devFakeCloud() && !devSweepOn()) err = "fake cloud: sync skipped";
+  if (!err) err = sweep("", done, stuck);
+  if (stuck && done) snprintf(result, sizeof result, "%d synced, %d stuck", done, stuck);  // (the reason won't fit)
+  else if (err) snprintf(result, sizeof result, done ? "%s (%d done)" : "%s", err, done);
   else snprintf(result, sizeof result, done == 1 ? "1 note synced" : "%d notes synced", done);
   publish(JobStep::Idle, result);
 }
