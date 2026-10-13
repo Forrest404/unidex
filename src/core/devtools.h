@@ -19,6 +19,7 @@
 //   X SLEEP <ms>      -> "OK X SLEEP", then real deep sleep woken by a timer (RAM is lost, as in use)
 //   X DRY|FAKE|NETFAIL|NOCARD|NOPUSH <0|1>  -> destructive actions only pretend / cloud steps are canned /
 //                        WiFi fails / the SD card reads as missing / real transcription but nothing sent to GitHub
+//   X EMPTY <0|1>     -> with FAKE on, the canned transcription hears nothing (the "Heard nothing" note)
 //   X WELCOME         -> the first-start welcome screens (finishing them saves "welcomed" = 1)
 //   X HANG            -> the main loop stops for good: the loop watchdog restarts the device after 30 s
 //   X BATTMV <mv>     -> pretend the battery reads mv, as if on battery (0 = the real reading): low-battery tests
@@ -34,6 +35,7 @@ bool devFakeCloud();
 bool devNetFail();
 bool devNoCard();
 bool devNoPush();
+bool devEmptyHeard();
 bool devDemo();
 uint32_t devSeed();
 bool devManualFrames();
@@ -48,6 +50,7 @@ void devTick();  // every loop: the battery log (X BATTLOG)
 inline bool devDryRun() { return false; }
 inline bool devFakeCloud() { return false; }
 inline bool devNetFail() { return false; }
+inline bool devEmptyHeard() { return false; }
 inline bool devNoCard() { return false; }
 inline bool devNoPush() { return false; }
 inline bool devDemo() { return false; }

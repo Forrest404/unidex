@@ -49,7 +49,7 @@ static const char *failure(int status, const char *service, const String &body) 
 const char *cloudTranscribe(const NetPart *audio, int nParts, String &text) {
   if (devFakeCloud()) {  // test build: no upload, no cost
     delay(1500);
-    text = "This is a test note from the unidex test tools.";
+    text = devEmptyHeard() ? "" : "This is a test note from the unidex test tools.";
     return nullptr;
   }
   const String key = credGet("openai_key");

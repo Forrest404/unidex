@@ -68,6 +68,7 @@ static String fileName(const String &title, const String &id) {  // a safe GitHu
 static bool githubOn() { return credGet("gh_on") == "1"; }
 
 static const char *const NO_SPEECH = "Heard nothing";  // finish(): a recording with nothing to keep
+static const char *const NOTHING_KEPT = "Heard nothing: kept";  // finish(): nothing heard, but the recording stays
 static const char *const FULL_PUSHED = "Card full: on GitHub", *const FULL_SHOWN = "Card full: shown once";
 
 // Transcribe (from the audio parts), tidy up, save and push one note. WiFi must be up.
@@ -76,7 +77,18 @@ static const char *finish(const String &id, const NetPart *audio, int nParts, bo
   NoteText note;
   publish(JobStep::Transcribing);
   if (const char *err = cloudTranscribe(audio, nParts, note.transcript)) return err;
-  if (!note.transcript.length()) return NO_SPEECH;
+  if (!note.transcript.length()) {
+    // Whisper can be wrong about quiet or noisy speech, so a recording on the card is never deleted for it: it
+    // stays as a note that says so (and counts as on GitHub, so it isn't sent or transcribed again).
+    note.title = "Heard nothing";
+    note.body = "Nothing was heard in this recording. The audio is kept.";
+    if (onCard && storeSaveNote(id, noteMarkdown(note, id, localIso(id)))) {
+      storeMarkPushed(id, "");
+      title = note.title;
+      return NOTHING_KEPT;
+    }
+    return NO_SPEECH;
+  }
   publish(JobStep::Tidying);
   const char *cleanupErr = cloudCleanup(note, localIso(id));  // on failure the raw transcript is kept
   title = note.title;
@@ -112,7 +124,8 @@ static const char *sweep(const char *skip, int &done) {
       const NetPart audio[] = {NetPart::rest(f)};
       err = finish(n.id, audio, 1, true, title);
       f.close();
-      if (err == NO_SPEECH) {  // nothing said: drop it, so it isn't retried (and doesn't hold up the others)
+      if (err == NOTHING_KEPT) continue;  // kept as a note; never sent again
+      if (err == NO_SPEECH) {  // nothing said and it couldn't be kept: drop it, so it isn't retried
         storeDelete(n.id);
         continue;
       }
@@ -161,7 +174,8 @@ static void runNote(Item &it) {
   }
   free(it.samples);
   it.samples = nullptr;
-  if (err == NO_SPEECH) {  // like a press too short to be a note: nothing is kept
+  if (err == NOTHING_KEPT) snprintf(result, sizeof result, "%s", err);
+  else if (err == NO_SPEECH) {  // like a press too short to be a note: nothing is kept
     if (saved) storeDelete(it.id);
     snprintf(result, sizeof result, "Heard nothing: not kept");
   } else if (!err) snprintf(result, sizeof result, "Saved: %s", title.c_str());

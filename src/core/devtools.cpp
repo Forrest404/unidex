@@ -13,7 +13,7 @@
 #include "power.h"
 #include "storage.h"
 
-static bool dryRun, fakeCloud, netFail, noCard, noPush, demo, manualFrames;
+static bool dryRun, fakeCloud, netFail, noCard, noPush, demo, manualFrames, emptyHeard;
 static uint32_t seed;
 static void (*frameStepper)(int, const char *);
 static const char *(*detailFn)();
@@ -23,6 +23,7 @@ bool devFakeCloud() { return fakeCloud; }
 bool devNetFail() { return netFail; }
 bool devNoCard() { return noCard; }
 bool devNoPush() { return noPush; }
+bool devEmptyHeard() { return emptyHeard; }
 bool devDemo() { return demo; }
 uint32_t devSeed() { return seed; }
 bool devManualFrames() { return manualFrames; }
@@ -192,6 +193,9 @@ bool devUsb(const char *l) {
              !strncmp(c, "NOCARD ", 7) || !strncmp(c, "NOPUSH ", 7)) {
     const bool on = l[strlen(l) - 1] == '1';
     (c[0] == 'D' ? dryRun : c[0] == 'F' ? fakeCloud : c[1] == 'E' ? netFail : c[2] == 'C' ? noCard : noPush) = on;
+    Serial.printf("OK X %s\n", c);
+  } else if (!strncmp(c, "EMPTY ", 6)) {  // X EMPTY <0|1>: the canned transcription hears nothing
+    emptyHeard = l[strlen(l) - 1] == '1';
     Serial.printf("OK X %s\n", c);
   } else if (!strncmp(c, "WELCOME", 7)) {  // X WELCOME: the first-start screens, without wiping anything
     launcherShowWelcome();
