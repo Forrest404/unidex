@@ -1,6 +1,8 @@
 #include "job.h"
 #include "cloud.h"
 #include "store.h"
+#include <esp_heap_caps.h>
+#include "../../core/audio.h"
 #include "../../core/clock.h"
 #include "../../core/credentials.h"
 #include "../../core/devtools.h"
@@ -12,7 +14,7 @@
 struct Item {
   bool note;
   char id[24];
-  int16_t *samples;  // ps_malloc'd, owned by the job; freed once it's on the card (or sent)
+  int16_t *samples;  // from jobTakeBuffer, owned by the job; given back once it's on the card (or sent)
   size_t count;
   bool onCard;
 };
@@ -167,7 +169,7 @@ static void runNote(Item &it) {
   publish(JobStep::Saving, "");
   const bool saved = it.onCard && storeSaveWav(it.id, it.samples, it.count);
   if (saved) {  // it's on the card: the memory can go, and a new recording can start
-    free(it.samples);
+    jobGiveBuffer(it.samples);
     it.samples = nullptr;
   }
   publish(JobStep::Connecting);
@@ -189,7 +191,7 @@ static void runNote(Item &it) {
     // give real notes the canned text).
     if (!err && it.onCard && (!devFakeCloud() || devSweepOn())) sweep(it.id, done, stuck);
   }
-  free(it.samples);
+  jobGiveBuffer(it.samples);
   it.samples = nullptr;
   if (err == NOTHING_KEPT) snprintf(result, sizeof result, "%s", err);
   else if (err == NO_SPEECH) {  // like a press too short to be a note: nothing is kept
@@ -256,6 +258,32 @@ static bool start(const Item &it) {
 }
 
 bool jobBusy() { return busy; }
+
+static int16_t *pool;
+static size_t poolSamples;
+static volatile bool poolBusy;
+
+int16_t *jobTakeBuffer(size_t want, size_t &got) {
+  if (poolBusy) return nullptr;
+  if (!pool) {
+    pool = (int16_t *)ps_malloc(want * sizeof(int16_t));
+    poolSamples = want;
+    if (!pool) {  // memory already split up: take the biggest piece left, if it holds a useful recording (1 min)
+      const size_t block = heap_caps_get_largest_free_block(MALLOC_CAP_SPIRAM);
+      const size_t fit = block > 4096 ? (block - 4096) / sizeof(int16_t) : 0;
+      if (fit >= 60 * AUDIO_RATE) pool = (int16_t *)ps_malloc(fit * sizeof(int16_t)), poolSamples = fit;
+    }
+    if (!pool) return nullptr;
+  }
+  poolBusy = true;
+  got = poolSamples;
+  return pool;
+}
+
+void jobGiveBuffer(int16_t *buffer) {
+  if (buffer == pool) poolBusy = false;
+  else free(buffer);
+}
 
 bool jobCanTake() {
   // A second note can queue only once the first is safely on the card (its memory freed), and only one.

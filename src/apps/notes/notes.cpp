@@ -23,6 +23,7 @@
 #include "../../core/theme.h"
 
 static const uint32_t MAX_SECONDS = 180, MIN_MS = 600;  // 3 min = 5.8 MB of PSRAM
+static uint32_t maxSeconds = MAX_SECONDS;  // what the buffer holds (less if memory was already split up)
 static const int ROWS = 5, ROW_H = 26, LINES = 7, LINE_H = 19;
 
 enum Screen : uint8_t { MAIN, LIST, VIEW, CONFIRM, PHONE };
@@ -258,7 +259,7 @@ static void drawRecording() {
   display.drawRect(x, y, barW, 12, BLACK);
   display.fillRect(x + 2, y + 2, (barW - 4) * recordLevel / 100, 8, BLACK);
   display.setFont(FONT_SMALL);
-  drawCentered(recordMs / 1000 + 10 >= MAX_SECONDS ? "nearly at the limit" : "let go to stop", 132);
+  drawCentered(recordMs / 1000 + 10 >= maxSeconds ? "nearly at the limit" : "let go to stop", 132);
   drawHints("", "", "");
 }
 
@@ -361,14 +362,15 @@ static void record() {
   }
   card = -1;  // look again: a card may have gone in since
   const bool onCard = hasCard();  // mounted here, on the screen's side, before the job uses it
-  int16_t *samples = (int16_t *)ps_malloc(MAX_SECONDS * AUDIO_RATE * sizeof(int16_t));
+  size_t limit = 0;
+  int16_t *samples = jobTakeBuffer(MAX_SECONDS * AUDIO_RATE, limit);
+  maxSeconds = limit / AUDIO_RATE;
   if (!samples || !audioBegin()) {
-    free(samples);
+    jobGiveBuffer(samples);
     message = samples ? "Microphone not answering" : "Not enough memory";
     return;
   }
   size_t count = 0;
-  const size_t limit = MAX_SECONDS * AUDIO_RATE;
   const uint32_t t0 = millis();
   uint32_t shown = 0;
   int peak = 0;
@@ -391,13 +393,13 @@ static void record() {
   audioEnd();
   powerActivity();
   if (recordMs < MIN_MS) {
-    free(samples);
+    jobGiveBuffer(samples);
     message = "Too short: hold B longer";
     return;
   }
   message = "";
   listed = false;
-  jobStartNote(storeNewId(), samples, count, onCard);  // the buffer is the job's now; this returns at once
+  if (!jobStartNote(storeNewId(), samples, count, onCard)) jobGiveBuffer(samples);  // the buffer is the job's now; this returns at once
 }
 
 static void syncWaiting() {

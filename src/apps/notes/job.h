@@ -15,8 +15,13 @@ struct JobStatus {
 };
 
 bool jobBusy();
+// The recording buffer: one block of up to `want` samples, allocated the first time and then kept for good (null if
+// it is in use). Freeing and allocating a 5.7 MB block each time failed after the first recording: the audio driver
+// leaves small blocks in PSRAM behind it, and no free block that large was left. `got` is its size in samples.
+int16_t *jobTakeBuffer(size_t want, size_t &got);
+void jobGiveBuffer(int16_t *buffer);  // back from the recording screen, or done with by the job
 bool jobCanTake();  // a new recording can start (its buffer can be handed over when it ends)
-// Hands over a finished recording (the ps_malloc'd buffer becomes the job's) and returns at once.
+// Hands over a finished recording (the buffer from jobTakeBuffer becomes the job's, which gives it back) and returns at once.
 bool jobStartNote(const String &id, int16_t *samples, size_t count, bool onCard);
 bool jobStartSweep();  // transcribes waiting recordings and pushes notes GitHub doesn't have yet
 JobStatus jobStatus();

@@ -11,6 +11,8 @@ https://forrest404.github.io/unidex/ (Update keeps your settings and files).
 - **Notes:** one note that can't be sent (a recording the service rejects, or a file GitHub refuses) no longer holds
   up the ones behind it. The rest sync, and the screen says how many are stuck. The check for an existing GitHub file
   now looks on the branch notes are pushed to.
+- **Notes:** a second recording in the same wake no longer says "Not enough memory". The recording buffer is now
+  kept instead of freed and allocated again each time.
 
 ## v1.6.1 (9 October 2026)
 
