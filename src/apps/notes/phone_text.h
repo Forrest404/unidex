@@ -1,4 +1,5 @@
 #pragma once
+#include <algorithm>
 #include <cstdio>
 #include <string>
 
@@ -71,6 +72,28 @@ inline std::string firstLine(const std::string &text, size_t max) {
   if (cut == std::string::npos || cut < max / 2) cut = max;
   while (cut > 0 && ((unsigned char)s[cut] & 0xC0) == 0x80) cut--;
   return trim(s.substr(0, cut)) + "\u2026";
+}
+
+// A Range header's "bytes=..." part for a file of `total` bytes: "0-1", "500-", "-500" (the last 500).
+// Gives the first and last byte to send; false if the range can't be served (answer 416).
+inline bool byteRange(const std::string &spec, size_t total, size_t &first, size_t &last) {
+  first = 0, last = total ? total - 1 : 0;
+  if (!total) return false;
+  const size_t dash = spec.find('-');
+  if (dash == std::string::npos) return false;
+  const std::string a = spec.substr(0, dash), b = spec.substr(dash + 1);
+  for (char c : a + b)
+    if (c < '0' || c > '9') return false;
+  if (a.empty()) {  // the last N bytes
+    if (b.empty()) return false;
+    const size_t n = std::stoul(b);
+    if (!n) return false;
+    first = n < total ? total - n : 0;
+    return true;
+  }
+  first = std::stoul(a);
+  if (!b.empty()) last = std::min((size_t)std::stoul(b), total - 1);
+  return first <= last && first < total;
 }
 
 // When a note was recorded, from its id (YYYYMMDD-HHMMSS): "5 Oct 2026, 13:04". Anything else as it is.

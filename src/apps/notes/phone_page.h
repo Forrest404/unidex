@@ -83,6 +83,9 @@ padding:22px 16px calc(14px + env(safe-area-inset-bottom));background:linear-gra
 .eyebrow{font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);margin:0 0 8px;font-weight:750}
 details summary{cursor:pointer;list-style:none;font-weight:700}details summary::-webkit-details-marker{display:none}
 details .body p{font-size:15px;color:var(--muted)}
+.rec{display:flex;align-items:center;gap:12px}
+.rec audio{flex:1;min-width:0;height:44px}
+.rec .btn{flex:none}
 @media(prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation:none!important}}
 /* share sheet */
 #scrim{position:fixed;inset:0;background:rgba(20,18,15,.38);opacity:0;pointer-events:none;transition:opacity .3s;z-index:40}
@@ -130,6 +133,10 @@ max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
 <button class="btn" onclick="copyNote()"><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 00-2-2H6a2 2 0 00-2 2v10a2 2 0 002 2h2"/></svg>Copy</button>
 <a class="btn" id="otxt" download aria-label="Download as text"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>TXT</a>
 </div>
+<div class="card" id="oa"><div class="eyebrow">Recording</div><div class="rec">
+<audio id="au" controls preload="none"></audio>
+<a class="btn" id="owav" download aria-label="Download the recording"><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></a>
+</div></div>
 <div class="card"><div class="body" id="ob"></div></div>
 <details class="card" id="oq"><summary>Original transcript</summary><div class="body"></div></details>
 <div class="topics" id="ok"></div>
@@ -141,6 +148,7 @@ max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
 <a id="sWa"><i><svg viewBox="0 0 24 24"><path d="M4 20l1.3-4A8.5 8.5 0 1112 20.5a8.4 8.4 0 01-4-1z"/><path d="M9 9.5c.3 2 2.5 4.2 4.5 4.5"/></svg></i>WhatsApp</a>
 <button onclick="copyNote();closeSheet()"><i><svg viewBox="0 0 24 24"><rect x="8" y="8" width="12" height="13" rx="2"/><path d="M16 8V5a2 2 0 00-2-2H6a2 2 0 00-2 2v10a2 2 0 002 2h2"/></svg></i>Copy</button>
 <a id="sFile" download><i><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg></i>Save as file</a>
+<a id="sWav" download><i><svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg></i>Recording</a>
 <button id="sMore" class="hidden" onclick="nativeShare()"><i><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></i>More</button>
 </div></div><button class="btn cancel" onclick="closeSheet()">Cancel</button></div>
 <div id="toast" role="status" aria-live="polite"></div><textarea id="clip" readonly></textarea>
@@ -182,9 +190,11 @@ function show(o,full){cur=full?o:null;$('od').textContent=when(o.id);$('ot').tex
 if(full)body($('ob'),o.b||(o.p?'This note is transcribed the next time the device has WiFi.':''));
 else $('ob').innerHTML='<div class="sk"></div><div class="sk"></div><div class="sk"></div>';
 $('oq').classList.toggle('hidden',!(full&&o.q));$('oq').open=false;if(full)body($('oq').lastChild,o.q);topics($('ok'),o.k);
-$('otxt').href='/note.txt?id='+encodeURIComponent(o.id);$('otxt').classList.toggle('hidden',!!o.p)}
+$('otxt').href='/note.txt?id='+encodeURIComponent(o.id);$('otxt').classList.toggle('hidden',!!o.p);
+var src='/audio?id='+encodeURIComponent(o.id),au=$('au');if(au.getAttribute('src')!=src){au.pause();au.setAttribute('src',src);$('oa').classList.remove('hidden')}
+$('owav').href=src+'&dl=1'}
 function route(){var id=decodeURIComponent(location.hash.slice(1)),box=$('open');closeSheet();
-if(!id){document.body.classList.remove('reading');box.classList.add('gone');cur=null;return}
+if(!id){document.body.classList.remove('reading');box.classList.add('gone');cur=null;$('au').pause();return}
 var stub=byId[id]||cache[id];if(!stub&&!cache[id]){load(id).then(function(){route()},function(){toast('Couldn’t open that note');history.back()});return}
 show(cache[id]||stub,!!cache[id]);box.scrollTop=0;box.classList.remove('gone');document.body.classList.add('reading');
 if(!cache[id])load(id).then(function(o){if(location.hash.slice(1)==encodeURIComponent(o.id)||decodeURIComponent(location.hash.slice(1))==o.id)show(o,true)},
@@ -193,11 +203,11 @@ function copyNote(){if(!cur)return toast('One moment…');var t=$('clip'),ok=fal
 try{ok=document.execCommand('copy')}catch(e){}t.readOnly=true;t.blur();toast(ok?'Copied':'Couldn’t copy here')}
 function openSheet(){if(!cur)return toast('One moment…');var e=encodeURIComponent;$('st').textContent=cur.t;$('sMsg').href='sms:&body='+e(cur.c);
 $('sMail').href='mailto:?subject='+e(cur.t)+'&body='+e(cur.c);$('sWa').href='whatsapp://send?text='+e(cur.c);
-$('sFile').href='/note.txt?id='+e(cur.id);$('sMore').classList.toggle('hidden',!navigator.share);document.body.classList.add('sharing')}
+$('sFile').href='/note.txt?id='+e(cur.id);$('sWav').href='/audio?id='+e(cur.id)+'&dl=1';$('sMore').classList.toggle('hidden',!navigator.share);document.body.classList.add('sharing')}
 function closeSheet(){document.body.classList.remove('sharing')}
 function nativeShare(){navigator.share({title:cur.t,text:cur.c}).catch(function(){});closeSheet()}
 document.onkeydown=function(e){if(e.key!='Escape')return;if(document.body.classList.contains('sharing'))closeSheet();else if(location.hash)history.back()};
-$('q').oninput=render;window.onhashchange=route;
+$('q').oninput=render;window.onhashchange=route;$('au').onerror=function(){if(this.getAttribute('src'))$('oa').classList.add('hidden')};
 function start(d){notes=d;byId={};notes.forEach(function(o){byId[o.id]=o});render();route();setTimeout(prefetch,250)}
 if(NOTES)start(NOTES);
 else fetch('/notes.json').then(function(r){return r.json()}).then(start)
