@@ -76,6 +76,7 @@ class FS {
   bool remove(const String &p) { return ::remove(p.c_str()) == 0; }
   bool rename(const String &a, const String &b) { return ::rename(a.c_str(), b.c_str()) == 0; }
   bool mkdir(const String &p) { return ::mkdir(p.c_str(), 0777) == 0; }
+  bool rmdir(const String &p) { return ::rmdir(p.c_str()) == 0; }
 };
 }  // namespace fs
 using fs::File;

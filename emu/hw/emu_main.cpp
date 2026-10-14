@@ -37,6 +37,7 @@ size_t SerialPort::write(uint8_t c) { serialOut += (char)c; return 1; }
 size_t SerialPort::write(const uint8_t *b, size_t n) { serialOut.append((const char *)b, n); return n; }
 EspClass ESP;
 void EspClass::restart() { EM_ASM({ location.reload(); }); }
+void esp_restart() { ESP.restart(); }
 
 // ---- the file system lives in /sd (storage.cpp mounts it as the card)
 SDMMCFS SD_MMC;

@@ -105,7 +105,7 @@ static void writeChipNow() {
 
 const char *clockSync() {
   if (netClaimed()) return "WiFi busy: a note is sending";
-  const char *err = netConnect();  // the WiFi saved from the website's Notes page
+  const char *err = netConnect();  // the WiFi saved from the website's Setup page
   if (!err) {
     // Wait for a real NTP answer: getLocalTime() alone returns at once if the clock was already set.
     sntp_set_sync_status(SNTP_SYNC_STATUS_RESET);

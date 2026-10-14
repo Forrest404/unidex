@@ -224,6 +224,14 @@ class SerialPort : public Print {
 };
 extern SerialPort Serial;
 
+// FreeRTOS: no second task in the browser, so a task that would be created simply isn't started.
+typedef void (*TaskFunction_t)(void *);
+typedef void *TaskHandle_t;
+#define pdMS_TO_TICKS(ms) (ms)
+inline void vTaskDelay(uint32_t ms) { delay(ms); }
+inline int xTaskCreatePinnedToCore(TaskFunction_t, const char *, uint32_t, void *, int, TaskHandle_t *, int) { return 1; }
+void esp_restart();
+
 struct EspClass {
   void restart();
   uint32_t getFreeHeap() { return 200000; }

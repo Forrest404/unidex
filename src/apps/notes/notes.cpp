@@ -1,6 +1,6 @@
 // Notes: hold B to record a voice note, let go to stop. It's transcribed (Whisper), tidied up (OpenAI or
 // Claude), kept on the SD card and, if switched on, pushed to GitHub as Markdown (for Obsidian). Set up
-// from the website's Notes page. Without a card it still works online, but nothing is kept on the device.
+// from the website's Setup page. Without a card it still works online, but nothing is kept on the device.
 // The online steps run in the background (job.h): letting go of B returns to the screen at once.
 // Main: hold B = record, B = sync waiting notes, A = list. List: A = next, B = open, hold B = delete.
 // Note: A = next page, B = open on phone (starts the hotspot, phone.h, and shows its QR code until hold A),
@@ -237,8 +237,8 @@ static void drawMain() {
     drawCentered("Hold B", 92);
     display.setFont(FONT_SMALL);
     String line = ascii(message);
-    if (!line.length() && !credHas("wifi_ssid")) line = "Set up WiFi on the website";
-    else if (!line.length() && !credHas("openai_key")) line = "Add an OpenAI key on the website";
+    if (!line.length() && !credWifiAny()) line = "Setup: add your WiFi";
+    else if (!line.length() && !credHas("openai_key")) line = "Setup: add OpenAI key";
     else if (!line.length() && !hasCard()) line = githubOn() ? "No SD card: GitHub only" : "No SD card: nothing is kept";
     else if (!line.length() && waiting()) line = String(waiting()) + " waiting: B to sync";
     else if (!line.length()) line = "to record a note";

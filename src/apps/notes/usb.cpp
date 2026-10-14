@@ -66,7 +66,7 @@ static void startSync() {
   int notes = 0;
   if (jobBusy()) Serial.println("OK N SYNC busy");
   else if (!storeReady()) Serial.println("OK N SYNC fail no SD card");
-  else if (!credHas("wifi_ssid")) Serial.println("OK N SYNC fail WiFi not set up");
+  else if (!credWifiAny()) Serial.println("OK N SYNC fail WiFi not set up");
   else if (const int waiting = waitingNotes(notes)) {
     if (jobStartSweep()) Serial.printf("OK N SYNC started %d\n", waiting);
     else Serial.println("OK N SYNC busy");
@@ -131,7 +131,12 @@ static void read(const String &id) {
   Serial.printf("OK N READ %u %lu\n", (unsigned)md.length(), (unsigned long)crc);
 }
 
-static String caChunks;  // N ADD wifi_ca chunks waiting for the final N SET wifi_ca
+static String caChunks, caFor;  // N ADD chunks of a network's CA (wifi_ca, wifi2_ca ...) waiting for its final N SET
+
+static bool isCaName(const char *name) {
+  const size_t n = strlen(name);
+  return !strncmp(name, "wifi", 4) && n > 3 && !strcmp(name + n - 3, "_ca") && credKnown(name);
+}
 
 bool notesUsb(const char *l) {
   if (strncmp(l, "N ", 2) != 0) return false;
@@ -144,21 +149,24 @@ bool notesUsb(const char *l) {
     String value;
     const char *hex = n == 2 ? strchr(l + 6, ' ') : nullptr;  // after "N SET <name>"
     const bool parsed = n == 2 && credKnown(arg) && fromHex(hex ? hex + 1 : "", value);
-    if (strcmp(arg, "wifi_ca") == 0) value = caChunks + value;  // the CA is saved once, with its last chunk
+    if (isCaName(arg) && caFor == arg) value = caChunks + value;  // the CA is saved once, with its last chunk
     caChunks = "";
+    caFor = "";
     if (parsed && credSet(arg, value))
       Serial.printf("OK N SET %s\n", arg);
     else
       Serial.println("ERR");
-  } else if (strcmp(cmd, "ADD") == 0) {  // a wifi_ca chunk, kept in RAM until N SET wifi_ca
+  } else if (strcmp(cmd, "ADD") == 0) {  // a CA chunk, kept in RAM until the N SET for the same name
     String value;
     const char *hex = n == 2 ? strchr(l + 6, ' ') : nullptr;
-    if (n == 2 && strcmp(arg, "wifi_ca") == 0 && hex && fromHex(hex + 1, value) &&
+    if (n == 2 && isCaName(arg) && hex && fromHex(hex + 1, value) && (!caFor.length() || caFor == arg) &&
         caChunks.length() + value.length() <= 3000) {
+      caFor = arg;
       caChunks += value;
       Serial.printf("OK N ADD %s\n", arg);
     } else {
       caChunks = "";
+      caFor = "";
       Serial.println("ERR");
     }
   } else if (strcmp(cmd, "CLR") == 0) {

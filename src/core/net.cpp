@@ -4,6 +4,8 @@
 #include <memory>
 #include <esp_wpa2.h>
 #include "credentials.h"
+#include "storage.h"
+#include "wifi_logic.h"
 #include "power.h"
 #include "battery.h"
 #include "devtools.h"
@@ -13,51 +15,87 @@ extern const uint8_t caBundle[] asm("_binary_certs_x509_crt_bundle_bin_start"); 
 static const uint32_t WIFI_TIMEOUT_MS = 20000, IO_TIMEOUT_MS = 30000;  // enterprise logins take longer
 
 static volatile bool begun;   // netBegin() started a connection that netOff() hasn't ended
-static uint32_t beganAt;
+static uint32_t beganAt, attemptAt;
+static int tryOrder[wifi::SLOTS], tryCount, tryAt;  // the saved networks in the order to try, and which is being tried
+static uint32_t attemptMs;
+static bool sawMissing;  // a network we tried wasn't in range
 
-const char *netBegin() {
-  const String ssid = credGet("wifi_ssid");
-  if (!ssid.length()) return "WiFi not set up";
-  if (devNetFail()) return "WiFi failed";  // test build switches (X NETFAIL 1, X FAKE 1)
-  if (const char *low = batteryTooLow()) return low;
-  if (devFakeCloud() || begun || WiFi.status() == WL_CONNECTED) return nullptr;
-  begun = true;
-  beganAt = millis();
-  setCpuFrequencyMhz(240);  // full speed only while the radio is on (as in the Dex scan)
-  WiFi.mode(WIFI_STA);
-  const String user = credGet("wifi_user");
+// Starts joining saved network `slot` (the radio is already in station mode).
+static void joinSlot(int slot) {
+  const String ssid = credGet(credWifiName(slot, "ssid").c_str());
+  const String user = credGet(credWifiName(slot, "user").c_str());
+  const String pass = credGet(credWifiName(slot, "pass").c_str());
+  attemptAt = millis();
+  attemptMs = user.length() ? wifi::ATTEMPT_ENTERPRISE_MS : wifi::ATTEMPT_MS;
+  WiFi.disconnect(false);  // drop an attempt still going on another network
   esp_wifi_sta_wpa2_ent_clear_ca_cert();
   if (user.length()) {  // eduroam and other WPA2-Enterprise networks: PEAP with username + password
     // The stack keeps a pointer to the PEM, so it must outlive the login; the length includes the NUL for mbedTLS.
     static String pem;
-    const String ca = credGet("wifi_ca");
+    const String ca = credGet(credWifiName(slot, "ca").c_str());
     if (ca.length()) {
       pem = "-----BEGIN CERTIFICATE-----\n";
       for (size_t i = 0; i < ca.length(); i += 64) pem += ca.substring(i, i + 64) + "\n";
       pem += "-----END CERTIFICATE-----\n";
       esp_wifi_sta_wpa2_ent_set_ca_cert((const uint8_t *)pem.c_str(), pem.length() + 1);
     }
-    WiFi.begin(ssid.c_str(), WPA2_AUTH_PEAP, user.c_str(), user.c_str(), credGet("wifi_pass").c_str());
+    WiFi.begin(ssid.c_str(), WPA2_AUTH_PEAP, user.c_str(), user.c_str(), pass.c_str());
   } else {
     esp_wifi_sta_wpa2_ent_disable();  // begin() never turns enterprise mode off after an eduroam login
-    WiFi.begin(ssid.c_str(), credGet("wifi_pass").c_str());
+    WiFi.begin(ssid.c_str(), pass.c_str());
   }
+}
+
+const char *netBegin() {
+  bool has[wifi::SLOTS];
+  for (int i = 0; i < wifi::SLOTS; i++) has[i] = credWifiSaved(i);
+  tryCount = wifi::order(has, storageGetInt("wifi_last", -1), tryOrder);
+  if (!tryCount) return "WiFi not set up";
+  if (devNetFail()) return "WiFi failed";  // test build switches (X NETFAIL 1, X FAKE 1)
+  if (const char *low = batteryTooLow()) return low;
+  if (devFakeCloud() || begun || WiFi.status() == WL_CONNECTED) return nullptr;
+  begun = true;
+  beganAt = millis();
+  tryAt = 0;
+  sawMissing = false;
+  setCpuFrequencyMhz(240);  // full speed only while the radio is on (as in the Dex scan)
+  WiFi.mode(WIFI_STA);
+  joinSlot(tryOrder[0]);
   return nullptr;
+}
+
+// Moves on to the next saved network when this one isn't in range, refused the login, or took too long.
+// False when there is none left.
+static bool nextNetwork() {
+  if (tryAt + 1 >= tryCount) return false;
+  joinSlot(tryOrder[++tryAt]);
+  return true;
 }
 
 const char *netConnect() {
   if (const char *err = netBegin()) return err;
   if (devFakeCloud()) return nullptr;
   // Time spent connecting since netBegin() counts (it may have started with a recording), with a few
-  // seconds' grace now in case it's nearly there.
-  const uint32_t deadline = max<uint32_t>(beganAt + WIFI_TIMEOUT_MS, millis() + 5000);
+  // seconds' grace now in case it's nearly there. Each saved network gets its turn within a total of 45 s.
+  uint32_t deadline = max<uint32_t>(beganAt + WIFI_TIMEOUT_MS, millis() + 5000);
+  const uint32_t limit = max<uint32_t>(beganAt + 45000, millis() + 5000);
   while (WiFi.status() != WL_CONNECTED && (int32_t)(deadline - millis()) > 0) {
     powerAlive();
     delay(100);
+    const wl_status_t st = WiFi.status();
+    // (A status left over from the previous network can still show in the first moments of an attempt.)
+    const bool settled = millis() - attemptAt > 1500;
+    const bool missing = settled && st == WL_NO_SSID_AVAIL, refused = settled && st == WL_CONNECT_FAILED;
+    if (missing) sawMissing = true;
+    if ((missing || refused || millis() - attemptAt > attemptMs) && nextNetwork())
+      deadline = min<uint32_t>(limit, max<uint32_t>(deadline, millis() + attemptMs));
   }
   powerActivity();
-  if (WiFi.status() == WL_CONNECTED) return nullptr;
-  const bool missing = WiFi.status() == WL_NO_SSID_AVAIL;
+  if (WiFi.status() == WL_CONNECTED) {
+    storagePutInt("wifi_last", tryOrder[tryAt]);  // next time, this one first
+    return nullptr;
+  }
+  const bool missing = WiFi.status() == WL_NO_SSID_AVAIL || (sawMissing && tryCount > 1);
   netOff();
   return missing ? "WiFi not found" : "WiFi failed";
 }

@@ -1,12 +1,13 @@
 #pragma once
 
-// The website's Notes page talks to these over USB (site/serial.js). Called from usbsync for every line
+// The website's Setup page talks to these over USB (site/serial.js). Called from usbsync for every line
 // starting with "N "; returns false if it isn't one of them.
 //   N ?                      -> "NS <name> <set|unset> <hex>" per setting (credentials.h), "NC <card 0|1> <notes>
 //                               <waiting>", then "OK N ?"
 //   N SET <name> <hex>       -> "OK N SET <name>" or "ERR"           (hex of the value; empty = clear)
-//   N ADD wifi_ca <hex>      -> "OK N ADD wifi_ca" or "ERR"           (a chunk of the CA, which is longer than
-//                               a line; kept in RAM and saved with the next N SET wifi_ca, its last chunk)
+//   N ADD <wifi_ca|wifi2_ca..wifi5_ca> <hex> -> "OK N ADD <name>" or "ERR"  (a chunk of that network's CA, which
+//                               is longer than a line; kept in RAM and saved with the next N SET for the same
+//                               name, its last chunk)
 //   N CLR <name|all>         -> "OK N CLR"
 //   N TEST <what>            -> "OK N TEST <what> ok" or "OK N TEST <what> fail <reason>"  (wifi, openai,
 //                               anthropic, github; takes a few seconds)

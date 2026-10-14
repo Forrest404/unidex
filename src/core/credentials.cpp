@@ -18,6 +18,11 @@ static const Field FIELDS[] = {
   {"gh_branch", false, 64, "main"},  {"gh_dir", false, 64, "VoiceNotes"},
   {"gh_token", true, 256, ""},
   {"wifi_ca", true, 3000, ""},  // eduroam CA certificate: the PEM's base64 body, no header lines or line breaks
+  // Networks 2 to 5: the same four settings each (network 1 is the wifi_* set above).
+  {"wifi2_ssid", false, 32, ""}, {"wifi2_pass", true, 128, ""}, {"wifi2_user", false, 128, ""}, {"wifi2_ca", true, 3000, ""},
+  {"wifi3_ssid", false, 32, ""}, {"wifi3_pass", true, 128, ""}, {"wifi3_user", false, 128, ""}, {"wifi3_ca", true, 3000, ""},
+  {"wifi4_ssid", false, 32, ""}, {"wifi4_pass", true, 128, ""}, {"wifi4_user", false, 128, ""}, {"wifi4_ca", true, 3000, ""},
+  {"wifi5_ssid", false, 32, ""}, {"wifi5_pass", true, 128, ""}, {"wifi5_user", false, 128, ""}, {"wifi5_ca", true, 3000, ""},
 };
 
 // Opening a namespace read-only fails (and logs an error onto the USB line) until it exists: create it once.
@@ -28,6 +33,24 @@ static void ensureNamespace() {
   p.begin(NAMESPACE, false);
   p.end();
   done = true;
+}
+
+// "wifi_pass", "wifi2_pass" ...: WiFi passwords get no hint at all.
+static bool isWifiPassword(const char *name) {
+  const size_t n = strlen(name);
+  return !strncmp(name, "wifi", 4) && n > 5 && !strcmp(name + n - 5, "_pass");
+}
+
+String credWifiName(int slot, const char *part) {
+  return slot <= 0 ? String("wifi_") + part : String("wifi") + (slot + 1) + "_" + part;
+}
+
+bool credWifiSaved(int slot) { return credHas(credWifiName(slot, "ssid").c_str()); }
+
+bool credWifiAny() {
+  for (int i = 0; i < 5; i++)
+    if (credWifiSaved(i)) return true;
+  return false;
 }
 
 static const Field *find(const char *name) {
@@ -103,7 +126,7 @@ void credStatus(Print &out) {
     out.printf("%s %s ", f.name, has ? "set" : "unset");
     const String v = credGet(f.name);
     if (!f.secret) printHex(out, v);
-    else if (has && strcmp(f.name, "wifi_pass") != 0)  // a hint for long random keys, never a password
+    else if (has && !isWifiPassword(f.name))  // a hint for long random keys, never a password
       printHex(out, v.substring(v.length() > 4 ? v.length() - 4 : v.length()));
     out.print("\n");
   }

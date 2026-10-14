@@ -4,6 +4,8 @@
 #include "../../src/apps/notes/phone.h"
 #include "../../src/apps/notes/usb.h"
 bool jobBusy() { return false; }
+int16_t *jobTakeBuffer(size_t, size_t &got) { got = 0; return nullptr; }
+void jobGiveBuffer(int16_t *) {}
 bool jobCanTake() { return false; }
 bool jobStartNote(const String &, int16_t *, size_t, bool) { return false; }
 bool jobStartSweep() { return false; }

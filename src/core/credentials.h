@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 
-// WiFi, API keys and the GitHub target, set from the website's Notes page over USB (never compiled in).
+// WiFi, API keys and the GitHub target, set from the website's Setup page over USB (never compiled in).
 // They live in their own NVS namespace: Settings > Reset > Everything leaves them; credClearAll() wipes them.
 //
 // Names (also the NVS keys and the protocol names):
@@ -14,6 +14,8 @@
 //   gh_on                                "1" = push notes to GitHub
 //   gh_repo, gh_branch, gh_dir, gh_token owner/name, branch, folder in the repo, fine-grained token
 //   wifi_ca                              eduroam CA certificate (base64 body of the PEM); empty = not checked
+//   wifi2_* ... wifi5_*                  up to four more networks: _ssid, _pass, _user and _ca, as above
+//                                        (wifi_* is network 1; the device tries the one that worked last first)
 bool credKnown(const char *name);
 bool credSecret(const char *name);              // passwords and keys: never sent back over USB
 String credGet(const char *name);               // "" if not set (gh_branch/gh_dir/cleanup have defaults)
@@ -21,6 +23,9 @@ bool credSet(const char *name, const String &value);  // false for an unknown na
 void credClear(const char *name);
 void credClearAll();
 bool credHas(const char *name);
+String credWifiName(int slot, const char *part);  // slot 0..4, part "ssid", "pass", "user" or "ca": e.g. "wifi3_ssid"
+bool credWifiSaved(int slot);                     // that network has a name
+bool credWifiAny();                               // at least one network is saved
 
 // One status line per name: "<name> <set|unset> <hex>", where <hex> is the value for plain settings, the last
 // 4 characters of API keys and tokens (so the page can show "…a1b2" without the key leaving the device), and
