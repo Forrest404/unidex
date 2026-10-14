@@ -1,12 +1,15 @@
 # Builds the firmware and publishes the website (site/) with the browser installer to GitHub Pages.
-# Runs on every published release, or by hand from the Actions tab. The firmware always comes from the latest
-# release tag, so a run by hand (for website changes) still offers the released version, not whatever is on main.
+# Runs on every published release, every 6 hours (so apps accepted into the store, github.com/Forrest404/unidex-apps,
+# appear by themselves), or by hand from the Actions tab. The firmware always comes from the latest release tag, so
+# a run that isn't a release still offers the released version, not whatever is on main.
 name: Website
 
 on:
   release:
     types: [published]
   workflow_dispatch:
+  schedule:
+    - cron: "23 */6 * * *"
 
 permissions:
   contents: write  # attaches the firmware files to the release
@@ -79,8 +82,10 @@ jobs:
           (cd "$d" && sha256sum unidex-* > "unidex-$RELEASE_TAG-SHA256SUMS.txt")
           gh release upload "$RELEASE_TAG" "$d"/* --clobber
 
-      - name: Build the app store catalogue (site/store/)
-        run: python3 tools/make_store.py
+      - name: Build the app store catalogue (site/store/) from the accepted apps
+        run: |
+          git clone --depth 1 https://github.com/Forrest404/unidex-apps.git ../unidex-apps
+          python3 tools/make_store.py ../unidex-apps/apps
 
       - uses: actions/upload-pages-artifact@v3
         with:

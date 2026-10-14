@@ -182,10 +182,12 @@ end
 
 1. Write it and try it on your unidex (copy the folder to `/apps/` on the card, or install it from the store page
    in developer mode).
-2. Open a pull request to the store's registry repository with your folder.
-3. Automatic checks run on it: the manifest, the limits, and a test that it starts and draws.
-4. The store's owner reads the code and either accepts it (it is merged and appears in the store) or declines it
-   with a reason, written on the pull request. You can fix it and open it again.
+2. Open a pull request to the store's registry,
+   [Forrest404/unidex-apps](https://github.com/Forrest404/unidex-apps), adding your folder as `apps/<id>/`.
+3. Automatic checks run on it: the manifest and the limits, the Lua syntax, and a run in the emulator that opens
+   the app and presses every button (it fails on "App error"; the screenshots are attached to the run).
+4. The store's owner reads the code and either accepts it (it is merged and appears in the store within about 6
+   hours) or declines it with a reason, written on the pull request. You can fix it and open a new one.
 
 Only accepted apps are ever listed. Everything about the store's rules (what is accepted, licence and terms
 for submissions) will be written here before submissions open.
