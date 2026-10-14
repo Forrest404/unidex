@@ -38,7 +38,7 @@ to your device over USB, and it shows up in the Apps list. No toolchain, no refl
 | `version` | `major.minor.patch`. The website offers an update when the store has a higher one. |
 | `author`, `description` | Up to 40 and 140 characters. |
 | `api` | The API level it was written for. The device refuses an app that needs a newer one. This guide is level 1. |
-| `type` | `"app"`. (`"plugin"` is planned: see the end.) |
+| `type` | `"app"`, or `"plugin"` with `extends` (see Plugins, at the end). |
 | `permissions` | What it asks for. The website shows these before you install. See below. |
 | `icon` | Optional. 40 strings of 40 characters, `#` is ink, anything else is blank. |
 | `license` | Optional on the device. The store may require one. |
@@ -84,8 +84,8 @@ header sits above and the hints below.
 |---|---|
 | `unidex.header(title, right)` | The title bar. `right` is optional (a time, a count). |
 | `unidex.hints(a, b, bhold)` | The bottom line: what A, B and hold-B do. Every screen should have one. |
-| `unidex.text(x, y, str, font)` | Text with its baseline at `y`. `font`: `"tiny" "small" "medium" "large" "bold"` (default `"small"`). |
-| `unidex.centered(y, str, font)` | The same, centred. |
+| `unidex.text(x, y, str, font, colour)` | Text with its baseline at `y`. `font`: `"tiny" "small" "medium" "large" "bold"` (default `"small"`); `colour`: `"black"` (default) or `"white"`, for text on a filled box. |
+| `unidex.centered(y, str, font, colour)` | The same, centred. |
 | `unidex.wrap(x, y, w, str, maxlines, font)` | Wrapped text; returns the lines used. |
 | `unidex.width(str, font)` | Width in pixels. |
 | `unidex.rect(x, y, w, h)` and `unidex.fill(x, y, w, h)` | An outline, a solid box. Add `"white"` as a last argument to erase. |
@@ -217,9 +217,20 @@ for submissions) will be written here before submissions open.
 Paths may not contain `..` or start with `/`, and only `.lua .json .bmp .txt` files are accepted. The data
 transfer is the same hex lines and `K` acknowledgements as badges.
 
-## Plugins (planned)
+## Plugins
 
-A plugin is an add-on for one of the built-in apps (for example a Notes action or a Pet outfit). It uses the
-same folder, with `"type": "plugin"` and `"extends": "notes"`, and defines hook functions the built-in app calls
-at named moments. It gets only the data that hook passes in. The first hooks will be written down here before
-they are built.
+A plugin adds to one of the built-in apps instead of being an app of its own. It is the same kind of folder, with
+`"type": "plugin"` and `"extends"` naming the app, and it defines the function that app calls. It can use the same
+`unidex.*` calls (and its own `data/` folder) as an app; it is started for each call and closed straight after, so
+keep anything it needs to remember in its data files.
+
+| `extends` | Your code defines | What happens |
+|---|---|---|
+| `"badge"` | `badge()`: draw the whole badge (200 x 200, no header or hints needed) | It is listed in Badge after the image badges, with a thumbnail. Each time it is shown, `badge()` runs, so it can show today's date, a countdown, a QR code... If it fails, Badge says so in its place. |
+
+More built-in apps will take plugins later; each is added to this table first. `apps/examples/today-badge` is an
+example.
+
+```json
+{ "id": "today-badge", "name": "Today", "version": "1.0.0", "api": 1, "type": "plugin", "extends": "badge" }
+```

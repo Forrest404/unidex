@@ -97,7 +97,7 @@ static void drawRows() {
     const AppEntry &e = apps_[first + r];
     if (sel) display.fillRect(MARGIN - 4, top, display.width() - 2 * (MARGIN - 4), ROW_H - 2, BLACK);
     display.setTextColor(sel ? WHITE : BLACK);
-    const char *tag = e.offloaded ? "offloaded" : e.problem.length() ? "can't run" : "";
+    const char *tag = e.offloaded ? "offloaded" : e.problem.length() ? "can't run" : e.extends.length() ? "plugin" : "";
     display.setFont(FONT_TINY);
     drawRight(tag, baseline);
     const int16_t tagW = *tag ? textWidth(tag) + 6 : 0;
@@ -116,7 +116,7 @@ static void drawList() {
     return;
   }
   const AppEntry *e = selected();
-  drawHints(apps_.size() > 1 ? "next" : "", e && e->offloaded ? "" : "open", "remove");
+  drawHints(apps_.size() > 1 ? "next" : "", e && (e->offloaded || e->extends.length()) ? "" : "open", "remove");
 }
 
 static void drawOptions() {
@@ -216,6 +216,10 @@ static Redraw onButton(Event e) {
       if (apps_.empty()) return Redraw::None;
       if (e == Event::AShort && apps_.size() > 1) {
         cursor = (cursor + 1) % apps_.size();
+        return Redraw::Partial;
+      }
+      if (e == Event::BShort && selected()->extends.length() && !selected()->offloaded) {
+        launcherToast(selected()->extends == "badge" ? "It shows in Badge" : "It adds to another app");
         return Redraw::Partial;
       }
       if (e == Event::BShort && !selected()->offloaded) {

@@ -1,11 +1,16 @@
 // Badge: flips through 1-bit BMPs in /badges, full screen. A = next, B = picker (3x3 thumbnails:
 // A = next, B = open, hold A = back), hold B = previous. The hints show as a band for a moment on opening.
+// Badge plugins (docs/APPS.md: "extends": "badge") come after the images: their badge() draws the whole badge,
+// each time it's shown, and the plugin is closed again straight after.
 #include "../../core/app.h"
+#include "../../core/devtools.h"
 #include "../../core/display.h"
 #include "../../core/launcher.h"
 #include "../../core/storage.h"
 #include "../../core/theme.h"
 #include "badge_file.h"
+#include "../scripts/appstore.h"
+#include "../scripts/luahost.h"
 
 static const int MAX_BADGES = 32, PER_PAGE = 9;
 static const int16_t THUMB = 40, STEP = THUMB + 4;  // thumbnail size and spacing: 3 rows fit above the hints
@@ -37,9 +42,14 @@ static void showBand() {
   bandAt = millis();
 }
 
+static const char *PLUGIN = "plugin:";  // names[] entry of a plugin badge: "plugin:<id>"
+static String pluginError;
+
 static void list() {
   memset(thumbReady, 0, sizeof thumbReady);  // the files may have changed
   count = badgeList(names, MAX_BADGES);
+  for (const AppEntry &e : appsList(false))
+    if (e.extends == "badge" && !e.offloaded && !e.problem.length() && count < MAX_BADGES) names[count++] = PLUGIN + e.id;
   if (current >= count) current = 0;
   shownCount = count;
 }
@@ -48,7 +58,26 @@ static void ensureList() {
   if (count < 0) list();
 }
 
+// Runs a badge plugin's badge() on the screen buffer; false (and pluginError says why) if it can't.
+static bool drawPlugin(const String &id) {
+  apps::Manifest m;
+  String problem;
+  if (!appsManifest(id, m, problem)) {
+    pluginError = problem;
+    return false;
+  }
+  bool ok = hostStart(id, m.perms);
+  if (ok) {
+    hostDraw("badge");
+    ok = hostRunning();
+  }
+  if (!ok) pluginError = hostError();
+  hostStop();
+  return ok;
+}
+
 static bool drawBmp(const String &name) {
+  if (name.startsWith(PLUGIN)) return drawPlugin(name.substring(strlen(PLUGIN)));
   Bmp b;
   if (!badgeLoad(name.c_str(), b)) return false;
   badgeDraw(b);
@@ -60,6 +89,19 @@ static void makeThumb(int i) {
   Bmp b;
   memset(thumbs[i], 0, sizeof thumbs[i]);
   thumbReady[i] = true;  // an unreadable badge stays blank
+  if (names[i].startsWith(PLUGIN)) {  // drawn into the screen buffer, sampled, and the buffer put back
+    static uint8_t saved[sizeof display.buf];
+    memcpy(saved, display.buf, sizeof saved);
+    if (drawPlugin(names[i].substring(strlen(PLUGIN))))
+      for (int y = 0; y < THUMB; y++)
+        for (int x = 0; x < THUMB; x++) {
+          const int p = y * 200 / THUMB * 200 + x * 200 / THUMB;
+          const bool ink = !(display.buf[p >> 3] & (0x80 >> (p & 7))) != display.inverted;  // the buffer: 1 = white
+          if (ink) thumbs[i][y * THUMB_ROW + x / 8] |= 0x80 >> (x % 8);
+        }
+    memcpy(display.buf, saved, sizeof saved);
+    return;
+  }
   if (!badgeLoad(names[i].c_str(), b)) return;
   for (int y = 0; y < THUMB; y++)
     for (int x = 0; x < THUMB; x++)  // nearest neighbour from the 200x200 frame
@@ -87,7 +129,22 @@ static void drawPicker() {
   drawHints(count > 1 ? "next" : "", "open", "");
 }
 
+static bool lastFailed;  // the badge on screen couldn't be drawn (test tools: X STATE detail)
+
+#if UNIDEX_DEV
+static const char *detail() {  // "badge:<name>" or "failed:<name>:<why>"
+  static char d[96];
+  if (count <= 0 || picking) snprintf(d, sizeof d, "%s", picking ? "picker" : "none");
+  else if (lastFailed) snprintf(d, sizeof d, "failed:%s:%s", names[current].c_str(), pluginError.c_str());
+  else snprintf(d, sizeof d, "badge:%s", names[current].c_str());
+  return d;
+}
+#endif
+
 static void onEnter() {
+#if UNIDEX_DEV
+  devSetDetail(detail);
+#endif
   picking = false;
   list();
   String last = storageGetString("badge");
@@ -145,9 +202,17 @@ static void draw() {
     drawHints("", "", "");
   } else if (picking) {
     drawPicker();
-  } else if (!drawBmp(names[current])) {
+  } else if ((lastFailed = !drawBmp(names[current]))) {
+    display.fillScreen(WHITE);  // (a plugin may have drawn part of it)
     drawHeader("Badge");
-    drawEmpty("Can't read this one", names[current].c_str(), "Not a 1-bit BMP?");
+    if (names[current].startsWith(PLUGIN)) {
+      display.setFont(FONT_SMALL);
+      String lines[2];
+      wrapText(pluginError.c_str(), display.width() - 4 * MARGIN, lines, 2);
+      drawEmpty("This plugin failed", lines[0].c_str(), lines[1].c_str());
+    } else {
+      drawEmpty("Can't read this one", names[current].c_str(), "Not a 1-bit BMP?");
+    }
     drawHints(count > 1 ? "next" : "", "pick", count > 1 ? "previous" : "");
   } else if (band) {
     drawBand();
@@ -161,7 +226,12 @@ static Redraw tick() {
   return Redraw::Tick;
 }
 
-static void onExit() { band = false; }
+static void onExit() {
+  band = false;
+#if UNIDEX_DEV
+  devSetDetail(nullptr);
+#endif
+}
 
 static void status(char *out, size_t len) {
   static bool looked;  // after a restart, list the badges once so the line is there before the first visit

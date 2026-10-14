@@ -139,7 +139,9 @@ static int l_centered(lua_State *s) {
   const int16_t y = coord(s, 1);
   const String t = text(s, 2);
   display.setFont(fontArg(s, 3));
+  display.setTextColor(colourArg(s, 4));
   drawCenteredLine(t.c_str(), y);
+  display.setTextColor(BLACK);
   return 0;
 }
 
@@ -542,11 +544,16 @@ bool hostHas(const char *fn) {
   return yes;
 }
 
-void hostDraw() {
+void hostDraw(const char *fn) {
   display.fillScreen(WHITE);
   bool defined;
-  if (call("draw", defined)) lua_pop(L, 1);
-  else if (L && !defined) fail("main.lua has no draw() function");
+  if (call(fn, defined)) {
+    lua_pop(L, 1);
+  } else if (L && !defined) {
+    char why[48];
+    snprintf(why, sizeof why, "main.lua has no %s() function", fn);
+    fail(why);
+  }
 }
 
 Redraw hostEvent(const char *fn) {

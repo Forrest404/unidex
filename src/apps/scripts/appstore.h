@@ -9,6 +9,7 @@
 
 struct AppEntry {
   String id, name, version;
+  String extends;      // a plugin: the built-in app it adds to ("badge"); "" for an app
   String problem;      // why it can't run ("needs newer firmware"), or "" if it can
   bool offloaded;      // only its data/ is left
   uint64_t code, data; // bytes (only when asked for: reading sizes walks the folders)

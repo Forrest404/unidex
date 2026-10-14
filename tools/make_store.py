@@ -19,6 +19,7 @@ import sys
 API_LEVEL = 1
 MAX_FILE, MAX_APP = 64 * 1024, 512 * 1024
 PERMISSIONS = {"wifi", "mic", "meet"}
+EXTENDABLE = {"badge"}  # the built-in apps plugins can add to (apps_logic.h, extendable())
 ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,23}$")
 NAME = re.compile(r"^[a-z0-9_-][a-z0-9._-]{0,31}$")
 VERSION = re.compile(r"^\d{1,4}\.\d{1,4}\.\d{1,4}$")
@@ -56,8 +57,13 @@ def check(folder):
         problems.append("version: major.minor.patch")
     if m.get("api") != API_LEVEL:
         problems.append(f"api: must be {API_LEVEL}")
-    if m.get("type", "app") != "app":
-        problems.append("type: only \"app\" for now")
+    kind, extends = m.get("type", "app"), m.get("extends", "")
+    if kind == "plugin" and extends not in EXTENDABLE:
+        problems.append(f"extends: a plugin extends one of {sorted(EXTENDABLE)}")
+    elif kind == "app" and extends:
+        problems.append("extends: only plugins extend an app")
+    elif kind not in ("app", "plugin"):
+        problems.append("type: \"app\" or \"plugin\"")
     perms = m.get("permissions", [])
     if not isinstance(perms, list) or any(p not in PERMISSIONS for p in perms):
         problems.append(f"permissions: only {sorted(PERMISSIONS)}")
@@ -88,6 +94,7 @@ def check(folder):
         problems.append("over 512 KB in all")
     files.sort(key=lambda f: f["path"] == "app.json")  # sent last, as the device expects
     entry = {"id": m.get("id"), "name": name, "version": m.get("version"), "author": author, "description": desc,
+             "type": kind, "extends": extends if kind == "plugin" else "",
              "permissions": perms, "license": m.get("license", ""), "icon": icon, "bytes": total, "files": files}
     return entry, problems
 

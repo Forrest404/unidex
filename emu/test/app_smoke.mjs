@@ -125,6 +125,21 @@ for (const folder of args) {
   };
   try {
     await store.installApp(dev, entry, async (e, f) => f.bytes);
+    if (entry.type === 'plugin' && entry.extends === 'badge') {
+      // Badge: A until it is showing the plugin's badge (Badge redraws it with badge() each time)
+      for (let i = 0; i < 14 && (await state()).sel !== 'Badge'; i++) await press('a');
+      await press('b');
+      let s = await state();
+      for (let i = 0; i < 40 && !s.detail.includes(`plugin:${id}`); i++) { await press('a'); s = await state(); }
+      if (!s.detail.includes(`plugin:${id}`)) problems.push('it isn’t in the Badge list');
+      else if (s.detail.startsWith('failed:')) problems.push(`its badge: ${s.detail.split(':').slice(3).join(':')}`);
+      else { await sleep(3000); await shot(`${id}-badge`); }  // (after Badge's hint band has gone)
+      for (let i = 0; i < 4 && (await state()).screen !== 'Home'; i++) await press('A');
+      await store.removeApp(dev, id, false);
+      console.log(problems.length ? `FAIL  ${id}: ${problems.join('; ')}` : `ok    ${id} (badge plugin)`);
+      failed += problems.length > 0;
+      continue;
+    }
     // Home: A until Apps is highlighted, then open it and find the app
     for (let i = 0; i < 14 && (await state()).sel !== 'Apps'; i++) await press('a');
     if ((await state()).screen === 'Home') await press('b');

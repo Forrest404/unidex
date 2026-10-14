@@ -11,6 +11,9 @@ https://forrest404.github.io/unidex/ (Update keeps your settings and files).
   the device. Hold B on one to offload it (its data stays) or delete it. Writing one: `docs/APPS.md`.
 - **Website: Apps page.** See what is on your unidex, and install, update, offload or delete apps over USB. Delete
   says how much data will be lost first.
+- **Plugins** (first kind): a badge plugin draws a badge with code, such as Today, which always shows the date. Plugin
+  badges are listed in Badge after your own. The Apps page lets go of the device after each action, so other pages
+  and tools can use it.
 - **Setup:** the website's Notes page is now called Setup (the old address still takes you there), and the device's
   hints say Setup too.
 - **WiFi:** you can save up to five networks (home, eduroam or work, a phone hotspot). The device joins whichever is

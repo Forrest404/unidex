@@ -10,7 +10,7 @@ void hostStop();                    // onExit, then closes it (WiFi off if it us
 bool hostRunning();
 const String &hostId();
 const String &hostError();          // "main.lua:12: attempt to call a nil value", "took too long"...
-void hostDraw();                    // the app's draw() on a blank screen
+void hostDraw(const char *fn = "draw");  // the app's draw() (a badge plugin's badge()) on a blank screen
 Redraw hostEvent(const char *fn);   // onA, onB, onBHold, tick: what it asks for (None if it isn't defined)
 bool hostHas(const char *fn);
 Redraw hostBack();                  // onBack: Exit unless the app handles it

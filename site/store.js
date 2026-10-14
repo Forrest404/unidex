@@ -46,8 +46,11 @@ const DEFAULT_ICON = [
   '........................................',
   '........................................',
 ];
+const EXTENDS = { badge: 'Badge' };  // the built-in apps plugins add to
 const PERMISSION_TEXT = { wifi: 'uses WiFi', mic: 'uses the microphone', meet: 'uses the Pet radio' };
 
+// The board is opened for each action and let go again after it, so other pages and tools can use it meanwhile;
+// `deviceApps` is what it last said (null: never connected).
 let catalogue = [], device = null, deviceApps = null, busy = false;
 
 const el = (tag, props = {}, ...children) => {
@@ -123,6 +126,7 @@ function renderDevice() {
     if (a.problem) nameLine.append(el('span', { className: 'chip bad', title: a.problem }, 'can’t run'));
     else if (newer) nameLine.append(el('span', { className: 'chip new' }, `${s.version} available`));
     else if (!s) nameLine.append(el('span', { className: 'chip', title: 'Installed by hand, not from this store' }, 'not in the store'));
+    if (s && s.type === 'plugin') nameLine.append(el('span', { className: 'chip' }, `Plugin for ${EXTENDS[s.extends] || s.extends}`));
     if (a.problem) info.append(el('div', { className: 'meta bad' }, a.problem));
 
     const actions = el('div', { className: 'actions' });
@@ -140,7 +144,7 @@ function renderStore() {
   grid.replaceChildren();
   for (const s of catalogue) {
     const d = onDevice(s.id);
-    let label = 'Install', disabled = !device || busy;
+    let label = 'Install', disabled = !deviceApps || busy;
     if (d && d.version && compareAppVersions(s.version, d.version) <= 0) label = 'Installed', disabled = true;
     else if (d && d.version) label = 'Update';
     else if (d) label = 'Reinstall';
@@ -149,11 +153,12 @@ function renderStore() {
     grid.append(el('div', { className: 'card storeCard' },
       el('div', { className: 'top' }, iconCanvas(s.icon),
         el('div', {}, el('h3', { textContent: s.name }),
-          el('div', { className: 'by', textContent: `${s.author || 'unknown'} · version ${s.version}` }))),
+          el('div', { className: 'by', textContent: `${s.author || 'unknown'} · version ${s.version}` }),
+          s.type === 'plugin' ? el('span', { className: 'chip', textContent: `Plugin for ${EXTENDS[s.extends] || s.extends}` }) : null)),
       el('p', { textContent: s.description }),
       el('div', { className: 'perms', textContent: perms[0].toUpperCase() + perms.slice(1) + '.' }),
       el('div', { className: 'cardFoot' }, el('span', { className: 'size', textContent: kb(s.bytes) }),
-        el('button', { textContent: label, disabled, title: device ? '' : 'Connect your unidex first',
+        el('button', { textContent: label, disabled, title: deviceApps ? '' : 'Connect your unidex first',
                        onclick: () => install(s) }))));
   }
 }
@@ -161,7 +166,7 @@ function renderStore() {
 function render() {
   renderDevice();
   renderStore();
-  $('connect').textContent = device ? 'Refresh' : 'Connect';
+  $('connect').textContent = deviceApps ? 'Refresh' : 'Connect';
   $('connect').disabled = busy || !supported;
 }
 
@@ -171,24 +176,26 @@ async function run(work) {
   busy = true;
   render();
   try {
-    if (!device) device = await connect(await knownPort() || undefined);
+    device = await connect(await knownPort() || undefined);
     await work(device);
     deviceApps = await listApps(device);
   } catch (e) {
     if (e.name === 'NotFoundError') status(asleepHint, 'bad');
+    else if (e.name === 'InvalidStateError' || /already open|Failed to open/i.test(e.message))
+      status('Another page or program is using the unidex. Close it (or its tab), then try again.', 'bad');
     else status(e.message, 'bad');
-    if (e.message === tooOld || /closed|lost|disconnect|device has been lost/i.test(e.message)) await disconnect();
   } finally {
+    await disconnect(false);
     busy = false;
     $('progress').hidden = true;
     render();
   }
 }
 
-async function disconnect() {
+async function disconnect(forget = true) {
   if (device) await device.close().catch(() => {});
   device = null;
-  deviceApps = null;
+  if (forget) deviceApps = null;
 }
 
 function install(s) {
@@ -200,8 +207,9 @@ function install(s) {
       status(`${s.name}: ${text}…`);
       $('progress').value = fraction;
     });
+    const where = s.type === 'plugin' ? `in ${EXTENDS[s.extends] || s.extends} on the device` : 'under Apps on the device';
     status(was && was.version ? `${s.name} updated to ${s.version}. Its data was kept.`
-                              : `${s.name} installed. Find it under Apps on the device.`, 'ok');
+                              : `${s.name} installed. Find it ${where}.`, 'ok');
   });
 }
 
@@ -215,8 +223,8 @@ async function offload(a, name) {
 }
 
 async function remove(a, name) {
-  let bytes = a.data;
-  try { if (device) bytes = await dataBytes(device, a.id); } catch (e) { /* the list's figure will do */ }
+  let bytes = a.data;  // what the list said; asked again just before, as the app may have saved more since
+  await run(async dev => { bytes = await dataBytes(dev, a.id); });
   const what = bytes ? `Its data on the device (${kb(bytes)}) will be lost for good.` : 'It has no saved data.';
   if (!(await ask(a.version ? `Delete ${name}?` : `Delete ${name}’s data?`, `${what} This can’t be undone.`,
                   'Delete', true))) return;
@@ -229,6 +237,7 @@ async function remove(a, name) {
 $('connect').onclick = () => run(async () => status('Connected.', 'ok'));
 if (!supported) $('unsupported').hidden = false;
 navigator.serial && navigator.serial.addEventListener('disconnect', async () => {
+  if (busy) return;  // run() reports it
   await disconnect();
   status('The unidex was unplugged (or fell asleep). Press a button on it, then Connect.');
   render();

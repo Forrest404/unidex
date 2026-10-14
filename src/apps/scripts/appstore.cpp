@@ -70,6 +70,7 @@ std::vector<AppEntry> appsList(bool withSizes) {
     if (!e.offloaded && appsManifest(id, m, e.problem)) {
       e.name = m.name.c_str();
       e.version = m.version.c_str();
+      e.extends = m.type == "plugin" ? m.extends.c_str() : "";
     } else if (!e.offloaded) {
       e.name = id;  // shown with its problem, so it can be deleted
     }

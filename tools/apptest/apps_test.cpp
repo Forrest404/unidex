@@ -77,7 +77,14 @@ int main() {
   check(strcmp(check(m, "hello"), "needs newer firmware") == 0, "a newer api level is refused");
   m = good();
   m.type = "plugin";
-  check(check(m, "hello") != nullptr, "plugins aren't run yet");
+  check(check(m, "hello") != nullptr, "a plugin must say what it extends");
+  m.extends = "badge";
+  check(check(m, "hello") == nullptr, "a badge plugin passes");
+  m.extends = "settings";
+  check(check(m, "hello") != nullptr, "an app that can't be extended fails");
+  m = good();
+  m.extends = "badge";
+  check(check(m, "hello") != nullptr, "only plugins extend an app");
   m = good();
   m.type = "game";
   check(check(m, "hello") != nullptr, "unknown types fail");

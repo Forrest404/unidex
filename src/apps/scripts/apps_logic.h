@@ -97,6 +97,10 @@ inline bool permissionBit(const std::string &name, uint8_t &bit) {
   return true;
 }
 
+// The built-in apps plugins can extend, and the function each one calls (docs/APPS.md, Plugins).
+//   badge: function badge() draws a whole badge (Badge lists it after the image badges)
+inline bool extendable(const std::string &app) { return app == "badge"; }
+
 // What app.json says, already read (the device fills it with ArduinoJson; the tests by hand).
 struct Manifest {
   std::string id, name, version, author, description, type = "app", extends;
@@ -115,8 +119,14 @@ inline const char *check(Manifest &m, const char *folder) {
   if (versionValue(m.version.c_str()) < 0) return "bad version";
   if (m.api < 1) return "no api level";
   if (m.api > API_LEVEL) return "needs newer firmware";
-  if (m.type == "plugin") return "plugins not supported yet";
-  if (m.type != "app") return "unknown type";
+  if (m.type == "plugin") {
+    if (m.extends.empty()) return "a plugin needs \"extends\"";
+    if (!extendable(m.extends)) return "can't extend that app";
+  } else if (m.type != "app") {
+    return "unknown type";
+  } else if (!m.extends.empty()) {
+    return "only plugins extend an app";
+  }
   m.perms = 0;
   for (const std::string &p : m.permissions) {
     uint8_t bit;
