@@ -6,6 +6,11 @@ your friends' Pets on their unidex (they visit, chat and swap badges). It also f
 WiFi collection game and four one-button games, and goes to sleep whenever you aren't pressing a button, looking
 after its battery and your files as it goes.
 
+**And it's yours to hack.** Anyone can write apps and plugins for it in a few lines of Lua, in a plain text editor,
+with no tools to install: a game, a tracker, a clock, a dashboard that fetches from the web, a badge that changes
+every day. Install them from the website's Apps page, try them in the emulator, and send them in for the store.
+[How to make one](#apps-and-plugins-make-your-own).
+
 It runs on two buttons and a battery. The code is public, and you're free to use, fork and improve it for
 non-commercial use. Installing takes about a minute from your browser, with no tools to set up.
 
@@ -16,6 +21,7 @@ available, join the wait list at [unidex.shop](https://www.unidex.shop).
   <a href="https://github.com/Forrest404/unidex/releases/latest"><img height="36" alt="Latest release" src="https://img.shields.io/github/v/release/Forrest404/unidex?style=for-the-badge"></a>
   <a href="LICENSE"><img height="36" alt="Licence: PolyForm Noncommercial" src="https://img.shields.io/badge/licence-PolyForm%20Noncommercial-black?style=for-the-badge"></a>
   <a href="https://forrest404.github.io/unidex/"><img height="36" alt="Install in your browser" src="https://img.shields.io/badge/install-in%20your%20browser-black?style=for-the-badge"></a>
+  <a href="https://forrest404.github.io/unidex/store.html"><img height="36" alt="Get apps" src="https://img.shields.io/badge/get-apps-black?style=for-the-badge"></a>
   <a href="https://www.unidex.shop"><img height="36" alt="Join the wait list" src="https://img.shields.io/badge/join%20the-wait%20list-black?style=for-the-badge"></a>
 </p>
 
@@ -31,11 +37,12 @@ available, join the wait list at [unidex.shop](https://www.unidex.shop).
 | **Chooser** | Pick 2–6 squares, spin, get a random winner. |
 | **Games** | Four one-button games: Flappy, Dino, Stack and Jetpack, with best scores. |
 | **Settings** | Date and time, sleep, invert, battery and info, reset data, factory reset. |
+| **Apps** | Everything else: apps and plugins from the store, or ones you write yourself. |
 
-**New in v1.6:** it looks after a low battery (and switches off when it's flat), saves files so a full card or a
-power cut doesn't lose what was already saved, restarts itself if it ever freezes, has a factory reset for passing
-it on, welcomes new owners with the buttons and a link to the website, and keeps your Pet's friends on the SD card.
-Every change is in [CHANGELOG.md](CHANGELOG.md).
+**New in v1.7: apps and plugins.** unidex now runs apps that anyone can write, and plugins that add to the built-in
+apps (the first kind adds live badges to Badge). There's an Apps page on the website to install, update and remove
+them, and a store that anyone can send apps to. It also saves up to five WiFi networks, and Notes no longer loses a
+quiet recording or gets stuck behind one note that won't send. Every change is in [CHANGELOG.md](CHANGELOG.md).
 
 If unidex is useful to you, a star on GitHub helps other people find it.
 
@@ -187,6 +194,51 @@ action (tap or hold, depending on the game). Best scores are kept on the device.
   and keys, the Pet and its friends, every setting, the calendar and the Dex, then starts like new. Notes, badges
   and the timetable on the SD card stay, so format the card on a computer as well.
 
+## Apps and plugins: make your own
+
+unidex is built to be taken apart. Beyond the apps above, it runs **apps and plugins written by anyone**, and
+writing one is meant to be easy: an app is a folder with two small files, written in [Lua](https://www.lua.org/), in
+any text editor. There's nothing to compile and no toolchain to install.
+
+```lua
+local count = tonumber(unidex.data.read("count") or "0")
+
+function draw()
+  unidex.header("Hello")
+  unidex.centered(80, tostring(count), "large")
+  unidex.hints("", "add", "")
+end
+
+function onB()
+  count = count + 1
+  unidex.data.write("count", tostring(count))
+  return "partial"
+end
+```
+
+**What an app can do:** draw anything on the screen (text in five sizes, lines, boxes, images, QR codes, icons),
+use both buttons the same way the built-in apps do, keep its own files on the SD card, read the time and the battery,
+wake itself up for the next redraw, and, if it asks for the `wifi` permission, fetch things from the web over HTTPS.
+Games, trackers, timers, quizzes, flash cards, a page of today's weather, a habit tracker: whatever you like.
+
+**Plugins** add to the built-in apps instead. The first kind adds badges to Badge that are drawn by code each time
+they're shown, like **Today**, which always shows the date. More built-in apps will take plugins.
+
+**Safe to try anything.** Each app runs in a sandbox: its own memory, its own folder, a time limit on every step,
+and no way to reach your WiFi password, your keys, your notes or other apps' files. If an app breaks, the device
+says "App error" with the line it broke on, and goes back to the list. It never takes the device down with it.
+
+**Getting started:**
+
+1. Read [Writing apps for unidex](docs/APPS.md): the whole API, the limits, plugins, and examples.
+2. Copy an example from [`apps/examples`](apps/examples), or the template in the
+   [store's repository](https://github.com/Forrest404/unidex-apps).
+3. Try it: in the browser emulator without a device (`emu/web/try.html`, see [emu/README.md](emu/README.md)), or
+   on your unidex with `python3 tools/appinstall.py install your-app`.
+4. Share it: open a pull request to [unidex-apps](https://github.com/Forrest404/unidex-apps). Automatic checks try
+   it in the emulator, then it's read by a person, and accepted apps appear on the website's
+   [Apps](https://forrest404.github.io/unidex/store.html) page.
+
 ## The website
 
 Everything runs in Chrome or Edge on a computer and talks to the device over USB. Nothing is uploaded anywhere.
@@ -198,6 +250,9 @@ Everything runs in Chrome or Edge on a computer and talks to the device over USB
   badge maker, the Pet designer, the clock and calendar, and the automatic Mac calendar sync.
 - **[Setup](https://forrest404.github.io/unidex/setup.html)** is where you set up WiFi, API keys and GitHub, run the
   tests, and download notes.
+- **[Apps](https://forrest404.github.io/unidex/store.html)** shows what's on your unidex and the store's apps and
+  plugins: install, update, offload (the app goes, its data stays) or delete (it warns you how much data goes with
+  it).
 
 To update, use **Update** on the Install page, or **Sync everything** on Tools, which updates by itself when
 there's a newer release.
@@ -218,7 +273,10 @@ off so the battery isn't drained further. Plug in USB to charge it, then press P
 
 - **The website can't find the device.** It's asleep, so press a button and try again. If it's a brand-new board
   (or one with other firmware), unplug it, hold **BOOT** while you plug it back in, let go, then try again.
-- **"No SD card".** Check that the card is FAT32 and pushed fully into the slot. Timetable, Badge and Dex need it.
+- **"No SD card".** Check that the card is FAT32 and pushed fully into the slot. Timetable, Badge, Dex and Apps need
+  it.
+- **"App error".** The app hit a bug or one of its limits; the message says where. Tell its author (open an issue
+  on [unidex-apps](https://github.com/Forrest404/unidex-apps)), or offload or delete it with **hold B** in Apps.
 - **"Time not set".** Set it in Settings, or use Set the clock or Sync everything on the Tools page.
 - **It froze.** It restarts by itself after 30 seconds, or you can hold **A + B** for a second to restart it now.
 - **Still stuck, or found a bug?** [Open an issue](https://github.com/Forrest404/unidex/issues/new/choose) with the

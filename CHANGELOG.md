@@ -4,13 +4,16 @@ What changed in each release, in short. The full notes are on the
 [releases page](https://github.com/Forrest404/unidex/releases). To update, use
 https://forrest404.github.io/unidex/ (Update keeps your settings and files).
 
-## Unreleased
+## v1.7 (14 October 2026)
 
-- **Apps** (new, first part): small apps written in Lua, kept on the SD card and opened from Home > Apps. They run in
+- **Apps** (new): small apps written in Lua, kept on the SD card and opened from Home > Apps. They run in
   a sandbox with their own memory and time limits, and an app that breaks shows "App error" instead of crashing
   the device. Hold B on one to offload it (its data stays) or delete it. Writing one: `docs/APPS.md`.
 - **Website: Apps page.** See what is on your unidex, and install, update, offload or delete apps over USB. Delete
   says how much data will be lost first.
+- **The app store:** anyone can send an app in as a pull request to
+  [unidex-apps](https://github.com/Forrest404/unidex-apps); it's checked in the emulator and read by a person
+  before it's listed.
 - **Plugins** (first kind): a badge plugin draws a badge with code, such as Today, which always shows the date. Plugin
   badges are listed in Badge after your own. The Apps page lets go of the device after each action, so other pages
   and tools can use it.

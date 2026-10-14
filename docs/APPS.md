@@ -1,7 +1,7 @@
 # Writing apps for unidex
 
-DRAFT: the device side (the Apps app, this API, the USB commands) and the website's Apps page are built; the review
-of submitted apps is next. `tools/appinstall.py` installs an app folder over USB, for trying your own.
+This needs unidex v1.7 or newer (Settings > Battery & info shows the version; the website's Update installs the
+newest).
 
 An unidex app is a small folder of Lua files on the SD card. You write it in a text editor, the website copies it
 to your device over USB, and it shows up in the Apps list. No toolchain, no reflashing.
@@ -199,8 +199,8 @@ end
 4. The store's owner reads the code and either accepts it (it is merged and appears in the store within about 6
    hours) or declines it with a reason, written on the pull request. You can fix it and open a new one.
 
-Only accepted apps are ever listed. Everything about the store's rules (what is accepted, licence and terms
-for submissions) will be written here before submissions open.
+Only accepted apps are ever listed. What the review looks for is written in the store repository's
+[README](https://github.com/Forrest404/unidex-apps#what-gets-checked-by-hand).
 
 ## For the firmware, the USB commands (not for app authors)
 
