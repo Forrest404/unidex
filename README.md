@@ -14,6 +14,8 @@ Featured on [XDA](https://www.xda-developers.com/open-source-os-waveshare-esp32-
 **Don't have the board?** Pre-orders for a fully assembled and tested unidex are now closed. To hear when more are
 available, join the wait list at [unidex.shop](https://www.unidex.shop).
 
+If you'd like to support the project, there's a [Ko-fi](https://ko-fi.com/forrest404).
+
 <p>
   <a href="https://github.com/Forrest404/unidex/releases/latest"><img height="36" alt="Latest release" src="https://img.shields.io/github/v/release/Forrest404/unidex?style=for-the-badge"></a>
   <a href="LICENSE"><img height="36" alt="Licence: PolyForm Noncommercial" src="https://img.shields.io/badge/licence-PolyForm%20Noncommercial-black?style=for-the-badge"></a>
