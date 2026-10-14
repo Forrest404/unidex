@@ -49,7 +49,7 @@ let steps = 0;
 await store.installApp(dev, byId('hello'), getFile, () => steps++);
 await store.installApp(dev, byId('clock'), getFile);
 let apps = await store.listApps(dev);
-check(apps.length === 2 && apps.every(a => a.version === '1.0.0' && !a.problem && a.code > 0), 'both installed, with versions');
+check(apps.length === 2 && apps.every(a => a.version === byId(a.id).version && !a.problem && a.code > 0), 'both installed, with versions');
 check(steps > 2, 'progress was reported');
 
 const hello = () => store.listApps(dev).then(a => a.find(x => x.id === 'hello'));
@@ -58,21 +58,21 @@ check((await store.dataBytes(dev, 'hello')) === 0, 'no data yet');
 await store.removeApp(dev, 'hello', true);
 check((await hello()).version === null, 'offloaded: listed with no version');
 await store.installApp(dev, byId('hello'), getFile);
-check((await hello()).version === '1.0.0', 'reinstalled after an offload');
+check((await hello()).version === byId('hello').version, 'reinstalled after an offload');
 
-// an update: Hello with its app.json saying 1.1.0
+// an update: Hello with its app.json saying 9.9.9
 const enc = new TextEncoder();
 const h = byId('hello');
-const json11 = enc.encode(new TextDecoder().decode(await getFile(h, h.files.find(f => f.path === 'app.json'))).replace('"1.0.0"', '"1.1.0"'));
-const newer = { ...h, version: '1.1.0', files: await Promise.all(h.files.map(async f => f.path !== 'app.json' ? f
+const json11 = enc.encode(new TextDecoder().decode(await getFile(h, h.files.find(f => f.path === 'app.json'))).replace(`"${h.version}"`, '"9.9.9"'));
+const newer = { ...h, version: '9.9.9', files: await Promise.all(h.files.map(async f => f.path !== 'app.json' ? f
   : { ...f, size: json11.length, sha256: await store.sha256hex(json11) })) };
 await store.installApp(dev, newer, async (e, f) => f.path === 'app.json' ? json11 : getFile(h, f));
-check((await hello()).version === '1.1.0', 'updated to 1.1.0');
+check((await hello()).version === '9.9.9', 'updated to 9.9.9');
 await throws(() => store.installApp(dev, { ...byId('hello'), files: [{ ...byId('hello').files[0], sha256: '0'.repeat(64) }] }, getFile),
              'a file that doesn’t match its SHA-256 is never sent', /didn’t download/);
 await throws(() => store.installApp(dev, { ...byId('hello'), files: byId('hello').files.filter(f => f.path !== 'app.json') }, getFile),
              'an app without app.json is refused by the device', /no app\.json/);
-check((await hello()).version === '1.1.0', 'a refused install leaves the installed one alone');
+check((await hello()).version === '9.9.9', 'a refused install leaves the installed one alone');
 
 await store.removeApp(dev, 'hello', false);
 await store.removeApp(dev, 'clock', false);

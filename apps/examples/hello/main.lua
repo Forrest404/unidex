@@ -11,6 +11,7 @@ end
 function onB()
   count = count + 1
   unidex.data.write("count", tostring(count))
+  print("count is now", count)  -- shows in the emulator's log (and on USB with the test firmware)
   return "partial"
 end
 

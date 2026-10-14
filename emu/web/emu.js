@@ -51,6 +51,11 @@
   document.getElementById('restart').addEventListener('click', () => location.reload());
 
   createUnidex({ onScreen: draw, print: () => {}, printErr: () => {} })
-    .then((m) => { mod = m; status.textContent = 'Running. Click the buttons or use the keys.'; })
+    .then((m) => {
+      mod = m;
+      window.unidexEmu = m;  // for apptry.js (Try your app)
+      window.dispatchEvent(new Event('unidex-ready'));
+      status.textContent = 'Running. Click the buttons or use the keys.';
+    })
     .catch(() => { status.textContent = "Couldn't start the emulator in this browser."; });
 })();

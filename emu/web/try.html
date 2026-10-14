@@ -61,6 +61,21 @@
     </div>
   </div>
 
+  <section id="tryApp">
+    <h2>Try your app</h2>
+    <div class="card">
+      <p style="margin-top:0">Choose (or drop here) the folder of an app you're writing, with its <code>app.json</code>
+        and <code>main.lua</code> (<a href="../../docs/APPS.md">the guide</a>). It's installed on this emulated unidex
+        the same way the store installs it; open it from <b>Apps</b> on the screen. Changed something? Choose the
+        folder again: the new version replaces the old and keeps its data.</p>
+      <button id="pickApp" type="button">Choose an app folder…</button>
+      <input id="appFolder" type="file" webkitdirectory multiple hidden>
+      <p id="appStatus" class="status"></p>
+      <label for="appLog">What it prints <span class="hint">(<code>print()</code> in your app)</span></label>
+      <textarea id="appLog" rows="6" readonly></textarea>
+    </div>
+  </section>
+
   <section>
     <h2>What works here</h2>
     <p>Timetable, Notes (sample notes to read), Pet, Badge, Dex, Chooser, the games and Settings run the same code
@@ -71,5 +86,6 @@
 </main>
 <script src="unidex.js"></script>
 <script src="emu.js"></script>
+<script type="module" src="apptry.js"></script>
 </body>
 </html>

@@ -27,6 +27,13 @@ python3 -m http.server 8000                        # from the repo folder; open 
 - It is built with `UNIDEX_DEV`, so the test commands (`X BTN`, `X SHOT`, `X STATE`, `X DEMO`) work. `X DEMO 1`
   runs at start-up, so the page shows sample data and nothing from anyone's card.
 
+## Trying an app
+
+`emu/web/try.html` has a "Try your app" box: choose an app's folder (docs/APPS.md) and it is installed on the
+emulated device with the website's own install code (`site/store-device.js`); its `print()` output shows in the
+box. `emu/test/app_smoke.mjs <folders>` does the same without a person and fails on "App error";
+`emu/test/store_test.mjs` checks the store page's USB steps.
+
 ## Testing
 
 `tools/devshot.py ... --emu` runs the walkthroughs in `tools/walkthroughs/` against the emulator (through

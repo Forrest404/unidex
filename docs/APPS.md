@@ -178,10 +178,20 @@ function onBHold()
 end
 ```
 
+## Trying it
+
+- **Without a device:** build the emulator (`emu/README.md`), serve the repository's folder
+  (`python3 -m http.server`) and open `emu/web/try.html`. Under "Try your app", choose your app's folder: it is
+  installed the way the store installs it, you open it from Apps on the simulated screen, and what your code
+  `print()`s shows beside it. Choose the folder again after a change.
+- **On your unidex:** `python3 tools/appinstall.py install path/to/your-app` (plug it in and press a button first).
+  With the test firmware (`pio run -e dev`), `print()` output comes out on USB as `LUA <id>: ...` lines.
+- **Automatically:** `node emu/test/app_smoke.mjs path/to/your-app` opens it in the emulator, presses every button
+  and says if it ever shows "App error". The store runs the same check on every submission.
+
 ## How an app gets into the store
 
-1. Write it and try it on your unidex (copy the folder to `/apps/` on the card, or install it from the store page
-   in developer mode).
+1. Write it and try it (above).
 2. Open a pull request to the store's registry,
    [Forrest404/unidex-apps](https://github.com/Forrest404/unidex-apps), adding your folder as `apps/<id>/`.
 3. Automatic checks run on it: the manifest and the limits, the Lua syntax, and a run in the emulator that opens

@@ -1,7 +1,7 @@
 {
   "id": "hello",
   "name": "Hello",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "author": "unidex",
   "description": "Counts presses of B, and remembers the count.",
   "api": 1,
