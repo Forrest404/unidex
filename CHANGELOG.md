@@ -4,6 +4,21 @@ What changed in each release, in short. The full notes are on the
 [releases page](https://github.com/Forrest404/unidex/releases). To update, use
 https://forrest404.github.io/unidex/ (Update keeps your settings and files).
 
+## v1.8 (15 October 2026)
+
+- **New logo:** the start-up screen shows the new unidex logo, the robot above the name, instead of the four squares.
+  The unidex badge in the starter files is the new logo too.
+- **Chooser:** up to nine squares, in a 3×3 grid. The tally shows each square's number with its wins underneath,
+  readable at every size.
+- **Try unidex** (new): the emulator runs in your browser at
+  [forrest404.github.io/unidex/try.html](https://forrest404.github.io/unidex/try.html), with your own app if you're
+  writing one. Its Version menu opens the newest release by default, or an older one, or the next version in
+  development.
+- **Website:** a new design, with menus, a search (press /), a Help page, a Developers page, and a page for each app.
+- **App store:** 15 new apps and plugins, including Dice, Weather, Focus, Flash Cards, Pet Rock and the Moon badge.
+- **Writing apps:** step-by-step guides for apps and plugins, with templates, in
+  [unidex-apps](https://github.com/Forrest404/unidex-apps).
+
 ## v1.7 (14 October 2026)
 
 - **Apps** (new): small apps written in Lua, kept on the SD card and opened from Home > Apps. They run in
