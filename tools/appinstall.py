@@ -53,8 +53,8 @@ def files_of(folder):
     for root, dirs, names in os.walk(folder):
         dirs[:] = [d for d in dirs if not d.startswith(".") and d != "data"]
         for n in names:
-            if n.startswith("."):
-                continue
+            if n.startswith(".") or (root == folder and n in ("README.md", "LICENSE")):
+                continue  # (README and LICENSE are for people reading the store, not for the device)
             full = os.path.join(root, n)
             out.append((os.path.relpath(full, folder).replace(os.sep, "/"), full))
     out.sort(key=lambda f: f[0] == "app.json")  # the manifest last (the device moves it in last anyway)
