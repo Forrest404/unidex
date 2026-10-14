@@ -7,6 +7,7 @@
 #include "storage.h"
 #include "usbsync.h"
 #include "theme.h"
+#include "logo.h"
 #include "../apps/apps.h"
 #include <qrcode.h>
 
@@ -95,14 +96,11 @@ static void drawHome() {
 }
 
 static void drawSplash() {
-  // Mark: 2x2 squares, one filled.
-  const int16_t S = 14, G = 4, mx = (200 - 2 * S - G) / 2, my = 56;
-  display.drawRect(mx, my, S, S, BLACK);
-  display.drawRect(mx + S + G, my, S, S, BLACK);
-  display.drawRect(mx, my + S + G, S, S, BLACK);
-  display.fillRect(mx + S + G, my + S + G, S, S, BLACK);
-  display.setFont(FONT_LARGE);
-  drawCentered("unidex", 128);
+  // The logo (src/core/logo.h, from tools/make_logo.py): the mascot above the word, centred as one block.
+  const int16_t gap = 8, top = (display.height() - (LOGO_HEAD_H + gap + LOGO_TEXT_H)) / 2;
+  display.drawBitmap((display.width() - LOGO_HEAD_W) / 2, top, LOGO_HEAD, LOGO_HEAD_W, LOGO_HEAD_H, BLACK);
+  display.drawBitmap((display.width() - LOGO_TEXT_W) / 2, top + LOGO_HEAD_H + gap, LOGO_TEXT, LOGO_TEXT_W, LOGO_TEXT_H,
+                     BLACK);
 }
 
 // --- welcome: the first start of a new (or factory reset) device ---
