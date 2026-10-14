@@ -108,10 +108,10 @@ const MENUS = [
     { label: 'On your unidex', desc: 'Install, update, offload and delete', href: 'store.html#device', icon: 'device' },
     { label: 'Create an app', desc: 'Start from the template on GitHub', href: STORE_REPO, icon: 'plus', ext: true },
   ] },
-  { label: 'Developers', page: 'developers.html', items: [
+  { label: 'Developers', page: ['developers.html', 'try.html'], items: [
     { label: 'Make an app', desc: 'The example, the API and the sandbox', href: 'developers.html', icon: 'code' },
     { label: 'The API', desc: 'Every unidex.* call, the limits, plugins', href: `${REPO}/blob/main/docs/APPS.md`, icon: 'book', ext: true },
-    { label: 'Try it without a device', desc: 'Run your app in the browser emulator', href: 'developers.html#try', icon: 'play' },
+    { label: 'Try it without a device', desc: 'Run unidex, and your app, in the browser emulator', href: 'try.html', icon: 'play' },
     { label: 'Send it to the store', desc: 'A pull request, checked and reviewed', href: 'developers.html#share', icon: 'send' },
   ] },
   { label: 'Help', page: 'help.html', items: [

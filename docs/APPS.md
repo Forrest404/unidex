@@ -181,8 +181,8 @@ end
 
 ## Trying it
 
-- **Without a device:** build the emulator (`emu/README.md`), serve the repository's folder
-  (`python3 -m http.server`) and open `emu/web/try.html`. Under "Try your app", choose your app's folder: it is
+- **Without a device:** open the emulator on the website, [Try unidex](https://forrest404.github.io/unidex/try.html) (or build it yourself, see
+  `emu/README.md`). Under "Try your app", choose your app's folder: it is
   installed the way the store installs it, you open it from Apps on the simulated screen, and what your code
   `print()`s shows beside it. Choose the folder again after a change.
 - **On your unidex:** `python3 tools/appinstall.py install path/to/your-app` (plug it in and press a button first).

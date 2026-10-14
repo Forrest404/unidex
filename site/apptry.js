@@ -1,6 +1,6 @@
 // "Try your app": installs an app folder on the emulated unidex with the store's own code (site/store-device.js),
 // over the emulator's serial line, and shows what the app prints.
-import { installApp, sha256hex } from '../../site/store-device.js';
+import { installApp, sha256hex } from './store-device.js';
 
 const $ = id => document.getElementById(id);
 let M = null, buf = '', busy = false;
@@ -146,13 +146,13 @@ zone.addEventListener('drop', async e => {
 ready.then(async m => {
   M = m;
   setInterval(pump, 100);
-  // For checking this page without a person (try.html?test=apps/examples/hello, served from the repo's root):
+  // For checking this page without a person (site/try.html?test=apps/examples/hello, served from the repo's root):
   // loads that folder's files as if it had been chosen.
   const test = new URLSearchParams(location.search).get('test');
   if (test && /^[a-z0-9/_-]+$/.test(test)) {
     const names = ['app.json', 'main.lua'];
     const files = [];
-    for (const n of names) files.push({ path: n, bytes: new Uint8Array(await (await fetch(`../../${test}/${n}`, { cache: 'no-store' })).arrayBuffer()) });
+    for (const n of names) files.push({ path: n, bytes: new Uint8Array(await (await fetch(`../${test}/${n}`, { cache: 'no-store' })).arrayBuffer()) });
     await load(files);
     if (new URLSearchParams(location.search).get('open') === '1') await openForTest(JSON.parse(new TextDecoder().decode(files[0].bytes)).id);
   }

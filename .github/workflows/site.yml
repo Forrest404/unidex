@@ -1,4 +1,5 @@
-# Builds the firmware and publishes the website (site/) with the browser installer to GitHub Pages.
+# Builds the firmware and the browser emulator, and publishes the website (site/) with the browser installer and the
+# Try it page to GitHub Pages.
 # Runs on every published release, every 6 hours (so apps accepted into the store, github.com/Forrest404/unidex-apps,
 # appear by themselves), or by hand from the Actions tab. The firmware always comes from the latest release tag, so
 # a run that isn't a release still offers the released version, not whatever is on main.
@@ -43,6 +44,18 @@ jobs:
           echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
           git worktree add ../release "$tag"
           cd ../release && pio run -e epaper154
+
+      - name: Build the browser emulator from the same release (the Try it page, site/try.html)
+        run: |
+          set -e
+          if [ ! -f ../release/emu/build.sh ]; then echo "this release has no emulator"; exit 0; fi
+          git clone --depth 1 --branch 3.1.74 https://github.com/emscripten-core/emsdk.git ~/emsdk
+          ~/emsdk/emsdk install 3.1.74
+          ~/emsdk/emsdk activate 3.1.74
+          export EMSDK_ENV="$HOME/emsdk/emsdk_env.sh"
+          (cd ../release && bash emu/build.sh)
+          mkdir -p site/emu
+          cp ../release/emu/out/unidex.js ../release/emu/out/unidex.wasm site/emu/
 
       - name: Collect firmware and write the installer manifests
         run: |

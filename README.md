@@ -242,7 +242,7 @@ says "App error" with the line it broke on, and goes back to the list. It never 
 1. Read [Writing apps for unidex](docs/APPS.md): the whole API, the limits, plugins, and examples.
 2. Copy an example from [`apps/examples`](apps/examples), or the template in the
    [store's repository](https://github.com/Forrest404/unidex-apps).
-3. Try it: in the browser emulator without a device (`emu/web/try.html`, see [emu/README.md](emu/README.md)), or
+3. Try it: in the [browser emulator](https://forrest404.github.io/unidex/try.html) without a device, or
    on your unidex with `python3 tools/appinstall.py install your-app`.
 4. Share it: open a pull request to [unidex-apps](https://github.com/Forrest404/unidex-apps). Automatic checks try
    it in the emulator, then it's read by a person, and accepted apps appear on the website's

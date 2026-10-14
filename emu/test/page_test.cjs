@@ -1,9 +1,9 @@
 // Opens site/try.html in headless Chrome, presses buttons through the page's own keyboard handling and checks the
-// screen changes. Needs the emulator built (emu/build.sh) and the site served on :8765 (python3 -m http.server 8765).
+// screen changes. Needs the emulator built (emu/build.sh) and the repo served on :8765 (python3 -m http.server 8765).
 const { spawn } = require('child_process');
 const fs = require('fs');
 const CHROME = process.env.CHROME || '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome';
-const URL_ = process.env.URL_ || 'http://localhost:8765/emu/web/try.html';
+const URL_ = process.env.URL_ || 'http://localhost:8765/site/try.html';
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 (async () => {
   const chrome = spawn(CHROME, ['--headless=new', '--disable-gpu', '--remote-debugging-port=9333', '--window-size=900,900',
