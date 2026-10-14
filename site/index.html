@@ -19,9 +19,10 @@
 <link rel="stylesheet" href="style.css">
 <script type="module" src="https://unpkg.com/esp-web-tools@10.4.0/dist/web/install-button.js?module"></script>
 <style>
-  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 8px 0 28px; }
+  .actions { display: grid; grid-template-columns: 1fr 1fr; gap: var(--s4); margin: var(--s5) 0; }
   @media (max-width: 640px) { .actions { grid-template-columns: 1fr; } }
-  .actions .card { display: flex; flex-direction: column; gap: 10px; }
+  .actions .card { display: flex; flex-direction: column; gap: var(--s3); }
+  .actions .status:empty { display: none; }  /* both boxes end on their button until there is something to say */
   .actions p { margin: 0; }
   esp-web-install-button button { width: 100%; }
 </style>

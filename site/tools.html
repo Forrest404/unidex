@@ -18,37 +18,38 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 <style>
-  #drop, #icsDrop { border: 2px dashed var(--line-strong); border-radius: 10px; padding: 28px 12px; text-align: center;
-          color: var(--muted); cursor: pointer; margin-bottom: 16px; transition: border-color .15s, color .15s, background-color .15s; }
+  #drop, #icsDrop { border: 2px dashed var(--line-strong); border-radius: var(--radius); padding: var(--s6) var(--s4); text-align: center;
+          color: var(--muted); cursor: pointer; margin-bottom: var(--s4); transition: border-color .15s, color .15s, background-color .15s; }
   #drop:hover, #icsDrop:hover { color: var(--fg); background: var(--hover); }
   #drop.over, #icsDrop.over { border-color: var(--fg); color: var(--fg); background: var(--hover); }
-  #syncSteps { list-style: none; padding: 0; margin: 14px 0 0; }
-  #syncSteps li { position: relative; padding: 2px 0 2px 24px; }
+  #syncSteps { list-style: none; padding: 0; margin: var(--s4) 0 0; }
+  #syncSteps li { position: relative; padding: var(--s1) 0 var(--s1) var(--s5); margin: 0; }
   #syncSteps li::before { position: absolute; left: 0; width: 18px; text-align: center; font-weight: 700; }
   #syncSteps li.doing::before { content: '…'; color: var(--muted); }
   #syncSteps li.done::before { content: '✓'; color: var(--ok); }
   #syncSteps li.skip::before { content: '–'; color: var(--muted); }
   #syncSteps li.skip { color: var(--muted); }
   #syncSteps li.fail::before { content: '✗'; color: var(--bad); }
-  .calRow { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 4px; }
-  .row { display: flex; gap: 8px; align-items: center; }
+  .calRow { display: flex; gap: var(--s2); align-items: center; flex-wrap: wrap; }
+  .row { display: flex; gap: var(--s2); align-items: center; }
   input[type=range] { width: 100%; accent-color: var(--accent); }
   input[type=number] { width: 70px; }
-  .check { margin-top: 12px; }
-  #stage { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .check { margin-top: var(--s4); }
+  #calNote { margin: var(--s2) 0 0; }
+  #stage { display: flex; flex-direction: column; align-items: center; gap: var(--s4); }
   #stage button { width: 100%; }
-  #frame { background: #c9c9c4; padding: 14px; border-radius: 10px; line-height: 0; max-width: 100%; }
+  #frame { background: #c9c9c4; padding: var(--s4); border-radius: var(--radius); line-height: 0; max-width: 100%; }
   canvas { width: 300px; max-width: 100%; height: auto; aspect-ratio: 1; image-rendering: pixelated; background: #fff; }
   #sendStatus, #hint { color: var(--muted); font-size: 13px; margin: 0; text-align: center; min-height: 1em; }
-  #err { color: var(--bad); font-size: 13px; margin: 8px 0 0; min-height: 1em; }
-  #eventList { margin: 8px 0 0; padding-left: 18px; font-size: 13px; color: var(--muted); }
-  .petRow { display: grid; grid-template-columns: 64px 44px 1fr 44px; align-items: center; gap: 8px; margin-top: 8px; }
+  #err { color: var(--bad); font-size: 13px; margin: var(--s2) 0 0; min-height: 1em; }
+  #eventList { margin: var(--s2) 0 0; padding-left: var(--s5); font-size: 13px; color: var(--muted); }
+  .petRow { display: grid; grid-template-columns: 64px 44px 1fr 44px; align-items: center; gap: var(--s2); margin-top: var(--s2); }
   .petRow b { font-size: 13px; }
   .petRow span { text-align: center; }
-  .petRow button { padding: 9px 0; }
-  #petStage { display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .petRow button { padding: var(--s2) 0; }
+  #petStage { display: flex; flex-direction: column; align-items: center; gap: var(--s4); }
   #petStage button { width: 100%; }
-  #petFrame { background: #c9c9c4; padding: 14px; border-radius: 10px; line-height: 0; max-width: 100%; }
+  #petFrame { background: #c9c9c4; padding: var(--s4); border-radius: var(--radius); line-height: 0; max-width: 100%; }
   #petCanvas { width: 224px; }
 </style>
 </head>
@@ -153,7 +154,7 @@
     <div class="grid">
       <div class="card">
         <div id="petParts"></div>
-        <button id="petRandom" class="secondary" style="margin-top:14px;width:100%">Random look</button>
+        <button id="petRandom" class="secondary" style="margin-top:var(--s4);width:100%">Random look</button>
         <label for="petName">Name <span class="hint">(optional, up to 12 characters, shown at the top of the Pet
           screen)</span></label>
         <input id="petName" type="text" maxlength="12" placeholder="No name" autocomplete="off" spellcheck="false">
@@ -174,7 +175,7 @@
       <button id="setClock" disabled>Set the clock</button>
       <p id="clockStatus" class="status"></p>
     </div>
-    <div class="card" style="margin-top:16px">
+    <div class="card" style="margin-top:var(--s4)">
       <p style="margin-top:0">Put the next 7 days of your calendar on the device's Timetable.</p>
       <ol>
         <li>Export your calendar as a <code>.ics</code> file. In Apple Calendar it's File → Export. In Google Calendar

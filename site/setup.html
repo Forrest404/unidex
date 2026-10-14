@@ -22,28 +22,29 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 <style>
-  .card { display: flex; flex-direction: column; gap: 4px; }
-  .card h3 { font-size: 15px; margin: 0 0 4px; }
-  .buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .card { display: flex; flex-direction: column; }
+  .card h3 { font-size: 15px; margin: 0 0 var(--s2); }
+  .card .note { margin: var(--s2) 0 0; }
+  .buttons { display: flex; gap: var(--s2); flex-wrap: wrap; margin-top: var(--s4); }
   .saved { color: var(--muted); font-size: 12px; font-weight: 400; }
-  #connectRow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  #connectRow { display: flex; gap: var(--s4); align-items: center; flex-wrap: wrap; }
   #device { margin: 0; }
   fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
   fieldset:disabled .check { color: var(--muted); }  /* before Connect: text stays readable, controls dim */
-  #meter { height: 12px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-top: 10px; }
+  #meter { height: 12px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-top: var(--s3); }
   #meter div { height: 100%; width: 0; background: var(--accent); transition: width .3s ease-out; }
   table { width: 100%; border-collapse: collapse; font-size: 14px; }
-  td, th { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  td, th { text-align: left; padding: var(--s2); border-bottom: 1px solid var(--line); vertical-align: middle; }
   th { font-size: 12px; color: var(--muted); font-weight: 600; }
   td.act { text-align: right; white-space: nowrap; }
-  td.act button { padding: 5px 10px; font-size: 13px; }
+  td.act button { padding: var(--s1) var(--s3); font-size: 13px; min-height: 36px; }
   .tag { font-size: 12px; color: var(--muted); }
   .nets { list-style: none; margin: 0; padding: 0; }
-  .nets li { display: flex; gap: 8px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .nets li { display: flex; gap: var(--s2); align-items: center; padding: var(--s2) 0; margin: 0; border-bottom: 1px solid var(--line); }
   .nets li:last-child { border-bottom: 0; }
   .nets .name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
   .nets .kind { font-size: 12px; color: var(--muted); }
-  .nets button { padding: 5px 10px; font-size: 13px; min-height: 32px; }
+  .nets button { padding: var(--s1) var(--s3); font-size: 13px; min-height: 36px; }
 </style>
 </head>
 <body>
@@ -87,10 +88,10 @@
     <div class="grid">
       <div class="card" id="wifiCard">
         <h3>WiFi networks <span class="saved" id="wifiSaved"></span></h3>
-        <p class="note" style="margin:0 0 6px">You can save up to five. The device joins whichever is in range,
+        <p class="note" style="margin:0 0 var(--s2)">You can save up to five. The device joins whichever is in range,
           starting with the one that worked last time.</p>
         <ul id="netList" class="nets"></ul>
-        <h3 id="netFormTitle" style="margin-top:14px">Add a network</h3>
+        <h3 id="netFormTitle" style="margin-top:var(--s5)">Add a network</h3>
         <div class="seg">
           <label><input type="radio" name="wifiKind" value="home" checked><span>Home</span></label>
           <label><input type="radio" name="wifiKind" value="enterprise"><span>eduroam / work</span></label>
@@ -173,7 +174,7 @@
         <label class="check"><input id="gh_on" type="checkbox"> Push each note to a GitHub repo</label>
         <label for="gh_repo">Repo <span class="hint">(owner/name, can be private)</span></label>
         <input id="gh_repo" type="text" autocomplete="off" spellcheck="false" maxlength="100" placeholder="you/Notes">
-        <div class="grid" style="gap:8px">
+        <div class="grid" style="gap:var(--s3)">
           <div><label for="gh_branch">Branch</label>
             <input id="gh_branch" type="text" autocomplete="off" spellcheck="false" maxlength="64" placeholder="main"></div>
           <div><label for="gh_dir">Folder</label>
