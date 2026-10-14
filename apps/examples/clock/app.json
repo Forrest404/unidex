@@ -1,0 +1,11 @@
+{
+  "id": "clock",
+  "name": "Big Clock",
+  "version": "1.0.0",
+  "author": "unidex",
+  "description": "The time in big numbers, and the date. B switches between 24 and 12 hours.",
+  "api": 1,
+  "type": "app",
+  "permissions": [],
+  "license": "MIT"
+}

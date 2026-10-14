@@ -1,0 +1,11 @@
+{
+  "name": "lua",
+  "version": "5.4.7",
+  "description": "Lua 5.4.7 from lua.org (MIT), the core and the safe libraries only: no io, os, package or debug. unidex runs third-party apps with it (src/apps/scripts).",
+  "license": "MIT",
+  "build": {
+    "srcDir": "src",
+    "includeDir": "src",
+    "flags": ["-DLUAI_MAXCCALLS=120"]
+  }
+}

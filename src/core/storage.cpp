@@ -3,6 +3,7 @@
 #include <Preferences.h>
 #include <SD_MMC.h>
 #include <nvs_flash.h>
+#include <vector>
 #include "devtools.h"
 
 static const char *NVS_NAMESPACE = "unidex";
@@ -21,7 +22,7 @@ fs::File storageOpen(const char *path, const char *mode) {
   if (*mode == 'r') recover(path);
   if (*mode != 'r') {  // FAT won't create a file in a missing folder (e.g. /badges on a new card)
     String dir = String(path).substring(0, String(path).lastIndexOf('/'));
-    if (dir.length() && !SD_MMC.exists(dir)) SD_MMC.mkdir(dir);
+    if (dir.length()) storageMakeDirs(dir.c_str());
   }
   return SD_MMC.open(path, mode);
 }
@@ -72,6 +73,58 @@ bool storageReadLine(fs::File &f, String &line, size_t max) {
 bool storageRemove(const char *path) {
   // Checked first: removing a missing file would log an error onto the USB line.
   return storageCardMount() && SD_MMC.exists(path) && SD_MMC.remove(path);
+}
+
+bool storageMakeDirs(const char *dir) {
+  if (!storageCardMount()) return false;
+  const String d = dir;
+  for (int at = d.indexOf('/', 1);; at = d.indexOf('/', at + 1)) {
+    const String part = at < 0 ? d : d.substring(0, at);
+    if (part.length() && !SD_MMC.exists(part) && !SD_MMC.mkdir(part)) return false;
+    if (at < 0) return true;
+  }
+}
+
+// The names in a folder, read before anything in it changes (deleting while reading a FAT folder skips entries).
+static std::vector<String> childNames(const String &dir) {
+  std::vector<String> names;
+  fs::File d = SD_MMC.open(dir);
+  for (fs::File f = d ? d.openNextFile() : fs::File(); f; f = d.openNextFile()) names.push_back(f.name());
+  return names;
+}
+
+static bool isFolder(const String &path) {
+  fs::File f = SD_MMC.open(path);
+  return f && f.isDirectory();
+}
+
+static bool removeTree(const String &path, const char *keep, int depth) {
+  if (!SD_MMC.exists(path)) return true;
+  if (!isFolder(path)) return SD_MMC.remove(path);
+  if (depth > 6) return false;  // app folders are three deep at most: something is wrong, stop
+  bool ok = true;
+  for (const String &n : childNames(path))
+    if (!keep || n != keep) ok = removeTree(path + "/" + n, nullptr, depth + 1) && ok;
+  return keep ? ok : (SD_MMC.rmdir(path) && ok);
+}
+
+bool storageRemoveTree(const char *path, const char *keep) {
+  return storageCardMount() && removeTree(path, keep, 0);
+}
+
+static uint64_t treeBytes(const String &path, int depth) {
+  fs::File f = SD_MMC.open(path);
+  if (!f) return 0;
+  if (!f.isDirectory()) return f.size();
+  f.close();
+  uint64_t sum = 0;
+  if (depth <= 6)
+    for (const String &n : childNames(path)) sum += treeBytes(path + "/" + n, depth + 1);
+  return sum;
+}
+
+uint64_t storageTreeBytes(const char *path) {
+  return storageCardMount() && SD_MMC.exists(path) ? treeBytes(path, 0) : 0;
 }
 
 // A read-only open of a namespace that doesn't exist yet (a new or fully erased board) prints an error line on

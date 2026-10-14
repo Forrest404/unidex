@@ -7,6 +7,7 @@
 #include "../apps/notes/usb.h"
 #include "../apps/pet/pet.h"
 #include "../apps/badge/badge_file.h"
+#include "../apps/scripts/appsusb.h"
 #include "devtools.h"
 #include <unidex_version.h>
 
@@ -25,6 +26,7 @@
 //   B <name> <bytes> <crc32> -> "OK B" or "ERR"; then
 //   D <hex>                -> "K" per line (max 64 bytes; the ack is the flow control), and after the
 //                          last byte "OK F <name>" or "ERR". Written to a temp file, then renamed.
+//   A ...                  -> third-party apps: install, list, remove (src/apps/scripts/appsusb.h)
 static const char *EVENTS = "/events.csv", *EVENTS_TMP = "/events.tmp";
 static const char *BADGE_TMP = "/badges/upload.tmp";
 static const uint32_t STALL_MS = 3000;  // give up on a transfer that stops halfway
@@ -117,6 +119,7 @@ static void finishEvents() {
 }
 
 static void handle(const char *l) {
+  if (appsUsbData(l)) return;  // a file of an app being installed (A PUT)
   if (badgeLeft > 0 && l[0] == 'D' && l[1] == ' ') {
     badgeData(l + 2);
     return;
@@ -143,6 +146,8 @@ static void handle(const char *l) {
     // Setup (WiFi, keys) and note download: "N ..." (src/apps/notes/usb.h)
   } else if (petUsb(l)) {
     // the Pet's look and name: "P ..." (src/apps/pet/pet.h)
+  } else if (appsUsb(l)) {
+    // installing, listing and removing apps: "A ..." (src/apps/scripts/appsusb.h)
   } else if (strcmp(l, "S") == 0) {
     storageCardTest();
   } else if (strcmp(l, "L") == 0) {
@@ -189,6 +194,7 @@ void usbSyncPoll() {
     storageRemove(EVENTS_TMP);
   }
   if (badgeLeft > 0 && millis() - lastLineAt > STALL_MS) abortBadge();
+  appsUsbPoll();
   while (Serial.available()) {
     char c = Serial.read();
     if (c == '\r') continue;

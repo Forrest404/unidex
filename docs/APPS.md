@@ -1,7 +1,7 @@
 # Writing apps for unidex
 
-DRAFT for review: nothing here is built yet. This is the spec the firmware, the website and the store will follow.
-If something reads wrong, change it here first, before any code.
+DRAFT: the device side (the Apps app, this API, the USB commands) is built; the store page and the review are next.
+`tools/appinstall.py` installs an app over USB until the store page exists.
 
 An unidex app is a small folder of Lua files on the SD card. You write it in a text editor, the website copies it
 to your device over USB, and it shows up in the Apps list. No toolchain, no reflashing.
@@ -62,6 +62,10 @@ Everything is optional except `draw`. Define the ones you need as global functio
 A **redraw** is `"partial"` (a quick refresh, the normal choice), `"full"` (flashes the whole screen, use it
 sparingly) or `nil` (nothing changed). e-paper ghosts if you refresh too often, so the device refreshes the
 screen at most once a second unless the app is in its animation mode (not in level 1).
+
+The device sleeps a few seconds after the last press (Settings > Sleep after), and a sleep forgets everything in
+memory. When it wakes in your app, the app starts again from the top and `onEnter()`: keep anything that matters in
+your data files (the example below does). `unidex.wake_in(ms)` asks to be woken for a redraw while it naps.
 
 The device keeps the usual rule everywhere: hold A goes back. An app can't take that away. Hold both buttons
 for a second still restarts the device.
@@ -190,12 +194,13 @@ for submissions) will be written here before submissions open.
 
 | Command | Reply |
 |---|---|
-| `A LIST` | `A <id> <version> <code bytes> <data bytes>` per app, then `OK A end` |
+| `A LIST` | `A <id> <version or -> <code bytes> <data bytes> <ok or hex problem>` per app (`-`: offloaded), then `OK A end` |
 | `A SPACE` | `OK A <apps> <free bytes>` |
-| `A PUT <id> <path> <bytes> <crc32>`, then `D <hex>` lines | `OK A PUT`, or `ERR` (a bad CRC or size removes the temporary file) |
-| `A DONE <id>` | `OK A DONE <id>`: writes `app.json` last, which makes the app visible |
+| `A BEGIN <id>` | `OK A BEGIN`: starts an install in a staging folder (any unfinished one is cleared) |
+| `A PUT <id> <path> <bytes> <crc32>`, then `D <hex>` lines | `OK A PUT`, a `K` per line, then `OK A FILE`, or `ERR` (a bad CRC or size drops the file) |
+| `A DONE <id>` | `OK A DONE <id>` once the staged app passes its checks and is moved into place (`app.json` last, which makes it visible), or `ERR <hex reason>`; the old version's `data/` stays |
 | `A DATA <id>` | `OK A DATA <bytes>`: the size the delete warning shows |
-| `A RM <id> [keep]` | `OK A RM <id>`: `keep` is an offload |
+| `A RM <id> [keep]` | `OK A RM <id>`: `keep` is an offload; `ERR busy` while it's open on the device |
 
 Paths may not contain `..` or start with `/`, and only `.lua .json .bmp .txt` files are accepted. The data
 transfer is the same hex lines and `K` acknowledgements as badges.

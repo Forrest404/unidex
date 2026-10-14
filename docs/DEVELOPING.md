@@ -32,6 +32,9 @@ src/
   apps/pet/             pet.cpp (Pet, Dress up, Name), parts.h (the art), meet.cpp (Meet), meet_logic.h,
                         friends_logic.h, send_logic.h (the radio rules, tested on a computer), usb.cpp (P commands)
   apps/badge/           badge.cpp, badge_file.* (BMP checks, shared with the USB upload and Pet)
+  apps/scripts/         the Apps app (third-party Lua apps, docs/APPS.md): scripts.cpp (screens), luahost (the
+                        sandbox and the unidex.* API), appstore (files on the card), appsusb (A commands),
+                        apps_logic.h (names, paths, manifest checks; tested on a computer)
   core/
     launcher.*          splash, home carousel, routes buttons to the open app
     display.*           e-paper driver (SSD1681) and the refresh rule
@@ -49,6 +52,8 @@ src/
     link.*              device-to-device radio (ESP-NOW) for the Pet's Meet
     theme.*             fonts, header, button hints, toast, confirm sheet, empty states, 40x40 pixel icons
     devtools.*          test build only: USB screenshots and virtual buttons (tools/devshot.py)
+lib/lua/                Lua 5.4.7 for third-party apps (only the safe parts; see lib/lua/README.md)
+apps/examples/          example apps (Hello, Big Clock); tools/appinstall.py installs one over USB
 tools/                  badges.py, badge-template.svg, calsync/ (macOS), upload_nostub.py, check_unit.py,
                         devshot.py + walkthroughs/ (screenshots and button walkthroughs), gfxfont.py (fonts)
 site/                   the website: installer (index.html), Tools (badge maker, clock, calendar file), Notes
@@ -328,6 +333,7 @@ Text lines over USB serial, computer → device (`src/core/usbsync.cpp`; senders
 | `N LIST` / `N READ <id>` / `N DEL <id>` | `NF …` lines then `OK N LIST`; `ND <hex>` lines then `OK N READ <bytes> <crc32>`; `OK N DEL` |
 | `N SYNC` | starts sending waiting notes in the background: `OK N SYNC started <n>`, `none`, `busy` or `fail <reason>` |
 | `P GET` / `P SET <look hex> <name hex>` (Tools page, Pet) | `OK P <look> <name hex>`; `OK P SET` or `ERR` |
+| `A LIST` / `A BEGIN` / `A PUT` / `A DONE` / `A DATA` / `A RM` (apps) | see the table in `docs/APPS.md` and `src/apps/scripts/appsusb.h` |
 
 The crc32 (zlib) covers each line plus `\n`. The device writes a temp file and renames it only if the crc matches,
 so a cut transfer never leaves a broken file. Empty times mean an all-day event. Gotchas: the ESP32-S3 resets if

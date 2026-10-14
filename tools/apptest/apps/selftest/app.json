@@ -1,0 +1,10 @@
+{
+  "id": "selftest",
+  "name": "Self test",
+  "version": "1.0.0",
+  "author": "unidex",
+  "description": "Breaks every limit on purpose: each test must end on the App error screen, never crash the device.",
+  "api": 1,
+  "type": "app",
+  "permissions": []
+}

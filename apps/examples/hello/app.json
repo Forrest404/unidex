@@ -1,0 +1,11 @@
+{
+  "id": "hello",
+  "name": "Hello",
+  "version": "1.0.0",
+  "author": "unidex",
+  "description": "Counts presses of B, and remembers the count.",
+  "api": 1,
+  "type": "app",
+  "permissions": [],
+  "license": "MIT"
+}

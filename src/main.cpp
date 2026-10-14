@@ -8,6 +8,11 @@
 #include "core/storage.h"
 #include "core/usbsync.h"
 
+#ifdef SET_LOOP_TASK_STACK_SIZE
+// Third-party apps run in the loop (Lua's parser and calls recurse on the C stack): 24 KB instead of 8.
+SET_LOOP_TASK_STACK_SIZE(24 * 1024);
+#endif
+
 void setup() {
   powerInit();
   bool woke = powerWokeFromSleep();

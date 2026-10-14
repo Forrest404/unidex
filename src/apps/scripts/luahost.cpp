@@ -1,0 +1,572 @@
+#include "luahost.h"
+#include <climits>  // first: C++ gets LLONG_MAX from here, which luaconf.h needs for 64-bit integers
+#include <lua.hpp>
+#include <qrcode.h>
+#include <esp_random.h>
+#include "apps_logic.h"
+#include "appstore.h"
+#include "../badge/badge_file.h"
+#include "../../core/battery.h"
+#include "../../core/clock.h"
+#include "../../core/display.h"
+#include "../../core/launcher.h"
+#include "../../core/net.h"
+#include "../../core/power.h"
+#include "../../core/storage.h"
+#include "../../core/theme.h"
+#if UNIDEX_EMU
+#include <stdlib.h>
+#else
+#include <multi_heap.h>
+#endif
+
+static const size_t ARENA = 512 * 1024;
+static const uint32_t CALL_MS = 2000;
+
+static lua_State *L;
+static String id, error;
+static uint8_t perms;
+static bool usedWifi;
+static uint32_t callStart;
+
+// --- memory: one block of PSRAM, taken once and kept (freeing and taking big blocks splits the PSRAM up, see the
+// Notes recording buffer), with its own small heap inside, made fresh for every app ---
+#if UNIDEX_EMU
+static size_t used;
+static void *alloc(void *, void *ptr, size_t osize, size_t nsize) {
+  if (!ptr) osize = 0;
+  if (nsize == 0) {
+    free(ptr);
+    used -= osize;
+    return nullptr;
+  }
+  if (used - osize + nsize > ARENA) return nullptr;
+  void *p = realloc(ptr, nsize);
+  if (p) used = used - osize + nsize;
+  return p;
+}
+static bool arenaReset() {
+  used = 0;
+  return true;
+}
+size_t hostMemoryUsed() { return used; }
+#else
+static void *arenaMem;
+static multi_heap_handle_t heap;
+static void *alloc(void *, void *ptr, size_t, size_t nsize) {
+  if (nsize == 0) {
+    if (ptr) multi_heap_free(heap, ptr);
+    return nullptr;
+  }
+  return multi_heap_realloc(heap, ptr, nsize);
+}
+static bool arenaReset() {
+  if (!arenaMem) arenaMem = ps_malloc(ARENA);
+  if (!arenaMem) return false;
+  heap = multi_heap_register(arenaMem, ARENA);
+  return heap != nullptr;
+}
+size_t hostMemoryUsed() { return heap && L ? ARENA - multi_heap_free_size(heap) : 0; }
+#endif
+
+// --- limits ---
+static void hook(lua_State *s, lua_Debug *) {
+  if (millis() - callStart > CALL_MS) luaL_error(s, "took too long (over %d s)", (int)(CALL_MS / 1000));
+}
+
+// --- small helpers ---
+static int16_t coord(lua_State *s, int i) {
+  const lua_Number v = luaL_checknumber(s, i);
+  return v < -1000 ? -1000 : v > 1000 ? 1000 : (int16_t)floor(v);
+}
+static int16_t optCoord(lua_State *s, int i, int16_t def) { return lua_isnoneornil(s, i) ? def : coord(s, i); }
+
+static const GFXfont *fontArg(lua_State *s, int i) {
+  static const char *const NAMES[] = {"small", "tiny", "medium", "large", "bold", nullptr};
+  const GFXfont *const FONTS[] = {FONT_SMALL, FONT_TINY, FONT_MEDIUM, FONT_LARGE, FONT_BOLD};
+  return FONTS[luaL_checkoption(s, i, "small", NAMES)];
+}
+
+static uint16_t colourArg(lua_State *s, int i) {
+  static const char *const NAMES[] = {"black", "white", nullptr};
+  return luaL_checkoption(s, i, "black", NAMES) ? WHITE : BLACK;
+}
+
+static String text(lua_State *s, int i, size_t max = 200) {
+  size_t n;
+  const char *t = luaL_optlstring(s, i, "", &n);
+  String out;
+  out.concat(t, n < max ? n : max);
+  return out;
+}
+
+static String appFile(const char *rel) { return appsDir(id) + "/" + rel; }
+
+// Reads a whole file of the app (up to 64 KB); false if it's missing or too big.
+static bool readFile(const String &path, std::vector<char> &out) {
+  fs::File f = storageOpen(path.c_str());
+  if (!f || f.isDirectory() || f.size() > apps::MAX_FILE) return false;
+  out.resize(f.size());
+  const size_t got = out.empty() ? 0 : f.read((uint8_t *)out.data(), out.size());
+  return got == out.size();
+}
+
+// --- unidex.* drawing ---
+static int l_header(lua_State *s) {
+  const String t = text(s, 1, 40), r = text(s, 2, 20);
+  drawHeader(t.c_str(), r.length() ? r.c_str() : nullptr);
+  return 0;
+}
+
+static int l_hints(lua_State *s) {
+  const String a = text(s, 1, 20), b = text(s, 2, 20), h = text(s, 3, 30);
+  drawHints(a.c_str(), b.c_str(), h.c_str());
+  return 0;
+}
+
+static int l_text(lua_State *s) {
+  const int16_t x = coord(s, 1), y = coord(s, 2);
+  const String t = text(s, 3);
+  display.setFont(fontArg(s, 4));
+  display.setTextColor(colourArg(s, 5));
+  display.setCursor(x, y);
+  display.print(t);
+  display.setTextColor(BLACK);
+  return 0;
+}
+
+static int l_centered(lua_State *s) {
+  const int16_t y = coord(s, 1);
+  const String t = text(s, 2);
+  display.setFont(fontArg(s, 3));
+  drawCenteredLine(t.c_str(), y);
+  return 0;
+}
+
+static int l_wrap(lua_State *s) {
+  const int16_t x = coord(s, 1), y = coord(s, 2), w = coord(s, 3);
+  const String t = text(s, 4, 2000);
+  const int maxLines = constrain((int)luaL_optinteger(s, 5, 6), 1, 12);
+  const GFXfont *f = fontArg(s, 6);
+  display.setFont(f);
+  String lines[12];
+  const int need = wrapText(t.c_str(), w, lines, maxLines), shown = need < maxLines ? need : maxLines;
+  for (int i = 0; i < shown; i++) {
+    display.setCursor(x, y + i * f->yAdvance);
+    display.print(lines[i]);
+  }
+  lua_pushinteger(s, shown);
+  return 1;
+}
+
+static int l_width(lua_State *s) {
+  const String t = text(s, 1);
+  display.setFont(fontArg(s, 2));
+  lua_pushinteger(s, textWidth(t.c_str()));
+  return 1;
+}
+
+static int l_rect(lua_State *s) {
+  display.drawRect(coord(s, 1), coord(s, 2), coord(s, 3), coord(s, 4), colourArg(s, 5));
+  return 0;
+}
+
+static int l_fill(lua_State *s) {
+  display.fillRect(coord(s, 1), coord(s, 2), coord(s, 3), coord(s, 4), colourArg(s, 5));
+  return 0;
+}
+
+static int l_line(lua_State *s) {
+  display.drawLine(coord(s, 1), coord(s, 2), coord(s, 3), coord(s, 4), colourArg(s, 5));
+  return 0;
+}
+
+static int l_qr(lua_State *s) {
+  const String t = text(s, 1, 120);
+  const int16_t x = coord(s, 2), y = coord(s, 3), size = optCoord(s, 4, 80);
+  QRCode qr;
+  uint8_t modules[qrcode_getBufferSize(6)];
+  for (uint8_t v = 1; v <= 6; v++) {
+    if (qrcode_initText(&qr, modules, v, ECC_LOW, t.c_str()) != 0) continue;
+    const int scale = max(1, size / qr.size);
+    for (uint8_t r = 0; r < qr.size; r++)
+      for (uint8_t c = 0; c < qr.size; c++)
+        if (qrcode_getModule(&qr, c, r)) display.fillRect(x + c * scale, y + r * scale, scale, scale, BLACK);
+    return 0;
+  }
+  return luaL_error(s, "qr: text too long");
+}
+
+static int l_icon(lua_State *s) {
+  luaL_checktype(s, 1, LUA_TTABLE);
+  const int16_t x = coord(s, 2), y = coord(s, 3);
+  const int scale = constrain((int)luaL_optinteger(s, 4, 1), 1, 2);
+  String rows[ICON_SIZE];
+  const char *ptrs[ICON_SIZE];
+  for (int i = 0; i < ICON_SIZE; i++) {
+    lua_rawgeti(s, 1, i + 1);
+    size_t n = 0;
+    const char *r = lua_tolstring(s, -1, &n);
+    if (!r || n != (size_t)ICON_SIZE) return luaL_error(s, "icon: needs 40 rows of 40 characters");
+    rows[i] = r;
+    ptrs[i] = rows[i].c_str();
+    lua_pop(s, 1);
+  }
+  drawIcon(ptrs, x, y, BLACK, scale);
+  return 0;
+}
+
+static int l_bitmap(lua_State *s) {
+  const char *file = luaL_checkstring(s, 1);
+  const int16_t x = coord(s, 2), y = coord(s, 3);
+  if (!apps::installPathOk(file) || !apps::endsWith(file, ".bmp")) return luaL_error(s, "bitmap: bad file name");
+  std::vector<char> data;
+  Bmp b;
+  if (!readFile(appFile(file), data) || data.size() > BADGE_MAX_BYTES ||
+      !bmpCheck((const uint8_t *)data.data(), data.size(), b))
+    return luaL_error(s, "bitmap: can't read %s (a 1-bit BMP up to 200x200)", file);
+  for (int32_t r = 0; r < b.h; r++)
+    for (int32_t c = 0; c < b.w; c++)
+      if (b.black(b.x0 + c, b.y0 + r)) display.drawPixel(x + c, y + r, BLACK);
+  return 0;
+}
+
+// --- unidex.data.*: the app's own data/ folder ---
+static const char *dataName(lua_State *s, int i) {
+  const char *n = luaL_checkstring(s, i);
+  if (!apps::nameOk(n)) luaL_error(s, "data: bad file name '%s' (a-z 0-9 . _ -)", n);
+  return n;
+}
+
+static uint64_t dataBytes() { return storageTreeBytes((appsDir(id) + "/data").c_str()); }
+
+static uint64_t fileBytes(const String &path) {
+  if (!storageExists(path.c_str())) return 0;
+  fs::File f = storageOpen(path.c_str());
+  return f ? f.size() : 0;
+}
+
+static int l_read(lua_State *s) {
+  std::vector<char> buf;
+  const String path = appsDataPath(id, dataName(s, 1));
+  if (!storageExists(path.c_str()) || !readFile(path, buf)) {
+    lua_pushnil(s);
+    return 1;
+  }
+  lua_pushlstring(s, buf.data(), buf.size());
+  return 1;
+}
+
+static int l_write(lua_State *s) {
+  const char *name = dataName(s, 1);
+  size_t n;
+  const char *t = luaL_checklstring(s, 2, &n);
+  const String path = appsDataPath(id, name), tmp = appsDataPath(id, ".write.tmp");
+  if (n > apps::MAX_FILE) return luaL_error(s, "data: a file can hold 64 KB");
+  if (dataBytes() - fileBytes(path) + n > apps::MAX_DATA) return luaL_error(s, "data: the app's 512 KB are full");
+  fs::File f = storageOpen(tmp.c_str(), "w");
+  const bool ok = f && f.write((const uint8_t *)t, n) == n;
+  if (f) f.close();
+  lua_pushboolean(s, ok && storageReplace(tmp.c_str(), path.c_str(), n));
+  return 1;
+}
+
+static int l_append(lua_State *s) {
+  const char *name = dataName(s, 1);
+  size_t n;
+  const char *t = luaL_checklstring(s, 2, &n);
+  const String path = appsDataPath(id, name);
+  if (fileBytes(path) + n > apps::MAX_FILE) return luaL_error(s, "data: a file can hold 64 KB");
+  if (dataBytes() + n > apps::MAX_DATA) return luaL_error(s, "data: the app's 512 KB are full");
+  fs::File f = storageOpen(path.c_str(), "a");
+  lua_pushboolean(s, f && f.write((const uint8_t *)t, n) == n);
+  return 1;
+}
+
+static int l_list(lua_State *s) {
+  lua_newtable(s);
+  const String dir = appsDir(id) + "/data";
+  if (!storageExists(dir.c_str())) return 1;
+  fs::File d = storageOpen(dir.c_str());
+  int i = 0;
+  for (fs::File f = d ? d.openNextFile() : fs::File(); f && i < 500; f = d.openNextFile()) {
+    const char *n = f.name();
+    if (f.isDirectory() || !apps::nameOk(n)) continue;  // (skips the write's .tmp)
+    lua_pushstring(s, n);
+    lua_rawseti(s, -2, ++i);
+  }
+  return 1;
+}
+
+static int l_remove(lua_State *s) {
+  lua_pushboolean(s, storageRemove(appsDataPath(id, dataName(s, 1)).c_str()));
+  return 1;
+}
+
+// --- unidex.* device ---
+static int l_time(lua_State *s) {
+  const struct tm t = clockLocal();
+  lua_createtable(s, 0, 8);
+  const struct { const char *k; int v; } F[] = {{"year", t.tm_year + 1900}, {"month", t.tm_mon + 1},
+                                                {"day", t.tm_mday},          {"hour", t.tm_hour},
+                                                {"min", t.tm_min},           {"sec", t.tm_sec},
+                                                {"wday", t.tm_wday + 1}};
+  for (auto &f : F) {
+    lua_pushinteger(s, f.v);
+    lua_setfield(s, -2, f.k);
+  }
+  lua_pushboolean(s, clockValid());
+  lua_setfield(s, -2, "valid");
+  return 1;
+}
+
+static int l_battery(lua_State *s) {
+  lua_pushinteger(s, batteryPercent());
+  lua_pushboolean(s, batteryCharging());
+  return 2;
+}
+
+static int l_toast(lua_State *s) {
+  launcherToast(text(s, 1, 40).c_str());
+  return 0;
+}
+
+static int l_wake_in(lua_State *s) {
+  const lua_Integer ms = luaL_checkinteger(s, 1);
+  powerWakeWithin((uint32_t)constrain(ms, (lua_Integer)1000, (lua_Integer)86400000));
+  return 0;
+}
+
+static int l_random(lua_State *s) {
+  const lua_Integer n = luaL_checkinteger(s, 1);
+  luaL_argcheck(s, n >= 1, 1, "must be at least 1");
+  lua_pushinteger(s, 1 + (lua_Integer)(esp_random() % (uint32_t)min<lua_Integer>(n, 0x7fffffff)));
+  return 1;
+}
+
+static int l_print(lua_State *s) {
+#if UNIDEX_DEV
+  Serial.printf("LUA %s:", id.c_str());
+  for (int i = 1; i <= lua_gettop(s); i++) Serial.printf(" %s", luaL_tolstring(s, i, nullptr)), lua_pop(s, 1);
+  Serial.println();
+#endif
+  return 0;
+}
+
+// --- unidex.http (permission "wifi") ---
+static int l_get(lua_State *s) {
+  if (!(perms & apps::PERM_WIFI)) return luaL_error(s, "http: the app needs the \"wifi\" permission");
+  size_t n;
+  const char *url = luaL_checklstring(s, 1, &n);
+  if (n > 300 || strncmp(url, "https://", 8)) return luaL_error(s, "http: an https:// address, up to 300 characters");
+  for (size_t i = 0; i < n; i++)
+    if ((uint8_t)url[i] <= ' ' || url[i] == 127) return luaL_error(s, "http: no spaces in the address");
+  const char *hostStart = url + 8, *slash = strchr(hostStart, '/');
+  const String host = slash ? String(hostStart).substring(0, slash - hostStart) : String(hostStart);
+  const String path = slash ? String(slash) : String("/");
+  for (char c : host)
+    if (!isalnum((unsigned char)c) && c != '.' && c != '-') return luaL_error(s, "http: bad host name");
+  const char *why = batteryTooLow();
+  if (!why && netClaimed()) why = "WiFi busy (a note is sending)";
+  if (!why) why = netConnect();
+  usedWifi = true;
+  if (why) {
+    callStart = millis();
+    lua_pushnil(s);
+    lua_pushstring(s, why);
+    return 2;
+  }
+  String body;
+  const int status = netHttps(host.c_str(), "GET", path.c_str(), "User-Agent: unidex-app\r\n", nullptr, 0, body, 32768);
+  callStart = millis();  // the wait doesn't count against the app's 2 s
+  if (status < 0) {
+    lua_pushnil(s);
+    lua_pushstring(s, "no connection");
+    return 2;
+  }
+  lua_pushinteger(s, status);
+  lua_pushlstring(s, body.c_str(), body.length());
+  return 2;
+}
+
+// --- require: only .lua files inside the app's folder, loaded once ---
+static int l_require(lua_State *s) {
+  const char *name = luaL_checkstring(s, 1);
+  const String rel = String(name) + ".lua";
+  if (!apps::installPathOk(rel.c_str())) return luaL_error(s, "require: bad module name '%s'", name);
+  lua_getfield(s, LUA_REGISTRYINDEX, "unidex.loaded");
+  lua_getfield(s, -1, name);
+  if (!lua_isnil(s, -1)) return 1;
+  lua_pop(s, 1);
+  std::vector<char> code;
+  if (!readFile(appFile(rel.c_str()), code)) return luaL_error(s, "require: no %s in the app", rel.c_str());
+  const String chunk = "@" + rel;
+  if (luaL_loadbufferx(s, code.data(), code.size(), chunk.c_str(), "t") != LUA_OK) return lua_error(s);
+  lua_call(s, 0, 1);
+  if (lua_isnil(s, -1)) {
+    lua_pop(s, 1);
+    lua_pushboolean(s, 1);
+  }
+  lua_pushvalue(s, -1);
+  lua_setfield(s, -3, name);
+  return 1;
+}
+
+// --- setting up the sandbox (run protected, so running out of memory here is an error, not a crash) ---
+static int setup(lua_State *s) {
+  const luaL_Reg LIBS[] = {{LUA_GNAME, luaopen_base},       {LUA_STRLIBNAME, luaopen_string},
+                           {LUA_TABLIBNAME, luaopen_table}, {LUA_MATHLIBNAME, luaopen_math},
+                           {LUA_UTF8LIBNAME, luaopen_utf8}, {LUA_COLIBNAME, luaopen_coroutine}};
+  for (const luaL_Reg &lib : LIBS) {
+    luaL_requiref(s, lib.name, lib.func, 1);
+    lua_pop(s, 1);
+  }
+  for (const char *gone : {"dofile", "loadfile", "load"}) {  // no files, and no compiled (binary) chunks
+    lua_pushnil(s);
+    lua_setglobal(s, gone);
+  }
+  lua_pushcfunction(s, l_print);
+  lua_setglobal(s, "print");
+  lua_newtable(s);
+  lua_setfield(s, LUA_REGISTRYINDEX, "unidex.loaded");
+  lua_pushcfunction(s, l_require);
+  lua_setglobal(s, "require");
+
+  const luaL_Reg API[] = {{"header", l_header}, {"hints", l_hints},     {"text", l_text},       {"centered", l_centered},
+                          {"wrap", l_wrap},     {"width", l_width},     {"rect", l_rect},       {"fill", l_fill},
+                          {"line", l_line},     {"qr", l_qr},           {"icon", l_icon},       {"bitmap", l_bitmap},
+                          {"time", l_time},     {"battery", l_battery}, {"toast", l_toast},     {"wake_in", l_wake_in},
+                          {"random", l_random}, {nullptr, nullptr}};
+  luaL_newlib(s, API);
+  lua_pushinteger(s, apps::API_LEVEL);
+  lua_setfield(s, -2, "api");
+  const luaL_Reg DATA[] = {{"read", l_read},     {"write", l_write},   {"append", l_append},
+                           {"list", l_list},     {"remove", l_remove}, {nullptr, nullptr}};
+  luaL_newlib(s, DATA);
+  lua_setfield(s, -2, "data");
+  const luaL_Reg HTTP[] = {{"get", l_get}, {nullptr, nullptr}};
+  luaL_newlib(s, HTTP);
+  lua_setfield(s, -2, "http");
+  lua_setglobal(s, "unidex");
+
+  std::vector<char> code;
+  if (!readFile(appFile("main.lua"), code)) return luaL_error(s, "can't read main.lua (missing, or over 64 KB)");
+  if (luaL_loadbufferx(s, code.data(), code.size(), "@main.lua", "t") != LUA_OK) return lua_error(s);
+  lua_call(s, 0, 0);
+  return 0;
+}
+
+// --- calling into the app ---
+static void fail(const char *why) {
+  error = why;
+  if (L) lua_close(L);
+  L = nullptr;
+  if (usedWifi) netOff();
+  usedWifi = false;
+}
+
+// Calls global `fn` (if defined) with no arguments; true with its result on the stack (one value).
+static bool call(const char *fn, bool &defined) {
+  defined = false;
+  if (!L) return false;
+  lua_getglobal(L, fn);
+  if (!lua_isfunction(L, -1)) {
+    lua_pop(L, 1);
+    return false;
+  }
+  defined = true;
+  callStart = millis();
+  if (lua_pcall(L, 0, 1, 0) != LUA_OK) {
+    const char *m = lua_tostring(L, -1);
+    String why = m ? m : "error";
+    if (why.indexOf("not enough memory") >= 0) why = "used more than its 512 KB of memory";
+    fail(why.c_str());
+    return false;
+  }
+  return true;
+}
+
+static Redraw redrawFrom(lua_State *s) {
+  const char *r = lua_isstring(s, -1) ? lua_tostring(s, -1) : "";
+  const Redraw out = !strcmp(r, "full") ? Redraw::Full : !strcmp(r, "partial") ? Redraw::Partial
+                   : !strcmp(r, "exit")  ? Redraw::Exit : Redraw::None;
+  lua_pop(s, 1);
+  return out;
+}
+
+bool hostStart(const String &appId, uint8_t permissions) {
+  hostStop();
+  id = appId;
+  perms = permissions;
+  error = "";
+  if (!arenaReset()) {
+    error = "not enough memory to start";
+    return false;
+  }
+  L = lua_newstate(alloc, nullptr);
+  if (!L) {
+    error = "not enough memory to start";
+    return false;
+  }
+  lua_sethook(L, hook, LUA_MASKCOUNT, 1000);
+  callStart = millis();
+  lua_pushcfunction(L, setup);
+  if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+    const char *m = lua_tostring(L, -1);
+    fail(m ? m : "error");
+    return false;
+  }
+  bool defined;
+  if (call("onEnter", defined)) lua_pop(L, 1);
+  return L != nullptr;
+}
+
+void hostStop() {
+  bool defined;
+  if (L && call("onExit", defined)) lua_pop(L, 1);
+  if (L) lua_close(L);
+  L = nullptr;
+  if (usedWifi) netOff();
+  usedWifi = false;
+}
+
+bool hostRunning() { return L != nullptr; }
+const String &hostId() { return id; }
+const String &hostError() { return error; }
+
+bool hostHas(const char *fn) {
+  if (!L) return false;
+  lua_getglobal(L, fn);
+  const bool yes = lua_isfunction(L, -1);
+  lua_pop(L, 1);
+  return yes;
+}
+
+void hostDraw() {
+  display.fillScreen(WHITE);
+  bool defined;
+  if (call("draw", defined)) lua_pop(L, 1);
+  else if (L && !defined) fail("main.lua has no draw() function");
+}
+
+Redraw hostEvent(const char *fn) {
+  bool defined;
+  if (!call(fn, defined)) return L ? Redraw::None : Redraw::Full;  // an error: the error screen replaces it
+  const Redraw r = redrawFrom(L);
+  return r == Redraw::Exit ? Redraw::None : r;
+}
+
+Redraw hostBack() {
+  bool defined;
+  if (!call("onBack", defined)) return L || !defined ? Redraw::Exit : Redraw::Full;
+  const Redraw r = redrawFrom(L);
+  return r == Redraw::None ? Redraw::Exit : r;
+}
+
+String hostStatus() {
+  bool defined;
+  if (!call("status", defined)) return "";
+  const String s = lua_isstring(L, -1) ? lua_tostring(L, -1) : "";
+  lua_pop(L, 1);
+  return s.substring(0, 40);
+}

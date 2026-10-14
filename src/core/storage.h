@@ -12,6 +12,11 @@ bool storageRename(const char *from, const char *to);  // replaces `to`; the old
 // the end) and renames it over `to`. False (and `tmp` removed) if not: `to` is then unchanged.
 bool storageReplace(const char *tmp, const char *to, size_t bytes);
 bool storageRemove(const char *path);
+bool storageMakeDirs(const char *dir);  // every missing folder on the way ("/apps/x/data")
+// Deletes a folder and everything in it. With `keep`, the child of that name is left (and so is the folder):
+// "offloading" an app keeps its data/. True if nothing that should have gone is left.
+bool storageRemoveTree(const char *path, const char *keep = nullptr);
+uint64_t storageTreeBytes(const char *path);  // the bytes of every file under a folder (0 if missing)
 // One line of a text file (without the '\n'), at most `max` characters: the rest of a longer line is skipped, so a
 // damaged file can't fill the memory. False at the end of the file.
 bool storageReadLine(fs::File &f, String &line, size_t max = 600);
