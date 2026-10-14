@@ -318,3 +318,4 @@ bool jobTakeShown(String &markdown, String &title) {
   hasShown = false;
   return true;
 }
+
