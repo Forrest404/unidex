@@ -13,11 +13,11 @@ GFX="$LIB/Adafruit GFX Library"
 mkdir -p emu/out
 SRC=$(git ls-files 'src/*.cpp' | grep -vE '^src/core/(audio|battery|clock|link|net|power)\.cpp$|^src/apps/notes/(cloud|job|phone|usb)\.cpp$')
 emcc -O2 -c "$LIB/QRCode/src/qrcode.c" -o emu/out/qrcode.o
-LUA=$(ls lib/lua/src/*.c)
+LUA=$(ls lib/lua/src/*.c 2>/dev/null || true)  # Lua (for apps) is in v1.7 and newer; emu/build_version.sh builds older ones
 for f in $LUA; do emcc -O2 -DLUAI_MAXCCALLS=120 -c "$f" -o "emu/out/lua-$(basename "$f" .c).o"; done
 em++ -std=gnu++17 -O2 -DUNIDEX_EMU=1 -DARDUINO=100 -DUNIDEX_DEV=1 -DDEBUG=0 \
   -Iemu/shim -Isrc -Isrc/core -Ilib/lua/src -I"$GFX" -I$LIB/ArduinoJson/src -I$LIB/QRCode/src \
-  $SRC emu/hw/*.cpp "$GFX/Adafruit_GFX.cpp" emu/out/qrcode.o emu/out/lua-*.o \
+  $SRC emu/hw/*.cpp "$GFX/Adafruit_GFX.cpp" emu/out/qrcode.o $(ls emu/out/lua-*.o 2>/dev/null) \
   -sASYNCIFY -sALLOW_MEMORY_GROWTH -sMODULARIZE -sEXPORT_NAME=createUnidex -sEXPORTED_RUNTIME_METHODS=ccall,cwrap,HEAPU8,UTF8ToString \
   -o emu/out/unidex.js
 

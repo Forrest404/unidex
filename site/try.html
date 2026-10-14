@@ -31,6 +31,9 @@
   .help dt { font: 500 13px/1.6 var(--font-mono); white-space: nowrap; }
   .help dd { margin: 0; color: var(--muted); }
   .opts { display: flex; gap: var(--s5); flex-wrap: wrap; align-items: center; margin-top: var(--s5); }
+  .version { display: flex; gap: var(--s2); align-items: center; flex-basis: 100%; }
+  .version label { margin: 0; }
+  .version select { width: auto; flex: 1; max-width: 280px; }
   #tryApp .card > * + * { margin-top: var(--s4); }
   #appLog { width: 100%; font: 13px/1.5 var(--font-mono); }
   section + section { margin-top: var(--s7); }
@@ -62,6 +65,7 @@
         <dt>Hold B</dt><dd>The screen's extra, shown along the bottom.</dd>
       </dl>
       <div class="opts">
+        <div class="version" hidden><label for="emuVersion">Version</label><select id="emuVersion"></select></div>
         <label class="check"><input type="checkbox" id="eink" checked> E-ink flash</label>
         <button class="secondary small" id="restart" type="button">Restart</button>
       </div>
@@ -100,7 +104,6 @@
 </main>
 <footer data-chrome></footer>
 <script type="module" src="chrome.js"></script>
-<script src="emu/unidex.js"></script>
 <script src="emu.js"></script>
 <script type="module" src="apptry.js"></script>
 </body>

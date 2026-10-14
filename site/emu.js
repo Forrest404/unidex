@@ -50,12 +50,45 @@
 
   document.getElementById('restart').addEventListener('click', () => location.reload());
 
-  createUnidex({ onScreen: draw, print: () => {}, printErr: () => {} })
-    .then((m) => {
+  // Which version runs. The website workflow builds every release that has an emulator, and the next version, into
+  // emu/<id>/ and lists them in emu/versions.json (the newest release is "latest"); ?v=<id> picks another. Built
+  // here with emu/build.sh, there's no list and just the one build, in emu/.
+  const picker = document.getElementById('emuVersion');
+  const loadScript = src => new Promise((ok, bad) => {
+    const s = document.createElement('script');
+    s.src = src;
+    s.onload = ok;
+    s.onerror = bad;
+    document.head.append(s);
+  });
+
+  async function chooseBuild() {
+    let list = null;
+    try {
+      const r = await fetch('emu/versions.json', { cache: 'no-cache' });
+      if (r.ok) list = await r.json();
+    } catch (e) { /* no list: a local build */ }
+    if (!list || !list.versions || !list.versions.length) return { dir: 'emu/', name: '' };
+    const wanted = new URLSearchParams(location.search).get('v');
+    const v = list.versions.find(x => x.id === wanted) || list.versions.find(x => x.id === list.latest) || list.versions[0];
+    for (const x of list.versions) picker.append(new Option(x.label, x.id, false, x.id === v.id));
+    picker.closest('.version').hidden = false;
+    picker.addEventListener('change', () => {
+      const q = new URLSearchParams(location.search);
+      if (picker.value === list.latest) q.delete('v'); else q.set('v', picker.value);
+      location.href = location.pathname + (q.toString() ? `?${q}` : '') + location.hash;  // a fresh start on that build
+    });
+    return { dir: `emu/${v.id}/`, name: v.id === 'next' ? 'the next version' : v.id };
+  }
+
+  chooseBuild()
+    .then(async (build) => {
+      await loadScript(`${build.dir}unidex.js`);
+      const m = await createUnidex({ onScreen: draw, print: () => {}, printErr: () => {} });
       mod = m;
       window.unidexEmu = m;  // for apptry.js (Try your app)
       window.dispatchEvent(new Event('unidex-ready'));
-      status.textContent = 'Running. Click the buttons or use the keys.';
+      status.textContent = `Running${build.name ? ` ${build.name}` : ''}. Click the buttons or use the keys.`;
     })
     .catch(() => { status.textContent = "Couldn't start the emulator in this browser."; });
 })();

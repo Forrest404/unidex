@@ -2,7 +2,17 @@
 
 The firmware's own apps (everything in `src/` except the hardware drivers) compiled to WebAssembly with Emscripten,
 running behind a simulated screen and two buttons. Its page is `site/try.html`, published as
-[Try unidex](https://forrest404.github.io/unidex/try.html). The website workflow builds it from the latest release, as it does the firmware.
+[Try unidex](https://forrest404.github.io/unidex/try.html).
+
+## Versions
+
+The page opens on the newest release, and its Version menu switches to any other release that has an emulator (v1.7
+and newer: older releases draw straight to the panel, with no emulator hook) or to the next version, built from
+main. The website workflow builds each of them with `emu/build_version.sh <tag> <folder>`: that release's `src/`,
+`lib/` and libraries inside this checkout's `emu/`, so the page's scripts work with every version. It writes
+`site/emu/<tag>/`, `site/emu/next/` and `site/emu/versions.json` (the list, with `latest`); a release's build is
+cached and only made again when `emu/` changes. `?v=<tag>` in the address opens a version directly. Each build's
+Settings shows its version, as `v1.7 (emulator)`.
 
 ## Build and run
 
@@ -12,6 +22,8 @@ You need Emscripten (emsdk 3.1.74), and the libraries PlatformIO fetches (`pio r
 EMSDK_ENV=~/emsdk/emsdk_env.sh bash emu/build.sh     # writes emu/out/ and site/emu/unidex.* (not committed)
 python3 -m http.server 8000                        # from the repo folder; open http://localhost:8000/site/try.html
 ```
+
+With no `site/emu/versions.json` the page runs that one build, `site/emu/unidex.js`, and hides the Version menu.
 
 ## How it works
 

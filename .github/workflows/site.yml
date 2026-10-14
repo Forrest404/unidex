@@ -1,5 +1,5 @@
 # Builds the firmware and the browser emulator, and publishes the website (site/) with the browser installer and the
-# Try it page to GitHub Pages.
+# Try it page (every release's emulator, and the next version's) to GitHub Pages.
 # Runs on every published release, every 6 hours (so apps accepted into the store, github.com/Forrest404/unidex-apps,
 # appear by themselves), or by hand from the Actions tab. The firmware always comes from the latest release tag, so
 # a run that isn't a release still offers the released version, not whatever is on main.
@@ -45,17 +45,52 @@ jobs:
           git worktree add ../release "$tag"
           cd ../release && pio run -e epaper154
 
-      - name: Build the browser emulator from the same release (the Try it page, site/try.html)
+      # The Try it page (site/try.html) can run any release that has an emulator (v1.7 and newer) and the next
+      # version (main), picked from a list; the newest release is the default. A release never changes, so its build is
+      # kept in a cache and only made again when the emulator itself (emu/) changes.
+      - uses: actions/cache@v4
+        with:
+          path: ~/emsdk
+          key: emsdk-3.1.74
+
+      - uses: actions/cache@v4
+        with:
+          path: emu-builds
+          key: emu-builds-${{ hashFiles('emu/shim/**', 'emu/hw/**', 'emu/build.sh', 'emu/build_version.sh') }}-${{ github.run_id }}
+          restore-keys: emu-builds-${{ hashFiles('emu/shim/**', 'emu/hw/**', 'emu/build.sh', 'emu/build_version.sh') }}-
+
+      - name: Build the browser emulator for each release and the next version
         run: |
           set -e
-          if [ ! -f ../release/emu/build.sh ]; then echo "this release has no emulator"; exit 0; fi
-          git clone --depth 1 --branch 3.1.74 https://github.com/emscripten-core/emsdk.git ~/emsdk
-          ~/emsdk/emsdk install 3.1.74
-          ~/emsdk/emsdk activate 3.1.74
+          [ -d ~/emsdk ] || git clone --depth 1 --branch 3.1.74 https://github.com/emscripten-core/emsdk.git ~/emsdk
+          ~/emsdk/emsdk install 3.1.74 >/dev/null
+          ~/emsdk/emsdk activate 3.1.74 >/dev/null
           export EMSDK_ENV="$HOME/emsdk/emsdk_env.sh"
-          (cd ../release && bash emu/build.sh)
-          mkdir -p site/emu
-          cp ../release/emu/out/unidex.js ../release/emu/out/unidex.wasm site/emu/
+          mkdir -p emu-builds site/emu
+          built=""
+          for tag in $(git tag --sort=-v:refname); do
+            git cat-file -e "$tag:emu/build.sh" 2>/dev/null || continue  # from before the emulator
+            if [ ! -f "emu-builds/$tag/unidex.wasm" ] && ! bash emu/build_version.sh "$tag" "emu-builds/$tag"; then
+              echo "::warning::the emulator for $tag didn't build; it's left out of the list"
+              rm -rf "emu-builds/$tag"
+              continue
+            fi
+            cp -R "emu-builds/$tag" "site/emu/$tag"
+            built="$built $tag"
+          done
+          next=0
+          bash emu/build_version.sh HEAD site/emu/next "$(git describe --tags --always)" && next=1 \
+            || echo "::warning::the emulator for main didn't build; the next version is left out of the list"
+          python3 - "$next" $built > site/emu/versions.json <<'PY'
+          import json, sys
+          tags, versions = sys.argv[2:], []
+          for i, t in enumerate(tags):
+              versions.append({"id": t, "label": f"{t} (latest release)" if i == 0 else t})
+          if sys.argv[1] == "1":
+              versions.append({"id": "next", "label": "Next version (in development)"})
+          print(json.dumps({"latest": tags[0] if tags else "next", "versions": versions}, indent=1))
+          PY
+          cat site/emu/versions.json
 
       - name: Collect firmware and write the installer manifests
         run: |
