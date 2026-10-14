@@ -1,4 +1,4 @@
-// Chooser: pick 2-6 squares, spin, land on a random winner. A = more squares, B = spin, hold B = tally
+// Chooser: pick 2-9 squares, spin, land on a random winner. A = more squares, B = spin, hold B = tally
 // (wins per square number, over every spin; hold B there clears it), hold A = back.
 #include <bootloader_random.h>
 #include <math.h>
@@ -39,23 +39,26 @@ static void drawGrid(int count, int8_t inverted, bool showTally) {
       display.drawRect(x + 1, y + 1, cell - 2, cell - 2, BLACK);
     }
     char label[12];
+    int16_t tx, ty, top = y;  // the count is centred between `top` and the bottom of the cell
+    uint16_t tw, th;
     display.setTextColor(ink);
-    if (showTally) {  // the square's number small in the corner, its wins in the middle
-      char key[8];
+    if (showTally) {  // the square's number small in the top corner, its wins centred in the space below
+      char key[8], num[4];
       tallyKey(key, sizeof key, i);
       snprintf(label, sizeof label, "%ld", (long)storageGetInt(key));
+      snprintf(num, sizeof num, "#%d", i + 1);
       display.setFont(FONT_TINY);
-      display.setCursor(x + 5, y + 13);
-      display.printf("#%d", i + 1);
+      display.getTextBounds(num, 0, 0, &tx, &ty, &tw, &th);
+      display.setCursor(x + 4 - tx, y + 4 - ty);
+      display.print(num);
+      top = y + 4 + th;
       display.setFont(FONT_SMALL);
     } else {
       snprintf(label, sizeof label, "%d", i + 1);
     }
     const String fit = fitText(label, cell - 6);
-    int16_t tx, ty;
-    uint16_t tw, th;
     display.getTextBounds(fit.c_str(), 0, 0, &tx, &ty, &tw, &th);
-    display.setCursor(x + (cell - tw) / 2 - tx, y + (cell - th) / 2 - ty);
+    display.setCursor(x + (cell - tw) / 2 - tx, top + (y + cell - top - th) / 2 - ty);
     display.print(fit);
   }
   display.setTextColor(BLACK);
