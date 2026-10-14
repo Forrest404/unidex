@@ -242,10 +242,6 @@ dialog.search::backdrop { background: color-mix(in srgb, var(--bg) 70%, transpar
 .tile span { color: var(--muted); font-size: 15px; line-height: 1.45; }
 a.tile:hover b { text-decoration: underline; text-underline-offset: 4px; }
 a.tile b::after { content: " →"; font-weight: 400; }
-.callout { border-top: var(--rule); border-bottom: var(--rule); padding: 22px 0; margin-top: 32px; display: flex; gap: 20px;
-           align-items: center; justify-content: space-between; flex-wrap: wrap; }
-.callout h2 { margin: 0 0 4px; font-size: 26px; }
-.callout p { margin: 0; color: var(--muted); max-width: 52ch; }
 .steps { list-style: none; padding: 0; counter-reset: step; display: grid; gap: 16px; }
 .steps > li { counter-increment: step; display: grid; grid-template-columns: 30px 1fr; gap: 10px; margin: 0; }
 .steps > li::before { content: counter(step) "."; font: 500 14px/1.7 var(--font-mono); }
