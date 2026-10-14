@@ -1,10 +1,16 @@
-// The Notes setup page (notes.html). Talks to the device over Web Serial only.
+// The Setup page (setup.html). Talks to the device over Web Serial only.
 import { supported, connect, asleepHint, notesStatus, notesSet, notesSetLong, notesClear, notesTest, notesMic, notesList,
          notesRead, notesDelete } from './serial.js';
 
 const $ = id => document.getElementById(id);
 const DEFAULT_MODEL = { openai: 'gpt-4o-mini', anthropic: 'claude-haiku-4-5', off: '' };
 let dev = null, busy = false;
+
+// Up to five WiFi networks: slot 0 is the original wifi_* settings, slots 1 to 4 are wifi2_* to wifi5_*.
+const SLOTS = 5;
+const key = (slot, part) => (slot === 0 ? `wifi_${part}` : `wifi${slot + 1}_${part}`);
+let nets = [];       // saved networks: { slot, ssid, enterprise, hasCa, hasPass }
+let editing = -1;    // the slot shown in the form, or -1 for a new network
 
 if (!supported) {
   $('unsupported').hidden = false;
@@ -40,10 +46,68 @@ function showWifiKind() {
   $('userBox').hidden = $('caBox').hidden = !enterprise();
   $('enterpriseNote').hidden = !enterprise() || caSaved;
   $('caNote').hidden = !enterprise() || !caSaved;
-  $('removeCa').hidden = !caSaved;
+  $('removeCa').hidden = !caSaved || editing < 0;
   if ($('wifi_ssid').value === '' && enterprise()) $('wifi_ssid').value = 'eduroam';
 }
 document.querySelectorAll('input[name=wifiKind]').forEach(r => (r.onchange = showWifiKind));
+
+// The saved networks, each with Edit and Remove.
+function renderNets() {
+  const ul = $('netList');
+  ul.textContent = '';
+  for (const n of nets) {
+    const li = document.createElement('li');
+    const name = document.createElement('span');
+    name.className = 'name';
+    name.textContent = n.ssid;
+    const kind = document.createElement('span');
+    kind.className = 'kind';
+    kind.textContent = n.enterprise ? 'eduroam / work' : 'home';
+    const edit = document.createElement('button');
+    edit.className = 'secondary';
+    edit.textContent = 'Edit';
+    edit.onclick = () => { editNet(n.slot); say('wifiStatus', ''); };
+    const del = document.createElement('button');
+    del.className = 'secondary';
+    del.textContent = 'Remove';
+    del.onclick = () => {
+      if (!confirm(`Remove "${n.ssid}" from the device?`)) return;
+      run('wifiStatus', async () => {
+        for (const part of ['ssid', 'user', 'pass', 'ca']) await notesSet(dev, key(n.slot, part), '');
+        if (editing === n.slot) editing = -1;
+        await load();
+        say('wifiStatus', 'Removed.', 'ok');
+      });
+    };
+    li.append(name, kind, edit, del);
+    ul.append(li);
+  }
+  if (!nets.length) {
+    const li = document.createElement('li');
+    li.className = 'kind';
+    li.textContent = 'No network saved yet.';
+    ul.append(li);
+  }
+  $('wifiSaved').textContent = nets.length ? `· ${nets.length} saved` : '';
+}
+
+// Puts a saved network in the form (slot), or clears it for a new one (-1).
+function editNet(slot) {
+  const n = nets.find(x => x.slot === slot);
+  editing = n ? slot : -1;
+  $('wifi_ssid').value = n ? n.ssid : '';
+  $('wifi_user').value = n ? n.user : '';
+  $('wifi_pass').value = '';
+  $('wifi_pass').placeholder = n && n.hasPass ? 'saved' : '';
+  $('wifi_ca').value = '';
+  caSaved = !!(n && n.hasCa);
+  $('wifi_ca').placeholder = caSaved ? 'saved' : '-----BEGIN CERTIFICATE-----';
+  document.querySelector(`input[name=wifiKind][value=${n && n.enterprise ? 'enterprise' : 'home'}]`).checked = true;
+  $('netFormTitle').textContent = n ? `Edit ${n.ssid}` : 'Add a network';
+  $('saveNet').textContent = n ? 'Save changes' : 'Save network';
+  $('cancelEdit').hidden = !n;
+  showWifiKind();
+}
 
 function showCleanup() {
   const c = cleanupChoice();
@@ -58,22 +122,23 @@ document.querySelectorAll('input[name=cleanup]').forEach(r => (r.onchange = show
 async function load() {
   const st = await notesStatus(dev);
   const s = name => st.settings[name] || { set: false, value: '' };
-  for (const name of ['wifi_ssid', 'wifi_user', 'gh_repo', 'cleanup_model']) $(name).value = s(name).set ? s(name).value : '';
-  document.querySelector(`input[name=wifiKind][value=${s('wifi_user').set ? 'enterprise' : 'home'}]`).checked = true;
-  caSaved = s('wifi_ca').set;
-  $('wifi_ca').value = '';
-  $('wifi_ca').placeholder = caSaved ? 'saved' : '-----BEGIN CERTIFICATE-----';
-  showWifiKind();
+  for (const name of ['gh_repo', 'cleanup_model']) $(name).value = s(name).set ? s(name).value : '';
+  nets = [];
+  for (let i = 0; i < SLOTS; i++)
+    if (s(key(i, 'ssid')).set)
+      nets.push({ slot: i, ssid: s(key(i, 'ssid')).value, user: s(key(i, 'user')).value, enterprise: s(key(i, 'user')).set,
+                  hasCa: s(key(i, 'ca')).set, hasPass: s(key(i, 'pass')).set });
+  renderNets();
+  editNet(editing);
   for (const name of ['gh_branch', 'gh_dir']) $(name).value = s(name).set ? s(name).value : '';
   $('gh_on').checked = s('gh_on').value === '1';
   const cleanup = s('cleanup').value || 'openai';
   document.querySelector(`input[name=cleanup][value=${cleanup}]`).checked = true;
   showCleanup();
-  for (const name of ['wifi_pass', 'openai_key', 'anthropic_key', 'gh_token']) {
+  for (const name of ['openai_key', 'anthropic_key', 'gh_token']) {
     $(name).value = '';
     $(name).placeholder = s(name).set ? (s(name).value ? `saved (…${s(name).value})` : 'saved') : '';
   }
-  $('wifiSaved').textContent = s('wifi_ssid').set ? '· saved' : '';
   $('openaiSaved').textContent = s('openai_key').set ? '· saved' : '';
   $('anthropicSaved').textContent = s('anthropic_key').set ? '· saved' : '';
   $('githubSaved').textContent = s('gh_on').value === '1' ? '· on' : '· off';
@@ -111,8 +176,6 @@ $('disconnect').onclick = async () => {
 
 // Which fields each Save sends. Secrets are only sent when typed (blank keeps the saved one).
 const GROUPS = {
-  wifi: { status: 'wifiStatus', plain: ['wifi_ssid'], secret: ['wifi_pass'],
-          extra: () => ({ wifi_user: enterprise() ? $('wifi_user').value.trim() : '' }) },  // '' = home network
   openai: { status: 'openaiStatus', plain: [], secret: ['openai_key'] },
   cleanup: { status: 'cleanupStatus', plain: ['cleanup_model'], secret: ['anthropic_key'], extra: () => ({ cleanup: cleanupChoice() }) },
   github: { status: 'githubStatus', plain: ['gh_repo', 'gh_branch', 'gh_dir'], secret: ['gh_token'],
@@ -127,10 +190,6 @@ function caBody() {
 }
 
 function check(group) {
-  if (group === 'wifi' && enterprise() && $('wifi_ca').value.trim() && !caBody())
-    return 'The CA certificate should be PEM text, from -----BEGIN CERTIFICATE----- to -----END CERTIFICATE-----.';
-  if (group === 'wifi' && !$('wifi_ssid').value.trim()) return 'Type the network name.';
-  if (group === 'wifi' && enterprise() && !$('wifi_user').value.trim()) return 'Type your username.';
   if (group === 'openai' && $('openai_key').value && !$('openai_key').value.trim().startsWith('sk-'))
     return 'OpenAI keys start with sk-.';
   if (group === 'github' && $('gh_repo').value && !/^[\w.-]+\/[\w.-]+$/.test($('gh_repo').value.trim()))
@@ -151,17 +210,52 @@ document.querySelectorAll('[data-save]').forEach(btn => {
       for (const f of g.secret) if ($(f).value.trim()) values[f] = $(f).value.trim();
       if (!Object.keys(values).length) return say(g.status, 'Nothing to save: type the key first.');
       for (const [key, value] of Object.entries(values)) await notesSet(dev, key, value);
-      if (name === 'wifi' && enterprise() && caBody()) await notesSetLong(dev, 'wifi_ca', caBody());
-      if (name === 'wifi' && !enterprise() && caSaved) await notesSet(dev, 'wifi_ca', '');  // home: no CA
       await load();
       say(g.status, 'Saved on the device.', 'ok');
     });
   };
 });
 
+// Saves the form as network `editing`, or as the first empty slot.
+function checkNet() {
+  if ($('wifi_ca').value.trim() && enterprise() && !caBody())
+    return 'The CA certificate should be PEM text, from -----BEGIN CERTIFICATE----- to -----END CERTIFICATE-----.';
+  if (!$('wifi_ssid').value.trim()) return 'Type the network name.';
+  if (enterprise() && !$('wifi_user').value.trim()) return 'Type your username.';
+  if (editing < 0 && nets.length >= SLOTS) return `${SLOTS} networks are saved: remove one first.`;
+  const ssid = $('wifi_ssid').value.trim();
+  if (nets.some(n => n.ssid === ssid && n.slot !== editing)) return `"${ssid}" is already saved: edit it instead.`;
+  return '';
+}
+
+$('saveNet').onclick = () => {
+  const problem = checkNet();
+  if (problem) return say('wifiStatus', problem, 'bad');
+  const slot = editing >= 0 ? editing : [...Array(SLOTS).keys()].find(i => !nets.some(n => n.slot === i));
+  run('wifiStatus', async () => {
+    say('wifiStatus', 'Saving…');
+    try {
+      await notesSet(dev, key(slot, 'ssid'), $('wifi_ssid').value.trim());
+      await notesSet(dev, key(slot, 'user'), enterprise() ? $('wifi_user').value.trim() : '');  // '' = home network
+      if ($('wifi_pass').value.trim()) await notesSet(dev, key(slot, 'pass'), $('wifi_pass').value.trim());
+      else if (editing < 0) await notesSet(dev, key(slot, 'pass'), '');  // a new open network
+      if (enterprise() && caBody()) await notesSetLong(dev, key(slot, 'ca'), caBody());
+      if (!enterprise() && caSaved) await notesSet(dev, key(slot, 'ca'), '');  // home: no CA
+    } catch (e) {
+      if (slot > 0) throw new Error('Saving a second network needs newer firmware: update the device on the Install page first.');
+      throw e;
+    }
+    editing = -1;
+    await load();
+    say('wifiStatus', 'Saved on the device.', 'ok');
+  });
+};
+
+$('cancelEdit').onclick = () => { editNet(-1); say('wifiStatus', ''); };
+
 $('removeCa').onclick = () =>
   run('wifiStatus', async () => {
-    await notesSet(dev, 'wifi_ca', '');
+    await notesSet(dev, key(editing, 'ca'), '');
     await load();
     say('wifiStatus', 'Certificate removed.', 'ok');
   });

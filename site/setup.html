@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Keys are typed here: no third-party code, and the page can't send anything over the network
+     (connect-src 'none'). They go over USB to the device only. -->
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
+<title>unidex: setup</title>
+<meta name="description" content="Set up a unidex e-ink device over USB: the WiFi networks it joins, OpenAI or Claude for voice notes, and pushing notes to a GitHub repo for Obsidian.">
+<link rel="canonical" href="https://forrest404.github.io/unidex/setup.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="unidex">
+<meta property="og:title" content="unidex setup">
+<meta property="og:description" content="Set up a unidex e-ink device over USB: the WiFi networks it joins, OpenAI or Claude for voice notes, and pushing notes to a GitHub repo for Obsidian.">
+<meta property="og:url" content="https://forrest404.github.io/unidex/setup.html">
+<meta property="og:image" content="https://forrest404.github.io/unidex/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<style>
+  .card { display: flex; flex-direction: column; gap: 4px; }
+  .card h3 { font-size: 15px; margin: 0 0 4px; }
+  .buttons { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
+  .saved { color: var(--muted); font-size: 12px; font-weight: 400; }
+  #connectRow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  #device { margin: 0; }
+  fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+  fieldset:disabled .check { color: var(--muted); }  /* before Connect: text stays readable, controls dim */
+  #meter { height: 12px; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; margin-top: 10px; }
+  #meter div { height: 100%; width: 0; background: var(--accent); transition: width .3s ease-out; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  td, th { text-align: left; padding: 7px 6px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  th { font-size: 12px; color: var(--muted); font-weight: 600; }
+  td.act { text-align: right; white-space: nowrap; }
+  td.act button { padding: 5px 10px; font-size: 13px; }
+  .tag { font-size: 12px; color: var(--muted); }
+  .nets { list-style: none; margin: 0; padding: 0; }
+  .nets li { display: flex; gap: 8px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line); }
+  .nets li:last-child { border-bottom: 0; }
+  .nets .name { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+  .nets .kind { font-size: 12px; color: var(--muted); }
+  .nets button { padding: 5px 10px; font-size: 13px; min-height: 32px; }
+</style>
+</head>
+<body>
+<nav>
+  <a class="brand" href="./">unidex</a>
+  <a href="./">Install</a>
+  <a href="tools.html">Tools</a>
+  <a href="setup.html" aria-current="page">Setup</a>
+  <a href="https://github.com/Forrest404/unidex">Source code</a>
+</nav>
+<main>
+  <h1>Setup</h1>
+  <p class="sub">Set up your device: the WiFi networks it joins, and the keys for voice notes (hold <b>B</b> in the
+    Notes app, talk, let go). The device transcribes a note with OpenAI Whisper, tidies it up with OpenAI or
+    Claude, keeps it on the SD card and can push it to a GitHub repo (for Obsidian). Everything here goes
+    <b>over USB to your device only</b>: this page has no other code and can't reach the internet. What the
+    device sends where:
+    <a href="https://github.com/Forrest404/unidex/blob/main/PRIVACY.md">Privacy (draft)</a>.</p>
+  <p id="unsupported" class="unsupported" hidden>Your browser can't talk to USB devices. Use <b>Chrome</b> or
+    <b>Edge</b> on a computer.</p>
+
+  <section>
+    <div class="card">
+      <div id="connectRow">
+        <button id="connect">Connect</button>
+        <button id="disconnect" class="secondary" hidden>Disconnect</button>
+        <p id="device" class="status">Plug the device in and press one of its buttons to wake it, then Connect.</p>
+      </div>
+    </div>
+  </section>
+
+  <fieldset id="panel" disabled>
+  <section>
+    <h2>Connections</h2>
+    <p class="muted">Blank password and key fields keep what's saved. Test runs on the device itself, over its own
+      WiFi.</p>
+    <div class="grid">
+      <div class="card" id="wifiCard">
+        <h3>WiFi networks <span class="saved" id="wifiSaved"></span></h3>
+        <p class="note" style="margin:0 0 6px">Save up to five. The device joins whichever one is in range,
+          trying the one that worked last first.</p>
+        <ul id="netList" class="nets"></ul>
+        <h3 id="netFormTitle" style="margin-top:14px">Add a network</h3>
+        <div class="seg">
+          <label><input type="radio" name="wifiKind" value="home" checked><span>Home</span></label>
+          <label><input type="radio" name="wifiKind" value="enterprise"><span>eduroam / work</span></label>
+        </div>
+        <label for="wifi_ssid">Network name <span class="hint">(2.4 GHz)</span></label>
+        <input id="wifi_ssid" type="text" autocomplete="off" spellcheck="false" maxlength="32">
+        <div id="userBox" hidden>
+          <label for="wifi_user">Username <span class="hint">(usually you@uni.ac.uk)</span></label>
+          <input id="wifi_user" type="text" autocomplete="off" spellcheck="false" maxlength="128">
+        </div>
+        <label for="wifi_pass">Password</label>
+        <input id="wifi_pass" type="password" autocomplete="new-password" maxlength="128">
+        <div id="caBox" hidden>
+          <label for="wifi_ca">CA certificate <span class="hint">(optional; from your university's IT pages or
+            cat.eduroam.org; blank keeps what's saved)</span></label>
+          <textarea id="wifi_ca" rows="3" spellcheck="false" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+          <button class="secondary" id="removeCa" hidden>Remove certificate</button>
+        </div>
+        <p class="note" id="enterpriseNote" hidden>Logs in with PEAP / MSCHAPv2. The device doesn't check the
+          network's certificate, so a fake access point with the same name could capture this password: use it
+          only where you trust the network, and not with a password you use elsewhere. Adding your university's
+          CA certificate above makes this safer.</p>
+        <p class="note" id="caNote" hidden>Logs in with PEAP / MSCHAPv2 and checks that the network's certificate
+          was signed by your CA. It can't check the server's name, so this only stops a fake access point if your
+          university uses its own private CA. If the CA is a public one, treat the network as unchecked.</p>
+        <div class="buttons">
+          <button id="saveNet">Save network</button>
+          <button class="secondary" id="cancelEdit" hidden>Cancel</button>
+          <button class="secondary" data-test="wifi">Test WiFi</button>
+        </div>
+        <p class="status" id="wifiStatus"></p>
+      </div>
+
+      <div class="card">
+        <h3>OpenAI <span class="saved" id="openaiSaved"></span></h3>
+        <label for="openai_key">API key <span class="hint">(sk-…, for Whisper)</span></label>
+        <input id="openai_key" type="password" autocomplete="off" spellcheck="false" maxlength="256">
+        <p class="note">From <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>,
+          with billing on. Whisper costs about $0.006 a minute.</p>
+        <div class="buttons">
+          <button data-save="openai">Save</button>
+          <button class="secondary" data-test="openai">Test</button>
+        </div>
+        <p class="status" id="openaiStatus"></p>
+      </div>
+
+      <div class="card">
+        <h3>Tidy-up <span class="saved" id="cleanupSaved"></span></h3>
+        <label>Rewrites the transcript into a clean note with a title, summary and topics</label>
+        <div class="seg">
+          <label><input type="radio" name="cleanup" value="openai" checked><span>OpenAI</span></label>
+          <label><input type="radio" name="cleanup" value="anthropic"><span>Claude</span></label>
+          <label><input type="radio" name="cleanup" value="off"><span>Off</span></label>
+        </div>
+        <label for="cleanup_model">Model <span class="hint" id="modelHint">(blank = gpt-4o-mini)</span></label>
+        <input id="cleanup_model" type="text" autocomplete="off" spellcheck="false" maxlength="64">
+        <div id="anthropicBox">
+          <label for="anthropic_key">Anthropic API key <span class="saved" id="anthropicSaved"></span></label>
+          <input id="anthropic_key" type="password" autocomplete="off" spellcheck="false" maxlength="256">
+          <p class="note">From <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
+        </div>
+        <div class="buttons">
+          <button data-save="cleanup">Save</button>
+          <button class="secondary" data-test="anthropic" id="testClaude">Test Claude</button>
+        </div>
+        <p class="status" id="cleanupStatus"></p>
+      </div>
+
+      <div class="card">
+        <h3>GitHub / Obsidian <span class="saved" id="githubSaved"></span></h3>
+        <label class="check"><input id="gh_on" type="checkbox"> Push each note to a GitHub repo</label>
+        <label for="gh_repo">Repo <span class="hint">(owner/name, can be private)</span></label>
+        <input id="gh_repo" type="text" autocomplete="off" spellcheck="false" maxlength="100" placeholder="you/Notes">
+        <div class="grid" style="gap:8px">
+          <div><label for="gh_branch">Branch</label>
+            <input id="gh_branch" type="text" autocomplete="off" spellcheck="false" maxlength="64" placeholder="main"></div>
+          <div><label for="gh_dir">Folder</label>
+            <input id="gh_dir" type="text" autocomplete="off" spellcheck="false" maxlength="64" placeholder="VoiceNotes"></div>
+        </div>
+        <label for="gh_token">Token <span class="hint">(github_pat_…)</span></label>
+        <input id="gh_token" type="password" autocomplete="off" spellcheck="false" maxlength="256">
+        <p class="note">A <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a>
+          for just that repo, with <b>Contents: Read and write</b>.</p>
+        <div class="buttons">
+          <button data-save="github">Save</button>
+          <button class="secondary" data-test="github">Test</button>
+        </div>
+        <p class="status" id="githubStatus"></p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Microphone</h2>
+    <div class="card">
+      <p class="muted" style="margin:0">Records two seconds and shows how loud it was. Talk while it listens.</p>
+      <div id="meter"><div></div></div>
+      <div class="buttons"><button class="secondary" id="mic">Test microphone</button></div>
+      <p class="status" id="micStatus"></p>
+    </div>
+  </section>
+
+  <section>
+    <h2>Your notes</h2>
+    <div class="card">
+      <p class="muted" style="margin:0" id="cardInfo">Notes are kept on the SD card as Markdown.</p>
+      <div class="buttons">
+        <button class="secondary" id="refresh">Show notes</button>
+        <button class="secondary" id="downloadAll" disabled>Download all</button>
+      </div>
+      <p class="status" id="listStatus"></p>
+      <table id="noteTable" hidden>
+        <thead><tr><th>Note</th><th>Recorded</th><th></th><th></th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>Remove everything</h2>
+    <div class="card">
+      <p class="muted" style="margin:0">Clears the WiFi, keys, token and Notes settings from the device. Your notes
+        stay on the card. (Install on the first page also wipes them; Update keeps them.)</p>
+      <div class="buttons"><button class="secondary" id="clearAll">Clear all keys</button></div>
+      <p class="status" id="clearStatus"></p>
+    </div>
+  </section>
+  </fieldset>
+</main>
+<footer class="foot">
+  <a href="https://github.com/Forrest404/unidex">Source code</a>
+  <a href="https://github.com/Forrest404/unidex/blob/main/LICENSE">Licence</a>
+  <a href="https://github.com/Forrest404/unidex/blob/main/PRIVACY.md">Privacy</a>
+  <a href="https://github.com/Forrest404/unidex/issues">Questions and problems</a>
+  <a href="https://www.unidex.shop">Join the wait list</a>
+</footer>
+<script type="module" src="setup.js"></script>
+</body>
+</html>

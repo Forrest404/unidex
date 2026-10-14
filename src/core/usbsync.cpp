@@ -140,7 +140,7 @@ static void handle(const char *l) {
     clockStatus(status, sizeof status);
     Serial.printf("OK C %s\n", status);
   } else if (notesUsb(l)) {
-    // Notes setup and note download: "N ..." (src/apps/notes/usb.h)
+    // Setup (WiFi, keys) and note download: "N ..." (src/apps/notes/usb.h)
   } else if (petUsb(l)) {
     // the Pet's look and name: "P ..." (src/apps/pet/pet.h)
   } else if (strcmp(l, "S") == 0) {

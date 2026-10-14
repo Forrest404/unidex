@@ -113,7 +113,7 @@ export function compareVersions(a, b) {
 const enc = new TextEncoder(), dec = new TextDecoder();
 const toHex = s => [...enc.encode(s)].map(b => b.toString(16).padStart(2, '0')).join('');
 export const fromHex = h => dec.decode(new Uint8Array((h.match(/../g) || []).map(x => parseInt(x, 16))));
-const tooOld = 'This device doesn’t know about Notes yet. Update its firmware on the Install page first.';
+const tooOld = 'This device doesn’t know about Setup yet. Update its firmware on the Install page first.';
 
 // {settings: {name: {set, value}}, card, notes, waiting}
 export async function notesStatus(dev) {
@@ -166,7 +166,7 @@ export async function notesClear(dev, name = 'all') {
 // Runs on the device, with its own WiFi: 'wifi', 'openai', 'anthropic' or 'github'. {ok, reason}
 export async function notesTest(dev, what) {
   await dev.send(`N TEST ${what}`);
-  const line = await dev.expect(`OK N TEST ${what}`, 45000);
+  const line = await dev.expect(`OK N TEST ${what}`, 60000);
   if (!line) throw new Error('No answer from the device.');
   const rest = line.slice(`OK N TEST ${what} `.length);
   return rest === 'ok' ? { ok: true } : { ok: false, reason: rest.replace(/^fail /, '') };

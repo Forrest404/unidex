@@ -60,7 +60,7 @@ If unidex is useful to you, a star on GitHub helps other people find it.
    [Tools](https://forrest404.github.io/unidex/tools.html) page, or edit `timetable.csv` on the card (see
    [Timetable](#timetable)).
 4. **Voice notes, if you want them.** Set up WiFi and your API keys on the
-   [Notes](https://forrest404.github.io/unidex/notes.html) page (see [Notes](#notes)).
+   [Setup](https://forrest404.github.io/unidex/setup.html) page (see [Notes](#notes)).
 
 ## The buttons
 
@@ -120,8 +120,8 @@ Press **B** on the Notes screen to send anything still waiting, or **A** to open
 **hold B** deletes it). Inside an open note, **B** is **Open on phone**. It shows a QR code: join the device's own
 WiFi and you can browse, search, share and copy your notes on your phone. Hold A to stop it.
 
-Set it up on the [Notes page](https://forrest404.github.io/unidex/notes.html). You can add your WiFi (including
-eduroam and work networks), your OpenAI key, which model tidies up (and an Anthropic key if you pick Claude), and
+Set it up on the [Setup page](https://forrest404.github.io/unidex/setup.html). You can save up to five WiFi networks
+(home, eduroam and work networks, a phone hotspot: the device joins whichever is in range), your OpenAI key, which model tidies up (and an Anthropic key if you pick Claude), and
 GitHub (a repo and a [fine-grained token](https://github.com/settings/personal-access-tokens/new) with Contents:
 Read and write on that repo only). Each has a **Test** button. Your keys stay on the device: the page can't read
 them back, and they're never in the code or on the card. Treat the device like an unlocked phone, because anyone
@@ -196,7 +196,7 @@ Everything runs in Chrome or Edge on a computer and talks to the device over USB
 - **[Tools](https://forrest404.github.io/unidex/tools.html)** has **Sync everything** (the newest firmware, the
   clock, your calendar file, and notes waiting to send, in one click, and optionally every time you plug in), the
   badge maker, the Pet designer, the clock and calendar, and the automatic Mac calendar sync.
-- **[Notes](https://forrest404.github.io/unidex/notes.html)** is where you set up WiFi, API keys and GitHub, run the
+- **[Setup](https://forrest404.github.io/unidex/setup.html)** is where you set up WiFi, API keys and GitHub, run the
   tests, and download notes.
 
 To update, use **Update** on the Install page, or **Sync everything** on Tools, which updates by itself when

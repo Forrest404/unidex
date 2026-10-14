@@ -6,6 +6,11 @@ https://forrest404.github.io/unidex/ (Update keeps your settings and files).
 
 ## Unreleased
 
+- **Setup:** the website's Notes page is now called Setup (the old address still takes you there), and the device's
+  hints say Setup too.
+- **WiFi:** you can save up to five networks (home, eduroam or work, a phone hotspot). The device joins whichever is
+  in range, trying the one that worked last first, then the others. The Setup page lists them with Edit and Remove.
+  A second network needs this firmware; with older firmware the page keeps one.
 - **Notes:** a recording where Whisper hears nothing is no longer deleted. It stays on the card as a note called
   "Heard nothing" (it isn't sent to GitHub or transcribed again), and you can delete it yourself.
 - **Notes:** one note that can't be sent (a recording the service rejects, or a file GitHub refuses) no longer holds

@@ -17,7 +17,7 @@ If the upload can't connect, remember that the USB port disappears while the boa
 the upload within 10 seconds. If that doesn't help, hold BOOT, tap RESET (or re-plug USB), release BOOT and try
 again.
 
-WiFi and API keys are never compiled in. You set them over USB from the website's Notes page. The firmware version
+WiFi and API keys are never compiled in. You set them over USB from the website's Setup page. The firmware version
 comes from git (`tools/version.py`).
 
 ## Project layout
@@ -45,14 +45,14 @@ src/
     audio.*             ES8311 microphone (16 kHz mono, I2S)
     net.*               WiFi on/off and a small HTTPS client (checks certificates)
     credentials.*       WiFi, API keys and GitHub settings in their own NVS namespace
-    usbsync.*           serial protocol for the Mac calendar sync, the Tools page and the Notes page
+    usbsync.*           serial protocol for the Mac calendar sync, the Tools page and the Setup page
     link.*              device-to-device radio (ESP-NOW) for the Pet's Meet
     theme.*             fonts, header, button hints, toast, confirm sheet, empty states, 40x40 pixel icons
     devtools.*          test build only: USB screenshots and virtual buttons (tools/devshot.py)
 tools/                  badges.py, badge-template.svg, calsync/ (macOS), upload_nostub.py, check_unit.py,
                         devshot.py + walkthroughs/ (screenshots and button walkthroughs), gfxfont.py (fonts)
 site/                   the website: installer (index.html), Tools (badge maker, clock, calendar file), Notes
-                        (notes.html/notes.js: WiFi, keys, tests, download), serial.js
+                        (setup.html/setup.js: WiFi, keys, tests, download), serial.js
 certs/                  root CA bundle embedded in the firmware for HTTPS (see certs/README.md)
 starter/                files to copy to a new SD card: 3 generic badges, an empty timetable
 .github/workflows/      site.yml: builds the firmware and publishes the website on each release
@@ -323,7 +323,7 @@ Text lines over USB serial, computer → device (`src/core/usbsync.cpp`; senders
 | `L` (badge maker) | `F <name>` per badge, then `OK L` |
 | `B <name> <bytes> <crc32>` | `OK B` or `ERR` (name: `[a-z0-9-]+.bmp`, max 16 KB) |
 | `D <hex>` (≤ 64 bytes per line) | `K` per line; after the last byte `OK F <name>` (then the board opens it) or `ERR` |
-| `N ?` / `N SET <name> <hex>` / `N CLR <name\|all>` (Notes page) | settings, as `NS <name> <set\|unset> <hex>` lines then `OK N ?`; secrets are never sent back |
+| `N ?` / `N SET <name> <hex>` / `N CLR <name\|all>` (Setup page) | settings, as `NS <name> <set\|unset> <hex>` lines then `OK N ?`; secrets are never sent back |
 | `N TEST <wifi\|openai\|anthropic\|github>`, `N MIC` | `OK N TEST <what> ok` or `… fail <reason>`; `OK N MIC <peak> <rms>` |
 | `N LIST` / `N READ <id>` / `N DEL <id>` | `NF …` lines then `OK N LIST`; `ND <hex>` lines then `OK N READ <bytes> <crc32>`; `OK N DEL` |
 | `N SYNC` | starts sending waiting notes in the background: `OK N SYNC started <n>`, `none`, `busy` or `fail <reason>` |
