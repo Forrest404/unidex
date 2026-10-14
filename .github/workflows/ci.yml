@@ -49,3 +49,4 @@ jobs:
         run: |
           python3 tools/make_store.py
           node emu/test/store_test.mjs
+          node emu/test/app_smoke.mjs apps/examples/*

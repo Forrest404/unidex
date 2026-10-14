@@ -77,11 +77,11 @@ static Redraw checked(Redraw r) {
 
 #if UNIDEX_DEV
 static const char *detail() {  // test tools: X STATE detail=
-  static char d[48];
+  static char d[96];
   const AppEntry *e = selected();
   snprintf(d, sizeof d, "%s:%s", screen == RUN ? "run" : screen == LIST ? "list" : screen == OPTIONS ? "options"
                                  : screen == CONFIRM ? "confirm" : "failed",
-           screen == RUN ? runId : e ? e->id.c_str() : "");
+           screen == RUN ? runId : screen == FAILED ? failMsg.c_str() : e ? e->id.c_str() : "");
   return d;
 }
 
