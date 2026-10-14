@@ -15,7 +15,7 @@ function notFound(message) {
   document.title = 'App not found · unidex';
   $('app').replaceChildren(el('div', { class: 'empty' },
     el('h2', { text: 'No app called that' }),
-    el('p', { class: 'muted', text: message || `There's no “${id}” in the store. It may have been renamed or removed.` }),
+    el('p', { class: 'muted', text: message || `There's no "${id}" in the store. It may have been renamed or removed.` }),
     el('a', { class: 'button', href: 'store.html', text: 'Browse all apps' })));
 }
 
@@ -65,7 +65,7 @@ function render() {
                                       : 'It opens from Apps on your unidex.';
   const perms = app.permissions.length
     ? el('ul', { class: 'perm-list' }, app.permissions.map(p => el('li', {}, el('b', { text: PERMISSIONS[p] || p }), ' ', PERMISSION_DETAIL[p] || '')))
-    : el('p', { text: 'No special permissions. It can draw on the screen, use the buttons, and keep its own files, and nothing else.' });
+    : el('p', { text: 'No special permissions: it draws on the screen, reads the buttons and keeps its own files. Nothing else.' });
   const src = app.source || `${STORE_REPO}/tree/main/apps/${app.id}`;
   const view = el('div', { class: 'app-layout' },
     el('div', { class: 'app-main' },
@@ -78,7 +78,7 @@ function render() {
       el('div', { class: 'card app-install' }, actions(), statusLine, progress),
       el('h2', { text: 'Where to find it' }), el('p', { text: where }),
       el('h2', { text: 'What it can use' }), perms,
-      el('p', { class: 'note' }, 'Every app runs in a sandbox, with its own memory, its own folder and a time limit. It can’t reach your WiFi password, keys, notes or other apps. ',
+      el('p', { class: 'note' }, 'Every app runs in a sandbox, with its own memory, its own folder and a time limit. It can\'t reach your WiFi password, keys, notes or other apps. ',
         el('a', { href: 'developers.html#limits', text: 'How the sandbox works' }), '.')),
     el('aside', { class: 'app-side card' },
       el('dl', { class: 'facts' },

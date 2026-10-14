@@ -5,7 +5,7 @@
 const dec = new TextDecoder();
 const fromHex = h => dec.decode(new Uint8Array((h.match(/../g) || []).map(x => parseInt(x, 16))));
 
-export const tooOld = 'This unidex doesn’t know about apps yet. Update its firmware (Install page), then try again.';
+export const tooOld = 'This unidex doesn\'t know about apps yet. Update its firmware (Install page), then try again.';
 
 // zlib crc32, as the device checks it.
 const crcTable = (() => {
@@ -40,7 +40,7 @@ export function compareAppVersions(a, b) {
 function refusal(e) {
   const hex = /^ERR ([0-9a-f]+)$/.exec(e.reply || '');
   if (hex) return fromHex(hex[1]);
-  if (e.reply === 'ERR busy') return 'it’s open on the device: leave it (hold A) and try again';
+  if (e.reply === 'ERR busy') return 'it\'s open on the device: leave it (hold A) and try again';
   return e.message;
 }
 
@@ -70,7 +70,7 @@ export async function removeApp(dev, id, keepData) {
     await dev.send(`A RM ${id}${keepData ? ' keep' : ''}`);
     if (!(await dev.expect(`OK A RM ${id}`, 8000))) throw new Error(tooOld);
   } catch (e) {
-    throw new Error(`Couldn’t remove ${id}: ${refusal(e)}.`);
+    throw new Error(`Couldn't remove ${id}: ${refusal(e)}.`);
   }
 }
 
@@ -81,7 +81,7 @@ export async function installApp(dev, entry, getFile, progress = () => {}) {
   for (const f of entry.files) {
     const bytes = await getFile(entry, f);
     if (bytes.length !== f.size || (await sha256hex(bytes)) !== f.sha256)
-      throw new Error(`${entry.name}: ${f.path} didn’t download correctly. Reload the page and try again.`);
+      throw new Error(`${entry.name}: ${f.path} didn't download correctly. Reload the page and try again.`);
     files.push({ path: f.path, bytes });
   }
   const total = files.reduce((n, f) => n + f.bytes.length, 0);
@@ -100,13 +100,13 @@ export async function installApp(dev, entry, getFile, progress = () => {}) {
         sent += chunk.length;
         progress(`Sending ${f.path}`, sent / total);
       }
-      if (!(await dev.expect('OK A FILE', 5000))) throw new Error(`${f.path} wasn’t saved`);
+      if (!(await dev.expect('OK A FILE', 5000))) throw new Error(`${f.path} wasn't saved`);
     }
     progress('Checking it on the device', 1);
     await dev.send(`A DONE ${entry.id}`);
     if (!(await dev.expect(`OK A DONE ${entry.id}`, 20000))) throw new Error('no answer');
   } catch (e) {
     if (e.message === tooOld) throw e;
-    throw new Error(`Couldn’t install ${entry.name}: ${refusal(e)}.`);
+    throw new Error(`Couldn't install ${entry.name}: ${refusal(e)}.`);
   }
 }

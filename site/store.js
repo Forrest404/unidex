@@ -97,7 +97,7 @@ function renderChips(sel, q) {
   const box = $('activeChips');
   box.replaceChildren();
   const chips = [];
-  if (q) chips.push([`“${q}”`, () => { $('q').value = ''; setParam('q', ''); }]);
+  if (q) chips.push([`"${q}"`, () => { $('q').value = ''; setParam('q', ''); }]);
   for (const f of FACETS) for (const v of sel[f.key]) {
     chips.push([f.label(v), () => { const s = new Set(sel[f.key]); s.delete(v); setParam(f.key, [...s].join(',')); }]);
   }
@@ -147,7 +147,7 @@ function createCard() {
   return el('a', { class: 'app-card create', href: STORE_REPO, target: '_blank', rel: 'noopener' },
     el('span', { class: 'ic' }, icon('plus')),
     el('h3', { text: 'Create an app ↗' }),
-    el('p', { class: 'desc', text: 'Make your own in a few lines of Lua, try it in the emulator, and send it in. Start from the template.' }));
+    el('p', { class: 'desc', text: 'A few lines of Lua is enough. Start from the template, try it in the emulator, then send it in.' }));
 }
 
 function render() {

@@ -43,7 +43,7 @@ export function iconTile(rows, size = 48) {
 
 export async function loadCatalogue() {
   const r = await fetch('store/index.json', { cache: 'no-cache' });
-  if (!r.ok) throw new Error('The list of apps couldn’t be loaded. Reload the page to try again.');
+  if (!r.ok) throw new Error('The list of apps couldn\'t be loaded. Reload the page to try again.');
   return (await r.json()).apps || [];
 }
 
@@ -95,7 +95,7 @@ export function stateOf(entry) {
 
 async function getFile(entry, f) {
   const r = await fetch(`store/apps/${entry.id}/${entry.version}/${f.path}`, { cache: 'no-cache' });
-  if (!r.ok) throw new Error(`${entry.name}: couldn’t download ${f.path}.`);
+  if (!r.ok) throw new Error(`${entry.name}: couldn't download ${f.path}.`);
   return new Uint8Array(await r.arrayBuffer());
 }
 
@@ -145,7 +145,7 @@ export async function remove(id, name, hasCode = true) {
   let bytes = (onDevice(id) || {}).data || 0;  // asked again first: the app may have saved more since
   await withDevice(async dev => { bytes = await dataBytes(dev, id); });
   const what = bytes ? `Its data on the device (${kb(bytes)}) will be lost for good.` : 'It has no saved data.';
-  if (!(await ask(hasCode ? `Delete ${name}?` : `Delete ${name}’s data?`, `${what} This can’t be undone.`,
+  if (!(await ask(hasCode ? `Delete ${name}?` : `Delete ${name}'s data?`, `${what} This can't be undone.`,
                   'Delete', true))) return;
   return withDevice(async dev => {
     await removeApp(dev, id, false);

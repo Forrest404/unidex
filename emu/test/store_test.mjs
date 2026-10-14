@@ -69,7 +69,7 @@ const newer = { ...h, version: '9.9.9', files: await Promise.all(h.files.map(asy
 await store.installApp(dev, newer, async (e, f) => f.path === 'app.json' ? json11 : getFile(h, f));
 check((await hello()).version === '9.9.9', 'updated to 9.9.9');
 await throws(() => store.installApp(dev, { ...byId('hello'), files: [{ ...byId('hello').files[0], sha256: '0'.repeat(64) }] }, getFile),
-             'a file that doesn’t match its SHA-256 is never sent', /didn’t download/);
+             'a file that doesn\'t match its SHA-256 is never sent', /didn't download/);
 await throws(() => store.installApp(dev, { ...byId('hello'), files: byId('hello').files.filter(f => f.path !== 'app.json') }, getFile),
              'an app without app.json is refused by the device', /no app\.json/);
 check((await hello()).version === '9.9.9', 'a refused install leaves the installed one alone');

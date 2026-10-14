@@ -115,7 +115,7 @@ export function compareVersions(a, b) {
 const enc = new TextEncoder(), dec = new TextDecoder();
 const toHex = s => [...enc.encode(s)].map(b => b.toString(16).padStart(2, '0')).join('');
 export const fromHex = h => dec.decode(new Uint8Array((h.match(/../g) || []).map(x => parseInt(x, 16))));
-const tooOld = 'This device doesn’t know about Setup yet. Update its firmware on the Install page first.';
+const tooOld = 'This device doesn\'t know about Setup yet. Update its firmware on the Install page first.';
 
 // {settings: {name: {set, value}}, card, notes, waiting}
 export async function notesStatus(dev) {
@@ -134,7 +134,7 @@ export async function notesStatus(dev) {
 // Saves one setting; an empty value clears it.
 export async function notesSet(dev, name, value) {
   await dev.send(`N SET ${name} ${toHex(value)}`);
-  if (!(await dev.expect(`OK N SET ${name}`, 3000))) throw new Error(`The device didn’t save ${name}.`);
+  if (!(await dev.expect(`OK N SET ${name}`, 3000))) throw new Error(`The device didn't save ${name}.`);
 }
 
 // For values longer than one USB line (the eduroam CA): chunks with N ADD, the last one with N SET, which saves.
@@ -142,7 +142,7 @@ export async function notesSetLong(dev, name, value) {
   let i = 0;
   for (; value.length - i > 280; i += 280) {
     await dev.send(`N ADD ${name} ${toHex(value.slice(i, i + 280))}`);
-    if (!(await dev.expect(`OK N ADD ${name}`, 3000))) throw new Error(`The device didn’t take ${name}.`);
+    if (!(await dev.expect(`OK N ADD ${name}`, 3000))) throw new Error(`The device didn't take ${name}.`);
   }
   await notesSet(dev, name, value.slice(i));
 }
@@ -202,7 +202,7 @@ export async function notesRead(dev, id) {
   const done = await dev.expect('OK N READ', 15000, line => {
     if (line.startsWith('ND ')) for (const pair of line.slice(3).match(/../g) || []) bytes.push(parseInt(pair, 16));
   });
-  if (!done) throw new Error('The device couldn’t read that note.');
+  if (!done) throw new Error('The device couldn\'t read that note.');
   const [, , , size, crc] = done.split(' ');
   const data = new Uint8Array(bytes);
   if (data.length !== +size || crc32(data) !== +crc) throw new Error('The note arrived damaged. Try again.');

@@ -131,7 +131,7 @@ for (const folder of args) {
       await press('b');
       let s = await state();
       for (let i = 0; i < 40 && !s.detail.includes(`plugin:${id}`); i++) { await press('a'); s = await state(); }
-      if (!s.detail.includes(`plugin:${id}`)) problems.push('it isn’t in the Badge list');
+      if (!s.detail.includes(`plugin:${id}`)) problems.push('it isn\'t in the Badge list');
       else if (s.detail.startsWith('failed:')) problems.push(`its badge: ${s.detail.split(':').slice(3).join(':')}`);
       else { await sleep(3000); await shot(`${id}-badge`); }  // (after Badge's hint band has gone)
       for (let i = 0; i < 4 && (await state()).screen !== 'Home'; i++) await press('A');
@@ -144,7 +144,7 @@ for (const folder of args) {
     for (let i = 0; i < 14 && (await state()).sel !== 'Apps'; i++) await press('a');
     if ((await state()).screen === 'Home') await press('b');
     for (let i = 0; i < 30 && (await state()).detail !== `list:${id}`; i++) await press('a');
-    if ((await state()).detail !== `list:${id}`) throw new Error('it isn’t in the Apps list');
+    if ((await state()).detail !== `list:${id}`) throw new Error('it isn\'t in the Apps list');
     await press('b');
     await shot(`${id}-1-open`);
     let why = await failure();
@@ -165,7 +165,7 @@ for (const folder of args) {
     }
     // leave: hold A (an app may use it to go back a step first)
     for (let i = 0; i < 4 && (await state()).detail.startsWith('run:'); i++) await press('A');
-    if (!problems.length && (await state()).detail.startsWith('run:')) problems.push('hold A doesn’t leave it');
+    if (!problems.length && (await state()).detail.startsWith('run:')) problems.push('hold A doesn\'t leave it');
     if ((await state()).detail.startsWith('failed:')) await press('b');
     await store.removeApp(dev, id, false);
   } catch (e) {

@@ -109,7 +109,7 @@ const MENUS = [
     { label: 'Send it to the store', desc: 'A pull request, checked and reviewed', href: 'developers.html#share', icon: 'send' },
   ] },
   { label: 'Help', page: 'help.html', items: [
-    { label: 'Getting started', desc: 'From a new board to your first class', href: 'help.html#start', icon: 'flag' },
+    { label: 'Getting started', desc: 'Install, the SD card and your timetable', href: 'help.html#start', icon: 'flag' },
     { label: 'Questions', desc: 'Battery, files, privacy, updates', href: 'help.html#faq', icon: 'help' },
     { label: 'Troubleshooting', desc: "When it can't be found, or something's off", href: 'help.html#trouble', icon: 'wrench' },
     { label: 'Ask a question', desc: 'Open an issue on GitHub', href: `${REPO}/issues`, icon: 'chat', ext: true },
@@ -219,7 +219,7 @@ function footer() {
     el('div', { class: 'cols' },
       el('div', { class: 'about' },
         el('a', { class: 'brand', href: './' }, mark(), 'unidex', el('small', { text: 'tools & apps' })),
-        el('p', { text: 'Install, set up and add apps to unidex, the little e-ink screen for your keys or lanyard. Everything here talks to your device over USB, from your browser.' }),
+        el('p', { text: 'Install, set up and add apps to unidex, the little e-ink screen for your keys or lanyard. It all works over USB, from your browser.' }),
         el('a', { class: 'button secondary', href: SHOP, target: '_blank', rel: 'noopener' }, icon('bag'), 'unidex.shop')),
       col('Tools', [['Install or update', './'], ['Sync everything', 'tools.html#sync'], ['Badge maker', 'tools.html#badges'],
                     ['Pet designer', 'tools.html#pet'], ['Setup', 'setup.html']]),
@@ -242,9 +242,9 @@ function footer() {
 const PAGES = [
   ...MENUS.flatMap(m => m.items.map(it => ({ group: m.label === 'Apps' ? 'Apps' : m.label === 'Help' ? 'Help' : 'Pages',
     title: it.label, sub: it.desc, href: it.href, icon: it.icon, ext: it.ext, words: `${m.label} ${it.desc}` }))),
-  { group: 'Help', title: 'The website can’t find my unidex', sub: 'It’s asleep, or needs BOOT mode', href: 'help.html#not-found', icon: 'wrench', words: 'usb serial port connect missing list nothing' },
+  { group: 'Help', title: 'The website can\'t find my unidex', sub: 'It\'s asleep, or needs BOOT mode', href: 'help.html#not-found', icon: 'wrench', words: 'usb serial port connect missing list nothing' },
   { group: 'Help', title: 'Battery and charging', sub: 'Low battery, Charge me, the percentage', href: 'help.html#battery', icon: 'help', words: 'power flat charge me percent' },
-  { group: 'Help', title: '“App error” on the device', sub: 'What it means and what to do', href: 'help.html#app-error', icon: 'wrench', words: 'crash broken lua' },
+  { group: 'Help', title: '"App error" on the device', sub: 'What it means and what to do', href: 'help.html#app-error', icon: 'wrench', words: 'crash broken lua' },
   { group: 'Help', title: 'The SD card', sub: 'FAT32, the starter files, No SD card', href: 'help.html#sd', icon: 'file', words: 'card fat32 files storage' },
   { group: 'Help', title: 'Passing it on (factory reset)', sub: 'Wipe your WiFi, keys and Pet', href: 'help.html#reset', icon: 'trash', words: 'wipe sell give erase' },
   { group: 'Help', title: 'Privacy', sub: 'What the device and this site send, and where', href: `${REPO}/blob/main/PRIVACY.md`, icon: 'key', ext: true, words: 'data keys tracking' },
@@ -310,7 +310,7 @@ function run(q) {
   list.replaceChildren();
   active = 0;
   if (!found.length) {
-    list.append(el('li', { class: 'search-empty' }, `Nothing found for “${q}”. Try a shorter word, or `,
+    list.append(el('li', { class: 'search-empty' }, `Nothing found for "${q}". Try a shorter word, or `,
       el('a', { href: 'store.html', text: 'browse the apps' }), '.'));
     return;
   }
