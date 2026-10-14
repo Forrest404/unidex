@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Turns the unidex logo (the square "Secondary" PNG: the mascot above the word) into the boot screen's bitmaps.
 
-  python3 tools/make_logo.py "path/to/unidex Logo_Secondary.png"     (writes src/core/logo.h)
+  python3 tools/make_logo.py "path/to/unidex Logo_Secondary.png"     (writes src/core/logo.h and the unidex badge)
 
 The logo is pixel art on two grids: the mascot's squares are 160 px in the 8334 px original and the word's are
 about 113 px. Each square is sampled once at its centre and drawn as a whole number of screen pixels (4 for the
@@ -42,6 +42,20 @@ def c_array(name, data):
     return f"static const uint8_t {name}[] PROGMEM = {{\n" + "\n".join(lines) + "\n};\n"
 
 
+def write_badge(hw, hh, hb, tw, th, tb, path="starter/badges/02-unidex.bmp"):
+    """The unidex badge for new SD cards: the boot screen as a 200x200 1-bit BMP (laid out as drawSplash() does)."""
+    img = Image.new("1", (200, 200), 1)
+    gap = 8
+    top = (200 - (hh + gap + th)) // 2
+    for w, h, data, y0 in ((hw, hh, hb, top), (tw, th, tb, top + hh + gap)):
+        x0, bytes_per_row = (200 - w) // 2, (w + 7) // 8
+        for y in range(h):
+            for x in range(w):
+                if data[y * bytes_per_row + x // 8] & (0x80 >> (x % 8)):
+                    img.putpixel((x0 + x, y0 + y), 0)
+    img.save(path)
+
+
 def main():
     im = Image.open(sys.argv[1]).convert("L")
     black = np.array(im) < 128
@@ -62,7 +76,9 @@ def main():
         f.write("// 1 bit a pixel, MSB first, rows padded to whole bytes: Adafruit GFX drawBitmap().\n")
         f.write(f"static const int16_t LOGO_HEAD_W = {hw}, LOGO_HEAD_H = {hh}, LOGO_TEXT_W = {tw}, LOGO_TEXT_H = {th};\n")
         f.write(c_array("LOGO_HEAD", hb) + c_array("LOGO_TEXT", tb))
+    write_badge(hw, hh, hb, tw, th, tb)
     print(f"head {hw}x{hh} ({len(head[0])}x{len(head)} squares), word {tw}x{th} ({len(text[0])}x{len(text)} squares)")
 
 
-main()
+if __name__ == "__main__":
+    main()
