@@ -1,0 +1,131 @@
+#!/usr/bin/env python3
+"""Builds the website's app store catalogue (site/store/) from app folders.
+
+  python3 tools/make_store.py                     the examples in apps/examples (until the registry repo exists)
+  python3 tools/make_store.py path/to/apps ...    every app folder inside these folders
+
+Each app is checked with the same rules the device uses (src/apps/scripts/apps_logic.h, docs/APPS.md): an app
+that fails is left out and the build fails, so a broken app is never offered. Writes site/store/index.json and
+copies the files to site/store/apps/<id>/<version>/, with the SHA-256 of each, which the store page checks before
+sending a file to a device.
+"""
+import hashlib
+import json
+import os
+import re
+import shutil
+import sys
+
+API_LEVEL = 1
+MAX_FILE, MAX_APP = 64 * 1024, 512 * 1024
+PERMISSIONS = {"wifi", "mic", "meet"}
+ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,23}$")
+NAME = re.compile(r"^[a-z0-9_-][a-z0-9._-]{0,31}$")
+VERSION = re.compile(r"^\d{1,4}\.\d{1,4}\.\d{1,4}$")
+EXTS = (".lua", ".json", ".bmp", ".txt")
+
+
+def path_ok(p):
+    parts = p.split("/")
+    if len(parts) > 3 or parts[0] == "data" and len(parts) > 1:
+        return False
+    return all(NAME.match(s) and ".." not in s for s in parts) and p.endswith(EXTS)
+
+
+def check(folder):
+    """(entry, problems) for one app folder."""
+    problems = []
+    app_id = os.path.basename(os.path.normpath(folder))
+    try:
+        m = json.load(open(os.path.join(folder, "app.json")))
+    except (OSError, ValueError) as e:
+        return None, [f"app.json: {e}"]
+    def text(key, limit, need=False):
+        v = m.get(key, "")
+        if not isinstance(v, str) or len(v) > limit or (need and not v):
+            problems.append(f"{key}: {'needed, ' if need else ''}text up to {limit} characters")
+        return v if isinstance(v, str) else ""
+    if not ID.match(str(m.get("id", ""))):
+        problems.append("id: a-z, 0-9 and -, up to 24 characters")
+    elif m["id"] != app_id:
+        problems.append(f"id '{m['id']}' isn't its folder's name '{app_id}'")
+    name = text("name", 20, True)
+    author = text("author", 40)
+    desc = text("description", 140)
+    if not VERSION.match(str(m.get("version", ""))):
+        problems.append("version: major.minor.patch")
+    if m.get("api") != API_LEVEL:
+        problems.append(f"api: must be {API_LEVEL}")
+    if m.get("type", "app") != "app":
+        problems.append("type: only \"app\" for now")
+    perms = m.get("permissions", [])
+    if not isinstance(perms, list) or any(p not in PERMISSIONS for p in perms):
+        problems.append(f"permissions: only {sorted(PERMISSIONS)}")
+    icon = m.get("icon")
+    if icon is not None and (not isinstance(icon, list) or len(icon) != 40 or
+                             any(not isinstance(r, str) or len(r) != 40 for r in icon)):
+        problems.append("icon: 40 rows of 40 characters")
+    files, total = [], 0
+    for root, dirs, names in os.walk(folder):
+        dirs[:] = sorted(d for d in dirs if not d.startswith("."))
+        for n in sorted(names):
+            if n.startswith("."):
+                continue
+            full = os.path.join(root, n)
+            rel = os.path.relpath(full, folder).replace(os.sep, "/")
+            if rel in ("README.md", "LICENSE"):
+                continue  # for people reading the registry, not for the device
+            data = open(full, "rb").read()
+            if not path_ok(rel):
+                problems.append(f"{rel}: not a file an app may hold (a-z names, .lua .json .bmp .txt, two folders deep)")
+            if len(data) > MAX_FILE:
+                problems.append(f"{rel}: over 64 KB")
+            total += len(data)
+            files.append({"path": rel, "size": len(data), "sha256": hashlib.sha256(data).hexdigest(), "full": full})
+    if not any(f["path"] == "main.lua" for f in files):
+        problems.append("no main.lua")
+    if total > MAX_APP:
+        problems.append("over 512 KB in all")
+    files.sort(key=lambda f: f["path"] == "app.json")  # sent last, as the device expects
+    entry = {"id": m.get("id"), "name": name, "version": m.get("version"), "author": author, "description": desc,
+             "permissions": perms, "license": m.get("license", ""), "icon": icon, "bytes": total, "files": files}
+    return entry, problems
+
+
+def main():
+    here = os.path.dirname(os.path.abspath(__file__))
+    root = os.path.normpath(os.path.join(here, ".."))
+    sources = sys.argv[1:] or [os.path.join(root, "apps", "examples")]
+    out = os.path.join(root, "site", "store")
+    apps, failed = [], False
+    for src in sources:
+        for d in sorted(os.listdir(src)):
+            folder = os.path.join(src, d)
+            if not os.path.isdir(folder) or d.startswith("."):
+                continue
+            entry, problems = check(folder)
+            if problems:
+                failed = True
+                print(f"FAIL  {d}: " + "; ".join(problems))
+                continue
+            if any(a["id"] == entry["id"] for a in apps):
+                failed = True
+                print(f"FAIL  {d}: the id is used twice")
+                continue
+            apps.append(entry)
+            print(f"ok    {entry['id']} {entry['version']} ({entry['bytes']} bytes)")
+    if failed:
+        sys.exit("some apps failed their checks: nothing written")
+    shutil.rmtree(out, ignore_errors=True)
+    for a in apps:
+        for f in a["files"]:
+            dest = os.path.join(out, "apps", a["id"], a["version"], f["path"])
+            os.makedirs(os.path.dirname(dest), exist_ok=True)
+            shutil.copyfile(f.pop("full"), dest)
+    apps.sort(key=lambda a: a["name"].lower())
+    json.dump({"api": API_LEVEL, "apps": apps}, open(os.path.join(out, "index.json"), "w"), indent=1)
+    print(f"{len(apps)} apps in site/store/")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,6 +1,7 @@
 // Talks to a unidex over USB with Web Serial (Chrome / Edge on desktop).
 // The device's protocol (src/core/usbsync.cpp): "?" -> "unidex 1", T <unix> sets the clock,
-// E <count> <crc32> + lines sends calendar events, L / B / D list and upload badges.
+// E <count> <crc32> + lines sends calendar events, L / B / D list and upload badges, A ... installs apps
+// (store-device.js).
 
 export const supported = 'serial' in navigator;
 
@@ -51,7 +52,8 @@ export async function connect(port) {
     } catch (e) { /* port closed */ }
   })();
   const send = text => writer.write(enc.encode(text + '\n'));
-  // Next line starting with `prefix` (others are skipped), or null after `ms`. "ERR" throws.
+  // Next line starting with `prefix` (others are skipped), or null after `ms`. "ERR" (or "ERR <why>") throws; the
+  // error's `reply` holds the line.
   const expect = async (prefix, ms, onOther) => {
     const end = Date.now() + ms;
     while (Date.now() < end) {
@@ -60,7 +62,7 @@ export async function connect(port) {
         const line = buf.slice(0, nl).replace(/\r$/, '');
         buf = buf.slice(nl + 1);
         if (line.startsWith(prefix)) return line;
-        if (line === 'ERR') throw new Error('The device rejected it.');
+        if (line === 'ERR' || line.startsWith('ERR ')) throw Object.assign(new Error('The device rejected it.'), { reply: line });
         if (onOther) onOther(line);
       }
       await new Promise(r => setTimeout(r, 10));

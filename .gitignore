@@ -7,3 +7,4 @@ __pycache__/
 emu/out/
 emu/web/unidex.js
 emu/web/unidex.wasm
+site/store/

@@ -8,8 +8,9 @@ https://forrest404.github.io/unidex/ (Update keeps your settings and files).
 
 - **Apps** (new, first part): small apps written in Lua, kept on the SD card and opened from Home > Apps. They run in
   a sandbox with their own memory and time limits, and an app that breaks shows "App error" instead of crashing
-  the device. Hold B on one to offload it (its data stays) or delete it. Writing one: `docs/APPS.md`. The store
-  page on the website is next; until then `tools/appinstall.py` installs an app over USB.
+  the device. Hold B on one to offload it (its data stays) or delete it. Writing one: `docs/APPS.md`.
+- **Website: Apps page.** See what is on your unidex, and install, update, offload or delete apps over USB. Delete
+  says how much data will be lost first.
 - **Setup:** the website's Notes page is now called Setup (the old address still takes you there), and the device's
   hints say Setup too.
 - **WiFi:** you can save up to five networks (home, eduroam or work, a phone hotspot). The device joins whichever is

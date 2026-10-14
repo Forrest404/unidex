@@ -44,3 +44,8 @@ jobs:
           ~/emsdk/emsdk install 3.1.74
           ~/emsdk/emsdk activate 3.1.74
           EMSDK_ENV="$HOME/emsdk/emsdk_env.sh" bash emu/build.sh
+
+      - name: App store catalogue and the store page's USB steps against the emulator
+        run: |
+          python3 tools/make_store.py
+          node emu/test/store_test.mjs

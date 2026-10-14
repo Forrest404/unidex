@@ -1,7 +1,7 @@
 # Writing apps for unidex
 
-DRAFT: the device side (the Apps app, this API, the USB commands) is built; the store page and the review are next.
-`tools/appinstall.py` installs an app over USB until the store page exists.
+DRAFT: the device side (the Apps app, this API, the USB commands) and the website's Apps page are built; the review
+of submitted apps is next. `tools/appinstall.py` installs an app folder over USB, for trying your own.
 
 An unidex app is a small folder of Lua files on the SD card. You write it in a text editor, the website copies it
 to your device over USB, and it shows up in the Apps list. No toolchain, no reflashing.

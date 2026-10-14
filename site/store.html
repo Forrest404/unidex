@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>unidex: apps</title>
+<meta name="description" content="Apps for the unidex e-ink device: install, update, offload and delete them over USB, and write your own in Lua.">
+<link rel="canonical" href="https://forrest404.github.io/unidex/store.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="unidex">
+<meta property="og:title" content="unidex apps">
+<meta property="og:description" content="Apps for the unidex e-ink device: install, update, offload and delete them over USB, and write your own in Lua.">
+<meta property="og:url" content="https://forrest404.github.io/unidex/store.html">
+<meta property="og:image" content="https://forrest404.github.io/unidex/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<style>
+  .connectRow { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .connectRow .status { margin: 0; }
+  .appList { list-style: none; padding: 0; margin: 14px 0 0; }
+  .appList li { display: flex; gap: 12px; align-items: center; padding: 10px 0; border-top: 1px solid var(--line); }
+  .appList li:first-child { border-top: 0; }
+  .appList .info { flex: 1; min-width: 0; }
+  .appList .name { font-weight: 600; }
+  .appList .meta { color: var(--muted); font-size: 13px; }
+  .appList .actions { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .appList button, .storeCard button { min-height: 34px; padding: 5px 12px; font-size: 14px; }
+  button.danger { background: transparent; color: var(--bad); border-color: var(--line-strong); }
+  button.danger:hover:not(:disabled) { opacity: 1; background: var(--hover); }
+  .chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 1px 8px; border-radius: 99px;
+          border: 1px solid var(--line-strong); color: var(--muted); margin-left: 6px; vertical-align: 1px; }
+  .chip.new { color: var(--fg); border-color: var(--fg); }
+  .chip.bad { color: var(--bad); border-color: var(--bad); }
+  .storeGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 640px) { .storeGrid { grid-template-columns: 1fr; } }
+  .storeCard { display: flex; flex-direction: column; gap: 10px; }
+  .storeCard .top { display: flex; gap: 12px; align-items: center; }
+  .storeCard h3 { margin: 0; font-size: 16px; }
+  .storeCard .by { color: var(--muted); font-size: 13px; }
+  .storeCard p { margin: 0; }
+  .storeCard .perms { font-size: 13px; color: var(--muted); }
+  .storeCard .cardFoot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: auto; }
+  .storeCard .size { font-size: 13px; color: var(--muted); }
+  canvas.icon { width: 48px; height: 48px; image-rendering: pixelated; background: #fff; border-radius: 8px;
+                border: 1px solid var(--line); flex: none; }
+  .appList canvas.icon { width: 36px; height: 36px; border-radius: 6px; }
+  dialog { border: 1px solid var(--line); border-radius: 12px; padding: 20px; max-width: 380px; width: calc(100% - 32px);
+           background: var(--card); color: var(--fg); }
+  dialog::backdrop { background: rgba(0, 0, 0, .4); }
+  dialog h2 { margin-top: 0; }
+  dialog .buttons { display: flex; gap: 8px; justify-content: flex-end; margin-top: 18px; }
+  dialog button.danger { background: var(--bad); color: #fff; border-color: transparent; }
+  progress { width: 100%; height: 6px; accent-color: var(--accent); }
+</style>
+</head>
+<body>
+<nav>
+  <a class="brand" href="./">unidex</a>
+  <a href="./">Install</a>
+  <a href="tools.html">Tools</a>
+  <a href="setup.html">Setup</a>
+  <a href="store.html" aria-current="page">Apps</a>
+  <a href="https://github.com/Forrest404/unidex">Source code</a>
+</nav>
+<main>
+  <h1>Apps</h1>
+  <p class="sub">Small apps for your unidex, written by anyone and checked before they are listed. They live on the
+    SD card and open from <b>Apps</b> on the device. Plug it in, press one of its buttons, then Connect.</p>
+  <p id="unsupported" class="unsupported" hidden>Your browser can't talk to USB devices. Use <b>Chrome</b> or
+    <b>Edge</b> on a computer to install apps. You can still look through them below.</p>
+
+  <section id="device">
+    <h2>On your unidex</h2>
+    <div class="card">
+      <div class="connectRow">
+        <button id="connect">Connect</button>
+        <p id="devStatus" class="status">Not connected.</p>
+      </div>
+      <progress id="progress" max="1" value="0" hidden></progress>
+      <ul id="devApps" class="appList" hidden></ul>
+    </div>
+  </section>
+
+  <section id="store">
+    <h2>Store</h2>
+    <p id="storeStatus" class="muted">Loading the list…</p>
+    <div id="storeGrid" class="storeGrid"></div>
+  </section>
+
+  <section id="make">
+    <h2>Make your own</h2>
+    <p>An app is a folder with a short <code>app.json</code> and a <code>main.lua</code>. The guide has the whole
+      API, the limits, and an example to start from:
+      <a href="https://github.com/Forrest404/unidex/blob/beta/docs/APPS.md">writing apps for unidex</a>.
+      Submitting apps to this store is not open yet.</p>
+  </section>
+</main>
+
+<dialog id="confirm">
+  <h2 id="confirmTitle"></h2>
+  <p id="confirmText"></p>
+  <div class="buttons">
+    <button class="secondary" value="cancel" id="confirmNo">Cancel</button>
+    <button value="ok" id="confirmYes"></button>
+  </div>
+</dialog>
+
+<footer class="foot">
+  <a href="https://github.com/Forrest404/unidex">Source code</a>
+  <a href="https://github.com/Forrest404/unidex/blob/main/LICENSE">Licence</a>
+  <a href="https://github.com/Forrest404/unidex/blob/main/PRIVACY.md">Privacy</a>
+  <a href="https://github.com/Forrest404/unidex/issues">Questions and problems</a>
+  <a href="https://www.unidex.shop">Join the wait list</a>
+</footer>
+
+<script type="module" src="store.js"></script>
+</body>
+</html>
