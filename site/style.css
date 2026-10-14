@@ -160,7 +160,7 @@ details > :not(summary) { margin: 0 0 16px; }
 .brand { display: flex; align-items: center; gap: 9px; text-decoration: none; font: 500 15px var(--font-mono);
          letter-spacing: -.01em; white-space: nowrap; margin-right: 10px; }
 .brand small { font: 400 13px var(--font-mono); color: var(--muted); }
-.brand svg { width: 18px; height: 18px; }
+.brand .logo { height: 32px; width: 152px; display: block; }  /* 1000 x 211: one screen pixel per robot pixel */
 .menus { display: flex; align-items: center; gap: 0; list-style: none; margin: 0; padding: 0; }
 .menus > li { position: relative; margin: 0; }
 .menus .top { font: 400 13px var(--font-mono); color: var(--fg); background: none; border: 0; box-shadow: none;

@@ -1,4 +1,9 @@
-# unidex
+<h1>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/logo-white.svg">
+    <img alt="unidex" src="docs/brand/logo.svg" width="320">
+  </picture>
+</h1>
 
 **A pocket e-ink OS for the Waveshare ESP32-S3 1.54" e-paper board.** It shows your next class with a live countdown,
 records voice notes and tidies them into Markdown for Obsidian, and keeps a little Pet you can dress up, which meets

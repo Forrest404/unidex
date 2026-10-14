@@ -5,7 +5,7 @@ tools/walkthroughs/readme.txt takes (devshot.py, 600x600 at 3x):
   ~/.platformio/penv/bin/python tools/devshot.py run tools/walkthroughs/readme.txt --out shots/readme
   python3 tools/readme_images.py shots/readme          (needs Pillow; add --og to remake the link preview too)
 
-Plain: the e-paper's tone for the screens with a thin frame, Liberation Sans (tools/fonts) for the preview's text.
+Plain: the e-paper's tone for the screens with a thin frame, the logo (docs/brand) and Liberation Sans (tools/fonts) for the preview.
 """
 import os, sys
 from PIL import Image, ImageDraw, ImageFont
@@ -40,7 +40,9 @@ if "--og" in sys.argv:  # the link preview: the name and a few words on the left
     fonts = os.path.join(repo, "tools", "fonts")
     og = Image.new("RGB", (1200, 630), BG)
     d = ImageDraw.Draw(og)
-    d.text((72, 170), "unidex", font=ImageFont.truetype(os.path.join(fonts, "LiberationSans-Bold.ttf"), 96), fill=INK)
+    logo = Image.open(os.path.join(repo, "docs", "brand", "logo.png"))  # the robot and the name, in pixels
+    logo = logo.resize((380, round(logo.height * 380 / logo.width)), Image.NEAREST)
+    og.paste(logo, (76, 222 - logo.height // 2), logo)
     body = ImageFont.truetype(os.path.join(fonts, "LiberationSans-Regular.ttf"), 34)
     for i, line in enumerate(["A pocket e-ink OS for", "the Waveshare ESP32-S3:", "timetable, voice notes,",
                               "a Pet, badges and games."]):
