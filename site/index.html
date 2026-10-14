@@ -27,19 +27,14 @@
 </style>
 </head>
 <body>
-<nav>
-  <a class="brand" href="./">unidex</a>
-  <a href="./" aria-current="page">Install</a>
-  <a href="tools.html">Tools</a>
-  <a href="setup.html">Setup</a>
-  <a href="store.html">Apps</a>
-  <a href="https://github.com/Forrest404/unidex">Source code</a>
-</nav>
+<header data-chrome><noscript><nav><a href="./">Install</a> <a href="tools.html">Tools</a> <a href="setup.html">Setup</a> <a href="store.html">Apps</a> <a href="https://github.com/Forrest404/unidex">Source code</a></nav></noscript></header>
 <main>
+  <div class="page-head"><p class="eyebrow">Install</p>
   <h1>Install unidex</h1>
-  <p class="sub">A small e-ink OS for the Waveshare ESP32-S3-ePaper-1.54: timetable with calendar events, voice
+  <p class="lead">A small e-ink OS for the Waveshare ESP32-S3-ePaper-1.54: timetable with calendar events, voice
     notes, a Pet you dress up that plays with your friends' Pets, name badges, one-button games, a WiFi network
     collection game and a chooser. Install it straight from your browser, with nothing to download.</p>
+  </div>
   <p class="note">No board yet? Pre-orders for a fully assembled and tested unidex are closed:
     <a href="https://www.unidex.shop">join the wait list</a>.</p>
 
@@ -93,15 +88,18 @@
       (<a href="https://github.com/Forrest404/unidex/blob/main/CHANGELOG.md">what's new</a>). Each new release on
       GitHub updates this page automatically.</p>
   </section>
+  <section>
+    <h2>Next</h2>
+    <div class="tiles">
+      <a class="tile" href="tools.html"><b>Tools</b><span>Sync everything, make badges, dress up your Pet, send your calendar.</span></a>
+      <a class="tile" href="setup.html"><b>Setup</b><span>WiFi networks and keys for voice notes.</span></a>
+      <a class="tile" href="store.html"><b>Apps</b><span>Add apps and plugins, or make your own.</span></a>
+      <a class="tile" href="help.html#start"><b>Help</b><span>Getting started, questions and troubleshooting.</span></a>
+    </div>
+  </section>
 </main>
-<footer class="foot">
-  <a href="https://github.com/Forrest404/unidex">Source code</a>
-  <a href="https://github.com/Forrest404/unidex/blob/main/LICENSE">Licence</a>
-  <a href="https://github.com/Forrest404/unidex/blob/main/PRIVACY.md">Privacy</a>
-  <a href="https://github.com/Forrest404/unidex/issues">Questions and problems</a>
-  <a href="https://www.unidex.shop">Join the wait list</a>
-  <a href="https://ko-fi.com/forrest404">Support on Ko-fi</a>
-</footer>
+<footer data-chrome></footer>
+<script type="module" src="chrome.js"></script>
 <script type="module">
   // Update writes only the app and never erases (site/update.js), so settings and the SD card stay.
   import { latestVersion, updateFirmware } from './update.js';

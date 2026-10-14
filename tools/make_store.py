@@ -3,6 +3,7 @@
 
   python3 tools/make_store.py                     the examples in apps/examples (until the registry repo exists)
   python3 tools/make_store.py path/to/apps ...    every app folder inside these folders
+  ... --source https://github.com/Forrest404/unidex-apps/tree/main/apps   where each app's code can be read
 
 Each app is checked with the same rules the device uses (src/apps/scripts/apps_logic.h, docs/APPS.md): an app
 that fails is left out and the build fails, so a broken app is never offered. Writes site/store/index.json and
@@ -14,12 +15,14 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 
 API_LEVEL = 1
 MAX_FILE, MAX_APP = 64 * 1024, 512 * 1024
 PERMISSIONS = {"wifi", "mic", "meet"}
 EXTENDABLE = {"badge"}  # the built-in apps plugins can add to (apps_logic.h, extendable())
+CATEGORIES = ("games", "tools", "time", "badges", "learning", "fun", "other")  # for the Apps page's filters
 ID = re.compile(r"^[a-z0-9][a-z0-9-]{0,23}$")
 NAME = re.compile(r"^[a-z0-9_-][a-z0-9._-]{0,31}$")
 VERSION = re.compile(r"^\d{1,4}\.\d{1,4}\.\d{1,4}$")
@@ -67,6 +70,9 @@ def check(folder):
     perms = m.get("permissions", [])
     if not isinstance(perms, list) or any(p not in PERMISSIONS for p in perms):
         problems.append(f"permissions: only {sorted(PERMISSIONS)}")
+    category = m.get("category", "other")
+    if category not in CATEGORIES:
+        problems.append(f"category: one of {', '.join(CATEGORIES)}")
     icon = m.get("icon")
     if icon is not None and (not isinstance(icon, list) or len(icon) != 40 or
                              any(not isinstance(r, str) or len(r) != 40 for r in icon)):
@@ -94,15 +100,31 @@ def check(folder):
         problems.append("over 512 KB in all")
     files.sort(key=lambda f: f["path"] == "app.json")  # sent last, as the device expects
     entry = {"id": m.get("id"), "name": name, "version": m.get("version"), "author": author, "description": desc,
-             "type": kind, "extends": extends if kind == "plugin" else "",
+             "type": kind, "extends": extends if kind == "plugin" else "", "category": category,
              "permissions": perms, "license": m.get("license", ""), "icon": icon, "bytes": total, "files": files}
     return entry, problems
+
+
+def updated(folder):
+    """The date of the last change to an app folder ("2026-10-14"), from git if it's in a repository with history."""
+    try:
+        out = subprocess.run(["git", "-C", folder, "log", "-1", "--format=%cs", "--", "."], capture_output=True,
+                             text=True, timeout=20)
+        return out.stdout.strip() if out.returncode == 0 else ""
+    except (OSError, subprocess.SubprocessError):
+        return ""
 
 
 def main():
     here = os.path.dirname(os.path.abspath(__file__))
     root = os.path.normpath(os.path.join(here, ".."))
-    sources = sys.argv[1:] or [os.path.join(root, "apps", "examples")]
+    args = sys.argv[1:]
+    source = ""
+    if "--source" in args:
+        i = args.index("--source")
+        source = args[i + 1].rstrip("/")
+        del args[i:i + 2]
+    sources = args or [os.path.join(root, "apps", "examples")]
     out = os.path.join(root, "site", "store")
     apps, failed = [], False
     for src in sources:
@@ -119,6 +141,8 @@ def main():
                 failed = True
                 print(f"FAIL  {d}: the id is used twice")
                 continue
+            entry["updated"] = updated(folder)
+            entry["source"] = f"{source}/{entry['id']}" if source else ""
             apps.append(entry)
             print(f"ok    {entry['id']} {entry['version']} ({entry['bytes']} bytes)")
     if failed:

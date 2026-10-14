@@ -1,255 +1,243 @@
-// The Apps page: what is on the unidex (over USB), the store's list (store/index.json, built by
-// tools/make_store.py), and install, update, offload and delete. The USB steps are in store-device.js.
-import { supported, connect, knownPort, asleepHint } from './serial.js';
-import { listApps, installApp, removeApp, dataBytes, compareAppVersions, tooOld } from './store-device.js';
+// The Apps page: the library (search, filters, sort, all kept in the address so links and Back keep them) and your
+// unidex (what's on it, with Update, Offload and Delete). Shared pieces are in store-ui.js.
+import { supported } from './serial.js';
+import { STORE_REPO } from './chrome.js';
+import {
+  el, icon, kb, plural, kindLabel, iconTile, loadCatalogue, device, onDevice, onDeviceChange, reportTo, withDevice,
+  stateOf, install, offload, remove, compareAppVersions, CATEGORIES, EXTENDS, PERMISSIONS,
+} from './store-ui.js';
 
 const $ = id => document.getElementById(id);
-const DEFAULT_ICON = [
-  '........................................',
-  '........................................',
-  '........................................',
-  '........................................',
-  '.....############......############.....',
-  '....##############....##############....',
-  '....##..........##....##..........##....',
-  '....##..........##....##..........##....',
-  '....##..........##....##..........##....',
-  '....##..........##....##..........##....',
-  '....##..........##....##..........##....',
-  '....##..........##....##..........##....',
-  '....##..........##....##..........##....',
-  '....##..........##....##..........##....',
-  '....##..........##....##..........##....',
-  '....##..........##....##..........##....',
-  '....##############....##############....',
-  '.....############......############.....',
-  '........................................',
-  '........................................',
-  '........................................',
-  '........................................',
-  '.....############.......................',
-  '....##############..........##..........',
-  '....##..........##..........##..........',
-  '....##..........##..........##..........',
-  '....##..........##..........##..........',
-  '....##..........##..........##..........',
-  '....##..........##.....############.....',
-  '....##..........##.....############.....',
-  '....##..........##..........##..........',
-  '....##..........##..........##..........',
-  '....##..........##..........##..........',
-  '....##..........##..........##..........',
-  '....##############..........##..........',
-  '.....############.......................',
-  '........................................',
-  '........................................',
-  '........................................',
-  '........................................',
+let catalogue = [];
+
+// ---- filters ----
+// Each facet: a URL key and how an app's values are read. Within a facet any ticked option matches (or);
+// across facets all must (and).
+const FACETS = [
+  { key: 'type', title: 'Type', values: a => [a.type || 'app'], label: v => (v === 'plugin' ? 'Plugins' : 'Apps') },
+  { key: 'cat', title: 'Category', values: a => [a.category || 'other'], label: v => CATEGORIES[v] || v },
+  { key: 'with', title: 'Works with', values: a => (a.type === 'plugin' ? [a.extends] : []), label: v => EXTENDS[v] || v,
+    hint: 'Plugins that add to a built-in app' },
+  { key: 'perm', title: 'Permissions', values: a => (a.permissions.length ? a.permissions : ['none']),
+    label: v => (v === 'none' ? 'No special permissions' : PERMISSIONS[v] || v) },
+  { key: 'dev', title: 'On your unidex', values: a => { const s = stateOf(a); return s ? [s === 'offloaded' ? 'none' : s] : []; },
+    label: v => ({ installed: 'Installed', update: 'Update available', none: 'Not installed' })[v], fixed: ['installed', 'update', 'none'],
+    needsDevice: true },
 ];
-const EXTENDS = { badge: 'Badge' };  // the built-in apps plugins add to
-const PERMISSION_TEXT = { wifi: 'uses WiFi', mic: 'uses the microphone', meet: 'uses the Pet radio' };
 
-// The board is opened for each action and let go again after it, so other pages and tools can use it meanwhile;
-// `deviceApps` is what it last said (null: never connected).
-let catalogue = [], device = null, deviceApps = null, busy = false;
-
-const el = (tag, props = {}, ...children) => {
-  const e = Object.assign(document.createElement(tag), props);
-  for (const c of children) if (c != null) e.append(c);
-  return e;
+const params = () => new URLSearchParams(location.search);
+const chosen = () => {
+  const p = params(), out = {};
+  for (const f of FACETS) out[f.key] = new Set((p.get(f.key) || '').split(',').filter(Boolean));
+  return out;
 };
+const query = () => (params().get('q') || '').trim();
+const sortBy = () => params().get('sort') || 'name';
 
-function iconCanvas(rows) {
-  const c = el('canvas', { width: 40, height: 40, className: 'icon' });
-  c.setAttribute('aria-hidden', 'true');
-  const g = c.getContext('2d');
-  g.fillStyle = '#fff';
-  g.fillRect(0, 0, 40, 40);
-  g.fillStyle = '#000';
-  (rows && rows.length === 40 ? rows : DEFAULT_ICON).forEach((row, y) => {
-    for (let x = 0; x < 40; x++) if (row[x] === '#') g.fillRect(x, y, 1, 1);
-  });
-  return c;
+function setParam(key, value) {
+  const p = params();
+  if (value) p.set(key, value); else p.delete(key);
+  const s = p.toString();
+  history.replaceState(null, '', s ? `?${s}${location.hash}` : location.pathname + location.hash);
+  render();
 }
 
-const kb = n => n < 1024 ? `${n} byte${n === 1 ? '' : 's'}` : `${Math.ceil(n / 1024)} KB`;
-const inStore = id => catalogue.find(a => a.id === id);
-const onDevice = id => deviceApps && deviceApps.find(a => a.id === id);
-
-function status(text, kind = '') {
-  $('devStatus').textContent = text;
-  $('devStatus').className = 'status ' + kind;
+const norm = s => (s || '').toLowerCase();
+function textMatch(a, q) {
+  const hay = norm(`${a.name} ${a.author} ${a.description} ${a.id} ${CATEGORIES[a.category] || ''} ${kindLabel(a)}`);
+  return norm(q).split(/\s+/).filter(Boolean).every(w => hay.includes(w));
 }
 
-function ask(title, text, yes, danger) {
-  $('confirmTitle').textContent = title;
-  $('confirmText').textContent = text;
-  $('confirmYes').textContent = yes;
-  $('confirmYes').className = danger ? 'danger' : '';
-  return new Promise(resolve => {
-    const d = $('confirm');
-    const done = ok => { d.close(); resolve(ok); };
-    $('confirmYes').onclick = () => done(true);
-    $('confirmNo').onclick = () => done(false);
-    d.oncancel = () => resolve(false);
-    d.showModal();
-  });
-}
-
-async function getFile(entry, f) {
-  const r = await fetch(`store/apps/${entry.id}/${entry.version}/${f.path}`, { cache: 'no-cache' });
-  if (!r.ok) throw new Error(`${entry.name}: couldn’t download ${f.path}.`);
-  return new Uint8Array(await r.arrayBuffer());
-}
-
-// --- drawing the two lists ---
-function renderDevice() {
-  const list = $('devApps');
-  list.replaceChildren();
-  list.hidden = !deviceApps;
-  if (!deviceApps) return;
-  if (!deviceApps.length) {
-    list.append(el('li', { className: 'meta' }, 'No apps on it yet. Install one from the store below.'));
-    return;
+// Does `a` pass the search and every facet except `skip` (for an option's count)?
+function passes(a, sel, q, skip) {
+  if (q && !textMatch(a, q)) return false;
+  for (const f of FACETS) {
+    if (f.key === skip || !sel[f.key].size) continue;
+    if (!f.values(a).some(v => sel[f.key].has(v))) return false;
   }
-  for (const a of deviceApps) {
-    const s = inStore(a.id);
-    const name = s ? s.name : a.id;
-    const info = el('div', { className: 'info' }, el('div', { className: 'name' }, name));
-    const meta = [];
-    if (a.version) meta.push(`version ${a.version}`);
-    meta.push(a.version ? `${kb(a.code)} of code` : 'offloaded');
-    meta.push(`${kb(a.data)} of data`);
-    info.append(el('div', { className: 'meta' }, meta.join(' · ')));
-    const nameLine = info.firstChild;
-    const newer = s && a.version && compareAppVersions(s.version, a.version) > 0;
-    if (a.problem) nameLine.append(el('span', { className: 'chip bad', title: a.problem }, 'can’t run'));
-    else if (newer) nameLine.append(el('span', { className: 'chip new' }, `${s.version} available`));
-    else if (!s) nameLine.append(el('span', { className: 'chip', title: 'Installed by hand, not from this store' }, 'not in the store'));
-    if (s && s.type === 'plugin') nameLine.append(el('span', { className: 'chip' }, `Plugin for ${EXTENDS[s.extends] || s.extends}`));
-    if (a.problem) info.append(el('div', { className: 'meta bad' }, a.problem));
+  return true;
+}
 
-    const actions = el('div', { className: 'actions' });
-    if (newer) actions.append(el('button', { textContent: 'Update', onclick: () => install(s) }));
-    if (!a.version && s) actions.append(el('button', { textContent: 'Reinstall', onclick: () => install(s) }));
-    if (a.version) actions.append(el('button', { className: 'secondary', textContent: 'Offload', onclick: () => offload(a, name) }));
-    actions.append(el('button', { className: 'danger', textContent: a.version ? 'Delete' : 'Delete data',
-                                  onclick: () => remove(a, name) }));
-    list.append(el('li', {}, iconCanvas(s && s.icon), info, actions));
+function sorted(list) {
+  const by = sortBy();
+  const cmp = {
+    name: (a, b) => a.name.localeCompare(b.name),
+    updated: (a, b) => (b.updated || '').localeCompare(a.updated || '') || a.name.localeCompare(b.name),
+    small: (a, b) => a.bytes - b.bytes,
+    large: (a, b) => b.bytes - a.bytes,
+  }[by] || ((a, b) => a.name.localeCompare(b.name));
+  return [...list].sort(cmp);
+}
+
+function renderFacets(sel, q) {
+  const box = $('facets');
+  box.replaceChildren();
+  for (const f of FACETS) {
+    const options = f.fixed || [...new Set(catalogue.flatMap(f.values))].sort((x, y) => f.label(x).localeCompare(f.label(y)));
+    if (!options.length && !f.needsDevice) continue;
+    const disabled = f.needsDevice && !device.apps;
+    const set = el('fieldset', { class: 'facet', disabled },
+      el('legend', { text: f.title }),
+      disabled ? el('p', { class: 'hint', text: 'Connect your unidex to use these.' }) : f.hint ? el('p', { class: 'hint', text: f.hint }) : null);
+    for (const v of options) {
+      const n = disabled ? null : catalogue.filter(a => passes(a, sel, q, f.key) && f.values(a).includes(v)).length;
+      const box2 = el('input', { type: 'checkbox', checked: sel[f.key].has(v),
+        onchange: e => {
+          const s = new Set(sel[f.key]);
+          e.target.checked ? s.add(v) : s.delete(v);
+          setParam(f.key, [...s].join(','));
+        } });
+      set.append(el('label', { class: 'check' }, box2, el('span', { text: f.label(v) }), n == null ? null : el('small', { text: String(n) })));
+    }
+    box.append(set);
   }
 }
 
-function renderStore() {
-  const grid = $('storeGrid');
-  grid.replaceChildren();
-  for (const s of catalogue) {
-    const d = onDevice(s.id);
-    let label = 'Install', disabled = !deviceApps || busy;
-    if (d && d.version && compareAppVersions(s.version, d.version) <= 0) label = 'Installed', disabled = true;
-    else if (d && d.version) label = 'Update';
-    else if (d) label = 'Reinstall';
-    const perms = s.permissions.length ? s.permissions.map(p => PERMISSION_TEXT[p] || p).join(', ')
-                                       : 'No special permissions';
-    grid.append(el('div', { className: 'card storeCard' },
-      el('div', { className: 'top' }, iconCanvas(s.icon),
-        el('div', {}, el('h3', { textContent: s.name }),
-          el('div', { className: 'by', textContent: `${s.author || 'unknown'} · version ${s.version}` }),
-          s.type === 'plugin' ? el('span', { className: 'chip', textContent: `Plugin for ${EXTENDS[s.extends] || s.extends}` }) : null)),
-      el('p', { textContent: s.description }),
-      el('div', { className: 'perms', textContent: perms[0].toUpperCase() + perms.slice(1) + '.' }),
-      el('div', { className: 'cardFoot' }, el('span', { className: 'size', textContent: kb(s.bytes) }),
-        el('button', { textContent: label, disabled, title: deviceApps ? '' : 'Connect your unidex first',
-                       onclick: () => install(s) }))));
+function renderChips(sel, q) {
+  const box = $('activeChips');
+  box.replaceChildren();
+  const chips = [];
+  if (q) chips.push([`“${q}”`, () => { $('q').value = ''; setParam('q', ''); }]);
+  for (const f of FACETS) for (const v of sel[f.key]) {
+    chips.push([f.label(v), () => { const s = new Set(sel[f.key]); s.delete(v); setParam(f.key, [...s].join(',')); }]);
   }
+  for (const [text, drop] of chips)
+    box.append(el('button', { class: 'chip removable', type: 'button', 'aria-label': `Remove the filter ${text}`, onclick: drop },
+      text, icon('close')));
+  $('clearFilters').hidden = !chips.length;
+  $('filterCount').hidden = !chips.length;
+  $('filterCount').textContent = chips.length;
+}
+
+// ---- the cards ----
+function stateChip(a) {
+  const s = stateOf(a);
+  if (s === 'installed') return el('span', { class: 'chip ok' }, icon('check'), 'Installed');
+  if (s === 'update') return el('span', { class: 'chip new', text: `Update to ${a.version}` });
+  if (s === 'offloaded') return el('span', { class: 'chip', text: 'Offloaded' });
+  return null;
+}
+
+function actionButton(a) {
+  const s = stateOf(a);
+  const label = s === 'installed' ? 'Installed' : s === 'update' ? 'Update' : s === 'offloaded' ? 'Reinstall' : 'Install';
+  return el('button', { class: s === 'installed' ? 'quiet' : 'secondary', type: 'button', text: label,
+    disabled: !supported || device.busy || s === 'installed',
+    title: supported ? '' : 'Use Chrome or Edge on a computer to install apps',
+    onclick: () => install(a) });
+}
+
+function card(a) {
+  const link = `app.html?id=${encodeURIComponent(a.id)}`;
+  const tags = el('div', { class: 'tags' }, el('span', { class: 'chip', text: CATEGORIES[a.category] || 'Other' }));
+  if (a.type === 'plugin') tags.append(el('span', { class: 'chip' }, icon('layers'), kindLabel(a)));
+  for (const p of a.permissions) tags.append(el('span', { class: 'chip', text: PERMISSIONS[p] || p }));
+  return el('article', { class: 'app-card' },
+    el('div', { class: 'top' }, iconTile(a.icon, 52),
+      el('div', {}, el('h3', {}, el('a', { href: link, class: 'stretch', text: a.name })),
+        el('p', { class: 'by', text: `${a.author || 'unknown'} · v${a.version}` }))),
+    el('p', { class: 'desc', text: a.description }),
+    tags,
+    el('div', { class: 'foot' },
+      el('span', { class: 'meta', text: kb(a.bytes) }),
+      stateChip(a), actionButton(a)));
+}
+
+function createCard() {
+  return el('a', { class: 'app-card create', href: STORE_REPO, target: '_blank', rel: 'noopener' },
+    el('span', { class: 'ic' }, icon('plus')),
+    el('h3', { text: 'Create an app ↗' }),
+    el('p', { class: 'desc', text: 'Make your own in a few lines of Lua, try it in the emulator, and send it in. Start from the template.' }));
 }
 
 function render() {
+  const sel = chosen(), q = query();
+  if ($('q').value.trim() !== q && document.activeElement !== $('q')) $('q').value = q;
+  $('sort').value = sortBy();
+  renderFacets(sel, q);
+  renderChips(sel, q);
+  const shown = sorted(catalogue.filter(a => passes(a, sel, q)));
+  $('resultsTitle').textContent = catalogue.length
+    ? (shown.length === catalogue.length ? plural(catalogue.length, 'app') : `${shown.length} of ${plural(catalogue.length, 'app')}`)
+    : 'No apps in the store yet';
+  const grid = $('grid');
+  grid.replaceChildren(...shown.map(card));
+  if (!shown.length && catalogue.length) {
+    grid.append(el('div', { class: 'empty' }, el('h3', { text: 'Nothing matches' }),
+      el('p', { class: 'muted', text: 'Try fewer filters or a shorter word.' }),
+      el('button', { class: 'secondary', type: 'button', text: 'Clear all filters', onclick: clearAll })));
+  }
+  grid.append(createCard());
   renderDevice();
-  renderStore();
-  $('connect').textContent = deviceApps ? 'Refresh' : 'Connect';
-  $('connect').disabled = busy || !supported;
 }
 
-// --- talking to the device ---
-async function run(work) {
-  if (busy) return;
-  busy = true;
+function clearAll() {
+  $('q').value = '';
+  history.replaceState(null, '', location.pathname + (sortBy() !== 'name' ? `?sort=${sortBy()}` : '') + location.hash);
   render();
-  try {
-    device = await connect(await knownPort() || undefined);
-    await work(device);
-    deviceApps = await listApps(device);
-  } catch (e) {
-    if (e.name === 'NotFoundError') status(asleepHint, 'bad');
-    else if (e.name === 'InvalidStateError' || /already open|Failed to open/i.test(e.message))
-      status('Another page or program is using the unidex. Close it (or its tab), then try again.', 'bad');
-    else status(e.message, 'bad');
-  } finally {
-    await disconnect(false);
-    busy = false;
-    $('progress').hidden = true;
-    render();
+}
+
+// ---- your unidex ----
+function renderDevice() {
+  $('connect').textContent = device.busy ? 'Working…' : device.apps ? 'Refresh' : 'Connect';
+  $('connect').disabled = device.busy || !supported;
+  const list = $('devApps');
+  list.hidden = !device.apps;
+  list.replaceChildren();
+  if (!device.apps) return;
+  if (!device.apps.length) {
+    list.append(el('li', { class: 'muted', text: 'No apps on it yet. Pick one below.' }));
+    return;
+  }
+  for (const d of device.apps) {
+    const s = catalogue.find(a => a.id === d.id);
+    const name = s ? s.name : d.id;
+    const newer = s && d.version && compareAppVersions(s.version, d.version) > 0;
+    const meta = [d.version ? `v${d.version}` : 'offloaded', `${kb(d.data)} of data`];
+    const title = s ? el('a', { href: `app.html?id=${encodeURIComponent(d.id)}`, text: name }) : el('span', { text: name });
+    const actions = el('div', { class: 'actions' });
+    if (newer) actions.append(el('button', { type: 'button', text: `Update to ${s.version}`, onclick: () => install(s) }));
+    if (!d.version && s) actions.append(el('button', { class: 'secondary', type: 'button', text: 'Reinstall', onclick: () => install(s) }));
+    if (d.version) actions.append(el('button', { class: 'secondary', type: 'button', text: 'Offload', onclick: () => offload(d.id, name) }));
+    actions.append(el('button', { class: 'danger', type: 'button', text: d.version ? 'Delete' : 'Delete data', onclick: () => remove(d.id, name, !!d.version) }));
+    for (const b of actions.children) b.disabled = device.busy;
+    list.append(el('li', {}, iconTile(s && s.icon, 36),
+      el('div', { class: 'info' }, el('b', {}, title), el('small', { text: meta.join(' · ') + (d.problem ? ` · can't run: ${d.problem}` : !s ? ' · not in the store' : '') })),
+      actions));
   }
 }
 
-async function disconnect(forget = true) {
-  if (device) await device.close().catch(() => {});
-  device = null;
-  if (forget) deviceApps = null;
-}
+reportTo((text, kind = '', fraction) => {
+  $('devStatus').textContent = text;
+  $('devStatus').className = `status ${kind}`;
+  $('progress').hidden = fraction == null;
+  if (fraction != null) $('progress').value = fraction;
+});
+onDeviceChange(render);
 
-function install(s) {
-  return run(async dev => {
-    const was = onDevice(s.id);
-    $('progress').hidden = false;
-    $('progress').value = 0;
-    await installApp(dev, s, getFile, (text, fraction) => {
-      status(`${s.name}: ${text}…`);
-      $('progress').value = fraction;
-    });
-    const where = s.type === 'plugin' ? `in ${EXTENDS[s.extends] || s.extends} on the device` : 'under Apps on the device';
-    status(was && was.version ? `${s.name} updated to ${s.version}. Its data was kept.`
-                              : `${s.name} installed. Find it ${where}.`, 'ok');
-  });
-}
-
-async function offload(a, name) {
-  if (!(await ask(`Offload ${name}?`, 'The app is removed, but its data stays on the device. Install it again ' +
-                  'to pick up where you left off.', 'Offload', false))) return;
-  return run(async dev => {
-    await removeApp(dev, a.id, true);
-    status(`${name} offloaded. Its data is still on the device.`, 'ok');
-  });
-}
-
-async function remove(a, name) {
-  let bytes = a.data;  // what the list said; asked again just before, as the app may have saved more since
-  await run(async dev => { bytes = await dataBytes(dev, a.id); });
-  const what = bytes ? `Its data on the device (${kb(bytes)}) will be lost for good.` : 'It has no saved data.';
-  if (!(await ask(a.version ? `Delete ${name}?` : `Delete ${name}’s data?`, `${what} This can’t be undone.`,
-                  'Delete', true))) return;
-  return run(async dev => {
-    await removeApp(dev, a.id, false);
-    status(`${name} deleted.`, 'ok');
-  });
-}
-
-$('connect').onclick = () => run(async () => status('Connected.', 'ok'));
+// ---- start ----
+$('devIcon').append(icon('device'));
+$('createTop').href = STORE_REPO;
+$('createTop').prepend(icon('plus'));
 if (!supported) $('unsupported').hidden = false;
-navigator.serial && navigator.serial.addEventListener('disconnect', async () => {
-  if (busy) return;  // run() reports it
-  await disconnect();
-  status('The unidex was unplugged (or fell asleep). Press a button on it, then Connect.');
+$('connect').onclick = () => withDevice(async () => {}).then(ok => {
+  if (ok) $('devStatus').textContent = device.apps.length ? `Connected. ${plural(device.apps.length, 'app')} on it.` : 'Connected. No apps on it yet.';
+});
+let typing;
+$('q').addEventListener('input', () => { clearTimeout(typing); typing = setTimeout(() => setParam('q', $('q').value.trim()), 150); });
+$('sort').addEventListener('change', () => setParam('sort', $('sort').value === 'name' ? '' : $('sort').value));
+$('clearFilters').onclick = clearAll;
+if (matchMedia('(max-width: 1000px)').matches) $('filterBox').open = false;
+navigator.serial && navigator.serial.addEventListener('disconnect', () => {
+  if (device.busy) return;
+  device.apps = null;
+  $('devStatus').textContent = 'Your unidex was unplugged (or fell asleep). Press a button on it, then Connect.';
   render();
 });
 
 try {
-  const r = await fetch('store/index.json', { cache: 'no-cache' });
-  if (!r.ok) throw new Error();
-  catalogue = (await r.json()).apps || [];
-  $('storeStatus').textContent = catalogue.length ? `${catalogue.length} app${catalogue.length === 1 ? '' : 's'}.`
-                                                  : 'No apps in the store yet.';
+  catalogue = await loadCatalogue();
 } catch (e) {
-  $('storeStatus').textContent = 'The store’s list couldn’t be loaded. Reload the page to try again.';
+  $('resultsTitle').textContent = e.message;
 }
 render();

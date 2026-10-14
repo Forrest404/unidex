@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "author": "unidex",
   "description": "A badge plugin: a badge that always shows today's date. Find it in Badge, after your own badges.",
+  "category": "badges",
   "api": 1,
   "type": "plugin",
   "extends": "badge",

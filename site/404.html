@@ -3,24 +3,27 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- Served for any missing address under /unidex/, at any depth: every link below is relative to the site. -->
+<base href="/unidex/">
 <title>unidex: page not found</title>
 <meta name="robots" content="noindex">
-<link rel="icon" href="/unidex/favicon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="/unidex/style.css">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<nav>
-  <a class="brand" href="/unidex/">unidex</a>
-  <a href="/unidex/">Install</a>
-  <a href="/unidex/tools.html">Tools</a>
-  <a href="/unidex/setup.html">Setup</a>
-  <a href="/unidex/store.html">Apps</a>
-  <a href="https://github.com/Forrest404/unidex">Source code</a>
-</nav>
+<header data-chrome><noscript><nav><a href="./">Install</a> <a href="tools.html">Tools</a> <a href="setup.html">Setup</a> <a href="store.html">Apps</a></nav></noscript></header>
 <main>
+  <p class="eyebrow">404</p>
   <h1>Page not found</h1>
-  <p class="sub">There's nothing at this address. The pages are <a href="/unidex/">Install</a>,
-    <a href="/unidex/tools.html">Tools</a> and <a href="/unidex/setup.html">Setup</a>.</p>
+  <p class="lead">There's nothing at this address. It may have moved: search for it, or start from one of these.</p>
+  <div class="tiles">
+    <a class="tile" href="./"><b>Install or update</b><span>Put unidex on a board, or update it.</span></a>
+    <a class="tile" href="tools.html"><b>Tools</b><span>Sync, badges, the Pet, the clock and calendar.</span></a>
+    <a class="tile" href="store.html"><b>Apps</b><span>Browse and install apps and plugins.</span></a>
+    <a class="tile" href="help.html"><b>Help</b><span>Getting started, questions, troubleshooting.</span></a>
+  </div>
 </main>
+<footer data-chrome></footer>
+<script type="module" src="chrome.js"></script>
 </body>
 </html>

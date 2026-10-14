@@ -4,6 +4,7 @@
   "version": "1.0.1",
   "author": "unidex",
   "description": "Counts presses of B, and remembers the count.",
+  "category": "fun",
   "api": 1,
   "type": "app",
   "permissions": [],

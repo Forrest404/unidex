@@ -84,8 +84,8 @@ jobs:
 
       - name: Build the app store catalogue (site/store/) from the accepted apps
         run: |
-          git clone --depth 1 https://github.com/Forrest404/unidex-apps.git ../unidex-apps
-          python3 tools/make_store.py ../unidex-apps/apps
+          git clone https://github.com/Forrest404/unidex-apps.git ../unidex-apps  # with history: each app's last update
+          python3 tools/make_store.py ../unidex-apps/apps --source https://github.com/Forrest404/unidex-apps/tree/main/apps
 
       - uses: actions/upload-pages-artifact@v3
         with:

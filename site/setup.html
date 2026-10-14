@@ -47,26 +47,32 @@
 </style>
 </head>
 <body>
-<nav>
-  <a class="brand" href="./">unidex</a>
-  <a href="./">Install</a>
-  <a href="tools.html">Tools</a>
-  <a href="setup.html" aria-current="page">Setup</a>
-  <a href="store.html">Apps</a>
-  <a href="https://github.com/Forrest404/unidex">Source code</a>
-</nav>
-<main>
+<header data-chrome><noscript><nav><a href="./">Install</a> <a href="tools.html">Tools</a> <a href="setup.html">Setup</a> <a href="store.html">Apps</a> <a href="https://github.com/Forrest404/unidex">Source code</a></nav></noscript></header>
+<main class="wide">
+<div class="doc">
+  <nav class="toc" aria-label="On this page">
+    <p>On this page</p>
+    <ul>
+      <li><a href="#connect">Connect</a></li>
+      <li><a href="#connections">WiFi &amp; keys</a></li>
+      <li><a href="#microphone">Microphone</a></li>
+      <li><a href="#notes">Your notes</a></li>
+      <li><a href="#remove">Remove keys</a></li>
+    </ul>
+  </nav>
+  <div>
+  <div class="page-head"><p class="eyebrow">Setup</p>
   <h1>Setup</h1>
-  <p class="sub">Set up your device: the WiFi networks it joins, and the keys for voice notes (hold <b>B</b> in the
+  <p class="lead">Set up your device: the WiFi networks it joins, and the keys for voice notes (hold <b>B</b> in the
     Notes app, talk, let go). The device transcribes a note with OpenAI Whisper, tidies it up with OpenAI or
     Claude, keeps it on the SD card and can push it to a GitHub repo (for Obsidian). Everything here goes
     <b>over USB to your device only</b>: this page has no other code and can't reach the internet. What the
     device sends where:
-    <a href="https://github.com/Forrest404/unidex/blob/main/PRIVACY.md">Privacy (draft)</a>.</p>
+    <a href="https://github.com/Forrest404/unidex/blob/main/PRIVACY.md">Privacy (draft)</a>.</p></div>
   <p id="unsupported" class="unsupported" hidden>Your browser can't talk to USB devices. Use <b>Chrome</b> or
     <b>Edge</b> on a computer.</p>
 
-  <section>
+  <section id="connect">
     <div class="card">
       <div id="connectRow">
         <button id="connect">Connect</button>
@@ -77,8 +83,8 @@
   </section>
 
   <fieldset id="panel" disabled>
-  <section>
-    <h2>Connections</h2>
+  <section id="connections">
+    <h2>WiFi &amp; keys</h2>
     <p class="muted">Blank password and key fields keep what's saved. Test runs on the device itself, over its own
       WiFi.</p>
     <div class="grid">
@@ -180,7 +186,7 @@
     </div>
   </section>
 
-  <section>
+  <section id="microphone">
     <h2>Microphone</h2>
     <div class="card">
       <p class="muted" style="margin:0">Records two seconds and shows how loud it was. Talk while it listens.</p>
@@ -190,7 +196,7 @@
     </div>
   </section>
 
-  <section>
+  <section id="notes">
     <h2>Your notes</h2>
     <div class="card">
       <p class="muted" style="margin:0" id="cardInfo">Notes are kept on the SD card as Markdown.</p>
@@ -206,7 +212,7 @@
     </div>
   </section>
 
-  <section>
+  <section id="remove">
     <h2>Remove everything</h2>
     <div class="card">
       <p class="muted" style="margin:0">Clears the WiFi, keys, token and Notes settings from the device. Your notes
@@ -216,15 +222,11 @@
     </div>
   </section>
   </fieldset>
+  </div>
+</div>
 </main>
-<footer class="foot">
-  <a href="https://github.com/Forrest404/unidex">Source code</a>
-  <a href="https://github.com/Forrest404/unidex/blob/main/LICENSE">Licence</a>
-  <a href="https://github.com/Forrest404/unidex/blob/main/PRIVACY.md">Privacy</a>
-  <a href="https://github.com/Forrest404/unidex/issues">Questions and problems</a>
-  <a href="https://www.unidex.shop">Join the wait list</a>
-  <a href="https://ko-fi.com/forrest404">Support on Ko-fi</a>
-</footer>
+<footer data-chrome></footer>
+<script type="module" src="chrome.js"></script>
 <script type="module" src="setup.js"></script>
 </body>
 </html>

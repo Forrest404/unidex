@@ -4,6 +4,7 @@
   "version": "1.0.0",
   "author": "unidex",
   "description": "The time in big numbers, and the date. B switches between 24 and 12 hours.",
+  "category": "time",
   "api": 1,
   "type": "app",
   "permissions": [],

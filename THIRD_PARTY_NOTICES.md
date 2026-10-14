@@ -37,6 +37,7 @@ used in a new, minimal standalone driver written for the Wire bus and the legacy
 | esptool-js | 0.6.0 | Apache-2.0 | 2023 Espressif Systems | https://github.com/espressif/esptool-js |
 | Flasher stub sent to the chip's RAM by esptool-js while flashing (not saved on the device) | – | GPL-2.0 | Espressif Systems and contributors | https://github.com/espressif/esptool-legacy-flasher-stub |
 | ical.js | 2.2.1 | MPL-2.0 | ical.js contributors | https://github.com/kewisch/ical.js |
+| Gloock, Atkinson Hyperlegible Next and Martian Mono fonts (site/fonts, Latin subset from Google Fonts) | – | SIL Open Font License 1.1 | Duarte Pinto (Gloock); Braille Institute of America (Atkinson Hyperlegible); Evil Martians (Martian Mono) | https://fonts.google.com/specimen/Gloock, https://fonts.google.com/specimen/Atkinson+Hyperlegible+Next, https://fonts.google.com/specimen/Martian+Mono |
 
 ## Build tools (not distributed)
 

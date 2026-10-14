@@ -41,6 +41,7 @@ to your device over USB, and it shows up in the Apps list. No toolchain, no refl
 | `type` | `"app"`, or `"plugin"` with `extends` (see Plugins, at the end). |
 | `permissions` | What it asks for. The website shows these before you install. See below. |
 | `icon` | Optional. 40 strings of 40 characters, `#` is ink, anything else is blank. |
+| `category` | Optional, for the store's filters: `games`, `tools`, `time`, `badges`, `learning`, `fun` or `other` (the default). |
 | `license` | Optional on the device. The store may require one. |
 
 ## What your code defines

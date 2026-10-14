@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Help · unidex</title>
+<meta name="description" content="Getting started with unidex, questions about the battery, files and privacy, and what to do when something is wrong.">
+<link rel="canonical" href="https://forrest404.github.io/unidex/help.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="unidex">
+<meta property="og:title" content="Help · unidex">
+<meta property="og:description" content="Getting started with unidex, questions about the battery, files and privacy, and what to do when something is wrong.">
+<meta property="og:url" content="https://forrest404.github.io/unidex/help.html">
+<meta property="og:image" content="https://forrest404.github.io/unidex/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header data-chrome><noscript><nav><a href="./">Install</a> <a href="tools.html">Tools</a> <a href="setup.html">Setup</a> <a href="store.html">Apps</a></nav></noscript></header>
+<main class="wide">
+<div class="doc">
+  <nav class="toc" aria-label="On this page">
+    <p>On this page</p>
+    <ul>
+      <li><a href="#start">Getting started</a></li>
+      <li><a href="#faq">Questions</a></li>
+      <li><a href="#trouble">Troubleshooting</a></li>
+      <li><a href="#ask">Still stuck?</a></li>
+    </ul>
+  </nav>
+  <div>
+    <div class="page-head">
+      <p class="eyebrow">Help</p>
+      <h1>Help &amp; support</h1>
+      <p class="lead">Everything you need to get unidex running, and what to do when something isn't right. Press
+        <kbd>/</kbd> to search the whole site.</p>
+    </div>
+
+    <section id="start">
+      <h2>Getting started</h2>
+      <p>You'll need the board (or a ready-made unidex), a USB-C <b>data</b> cable, a computer with Chrome or Edge,
+        and a micro SD card (FAT32).</p>
+      <ol class="steps">
+        <li><div><b>Install.</b> On the <a href="./">Install</a> page, plug it in, press one of its buttons so it's awake,
+          and click Install. The first time it starts, it shows the buttons and a QR code for this site.</div></li>
+        <li><div><b>Set up the SD card.</b> Copy the <a href="https://github.com/Forrest404/unidex/tree/main/starter" target="_blank" rel="noopener">starter files</a>
+          (a few badges and an empty timetable) to the card, and put it in the slot.</div></li>
+        <li><div><b>Add your timetable.</b> Send your calendar from <a href="tools.html#clock">Tools</a>, or edit
+          <code>timetable.csv</code> on the card.</div></li>
+        <li><div><b>Voice notes, if you want them.</b> Add your WiFi and keys on <a href="setup.html#connections">Setup</a>.</div></li>
+        <li><div><b>Add apps.</b> Browse the <a href="store.html">Apps</a> page and install what you like.</div></li>
+      </ol>
+      <h3>The buttons</h3>
+      <table>
+        <tbody>
+          <tr><td><b>A</b></td><td>Next: the next row, item or page</td></tr>
+          <tr><td><b>B</b></td><td>Select, open, do</td></tr>
+          <tr><td><b>Hold A</b></td><td>Back; from an app, home</td></tr>
+          <tr><td><b>Hold B</b></td><td>The screen's extra, shown at the bottom</td></tr>
+          <tr><td><b>Hold A + B</b> for a second</td><td>Restart (your files, settings and the clock are kept)</td></tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section id="faq">
+      <h2>Questions</h2>
+      <details id="battery"><summary>How long does the battery last, and what does “Charge me” mean?</summary><p>It sleeps whenever you aren’t pressing a button, so it depends on use. WiFi is only on while Notes sends, during a Dex scan or a time sync. When it’s low, things that need a lot of power say “Battery too low”; when it’s flat it shows “Charge me” and switches off. Plug it in, then press PWR.</p></details>
+
+      <details id="sd"><summary>What goes on the SD card?</summary><p>Your badges, timetable, notes, the Dex and your apps. It must be FAT32. Unidex never formats it. “No SD card” means it isn’t FAT32 or isn’t pushed all the way in.</p></details>
+
+      <details id="updates"><summary>Will updating lose my files or settings?</summary><p>No. <b>Update</b> on the Install page (or Sync everything on Tools) keeps your settings, keys, Pet and files. Only <b>Install</b> erases the device’s settings; files on the SD card are never touched.</p></details>
+
+      <details id="apps"><summary>Are apps from the store safe?</summary><p>Every app is tried automatically and read by a person before it’s listed, and each one runs in a sandbox: its own memory and folder, a time limit, and no way to reach your WiFi password, keys, notes or other apps. Apps that use the internet say so before you install them.</p></details>
+
+      <details id="app-error"><summary>What does “App error” mean?</summary><p>The app hit a bug or one of its limits; the message says where. The device carries on. You can tell the app’s author (each app’s page has a link), or offload or delete it with <b>hold B</b> in Apps.</p></details>
+
+      <details id="privacy"><summary>What does unidex send, and where?</summary><p>No account, analytics or tracking. This site talks to your device over USB only. Notes go to the services you set up (OpenAI or Anthropic, and GitHub if you choose). The details are in <a href="https://github.com/Forrest404/unidex/blob/main/PRIVACY.md" target="_blank" rel="noopener">PRIVACY.md</a>.</p></details>
+
+      <details id="reset"><summary>I’m passing it on. How do I wipe it?</summary><p>Settings &gt; Reset data &gt; <b>Factory reset</b> (it asks twice) wipes the WiFi, keys, Pet, friends and settings. Format the SD card on a computer as well.</p></details>
+
+    </section>
+
+    <section id="trouble">
+      <h2>Troubleshooting</h2>
+      <details id="not-found"><summary>The website can’t find my unidex</summary><p>It’s asleep: press one of its buttons and try again. Use a USB-C <b>data</b> cable (some only charge). If it’s a brand-new board, or one with other firmware, unplug it, hold <b>BOOT</b> while you plug it back in, let go, then try again.</p></details>
+
+      <details id="in-use"><summary>“Another page or program is using the unidex”</summary><p>Only one page can talk to it at a time. Close other tabs of this site (or the Mac calendar helper), then try again.</p></details>
+
+      <details id="frozen"><summary>It froze</summary><p>It restarts by itself after 30 seconds. Or hold <b>A + B</b> for a second to restart it now.</p></details>
+
+      <details id="time"><summary>“Time not set”</summary><p>Set it in Settings, or use Set the clock or Sync everything on the <a href="tools.html">Tools</a> page.</p></details>
+
+      <details id="notes-fail"><summary>A note didn’t send</summary><p>Notes wait on the card and send later. On <a href="setup.html#connections">Setup</a>, use each Test button to check the WiFi and keys. “2 synced, 1 stuck” means one note was refused; the rest still sent.</p></details>
+
+    </section>
+
+    <section id="ask">
+      <h2>Still stuck?</h2>
+      <p>Open an issue with your firmware version (Settings &gt; Battery &amp; info) and what happened. Problems with an
+        app from the store go to its repository.</p>
+      <div class="page-head actions" style="display:flex;gap:10px;flex-wrap:wrap">
+        <a class="button" href="https://github.com/Forrest404/unidex/issues/new/choose" target="_blank" rel="noopener">Ask about unidex ↗</a>
+        <a class="button secondary" href="https://github.com/Forrest404/unidex-apps/issues" target="_blank" rel="noopener">Report an app ↗</a>
+      </div>
+    </section>
+  </div>
+</div>
+</main>
+<footer data-chrome></footer>
+<script type="module" src="chrome.js"></script>
+</body>
+</html>
