@@ -127,27 +127,26 @@ function actionButton(a) {
     onclick: () => install(a) });
 }
 
-function card(a) {
+function row(a) {
   const link = `app.html?id=${encodeURIComponent(a.id)}`;
-  const tags = el('div', { class: 'tags' }, el('span', { class: 'chip', text: CATEGORIES[a.category] || 'Other' }));
-  if (a.type === 'plugin') tags.append(el('span', { class: 'chip' }, icon('layers'), kindLabel(a)));
-  for (const p of a.permissions) tags.append(el('span', { class: 'chip', text: PERMISSIONS[p] || p }));
-  return el('article', { class: 'app-card' },
-    el('div', { class: 'top' }, iconTile(a.icon, 52),
-      el('div', {}, el('h3', {}, el('a', { href: link, class: 'stretch', text: a.name })),
-        el('p', { class: 'by', text: `${a.author || 'unknown'} · v${a.version}` }))),
-    el('p', { class: 'desc', text: a.description }),
-    tags,
-    el('div', { class: 'foot' },
-      el('span', { class: 'meta', text: kb(a.bytes) }),
-      stateChip(a), actionButton(a)));
+  const tags = [CATEGORIES[a.category] || 'Other'];
+  if (a.type === 'plugin') tags.push(kindLabel(a));
+  for (const p of a.permissions) tags.push(PERMISSIONS[p] || p);
+  return el('li', { class: 'app-row' },
+    iconTile(a.icon, 52),
+    el('div', {},
+      el('h3', {}, el('a', { href: link, text: a.name }), el('span', { class: 'by', text: `${a.author || 'unknown'} · v${a.version}` })),
+      el('p', { class: 'desc', text: a.description }),
+      el('div', { class: 'tags' }, tags.map(t => el('span', { class: 'chip', text: t })))),
+    el('div', { class: 'side' }, stateChip(a) || el('span', { class: 'meta', text: kb(a.bytes) }), actionButton(a)));
 }
 
-function createCard() {
-  return el('a', { class: 'app-card create', href: STORE_REPO, target: '_blank', rel: 'noopener' },
-    el('span', { class: 'ic' }, icon('plus')),
-    el('h3', { text: 'Create an app ↗' }),
-    el('p', { class: 'desc', text: 'A few lines of Lua is enough. Start from the template, try it in the emulator, then send it in.' }));
+function createRow() {
+  return el('li', { class: 'app-row create' },
+    el('span', { class: 'plus', 'aria-hidden': 'true', text: '+' }),
+    el('div', {},
+      el('h3', {}, el('a', { href: STORE_REPO, target: '_blank', rel: 'noopener', text: 'Create an app ↗' })),
+      el('p', { class: 'desc', text: 'A few lines of Lua is enough. Start from the template, try it in the emulator, then send it in.' })));
 }
 
 function render() {
@@ -161,13 +160,13 @@ function render() {
     ? (shown.length === catalogue.length ? plural(catalogue.length, 'app') : `${shown.length} of ${plural(catalogue.length, 'app')}`)
     : 'No apps in the store yet';
   const grid = $('grid');
-  grid.replaceChildren(...shown.map(card));
+  grid.replaceChildren(...shown.map(row));
   if (!shown.length && catalogue.length) {
-    grid.append(el('div', { class: 'empty' }, el('h3', { text: 'Nothing matches' }),
+    grid.append(el('li', { class: 'empty' }, el('h3', { text: 'Nothing matches' }),
       el('p', { class: 'muted', text: 'Try fewer filters or a shorter word.' }),
       el('button', { class: 'secondary', type: 'button', text: 'Clear all filters', onclick: clearAll })));
   }
-  grid.append(createCard());
+  grid.append(createRow());
   renderDevice();
 }
 
@@ -218,7 +217,6 @@ onDeviceChange(render);
 // ---- start ----
 $('devIcon').append(icon('device'));
 $('createTop').href = STORE_REPO;
-$('createTop').prepend(icon('plus'));
 if (!supported) $('unsupported').hidden = false;
 $('connect').onclick = () => withDevice(async () => {}).then(ok => {
   if (ok) $('devStatus').textContent = device.apps.length ? `Connected. ${plural(device.apps.length, 'app')} on it.` : 'Connected. No apps on it yet.';

@@ -2,7 +2,7 @@
 import { supported } from './serial.js';
 import { STORE_REPO } from './chrome.js';
 import {
-  el, icon, kb, kindLabel, iconTile, loadCatalogue, device, onDevice, onDeviceChange, reportTo, withDevice,
+  el, kb, kindLabel, iconTile, loadCatalogue, device, onDevice, onDeviceChange, reportTo, withDevice,
   stateOf, install, offload, remove, CATEGORIES, EXTENDS, PERMISSIONS, PERMISSION_DETAIL,
 } from './store-ui.js';
 
@@ -28,11 +28,11 @@ function actions() {
   const box = el('div', { class: 'app-actions' });
   const busy = device.busy || !supported;
   if (!device.apps) {
-    box.append(el('button', { type: 'button', disabled: busy, onclick: () => install(app) }, icon('install'), 'Install on my unidex'),
+    box.append(el('button', { type: 'button', disabled: busy, onclick: () => install(app) }, 'Install on my unidex'),
                el('button', { class: 'secondary', type: 'button', disabled: busy, text: 'Check my unidex',
                               onclick: () => withDevice(async () => {}).then(ok => ok && say(describe(), '')) }));
   } else if (s === 'none' || s === 'offloaded') {
-    box.append(el('button', { type: 'button', disabled: busy, onclick: () => install(app) }, icon('install'), s === 'offloaded' ? 'Reinstall' : 'Install'));
+    box.append(el('button', { type: 'button', disabled: busy, onclick: () => install(app) }, s === 'offloaded' ? 'Reinstall' : 'Install'));
   } else {
     if (s === 'update') box.append(el('button', { type: 'button', disabled: busy, text: `Update to ${app.version}`, onclick: () => install(app) }));
     box.append(el('button', { class: 'secondary', type: 'button', disabled: busy, text: 'Offload', onclick: () => offload(app.id, app.name) }));
@@ -71,7 +71,7 @@ function render() {
     el('div', { class: 'app-main' },
       el('div', { class: 'app-hero' }, iconTile(app.icon, 112),
         el('div', {},
-          el('p', { class: 'eyebrow', text: kindLabel(app) }),
+          el('p', { class: 'kind', text: kindLabel(app) }),
           el('h1', { text: app.name }),
           el('p', { class: 'by', text: `by ${app.author || 'unknown'} · version ${app.version}` }))),
       el('p', { class: 'lead', text: app.description }),
@@ -80,7 +80,7 @@ function render() {
       el('h2', { text: 'What it can use' }), perms,
       el('p', { class: 'note' }, 'Every app runs in a sandbox, with its own memory, its own folder and a time limit. It can\'t reach your WiFi password, keys, notes or other apps. ',
         el('a', { href: 'developers.html#limits', text: 'How the sandbox works' }), '.')),
-    el('aside', { class: 'app-side card' },
+    el('aside', { class: 'app-side' },
       el('dl', { class: 'facts' },
         fact('Category', el('a', { href: `store.html?cat=${encodeURIComponent(app.category || 'other')}`, text: CATEGORIES[app.category] || 'Other' })),
         fact('Type', app.type === 'plugin' ? kindLabel(app) : 'App'),
@@ -89,7 +89,7 @@ function render() {
         fact('Size', kb(app.bytes)),
         fact('Licence', app.license || 'Not given'),
         fact('Files', el('span', { class: 'files', text: app.files.map(f => f.path).join(', ') }))),
-      el('a', { class: 'button secondary', href: src, target: '_blank', rel: 'noopener' }, icon('code'), 'View the code ↗'),
+      el('a', { class: 'button secondary', href: src, target: '_blank', rel: 'noopener' }, 'View the code ↗'),
       el('a', { class: 'quiet-link', href: `${STORE_REPO}/issues`, target: '_blank', rel: 'noopener', text: 'Report a problem with it ↗' })));
   $('app').replaceChildren(view);
 }

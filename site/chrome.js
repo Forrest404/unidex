@@ -120,16 +120,11 @@ const here = location.pathname.split('/').pop() || 'index.html';
 const isHere = page => (Array.isArray(page) ? page : [page]).includes(here);
 const extProps = item => (item.ext ? { target: '_blank', rel: 'noopener' } : {});
 
-function menuLink(item, withDesc) {
+function menuLink(item) {
   const a = el('a', { href: item.href, ...extProps(item) });
   const sameTarget = !item.ext && item.href.split('#')[0] === here && !item.href.includes('#');
   if (sameTarget) a.setAttribute('aria-current', 'page');
-  if (withDesc) {
-    a.append(el('span', { class: 'ic' }, icon(item.icon)),
-             el('b', { text: item.label + (item.ext ? ' ↗' : '') }), el('span', { text: item.desc }));
-  } else {
-    a.append(icon(item.icon), el('span', { text: item.label + (item.ext ? ' ↗' : '') }));
-  }
+  a.textContent = item.label + (item.ext ? ' ↗' : '');
   return a;
 }
 
@@ -150,7 +145,7 @@ function header() {
     const btn = el('button', { class: 'top', type: 'button', 'aria-expanded': 'false', 'aria-controls': id },
                    m.label, icon('chevron'));
     if (isHere(m.page)) btn.setAttribute('aria-current', 'page');
-    const panel = el('ul', { class: 'panel', id }, m.items.map(it => el('li', {}, menuLink(it, true))));
+    const panel = el('ul', { class: 'panel', id }, m.items.map(it => el('li', {}, menuLink(it))));
     btn.addEventListener('click', () => {
       const open = btn.getAttribute('aria-expanded') !== 'true';
       closePanels(btn);
@@ -172,14 +167,13 @@ function header() {
     menus.append(el('li', {}, btn, panel));
   });
 
-  const searchBtn = el('button', { class: 'search-btn', type: 'button', 'aria-label': 'Search', onclick: () => openSearch() },
-                       icon('search'), el('span', { class: 'label', text: 'Search' }),
-                       el('kbd', { text: navigator.platform.includes('Mac') ? '⌘K' : 'Ctrl K' }));
-  const create = el('a', { class: 'button', href: STORE_REPO, target: '_blank', rel: 'noopener' }, icon('plus'), 'Create an app');
+  const searchBtn = el('button', { class: 'search-btn', type: 'button', 'aria-label': 'Search (press /)', onclick: () => openSearch() },
+                       icon('search'), el('span', { class: 'label', text: 'Search' }), el('kbd', { text: '/' }));
+  const create = el('a', { class: 'button small', href: STORE_REPO, target: '_blank', rel: 'noopener' }, 'Create an app ↗');
   const menuBtn = el('button', { class: 'menu-btn', type: 'button', 'aria-label': 'Menu', 'aria-expanded': 'false',
                                  onclick: () => openDrawer() }, icon('menu'));
   return el('div', { class: 'bar' },
-    el('a', { class: 'brand', href: './', 'aria-label': 'unidex tools, home' }, mark(), 'unidex', el('small', { text: 'tools & apps' })),
+    el('a', { class: 'brand', href: './', 'aria-label': 'unidex tools, home' }, mark(), 'unidex', el('small', { text: 'tools' })),
     el('nav', { 'aria-label': 'Main' }, menus),
     el('div', { class: 'head-right' }, searchBtn,
       el('a', { class: 'shop-link', href: SHOP, target: '_blank', rel: 'noopener', text: 'unidex.shop ↗' }), create, menuBtn));
@@ -197,11 +191,11 @@ function openDrawer() {
         el('div', { class: 'sheet-top' },
           el('a', { class: 'brand', href: './' }, mark(), 'unidex'),
           el('button', { class: 'quiet', type: 'button', 'aria-label': 'Close the menu', onclick: close }, icon('close'))),
-        MENUS.map(m => [el('h2', { text: m.label }), el('ul', {}, m.items.map(it => el('li', {}, menuLink(it, false))))]),
+        MENUS.map(m => [el('h2', { text: m.label }), el('ul', {}, m.items.map(it => el('li', {}, menuLink(it))))]),
         el('div', { class: 'actions' },
-          el('button', { class: 'secondary', type: 'button', onclick: () => { close(); openSearch(); } }, icon('search'), 'Search'),
-          el('a', { class: 'button', href: STORE_REPO, target: '_blank', rel: 'noopener' }, icon('plus'), 'Create an app'),
-          el('a', { class: 'button secondary', href: SHOP, target: '_blank', rel: 'noopener' }, icon('bag'), 'unidex.shop'))));
+          el('button', { class: 'secondary', type: 'button', onclick: () => { close(); openSearch(); } }, 'Search'),
+          el('a', { class: 'button', href: STORE_REPO, target: '_blank', rel: 'noopener' }, 'Create an app ↗'),
+          el('a', { href: SHOP, target: '_blank', rel: 'noopener', text: 'unidex.shop ↗' }))));
     drawer.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
     drawer.addEventListener('click', e => { if (e.target.closest('a')) drawer.classList.remove('open'); });
     document.body.append(drawer);
@@ -213,26 +207,18 @@ function openDrawer() {
 
 // ---- the footer ----
 function footer() {
-  const col = (title, links) => el('div', {}, el('h2', { text: title }),
-    el('ul', {}, links.map(([text, href, ext]) => el('li', {}, el('a', { href, text: text + (ext ? ' ↗' : ''), ...(ext ? { target: '_blank', rel: 'noopener' } : {}) })))));
+  const link = (text, href) => el('a', { href, text, ...(href.startsWith('http') ? { target: '_blank', rel: 'noopener' } : {}) });
   return [
-    el('div', { class: 'cols' },
-      el('div', { class: 'about' },
-        el('a', { class: 'brand', href: './' }, mark(), 'unidex', el('small', { text: 'tools & apps' })),
-        el('p', { text: 'Install, set up and add apps to unidex, the little e-ink screen for your keys or lanyard. It all works over USB, from your browser.' }),
-        el('a', { class: 'button secondary', href: SHOP, target: '_blank', rel: 'noopener' }, icon('bag'), 'unidex.shop')),
-      col('Tools', [['Install or update', './'], ['Sync everything', 'tools.html#sync'], ['Badge maker', 'tools.html#badges'],
-                    ['Pet designer', 'tools.html#pet'], ['Setup', 'setup.html']]),
-      col('Apps', [['Browse apps', 'store.html'], ['On your unidex', 'store.html#device'], ['Create an app', STORE_REPO, true]]),
-      col('Developers', [['Make an app', 'developers.html'], ['The API', `${REPO}/blob/main/docs/APPS.md`, true],
-                         ['Send it in', 'developers.html#share'], ['Source code', REPO, true]]),
-      col('Help', [['Getting started', 'help.html#start'], ['Questions', 'help.html#faq'], ['Troubleshooting', 'help.html#trouble'],
-                   ['Ask a question', `${REPO}/issues`, true], ['Join the wait list', SHOP, true], ['Support on Ko-fi', 'https://ko-fi.com/forrest404', true]])),
-    el('div', { class: 'base' },
-      el('span', { text: 'unidex is free for non-commercial use.' }),
-      el('a', { href: `${REPO}/blob/main/LICENSE`, text: 'Licence' }),
-      el('a', { href: `${REPO}/blob/main/PRIVACY.md`, text: 'Privacy' }),
-      el('a', { href: `${REPO}/blob/main/THIRD_PARTY_NOTICES.md`, text: 'Notices' })),
+    el('div', { class: 'foot-row' },
+      el('a', { class: 'brand', href: './' }, mark(), 'unidex', el('small', { text: 'tools' })),
+      el('nav', { 'aria-label': 'Footer' },
+        link('Install', './'), link('Tools', 'tools.html'), link('Setup', 'setup.html'), link('Apps', 'store.html'),
+        link('Developers', 'developers.html'), link('Help', 'help.html'))),
+    el('div', { class: 'foot-row small' },
+      el('span', { text: 'Free for non-commercial use.' }),
+      el('nav', { 'aria-label': 'More' },
+        link('unidex.shop ↗', SHOP), link('Source ↗', REPO), link('Ko-fi ↗', 'https://ko-fi.com/forrest404'),
+        link('Licence ↗', `${REPO}/blob/main/LICENSE`), link('Privacy ↗', `${REPO}/blob/main/PRIVACY.md`))),
   ];
 }
 
@@ -319,7 +305,7 @@ function run(q) {
     if (e.group !== group) list.append(el('li', { class: 'group', role: 'presentation', text: (group = e.group) }));
     const opt = el('li', {}, el('a', { role: 'option', id: `sr-${i}`, href: e.href, 'aria-selected': i === 0 ? 'true' : 'false',
       ...(e.ext ? { target: '_blank', rel: 'noopener' } : {}) },
-      el('span', { class: 'ic' }, icon(e.icon)), el('span', {}, el('b', { text: e.title + (e.ext ? ' ↗' : '') }), el('small', { text: e.sub })),
+      el('span', {}, el('b', { text: e.title + (e.ext ? ' ↗' : '') }), el('small', { text: e.sub })),
       el('span', { class: 'chip', text: e.group === 'Apps' ? (e.href.startsWith('app.html') ? (e.icon === 'layers' ? 'plugin' : 'app') : 'apps') : e.group === 'Help' ? 'help' : 'page' })));
     list.append(opt);
     i++;

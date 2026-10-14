@@ -111,7 +111,7 @@ export function install(entry) {
 
 // ---- the "are you sure?" box ----
 let box;
-export function ask(title, text, yes, danger) {
+function ask(title, text, yes, danger) {
   if (!box) {
     box = el('dialog', { class: 'confirm' }, el('h2', {}), el('p', {}),
       el('div', { class: 'buttons' }, el('button', { class: 'secondary', type: 'button', text: 'Cancel' }), el('button', { type: 'button' })));
