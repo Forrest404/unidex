@@ -7,6 +7,7 @@
 #include "storage.h"
 #include "usbsync.h"
 #include "theme.h"
+#include "logo.h"
 #include "../apps/apps.h"
 #include <qrcode.h>
 
@@ -94,65 +95,12 @@ static void drawHome() {
   drawToastIfAny();
 }
 
-// The logo's robot (docs/brand/mark.svg), 30 x 32, '#' = ink.
-static const char *const LOGO_ROBOT[] = {
-    "..............##..............",
-    ".............####.............",
-    "....###......####.............",
-    "...#...#......##..............",
-    "..##...##.....##..............",
-    ".#..###..##################...",
-    ".#..###..###################..",
-    ".#..###..#................##..",
-    "..##...##.................##..",
-    "..##...#..................##..",
-    "..#####...................##..",
-    "..##......................##..",
-    "..##......................##..",
-    "..##......................##..",
-    "####....##..........##....####",
-    "####...####........####...####",
-    "####...####........####...####",
-    "..##....##..........##....##..",
-    "..##......................##..",
-    "..##.......#......#.......##..",
-    "..##.......##....##.......##..",
-    "..##........######........##..",
-    "..##......................##..",
-    "..##......................##..",
-    "..#######.##......##.#######..",
-    "...######.####..####.######...",
-    "......###.###.##.###.###......",
-    ".....####.####..####.####.....",
-    "......###.##......##.###......",
-    ".......##....####....##.......",
-    ".......################.......",
-    "........##############........",
-};
-
-// The logo's name in pixels, 42 x 9.
-static const char *const LOGO_NAME[] = {
-    ".........................#................",
-    ".........................#................",
-    "#.....#...###....#...###.#...###...#.....#",
-    "#.....#..#...#......#...##..#...#...#...#.",
-    "#.....#.#.....#.##.#.....#.#.....#...#.#..",
-    "#.....#.#.....#..#.#.....#.######.....#...",
-    "#.....#.#.....#..#.#.....#.#.........#.#..",
-    ".#...#..#.....#..#..#....#..#.......#...#.",
-    "..###...#.....#..#...####....####..#.....#",
-};
-
-static void drawCells(const char *const *rows, int w, int h, int scale, int16_t y0) {
-  const int16_t x0 = (200 - w * scale) / 2;
-  for (int r = 0; r < h; r++)
-    for (int c = 0; c < w; c++)
-      if (rows[r][c] == '#') display.fillRect(x0 + c * scale, y0 + r * scale, scale, scale, BLACK);
-}
-
-static void drawSplash() {  // the stacked logo (docs/brand/logo-stacked.svg): the robot over the name
-  drawCells(LOGO_ROBOT, 30, 32, 2, 47);
-  drawCells(LOGO_NAME, 42, 9, 3, 125);
+static void drawSplash() {
+  // The logo (src/core/logo.h, from tools/make_logo.py): the mascot above the word, centred as one block.
+  const int16_t gap = 8, top = (display.height() - (LOGO_HEAD_H + gap + LOGO_TEXT_H)) / 2;
+  display.drawBitmap((display.width() - LOGO_HEAD_W) / 2, top, LOGO_HEAD, LOGO_HEAD_W, LOGO_HEAD_H, BLACK);
+  display.drawBitmap((display.width() - LOGO_TEXT_W) / 2, top + LOGO_HEAD_H + gap, LOGO_TEXT, LOGO_TEXT_W, LOGO_TEXT_H,
+                     BLACK);
 }
 
 // --- welcome: the first start of a new (or factory reset) device ---
