@@ -8,12 +8,12 @@
 <meta http-equiv="Content-Security-Policy"
   content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'none'; form-action 'none'; base-uri 'none'">
 <title>unidex: setup</title>
-<meta name="description" content="Set up a unidex e-ink device over USB: the WiFi networks it joins, OpenAI or Claude for voice notes, and pushing notes to a GitHub repo for Obsidian.">
+<meta name="description" content="Set up a unidex e-ink device over USB. Add the WiFi networks it joins, OpenAI or Claude for voice notes, and a GitHub repo to push notes to for Obsidian.">
 <link rel="canonical" href="https://forrest404.github.io/unidex/setup.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="unidex">
 <meta property="og:title" content="unidex setup">
-<meta property="og:description" content="Set up a unidex e-ink device over USB: the WiFi networks it joins, OpenAI or Claude for voice notes, and pushing notes to a GitHub repo for Obsidian.">
+<meta property="og:description" content="Set up a unidex e-ink device over USB. Add the WiFi networks it joins, OpenAI or Claude for voice notes, and a GitHub repo to push notes to for Obsidian.">
 <meta property="og:url" content="https://forrest404.github.io/unidex/setup.html">
 <meta property="og:image" content="https://forrest404.github.io/unidex/og.png">
 <meta property="og:image:width" content="1200">
@@ -63,11 +63,12 @@
   <div>
   <div class="page-head">
   <h1>Setup</h1>
-  <p class="lead">Set up your device: the WiFi networks it joins, and the keys for voice notes (hold <b>B</b> in the
-    Notes app, talk, let go). The device transcribes a note with OpenAI Whisper, tidies it up with OpenAI or
-    Claude, keeps it on the SD card and can push it to a GitHub repo (for Obsidian). Everything here goes
-    <b>over USB to your device only</b>: this page has no other code and can't reach the internet. What the
-    device sends where:
+  <p class="lead">Tell the device which WiFi networks to join, and add the keys it needs for voice notes. To record
+    a note, hold <b>B</b> in the Notes app, talk, and let go. The device turns your voice into text with OpenAI
+    Whisper, tidies it up with OpenAI or Claude, and keeps it on the SD card. It can also push each note to a GitHub
+    repo, which works well with Obsidian.</p>
+  <p>What you type here goes <b>over USB to your device and nowhere else</b>. This page runs no other code and can't
+    reach the internet. For what the device itself sends, and where, see
     <a href="https://github.com/Forrest404/unidex/blob/main/PRIVACY.md">Privacy (draft)</a>.</p></div>
   <p id="unsupported" class="unsupported" hidden>Your browser can't talk to USB devices. Use <b>Chrome</b> or
     <b>Edge</b> on a computer.</p>
@@ -85,13 +86,13 @@
   <fieldset id="panel" disabled>
   <section id="connections">
     <h2>WiFi &amp; keys</h2>
-    <p class="muted">Blank password and key fields keep what's saved. Test runs on the device itself, over its own
-      WiFi.</p>
+    <p class="muted">Leave a password or key blank to keep the one that's saved. The Test buttons run on the device
+      itself, over its own WiFi.</p>
     <div class="grid">
       <div class="card" id="wifiCard">
         <h3>WiFi networks <span class="saved" id="wifiSaved"></span></h3>
-        <p class="note" style="margin:0 0 6px">Save up to five. The device joins whichever one is in range,
-          trying the one that worked last first.</p>
+        <p class="note" style="margin:0 0 6px">You can save up to five. The device joins whichever is in range,
+          starting with the one that worked last time.</p>
         <ul id="netList" class="nets"></ul>
         <h3 id="netFormTitle" style="margin-top:14px">Add a network</h3>
         <div class="seg">
@@ -107,18 +108,19 @@
         <label for="wifi_pass">Password</label>
         <input id="wifi_pass" type="password" autocomplete="new-password" maxlength="128">
         <div id="caBox" hidden>
-          <label for="wifi_ca">CA certificate <span class="hint">(optional; from your university's IT pages or
-            cat.eduroam.org; blank keeps what's saved)</span></label>
+          <label for="wifi_ca">CA certificate <span class="hint">(optional, from your university's IT pages or
+            cat.eduroam.org. Leave it blank to keep the saved one.)</span></label>
           <textarea id="wifi_ca" rows="3" spellcheck="false" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
           <button class="secondary" id="removeCa" hidden>Remove certificate</button>
         </div>
-        <p class="note" id="enterpriseNote" hidden>Logs in with PEAP / MSCHAPv2. The device doesn't check the
-          network's certificate, so a fake access point with the same name could capture this password: use it
-          only where you trust the network, and not with a password you use elsewhere. Adding your university's
-          CA certificate above makes this safer.</p>
-        <p class="note" id="caNote" hidden>Logs in with PEAP / MSCHAPv2 and checks that the network's certificate
-          was signed by your CA. It can't check the server's name, so this only stops a fake access point if your
-          university uses its own private CA. If the CA is a public one, treat the network as unchecked.</p>
+        <p class="note" id="enterpriseNote" hidden>This logs in with PEAP / MSCHAPv2. The device doesn't check the
+          network's certificate, so a fake access point with the same name could capture this password. Only use it
+          on networks you trust, and not with a password you use anywhere else. Adding your university's CA
+          certificate above makes it safer.</p>
+        <p class="note" id="caNote" hidden>This logs in with PEAP / MSCHAPv2 and checks that the network's
+          certificate was signed by your CA. It can't check the server's name, though, so it only stops a fake access
+          point if your university uses its own private CA. If the CA is a public one, treat the network as
+          unchecked.</p>
         <div class="buttons">
           <button id="saveNet">Save network</button>
           <button class="secondary" id="cancelEdit" hidden>Cancel</button>
@@ -131,8 +133,8 @@
         <h3>OpenAI <span class="saved" id="openaiSaved"></span></h3>
         <label for="openai_key">API key <span class="hint">(sk-…, for Whisper)</span></label>
         <input id="openai_key" type="password" autocomplete="off" spellcheck="false" maxlength="256">
-        <p class="note">From <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>,
-          with billing on. Whisper costs about $0.006 a minute.</p>
+        <p class="note">Make one at <a href="https://platform.openai.com/api-keys" target="_blank" rel="noopener">platform.openai.com/api-keys</a>.
+          Billing has to be turned on. Whisper costs about $0.006 a minute.</p>
         <div class="buttons">
           <button data-save="openai">Save</button>
           <button class="secondary" data-test="openai">Test</button>
@@ -153,7 +155,7 @@
         <div id="anthropicBox">
           <label for="anthropic_key">Anthropic API key <span class="saved" id="anthropicSaved"></span></label>
           <input id="anthropic_key" type="password" autocomplete="off" spellcheck="false" maxlength="256">
-          <p class="note">From <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
+          <p class="note">Make one at <a href="https://console.anthropic.com/settings/keys" target="_blank" rel="noopener">console.anthropic.com</a>.</p>
         </div>
         <div class="buttons">
           <button data-save="cleanup">Save</button>
@@ -175,8 +177,8 @@
         </div>
         <label for="gh_token">Token <span class="hint">(github_pat_…)</span></label>
         <input id="gh_token" type="password" autocomplete="off" spellcheck="false" maxlength="256">
-        <p class="note">A <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a>
-          for just that repo, with <b>Contents: Read and write</b>.</p>
+        <p class="note">Make a <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">fine-grained token</a>
+          for just that repo, with <b>Contents</b> set to <b>Read and write</b>.</p>
         <div class="buttons">
           <button data-save="github">Save</button>
           <button class="secondary" data-test="github">Test</button>
@@ -215,8 +217,8 @@
   <section id="remove">
     <h2>Remove everything</h2>
     <div class="card">
-      <p class="muted" style="margin:0">Clears the WiFi, keys, token and Notes settings from the device. Your notes
-        stay on the card. (Install on the first page also wipes them; Update keeps them.)</p>
+      <p class="muted" style="margin:0">Clears the WiFi, keys, GitHub token and Notes settings from the device. Your
+        notes stay on the card. Install also wipes these settings, and Update keeps them.</p>
       <div class="buttons"><button class="secondary" id="clearAll">Clear all keys</button></div>
       <p class="status" id="clearStatus"></p>
     </div>

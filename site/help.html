@@ -32,8 +32,8 @@
   <div>
     <div class="page-head">
       <h1>Help</h1>
-      <p class="lead">Everything you need to get unidex running, and what to do when something isn't right. Press
-        <kbd>/</kbd> to search the whole site.</p>
+      <p class="lead">How to get unidex running, answers to common questions, and what to try when something isn't
+        working. Press <kbd>/</kbd> to search the whole site.</p>
     </div>
 
     <section id="start">
@@ -53,10 +53,10 @@
       <h3>The buttons</h3>
       <table>
         <tbody>
-          <tr><td><b>A</b></td><td>Next: the next row, item or page</td></tr>
-          <tr><td><b>B</b></td><td>Select, open, do</td></tr>
-          <tr><td><b>Hold A</b></td><td>Back; from an app, home</td></tr>
-          <tr><td><b>Hold B</b></td><td>The screen's extra, shown at the bottom</td></tr>
+          <tr><td><b>A</b></td><td>Next row, item or page</td></tr>
+          <tr><td><b>B</b></td><td>Select or open</td></tr>
+          <tr><td><b>Hold A</b></td><td>Back, or home from an app</td></tr>
+          <tr><td><b>Hold B</b></td><td>The screen's extra action, shown at the bottom</td></tr>
           <tr><td><b>Hold A + B</b> for a second</td><td>Restart (your files, settings and the clock are kept)</td></tr>
         </tbody>
       </table>
@@ -64,17 +64,17 @@
 
     <section id="faq">
       <h2>Questions</h2>
-      <details id="battery"><summary>How long does the battery last, and what does "Charge me" mean?</summary><p>It sleeps whenever you aren't pressing a button, so it depends on use. WiFi is only on while Notes sends, during a Dex scan or a time sync. When it's low, things that need a lot of power say "Battery too low"; when it's flat it shows "Charge me" and switches off. Plug it in, then press PWR.</p></details>
+      <details id="battery"><summary>How long does the battery last, and what does "Charge me" mean?</summary><p>It depends on how you use it, because it sleeps whenever you aren't pressing a button. WiFi is only on while Notes is sending, during a Dex scan, or while it syncs the time. When the battery is low, things that need a lot of power say "Battery too low". When it's flat, it shows "Charge me" and switches off. Plug it in, then press PWR.</p></details>
 
-      <details id="sd"><summary>What goes on the SD card?</summary><p>Your badges, timetable, notes, the Dex and your apps. It must be FAT32. Unidex never formats it. "No SD card" means it isn't FAT32 or isn't pushed all the way in.</p></details>
+      <details id="sd"><summary>What goes on the SD card?</summary><p>Your badges, timetable, notes, the Dex and your apps. The card has to be FAT32, and unidex never formats it. If the device says "No SD card", the card isn't FAT32 or isn't pushed all the way in.</p></details>
 
-      <details id="updates"><summary>Will updating lose my files or settings?</summary><p>No. <b>Update</b> on the Install page (or Sync everything on Tools) keeps your settings, keys, Pet and files. Only <b>Install</b> erases the device's settings; files on the SD card are never touched.</p></details>
+      <details id="updates"><summary>Will updating lose my files or settings?</summary><p>No. <b>Update</b> on the Install page, and Sync everything on Tools, keep your settings, keys, Pet and files. Only <b>Install</b> erases the device's settings, and even that never touches the files on the SD card.</p></details>
 
-      <details id="apps"><summary>Are apps from the store safe?</summary><p>Every app is tried automatically and read by a person before it's listed, and each one runs in a sandbox: its own memory and folder, a time limit, and no way to reach your WiFi password, keys, notes or other apps. Apps that use the internet say so before you install them.</p></details>
+      <details id="apps"><summary>Are apps from the store safe?</summary><p>Every app is tried automatically and read by a person before it's listed. Each one also runs in a sandbox, with its own memory, its own folder and a time limit, and it can't reach your WiFi password, keys, notes or other apps. If an app uses the internet, the store tells you before you install it.</p></details>
 
-      <details id="app-error"><summary>What does "App error" mean?</summary><p>The app hit a bug or one of its limits; the message says where. The device carries on. You can tell the app's author (each app's page has a link), or offload or delete it with <b>hold B</b> in Apps.</p></details>
+      <details id="app-error"><summary>What does "App error" mean?</summary><p>The app hit a bug or one of its limits, and the message says where. The rest of the device keeps working. You can tell the app's author (each app's page has a link), or offload or delete the app with <b>hold B</b> in Apps.</p></details>
 
-      <details id="privacy"><summary>What does unidex send, and where?</summary><p>No account, analytics or tracking. This site talks to your device over USB only. Notes go to the services you set up (OpenAI or Anthropic, and GitHub if you choose). The details are in <a href="https://github.com/Forrest404/unidex/blob/main/PRIVACY.md" target="_blank" rel="noopener">PRIVACY.md</a>.</p></details>
+      <details id="privacy"><summary>What does unidex send, and where?</summary><p>There's no account, no analytics and no tracking. This site only talks to your device over USB. Your notes go to the services you set up: OpenAI or Anthropic, and GitHub if you turn it on. The details are in <a href="https://github.com/Forrest404/unidex/blob/main/PRIVACY.md" target="_blank" rel="noopener">PRIVACY.md</a>.</p></details>
 
       <details id="reset"><summary>I'm passing it on. How do I wipe it?</summary><p>Settings &gt; Reset data &gt; <b>Factory reset</b> (it asks twice) wipes the WiFi, keys, Pet, friends and settings. Format the SD card on a computer as well.</p></details>
 
@@ -82,7 +82,7 @@
 
     <section id="trouble">
       <h2>Troubleshooting</h2>
-      <details id="not-found"><summary>The website can't find my unidex</summary><p>It's asleep: press one of its buttons and try again. Use a USB-C <b>data</b> cable (some only charge). If it's a brand-new board, or one with other firmware, unplug it, hold <b>BOOT</b> while you plug it back in, let go, then try again.</p></details>
+      <details id="not-found"><summary>The website can't find my unidex</summary><p>It's probably asleep. Press one of its buttons and try again. Check that the cable is a USB-C <b>data</b> cable, because some only charge. If it's a brand-new board or has other firmware on it, unplug it, hold <b>BOOT</b> while you plug it back in, let go, and try again.</p></details>
 
       <details id="in-use"><summary>"Another page or program is using the unidex"</summary><p>Only one page can talk to it at a time. Close other tabs of this site (or the Mac calendar helper), then try again.</p></details>
 
@@ -90,14 +90,14 @@
 
       <details id="time"><summary>"Time not set"</summary><p>Set it in Settings, or use Set the clock or Sync everything on the <a href="tools.html">Tools</a> page.</p></details>
 
-      <details id="notes-fail"><summary>A note didn't send</summary><p>Notes wait on the card and send later. On <a href="setup.html#connections">Setup</a>, use each Test button to check the WiFi and keys. "2 synced, 1 stuck" means one note was refused; the rest still sent.</p></details>
+      <details id="notes-fail"><summary>A note didn't send</summary><p>Notes wait on the card and send later. On <a href="setup.html#connections">Setup</a>, use the Test buttons to check the WiFi and each key. "2 synced, 1 stuck" means one note was refused and the others went through.</p></details>
 
     </section>
 
     <section id="ask">
       <h2>Still stuck?</h2>
-      <p>Open an issue with your firmware version (Settings &gt; Battery &amp; info) and what happened. Problems with an
-        app from the store go to its repository.</p>
+      <p>Open an issue and say what happened, with your firmware version (Settings &gt; Battery &amp; info). Problems
+        with an app from the store go to the apps repository instead.</p>
       <div class="page-head actions" style="display:flex;gap:10px;flex-wrap:wrap">
         <a class="button" href="https://github.com/Forrest404/unidex/issues/new/choose" target="_blank" rel="noopener">Ask about unidex ↗</a>
         <a class="button secondary" href="https://github.com/Forrest404/unidex-apps/issues" target="_blank" rel="noopener">Report an app ↗</a>

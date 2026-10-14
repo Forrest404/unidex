@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Make an app for unidex</title>
-<meta name="description" content="Write apps and plugins for the unidex e-ink device in a few lines of Lua: the API, the sandbox, trying them in the browser, and sending them to the store.">
+<meta name="description" content="Write apps and plugins for the unidex e-ink device in a few lines of Lua, try them in the browser, and send them to the store.">
 <link rel="canonical" href="https://forrest404.github.io/unidex/developers.html">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="unidex">
 <meta property="og:title" content="Make an app for unidex">
-<meta property="og:description" content="Write apps and plugins for the unidex e-ink device in a few lines of Lua: the API, the sandbox, trying them in the browser, and sending them to the store.">
+<meta property="og:description" content="Write apps and plugins for the unidex e-ink device in a few lines of Lua, try them in the browser, and send them to the store.">
 <meta property="og:url" content="https://forrest404.github.io/unidex/developers.html">
 <meta property="og:image" content="https://forrest404.github.io/unidex/og.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -36,10 +36,10 @@
     <div class="page-head">
       <h1>Make an app</h1>
       <p class="lead">An app is a folder with two small files, written in Lua in any text editor. There's nothing to
-        compile and no tools to install. Write it, try it, then send it to the store.</p>
+        compile and no tools to install. You write it, try it, and send it to the store.</p>
       <div class="actions">
         <a class="button" href="https://github.com/Forrest404/unidex-apps" target="_blank" rel="noopener">Create an app ↗</a>
-        <a class="button secondary" href="https://github.com/Forrest404/unidex/blob/main/docs/APPS.md" target="_blank" rel="noopener">Read the full guide ↗</a>
+        <a class="button secondary" href="https://github.com/Forrest404/unidex-apps/blob/main/APPS.md" target="_blank" rel="noopener">Read the guide ↗</a>
       </div>
     </div>
 
@@ -58,8 +58,8 @@
 
     <section id="example">
       <h2>An example</h2>
-      <p>A whole app: <code>app.json</code> says who it is, <code>main.lua</code> is the code. This one counts presses of
-        B and remembers the count.</p>
+      <p>Here's a whole app. <code>app.json</code> says what it is and <code>main.lua</code> is the code. It counts
+        presses of B and remembers the count.</p>
 <pre><code>{
   "id": "hello",
   "name": "Hello",
@@ -88,16 +88,18 @@ function onBHold()
   unidex.data.write("count", "0")
   return "partial"
 end</code></pre>
-      <p class="note">More examples: <a href="https://github.com/Forrest404/unidex-apps/tree/main/apps" target="_blank" rel="noopener">the apps in the store</a>
-        and the <a href="https://github.com/Forrest404/unidex-apps/tree/main/template/my-app" target="_blank" rel="noopener">template</a>.</p>
+      <p class="note">For more, look at <a href="https://github.com/Forrest404/unidex-apps/tree/main/apps" target="_blank" rel="noopener">the apps in the store</a>,
+        or start from the <a href="https://github.com/Forrest404/unidex-apps/tree/main/template/my-app" target="_blank" rel="noopener">template</a>.
+        <a href="https://github.com/Forrest404/unidex-apps/blob/main/APPS.md" target="_blank" rel="noopener">Building apps</a> explains how an app runs, how to lay
+        out a screen and how to keep data through sleep.</p>
     </section>
 
     <section id="api">
       <h2>The API</h2>
-      <p>Your code defines functions (<code>draw</code>, <code>onA</code>, <code>onB</code>, <code>onBHold</code>,
-        <code>onBack</code>, <code>tick</code>, <code>onEnter</code>, <code>onExit</code>, <code>status</code>) and calls
-        <code>unidex.*</code>. Each button function returns <code>"partial"</code>, <code>"full"</code> or nothing, to say
-        whether the screen needs a refresh.</p>
+      <p>Your code defines the functions the device calls (<code>draw</code>, <code>onA</code>, <code>onB</code>,
+        <code>onBHold</code>, <code>onBack</code>, <code>tick</code>, <code>onEnter</code> and <code>onExit</code>) and
+        calls <code>unidex.*</code> to draw and save. Each button function returns <code>"partial"</code>,
+        <code>"full"</code> or nothing, depending on whether the screen needs a refresh.</p>
       <table>
         <thead><tr><th>Area</th><th>What it can do</th></tr></thead>
         <tbody>
@@ -113,22 +115,24 @@ end</code></pre>
 
     <section id="plugins">
       <h2>Plugins</h2>
-      <p>A plugin adds to one of the built-in apps instead of being an app of its own. It's the same folder, with
-        <code>"type": "plugin"</code> and <code>"extends"</code>. The first kind extends Badge: your <code>badge()</code>
-        function draws a badge each time it's shown, so it can show today's date, a countdown or a QR code. It's listed
-        in Badge after your own badges. More built-in apps will take plugins.</p>
+      <p>A plugin adds to one of the built-in apps instead of being an app of its own. It's the same kind of folder,
+        with <code>"type": "plugin"</code> and <code>"extends"</code>. For now, Badge is the app you can extend. Your
+        <code>badge()</code> function draws a badge each time Badge shows it, so it can show today's date, a countdown
+        or a QR code, and it's listed in Badge after the image badges.
+        <a href="https://github.com/Forrest404/unidex-apps/blob/main/PLUGINS.md" target="_blank" rel="noopener">Writing plugins</a>
+        has the details and a template.</p>
     </section>
 
     <section id="limits">
       <h2>The sandbox</h2>
-      <p>Each app is walled off from the rest of the device, so a mistake can't do any harm:</p>
+      <p>Each app is kept apart from the rest of the device:</p>
       <ul>
         <li><b>Its own memory</b> (about 512 KB) and <b>its own folder</b> on the SD card, up to 512 KB of data.</li>
         <li><b>A time limit</b> of about 2 seconds on each call, so a loop can't freeze the device.</li>
-        <li><b>No way to reach</b> the WiFi password, API keys, notes or other apps' files. The internet only with the
-          <code>"wifi"</code> permission, which people see before they install.</li>
-        <li>If an app breaks a limit or hits a bug, the device says <b>App error</b> with the line, and goes back to the
-          list. It never takes the device down with it.</li>
+        <li><b>No way to reach</b> the WiFi password, API keys, notes or other apps' files. It can only use the
+          internet with the <code>"wifi"</code> permission, which people see before they install.</li>
+        <li>If an app breaks a limit or hits a bug, the device shows <b>App error</b> with the line it stopped on, and
+          the rest of the device carries on.</li>
       </ul>
     </section>
 
@@ -142,7 +146,7 @@ end</code></pre>
           <code>python3 tools/appinstall.py install path/to/your-app</code> from a copy of the
           <a href="https://github.com/Forrest404/unidex" target="_blank" rel="noopener">unidex repository</a>.</div></li>
         <li><div><b>Automatically.</b> <code>node emu/test/app_smoke.mjs path/to/your-app</code> opens it, presses every
-          button, and says if it ever shows App error: the same check the store runs.</div></li>
+          button, and tells you if it ever shows App error. The store runs the same check.</div></li>
       </ol>
     </section>
 
@@ -152,8 +156,8 @@ end</code></pre>
         <li><div><b>Fork</b> <a href="https://github.com/Forrest404/unidex-apps" target="_blank" rel="noopener">unidex-apps</a> and add your folder as
           <code>apps/&lt;id&gt;/</code>.</div></li>
         <li><div><b>Open a pull request.</b> Automatic checks try it in the emulator and attach screenshots.</div></li>
-        <li><div><b>A person reads it.</b> It's accepted (and appears on the Apps page within a few hours) or declined
-          with a reason you can fix. <a href="https://github.com/Forrest404/unidex-apps#what-gets-checked-by-hand" target="_blank" rel="noopener">What gets checked</a>.</div></li>
+        <li><div><b>A person reads it.</b> Then it's either accepted, and appears on the Apps page within a few hours,
+          or declined with a reason you can fix. <a href="https://github.com/Forrest404/unidex-apps#what-gets-checked-by-hand" target="_blank" rel="noopener">What gets checked</a>.</div></li>
       </ol>
       <div class="callout">
         <div><h2>Make your first one</h2><p>Copy the template, change a few lines, and it's on your unidex in minutes.</p></div>

@@ -47,7 +47,7 @@ function describe() {
   if (s == null) return supported ? 'Plug your unidex in and press one of its buttons, then install.' : 'Use Chrome or Edge on a computer to install it.';
   if (s === 'installed') return `Installed on your unidex (v${d.version}), with ${kb(d.data)} of data.`;
   if (s === 'update') return `Your unidex has v${d.version}. Updating keeps its data.`;
-  if (s === 'offloaded') return `Offloaded: its data (${kb(d.data)}) is still on your unidex. Reinstall to use it again.`;
+  if (s === 'offloaded') return `Offloaded. Its data (${kb(d.data)}) is still on your unidex, so reinstall it to carry on.`;
   return 'Not on your unidex yet.';
 }
 
@@ -61,11 +61,11 @@ function say(text, kind = '', fraction) {
 }
 
 function render() {
-  const where = app.type === 'plugin' ? `It adds to ${EXTENDS[app.extends] || app.extends} on your unidex: open ${EXTENDS[app.extends] || app.extends} to find it.`
+  const where = app.type === 'plugin' ? `It adds to ${EXTENDS[app.extends] || app.extends} on your unidex. Open ${EXTENDS[app.extends] || app.extends} to find it.`
                                       : 'It opens from Apps on your unidex.';
   const perms = app.permissions.length
     ? el('ul', { class: 'perm-list' }, app.permissions.map(p => el('li', {}, el('b', { text: PERMISSIONS[p] || p }), ' ', PERMISSION_DETAIL[p] || '')))
-    : el('p', { text: 'No special permissions: it draws on the screen, reads the buttons and keeps its own files. Nothing else.' });
+    : el('p', { text: 'No special permissions. It draws on the screen, reads the buttons and keeps its own files, and that\'s all.' });
   const src = app.source || `${STORE_REPO}/tree/main/apps/${app.id}`;
   const view = el('div', { class: 'app-layout' },
     el('div', { class: 'app-main' },

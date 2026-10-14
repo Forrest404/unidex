@@ -20,7 +20,7 @@ export const crc32 = (() => {
   };
 })();
 
-export const asleepHint = 'No device picked. Nothing listed? The board is asleep: press one of its buttons, then try again.';
+export const asleepHint = 'No device picked. If the list was empty, the device is asleep. Press one of its buttons and try again.';
 
 const FILTER = { usbVendorId: 0x303a };
 

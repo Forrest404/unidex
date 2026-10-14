@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>unidex: install the e-ink pocket OS</title>
-<meta name="description" content="Install unidex on a Waveshare ESP32-S3 1.54&quot; e-paper board from your browser: class timetable with a live countdown, AI voice notes for Obsidian, a Pet that meets your friends' Pets, name badges and one-button games. Free for non-commercial use.">
+<meta name="description" content="Install unidex on the Waveshare ESP32-S3 1.54&quot; e-paper board from your browser. It has a class timetable with a live countdown, voice notes tidied up by AI and saved to Obsidian, a Pet that meets your friends' Pets, name badges and one-button games. Free for non-commercial use.">
 <link rel="canonical" href="https://forrest404.github.io/unidex/">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="unidex">
 <meta property="og:title" content="unidex: an e-ink pocket OS">
-<meta property="og:description" content="Install unidex on a Waveshare ESP32-S3 1.54&quot; e-paper board from your browser: class timetable with a live countdown, AI voice notes for Obsidian, a Pet that meets your friends' Pets, name badges and one-button games. Free for non-commercial use.">
+<meta property="og:description" content="Install unidex on the Waveshare ESP32-S3 1.54&quot; e-paper board from your browser. It has a class timetable with a live countdown, voice notes tidied up by AI and saved to Obsidian, a Pet that meets your friends' Pets, name badges and one-button games. Free for non-commercial use.">
 <meta property="og:url" content="https://forrest404.github.io/unidex/">
 <meta property="og:image" content="https://forrest404.github.io/unidex/og.png">
 <meta property="og:image:width" content="1200">
@@ -31,12 +31,13 @@
 <main>
   <div class="page-head">
   <h1>Install unidex</h1>
-  <p class="lead">A small e-ink OS for the Waveshare ESP32-S3-ePaper-1.54: timetable with calendar events, voice
-    notes, a Pet you dress up that plays with your friends' Pets, name badges, one-button games, a WiFi network
-    collection game and a chooser. Install it straight from your browser, with nothing to download.</p>
+  <p class="lead">unidex is a small operating system for the Waveshare ESP32-S3-ePaper-1.54 e-ink board. You get a
+    timetable that shows your calendar, voice notes, a Pet you dress up and take to meet your friends' Pets, name
+    badges, one-button games, a game where you collect WiFi networks, and a chooser for when you can't decide. It
+    installs from this page, so there's nothing to download.</p>
   </div>
-  <p class="note">No board yet? Pre-orders for a fully assembled and tested unidex are closed:
-    <a href="https://www.unidex.shop">join the wait list</a>.</p>
+  <p class="note">Don't have a board? Pre-orders for a ready-made unidex, assembled and tested, have closed, but you
+    can <a href="https://www.unidex.shop">join the wait list</a>.</p>
 
   <section>
     <ol>
@@ -48,9 +49,9 @@
     <div class="actions">
       <div class="card">
         <h2>Install</h2>
-        <p class="muted">A fresh start: <b>erases</b> the device's firmware and settings, including the WiFi
-          and keys saved for Notes. Your files live on the micro SD card and aren't touched, and your Pet's friends
-          come back from it.</p>
+        <p class="muted">Starts from scratch. It <b>erases</b> the firmware and settings on the device, including
+          your WiFi and the keys saved for Notes. Your files are on the micro SD card, so they aren't touched, and
+          your Pet's friends come back from there.</p>
         <esp-web-install-button manifest="firmware/install.json">
           <button slot="activate">Install</button>
           <span slot="unsupported" class="unsupported">Your browser can't do this. Use <b>Chrome</b> or <b>Edge</b> on a computer.</span>
@@ -59,34 +60,35 @@
       </div>
       <div class="card">
         <h2>Update</h2>
-        <p class="muted">The newest firmware only. <b>Keeps</b> your badges, Dex, calendar events, notes, settings,
-          keys and your Pet.</p>
+        <p class="muted">Puts the newest firmware on and <b>keeps</b> everything else: badges, Dex, calendar
+          events, notes, settings, keys and your Pet.</p>
         <button id="update" class="secondary">Update</button>
         <p id="updateStatus" class="status"></p>
       </div>
     </div>
 
-    <p class="note">Nothing in the list? The device is asleep: press a button and try again. Still nothing (a brand-new
-      board, or one with other firmware)? Unplug it, hold <b>BOOT</b> while plugging it back in, let go, then try
-      again; press a button after it's installed.</p>
+    <p class="note">Nothing in the list? The device is probably asleep, so press a button and try again. If it's a
+      brand-new board or has other firmware on it, unplug it, hold <b>BOOT</b> while you plug it back in, let go and
+      try again. Press a button once it's installed.</p>
   </section>
 
   <section>
     <h2>After installing</h2>
-    <p>Files live on a <b>micro SD card</b> (FAT32) in the device's slot. Send badges, the clock and your calendar from
-      <a href="tools.html">Tools</a>, or copy the
+    <p>The device keeps your files on a <b>micro SD card</b> (FAT32) in its slot. You can send badges, the time and
+      your calendar from <a href="tools.html">Tools</a>, or copy the
       <a href="https://github.com/Forrest404/unidex/tree/main/starter">starter files</a> (a <code>badges</code>
-      folder and <code>timetable.csv</code>) to the card. For voice notes, set up WiFi and your keys on
-      <a href="setup.html">Setup</a>. On the device:
-      <b>A</b> = next, <b>B</b> = select, <b>hold A</b> = back, <b>hold B</b> = the screen's extra (each screen
-      shows its buttons), <b>hold A + B</b> for a second = restart. The first time it starts, it shows the buttons and a
-      QR code for this page.</p>
-    <p>Low battery? Things that need a lot of power wait with "Battery too low", and a flat device shows "Charge me"
-      and switches itself off: plug it in, then press PWR. Passing it on? Settings &gt; Reset data &gt;
-      <b>Factory reset</b> wipes the WiFi, keys, Pet and settings (format the SD card too).</p>
-    <p class="note">Version <span id="version">…</span>
-      (<a href="https://github.com/Forrest404/unidex/blob/main/CHANGELOG.md">what's new</a>). Each new release on
-      GitHub updates this page automatically.</p>
+      folder and <code>timetable.csv</code>) onto the card yourself. Voice notes need WiFi and your keys, which you
+      add on <a href="setup.html">Setup</a>.</p>
+    <p>On the device, <b>A</b> moves to the next thing and <b>B</b> selects. <b>Hold A</b> goes back, and
+      <b>hold B</b> does whatever extra the screen offers. Every screen shows what its buttons do. Hold <b>A and B</b>
+      together for a second to restart. The first time it starts, it shows you the buttons and a QR code that links
+      here.</p>
+    <p>When the battery is low, anything that needs a lot of power waits and says "Battery too low". When it's flat,
+      it shows "Charge me" and switches off. Plug it in, then press PWR. Giving it to someone else? Settings &gt;
+      Reset data &gt; <b>Factory reset</b> wipes the WiFi, keys, Pet and settings. Format the SD card as well.</p>
+    <p class="note">This is version <span id="version">…</span>
+      (<a href="https://github.com/Forrest404/unidex/blob/main/CHANGELOG.md">what's new</a>). The page picks up each
+      new release on GitHub by itself.</p>
   </section>
   <section>
     <h2>Next</h2>
@@ -118,7 +120,7 @@
     try {
       port = await navigator.serial.requestPort({ filters: [{ usbVendorId: 0x303a }] });
     } catch (e) {
-      status('No device picked. Nothing listed? The device is asleep: press one of its buttons, then try again.');
+      status('No device picked. If the list was empty, the device is asleep. Press one of its buttons and try again.');
       return;
     }
     $('update').disabled = true;
@@ -126,7 +128,7 @@
       await updateFirmware(port, status);
       status(`Updated to ${version}. Your data was kept.`);
     } catch (e) {
-      status(`Update failed: ${e.message || e}. Unplug the device, hold BOOT while plugging it back in, then try again.`);
+      status(`Update failed: ${e.message || e}. Unplug the device, hold BOOT while you plug it back in, and try again.`);
     } finally {
       $('update').disabled = !('serial' in navigator);
     }

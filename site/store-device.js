@@ -40,7 +40,7 @@ export function compareAppVersions(a, b) {
 function refusal(e) {
   const hex = /^ERR ([0-9a-f]+)$/.exec(e.reply || '');
   if (hex) return fromHex(hex[1]);
-  if (e.reply === 'ERR busy') return 'it\'s open on the device: leave it (hold A) and try again';
+  if (e.reply === 'ERR busy') return 'it\'s open on the device, so leave it (hold A) and try again';
   return e.message;
 }
 

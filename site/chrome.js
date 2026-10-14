@@ -241,7 +241,9 @@ const PAGES = [
   { group: 'Help', title: 'Passing it on (factory reset)', sub: 'Wipe your WiFi, keys and Pet', href: 'help.html#reset', icon: 'trash', words: 'wipe sell give erase' },
   { group: 'Help', title: 'Privacy', sub: 'What the device and this site send, and where', href: `${REPO}/blob/main/PRIVACY.md`, icon: 'key', ext: true, words: 'data keys tracking' },
   { group: 'Pages', title: 'Install unidex', sub: 'Install erases; Update keeps your files', href: './', icon: 'install', words: 'firmware flash erase update version esp32' },
-  { group: 'Pages', title: 'Example: Hello', sub: 'A whole app in 15 lines of Lua', href: 'developers.html#example', icon: 'code', words: 'lua sample code template' },
+  { group: 'Pages', title: 'Example: Hello', sub: 'A whole app in about 20 lines of Lua', href: 'developers.html#example', icon: 'code', words: 'lua sample code template' },
+  { group: 'Pages', title: 'Building apps', sub: 'How an app runs, laying out a screen, saving through sleep', href: `${STORE_REPO}/blob/main/APPS.md`, icon: 'book', ext: true, words: 'guide tutorial lua layout sleep data tick' },
+  { group: 'Pages', title: 'Writing plugins', sub: 'Badge plugins, with a template', href: `${STORE_REPO}/blob/main/PLUGINS.md`, icon: 'layers', ext: true, words: 'guide plugin badge extend' },
   { group: 'Pages', title: 'Plugins', sub: 'Add to the built-in apps (Badge)', href: 'developers.html#plugins', icon: 'layers', words: 'extend badge plugin' },
   { group: 'Pages', title: 'App limits and the sandbox', sub: 'Memory, time, files, permissions', href: 'developers.html#limits', icon: 'key', words: 'memory sandbox permission wifi safe' },
 ];

@@ -66,7 +66,7 @@ export function eventsFrom(text) {
 // Sets the device's clock to this computer's time.
 export async function setTime(dev) {
   await dev.send(`T ${Math.round(Date.now() / 1000)}`);
-  if (!await dev.expect('OK T', 3000)) throw new Error('The device did not confirm the time.');
+  if (!await dev.expect('OK T', 3000)) throw new Error("The device didn't confirm the time.");
 }
 
 // Replaces the device's events with `lines` (from eventsFrom).
@@ -74,5 +74,5 @@ export async function sendEvents(dev, lines) {
   const body = lines.map(l => l + '\n').join('');
   await dev.send(`E ${lines.length} ${crc32(new TextEncoder().encode(body))}`);
   for (const l of lines) await dev.send(l);
-  if (!await dev.expect('OK E', 5000)) throw new Error('The device did not confirm the events.');
+  if (!await dev.expect('OK E', 5000)) throw new Error("The device didn't confirm the events.");
 }

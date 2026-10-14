@@ -145,8 +145,8 @@ async function load() {
   $('cleanupSaved').textContent = cleanup === 'off' ? '· off' : cleanup === 'anthropic' ? '· Claude' : '· OpenAI';
   $('device').textContent = st.card
     ? `Connected. ${st.notes} note${st.notes === 1 ? '' : 's'} on the card${st.waiting ? `, ${st.waiting} waiting to sync` : ''}.`
-    : 'Connected. No SD card: notes are only sent to GitHub, nothing is kept on the device.';
-  $('device').textContent += ' Disconnect when you\u2019re done, so the Mac sync and updates can reach it.';
+    : "Connected. There's no SD card, so notes only go to GitHub and nothing is kept on the device.";
+  $('device').textContent += " Disconnect when you're done, so the Mac sync and updates can reach it.";
   $('cardInfo').textContent = st.card ? 'Notes are kept on the SD card as Markdown.' : 'No SD card in the device.';
 }
 
@@ -208,7 +208,7 @@ document.querySelectorAll('[data-save]').forEach(btn => {
       const values = { ...(g.extra ? g.extra() : {}) };
       for (const f of g.plain) values[f] = $(f).value.trim();
       for (const f of g.secret) if ($(f).value.trim()) values[f] = $(f).value.trim();
-      if (!Object.keys(values).length) return say(g.status, 'Nothing to save: type the key first.');
+      if (!Object.keys(values).length) return say(g.status, 'Nothing to save yet. Type the key first.');
       for (const [key, value] of Object.entries(values)) await notesSet(dev, key, value);
       await load();
       say(g.status, 'Saved on the device.', 'ok');
@@ -222,9 +222,9 @@ function checkNet() {
     return 'The CA certificate should be PEM text, from -----BEGIN CERTIFICATE----- to -----END CERTIFICATE-----.';
   if (!$('wifi_ssid').value.trim()) return 'Type the network name.';
   if (enterprise() && !$('wifi_user').value.trim()) return 'Type your username.';
-  if (editing < 0 && nets.length >= SLOTS) return `${SLOTS} networks are saved: remove one first.`;
+  if (editing < 0 && nets.length >= SLOTS) return `${SLOTS} networks are already saved. Remove one first.`;
   const ssid = $('wifi_ssid').value.trim();
-  if (nets.some(n => n.ssid === ssid && n.slot !== editing)) return `"${ssid}" is already saved: edit it instead.`;
+  if (nets.some(n => n.ssid === ssid && n.slot !== editing)) return `"${ssid}" is already saved, so edit that one instead.`;
   return '';
 }
 
@@ -242,7 +242,7 @@ $('saveNet').onclick = () => {
       if (enterprise() && caBody()) await notesSetLong(dev, key(slot, 'ca'), caBody());
       if (!enterprise() && caSaved) await notesSet(dev, key(slot, 'ca'), '');  // home: no CA
     } catch (e) {
-      if (slot > 0) throw new Error('Saving a second network needs newer firmware: update the device on the Install page first.');
+      if (slot > 0) throw new Error('Saving a second network needs newer firmware. Update the device on the Install page first.');
       throw e;
     }
     editing = -1;
@@ -279,7 +279,7 @@ $('mic').onclick = () => run('micStatus', async () => {
   if (r.reason) return say('micStatus', r.reason, 'bad');
   const pct = Math.min(100, Math.round((r.peak * 3 * 100) / 32767));  // x3, as on the device's level bar
   $('meter').firstElementChild.style.width = pct + '%';
-  say('micStatus', r.peak < 300 ? 'Very quiet: is anything covering the microphone?' : `Peak ${r.peak}, average ${r.rms}.`,
+  say('micStatus', r.peak < 300 ? 'Very quiet. Is anything covering the microphone?' : `Peak ${r.peak}, average ${r.rms}.`,
       r.peak < 300 ? 'bad' : 'ok');
 });
 
