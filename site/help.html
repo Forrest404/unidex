@@ -64,17 +64,34 @@
 
     <section id="faq">
       <h2>Questions</h2>
-      <details id="battery"><summary>How long does the battery last, and what does "Charge me" mean?</summary><p>It depends on how you use it, because it sleeps whenever you aren't pressing a button. WiFi is only on while Notes is sending, during a Dex scan, or while it syncs the time. When the battery is low, things that need a lot of power say "Battery too low". When it's flat, it shows "Charge me" and switches off. Plug it in, then press PWR.</p></details>
+      <details id="battery"><summary>How long does the battery last, and what does "Charge me" mean?</summary><p>It depends on how much you use it. It sleeps whenever you aren't pressing a button, and WiFi is only on while Notes is sending, during a Dex scan, or while it syncs the time.</p>
+        <ul>
+          <li>When it's low, things that need a lot of power wait and say "Battery too low".</li>
+          <li>When it's flat, it shows "Charge me" and switches off. Plug it in, then press PWR.</li>
+        </ul></details>
 
-      <details id="sd"><summary>What goes on the SD card?</summary><p>Your badges, timetable, notes, the Dex and your apps. The card has to be FAT32, and unidex never formats it. If the device says "No SD card", the card isn't FAT32 or isn't pushed all the way in.</p></details>
+      <details id="sd"><summary>What goes on the SD card?</summary><p>Your badges, timetable, notes, the Dex and your apps. The card has to be formatted as FAT32, and unidex never formats it for you.</p>
+        <p>If the device says "No SD card", either the card isn't FAT32 or it isn't pushed all the way in.</p></details>
 
-      <details id="updates"><summary>Will updating lose my files or settings?</summary><p>No. <b>Update</b> on the Install page, and Sync everything on Tools, keep your settings, keys, Pet and files. Only <b>Install</b> erases the device's settings, and even that never touches the files on the SD card.</p></details>
+      <details id="updates"><summary>Will updating lose my files or settings?</summary><p>No. <b>Update</b> on the Install page and Sync everything on Tools both keep your settings, keys, Pet and files.</p>
+        <p>Only <b>Install</b> erases the device's settings, and even that never touches the files on the SD card.</p></details>
 
-      <details id="apps"><summary>Are apps from the store safe?</summary><p>Every app is tried automatically and read by a person before it's listed. Each one also runs in a sandbox, with its own memory, its own folder and a time limit, and it can't reach your WiFi password, keys, notes or other apps. If an app uses the internet, the store tells you before you install it.</p></details>
+      <details id="apps"><summary>Are apps from the store safe?</summary><p>Every app is tried automatically and read by a person before it's listed. On the device, each app is also kept apart from everything else:</p>
+        <ul>
+          <li>It has its own memory, its own folder and a time limit.</li>
+          <li>It can't reach your WiFi password, keys, notes or other apps.</li>
+          <li>If it uses the internet, the store tells you before you install it.</li>
+        </ul></details>
 
-      <details id="app-error"><summary>What does "App error" mean?</summary><p>The app hit a bug or one of its limits, and the message says where. The rest of the device keeps working. You can tell the app's author (each app's page has a link), or offload or delete the app with <b>hold B</b> in Apps.</p></details>
+      <details id="app-error"><summary>What does "App error" mean?</summary><p>The app hit a bug or one of its limits, and the message says where. The rest of the device keeps working.</p>
+        <p>You can tell the app's author (each app's page has a link), or remove the app with <b>hold B</b> in Apps.</p></details>
 
-      <details id="privacy"><summary>What does unidex send, and where?</summary><p>There's no account, no analytics and no tracking. This site only talks to your device over USB. Your notes go to the services you set up: OpenAI or Anthropic, and GitHub if you turn it on. The details are in <a href="https://github.com/Forrest404/unidex/blob/main/PRIVACY.md" target="_blank" rel="noopener">PRIVACY.md</a>.</p></details>
+      <details id="privacy"><summary>What does unidex send, and where?</summary><ul>
+          <li>There's no account, no analytics and no tracking.</li>
+          <li>This site only talks to your device, over USB.</li>
+          <li>Your notes go to the services you set up: OpenAI or Anthropic, and GitHub if you turn it on.</li>
+        </ul>
+        <p>The details are in <a href="https://github.com/Forrest404/unidex/blob/main/PRIVACY.md" target="_blank" rel="noopener">PRIVACY.md</a>.</p></details>
 
       <details id="reset"><summary>I'm passing it on. How do I wipe it?</summary><p>Settings &gt; Reset data &gt; <b>Factory reset</b> (it asks twice) wipes the WiFi, keys, Pet, friends and settings. Format the SD card on a computer as well.</p></details>
 
@@ -82,7 +99,11 @@
 
     <section id="trouble">
       <h2>Troubleshooting</h2>
-      <details id="not-found"><summary>The website can't find my unidex</summary><p>It's probably asleep. Press one of its buttons and try again. Check that the cable is a USB-C <b>data</b> cable, because some only charge. If it's a brand-new board or has other firmware on it, unplug it, hold <b>BOOT</b> while you plug it back in, let go, and try again.</p></details>
+      <details id="not-found"><summary>The website can't find my unidex</summary><ol>
+          <li>It's probably asleep. Press one of its buttons and try again.</li>
+          <li>Check the cable. Some USB-C cables only charge, and you need one that carries <b>data</b>.</li>
+          <li>If the board is brand new, or has other software on it, unplug it. Hold <b>BOOT</b> while you plug it back in, let go, and try again.</li>
+        </ol></details>
 
       <details id="in-use"><summary>"Another page or program is using the unidex"</summary><p>Only one page can talk to it at a time. Close other tabs of this site (or the Mac calendar helper), then try again.</p></details>
 
@@ -90,7 +111,8 @@
 
       <details id="time"><summary>"Time not set"</summary><p>Set it in Settings, or use Set the clock or Sync everything on the <a href="tools.html">Tools</a> page.</p></details>
 
-      <details id="notes-fail"><summary>A note didn't send</summary><p>Notes wait on the card and send later. On <a href="setup.html#connections">Setup</a>, use the Test buttons to check the WiFi and each key. "2 synced, 1 stuck" means one note was refused and the others went through.</p></details>
+      <details id="notes-fail"><summary>A note didn't send</summary><p>Notes wait on the card and send later. On <a href="setup.html#connections">Setup</a>, use the Test buttons to check the WiFi and each key.</p>
+        <p>"2 synced, 1 stuck" means one note was refused and the others went through.</p></details>
 
     </section>
 

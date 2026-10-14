@@ -69,17 +69,22 @@
   <div>
   <div class="page-head">
   <h1>Tools</h1>
-  <p class="lead">Everything on this page talks to the device over USB, straight from your browser. You'll need
-    Chrome or Edge on a computer. Plug the device in and press one of its buttons first. Nothing you do here is
-    uploaded anywhere.</p></div>
+  <p class="lead">Everything on this page talks to your device over USB, straight from your browser. Nothing you do
+    here is uploaded anywhere.</p>
+  <p>You'll need Chrome or Edge on a computer. Plug the device in and press one of its buttons before you start.</p></div>
   <p id="unsupported" class="unsupported" hidden>Your browser can't talk to USB devices. Use <b>Chrome</b> or
     <b>Edge</b> on a computer. You can still make and download badges below.</p>
 
   <section id="sync">
     <h2>Sync everything</h2>
     <div class="card">
-      <p style="margin-top:0">One click brings the device up to date. It installs the newest firmware (your settings
-        and files stay), sets the clock, sends your calendar and starts sending any notes that are waiting.</p>
+      <p style="margin-top:0">One click brings the device up to date. It:</p>
+      <ul>
+        <li>gets the newest version of unidex, keeping your settings and files</li>
+        <li>sets the clock</li>
+        <li>sends your calendar</li>
+        <li>sends any notes that are waiting</li>
+      </ul>
       <button id="syncAll" disabled>Sync everything</button>
       <ol id="syncSteps"></ol>
       <p id="syncStatus" class="status"></p>
@@ -171,9 +176,13 @@
       <p id="clockStatus" class="status"></p>
     </div>
     <div class="card" style="margin-top:16px">
-      <p style="margin-top:0">This sends the next 7 days of a calendar to Timetable. Export a calendar file
-        (<code>.ics</code>) from Apple Calendar (File → Export), Google Calendar (Settings → Import &amp; export) or
-        Outlook and drop it here. Repeating events come too, and sending also sets the clock.</p>
+      <p style="margin-top:0">Put the next 7 days of your calendar on the device's Timetable.</p>
+      <ol>
+        <li>Export your calendar as a <code>.ics</code> file. In Apple Calendar it's File → Export. In Google Calendar
+          it's Settings → Import &amp; export. Outlook can do it too.</li>
+        <li>Drop the file in the box below.</li>
+        <li>Press <b>Send to device</b>. Repeating events are included, and it sets the clock too.</li>
+      </ol>
       <div id="icsDrop" tabindex="0">Drop a .ics file here, or click to choose</div>
       <input id="icsFile" type="file" accept=".ics,text/calendar" hidden>
       <button id="sendIcs" disabled>Send to device</button>
@@ -186,9 +195,10 @@
 
   <section id="mac">
     <h2>Automatic calendar sync (Mac)</h2>
-    <p>A small app runs in the background on your Mac. Whenever the device is plugged in and awake, it sends the
-      time and the next 7 days of your Apple Calendar, from all your calendars. It needs the Xcode Command Line Tools
-      (<code>xcode-select --install</code>).</p>
+    <p>On a Mac, a small helper app can do the calendar for you. Whenever the device is plugged in and awake, it
+      sends the time and the next 7 days of your Apple Calendar.</p>
+    <p>It needs Apple's free Xcode Command Line Tools (<code>xcode-select --install</code>). Then run these two lines
+      in Terminal:</p>
 <pre>git clone https://github.com/Forrest404/unidex.git
 unidex/tools/calsync/install.sh</pre>
     <p class="note">When macOS asks, let it use Calendar. To remove it, run

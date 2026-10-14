@@ -31,10 +31,17 @@
 <main>
   <div class="page-head">
   <h1>Install unidex</h1>
-  <p class="lead">unidex is a small operating system for the Waveshare ESP32-S3-ePaper-1.54 e-ink board. You get a
-    timetable that shows your calendar, voice notes, a Pet you dress up and take to meet your friends' Pets, name
-    badges, one-button games, a game where you collect WiFi networks, and a chooser for when you can't decide. It
-    installs from this page, so there's nothing to download.</p>
+  <p class="lead">unidex is the software for a small e-ink gadget, the Waveshare ESP32-S3-ePaper-1.54 board. You
+    install it from this page, with nothing to download.</p>
+  <p>What it does:</p>
+  <ul>
+    <li>A timetable that shows your calendar</li>
+    <li>Voice notes</li>
+    <li>A Pet you dress up and take to meet your friends' Pets</li>
+    <li>Name badges</li>
+    <li>One-button games, and a game where you collect WiFi networks</li>
+    <li>A chooser for when you can't decide</li>
+  </ul>
   </div>
   <p class="note">Don't have a board? Pre-orders for a ready-made unidex, assembled and tested, have closed, but you
     can <a href="https://www.unidex.shop">join the wait list</a>.</p>
@@ -49,9 +56,9 @@
     <div class="actions">
       <div class="card">
         <h2>Install</h2>
-        <p class="muted">Starts from scratch. It <b>erases</b> the firmware and settings on the device, including
-          your WiFi and the keys saved for Notes. Your files are on the micro SD card, so they aren't touched, and
-          your Pet's friends come back from there.</p>
+        <p class="muted">Starts from scratch. It <b>erases</b> the device's settings, including your WiFi and the
+          keys saved for Notes.</p>
+        <p class="muted">The files on your SD card aren't touched, and your Pet's friends come back from there.</p>
         <esp-web-install-button manifest="firmware/install.json">
           <button slot="activate">Install</button>
           <span slot="unsupported" class="unsupported">Your browser can't do this. Use <b>Chrome</b> or <b>Edge</b> on a computer.</span>
@@ -60,32 +67,52 @@
       </div>
       <div class="card">
         <h2>Update</h2>
-        <p class="muted">Puts the newest firmware on and <b>keeps</b> everything else: badges, Dex, calendar
-          events, notes, settings, keys and your Pet.</p>
+        <p class="muted">Gets the newest version of unidex and <b>keeps</b> everything else: your badges, Dex,
+          calendar, notes, settings, keys and Pet.</p>
         <button id="update" class="secondary">Update</button>
         <p id="updateStatus" class="status"></p>
       </div>
     </div>
 
-    <p class="note">Nothing in the list? The device is probably asleep, so press a button and try again. If it's a
-      brand-new board or has other firmware on it, unplug it, hold <b>BOOT</b> while you plug it back in, let go and
-      try again. Press a button once it's installed.</p>
+    <p class="note">Nothing in the list?</p>
+    <ul class="note">
+      <li>The device is probably asleep. Press a button and try again.</li>
+      <li>If the board is brand new, or has other software on it, unplug it. Hold <b>BOOT</b> while you plug it back
+        in, let go, and try again. Press a button once it's installed.</li>
+    </ul>
   </section>
 
   <section>
     <h2>After installing</h2>
-    <p>The device keeps your files on a <b>micro SD card</b> (FAT32) in its slot. You can send badges, the time and
-      your calendar from <a href="tools.html">Tools</a>, or copy the
-      <a href="https://github.com/Forrest404/unidex/tree/main/starter">starter files</a> (a <code>badges</code>
-      folder and <code>timetable.csv</code>) onto the card yourself. Voice notes need WiFi and your keys, which you
-      add on <a href="setup.html">Setup</a>.</p>
-    <p>On the device, <b>A</b> moves to the next thing and <b>B</b> selects. <b>Hold A</b> goes back, and
-      <b>hold B</b> does whatever extra the screen offers. Every screen shows what its buttons do. Hold <b>A and B</b>
-      together for a second to restart. The first time it starts, it shows you the buttons and a QR code that links
-      here.</p>
-    <p>When the battery is low, anything that needs a lot of power waits and says "Battery too low". When it's flat,
-      it shows "Charge me" and switches off. Plug it in, then press PWR. Giving it to someone else? Settings &gt;
-      Reset data &gt; <b>Factory reset</b> wipes the WiFi, keys, Pet and settings. Format the SD card as well.</p>
+    <h3>Your files</h3>
+    <p>unidex keeps your files on a <b>micro SD card</b> in the device's slot. The card needs to be formatted as
+      FAT32. To fill it:</p>
+    <ul>
+      <li>Send badges, the time and your calendar from <a href="tools.html">Tools</a>.</li>
+      <li>Or copy the <a href="https://github.com/Forrest404/unidex/tree/main/starter">starter files</a> onto the card
+        yourself. They're a <code>badges</code> folder and an empty <code>timetable.csv</code>.</li>
+      <li>For voice notes, add your WiFi and keys on <a href="setup.html">Setup</a>.</li>
+    </ul>
+    <h3>The buttons</h3>
+    <table>
+      <tbody>
+        <tr><td><b>A</b></td><td>Next</td></tr>
+        <tr><td><b>B</b></td><td>Select</td></tr>
+        <tr><td><b>Hold A</b></td><td>Back</td></tr>
+        <tr><td><b>Hold B</b></td><td>The screen's extra action</td></tr>
+        <tr><td><b>Hold A and B</b> for a second</td><td>Restart</td></tr>
+      </tbody>
+    </table>
+    <p>Every screen shows what its buttons do. The first time it starts, it shows you the buttons and a QR code that
+      links here.</p>
+    <h3>The battery</h3>
+    <ul>
+      <li>When it's low, anything that needs a lot of power waits and says "Battery too low".</li>
+      <li>When it's flat, it shows "Charge me" and switches off. Plug it in, then press PWR.</li>
+    </ul>
+    <h3>Giving it to someone else</h3>
+    <p>Go to Settings &gt; Reset data &gt; <b>Factory reset</b>. It wipes the WiFi, keys, Pet and settings. Format
+      the SD card on a computer as well.</p>
     <p class="note">This is version <span id="version">…</span>
       (<a href="https://github.com/Forrest404/unidex/blob/main/CHANGELOG.md">what's new</a>). The page picks up each
       new release on GitHub by itself.</p>

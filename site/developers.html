@@ -96,10 +96,11 @@ end</code></pre>
 
     <section id="api">
       <h2>The API</h2>
-      <p>Your code defines the functions the device calls (<code>draw</code>, <code>onA</code>, <code>onB</code>,
-        <code>onBHold</code>, <code>onBack</code>, <code>tick</code>, <code>onEnter</code> and <code>onExit</code>) and
-        calls <code>unidex.*</code> to draw and save. Each button function returns <code>"partial"</code>,
-        <code>"full"</code> or nothing, depending on whether the screen needs a refresh.</p>
+      <p>Your code defines the functions the device calls: <code>draw</code>, <code>onA</code>, <code>onB</code>,
+        <code>onBHold</code>, <code>onBack</code>, <code>tick</code>, <code>onEnter</code> and <code>onExit</code>. To
+        draw and save, it calls <code>unidex.*</code>.</p>
+      <p>Each button function returns <code>"partial"</code>, <code>"full"</code> or nothing, depending on whether the
+        screen needs a refresh.</p>
       <table>
         <thead><tr><th>Area</th><th>What it can do</th></tr></thead>
         <tbody>
@@ -116,10 +117,11 @@ end</code></pre>
     <section id="plugins">
       <h2>Plugins</h2>
       <p>A plugin adds to one of the built-in apps instead of being an app of its own. It's the same kind of folder,
-        with <code>"type": "plugin"</code> and <code>"extends"</code>. For now, Badge is the app you can extend. Your
-        <code>badge()</code> function draws a badge each time Badge shows it, so it can show today's date, a countdown
-        or a QR code, and it's listed in Badge after the image badges.
-        <a href="https://github.com/Forrest404/unidex-apps/blob/main/PLUGINS.md" target="_blank" rel="noopener">Writing plugins</a>
+        with <code>"type": "plugin"</code> and <code>"extends"</code>.</p>
+      <p>For now, Badge is the app you can extend. Your <code>badge()</code> function draws a badge each time Badge
+        shows it, so it can show today's date, a countdown or a QR code. It appears in Badge after the picture
+        badges.</p>
+      <p><a href="https://github.com/Forrest404/unidex-apps/blob/main/PLUGINS.md" target="_blank" rel="noopener">Writing plugins</a>
         has the details and a template.</p>
     </section>
 

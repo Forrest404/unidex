@@ -63,12 +63,16 @@
   <div>
   <div class="page-head">
   <h1>Setup</h1>
-  <p class="lead">Tell the device which WiFi networks to join, and add the keys it needs for voice notes. To record
-    a note, hold <b>B</b> in the Notes app, talk, and let go. The device turns your voice into text with OpenAI
-    Whisper, tidies it up with OpenAI or Claude, and keeps it on the SD card. It can also push each note to a GitHub
-    repo, which works well with Obsidian.</p>
-  <p>What you type here goes <b>over USB to your device and nowhere else</b>. This page runs no other code and can't
-    reach the internet. For what the device itself sends, and where, see
+  <p class="lead">Tell the device which WiFi networks to join, and add the keys it needs for voice notes.</p>
+  <p>How a voice note works:</p>
+  <ol>
+    <li>In the Notes app, hold <b>B</b>, talk, and let go.</li>
+    <li>The device turns your voice into text with OpenAI Whisper.</li>
+    <li>OpenAI or Claude tidies the text into a note.</li>
+    <li>The note is saved on the SD card. It can also go to a GitHub repo, which works well with Obsidian.</li>
+  </ol>
+  <p>What you type on this page goes <b>over USB to your device and nowhere else</b>. The page can't reach the
+    internet. For what the device itself sends, and where, see
     <a href="https://github.com/Forrest404/unidex/blob/main/PRIVACY.md">Privacy (draft)</a>.</p></div>
   <p id="unsupported" class="unsupported" hidden>Your browser can't talk to USB devices. Use <b>Chrome</b> or
     <b>Edge</b> on a computer.</p>
@@ -113,14 +117,22 @@
           <textarea id="wifi_ca" rows="3" spellcheck="false" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
           <button class="secondary" id="removeCa" hidden>Remove certificate</button>
         </div>
-        <p class="note" id="enterpriseNote" hidden>This logs in with PEAP / MSCHAPv2. The device doesn't check the
-          network's certificate, so a fake access point with the same name could capture this password. Only use it
-          on networks you trust, and not with a password you use anywhere else. Adding your university's CA
-          certificate above makes it safer.</p>
-        <p class="note" id="caNote" hidden>This logs in with PEAP / MSCHAPv2 and checks that the network's
-          certificate was signed by your CA. It can't check the server's name, though, so it only stops a fake access
-          point if your university uses its own private CA. If the CA is a public one, treat the network as
-          unchecked.</p>
+        <div class="note" id="enterpriseNote" hidden>
+          <p>Be careful with this password. The device can't tell the real network from a fake one with the same
+            name, and a fake one could capture it.</p>
+          <ul>
+            <li>Only use it on networks you trust.</li>
+            <li>Don't use a password you use anywhere else.</li>
+            <li>Adding your university's CA certificate above makes it safer.</li>
+          </ul>
+          <p>(It logs in with PEAP / MSCHAPv2.)</p>
+        </div>
+        <div class="note" id="caNote" hidden>
+          <p>The device checks that the network's certificate was signed by your CA.</p>
+          <p>That only stops a fake network if your university uses its own private CA, because the device can't
+            check the server's name. If the CA is a public one, treat the network as unchecked.</p>
+          <p>(It logs in with PEAP / MSCHAPv2.)</p>
+        </div>
         <div class="buttons">
           <button id="saveNet">Save network</button>
           <button class="secondary" id="cancelEdit" hidden>Cancel</button>
