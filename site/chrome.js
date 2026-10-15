@@ -111,7 +111,7 @@ const MENUS = [
   { label: 'Developers', page: ['developers.html', 'try.html', 'editor.html'], items: [
     { label: 'App editor', desc: 'Write an app here and run it straight away', href: 'editor.html', icon: 'code' },
     { label: 'Make an app', desc: 'The example, the API and the sandbox', href: 'developers.html', icon: 'book' },
-    { label: 'The API', desc: 'Every unidex.* call, the limits, plugins', href: `${REPO}/blob/main/docs/APPS.md`, icon: 'book', ext: true },
+    { label: 'The API', desc: 'Every unidex.* call, in one short list', href: `${STORE_REPO}/blob/main/API.md`, icon: 'book', ext: true },
     { label: 'Try it without a device', desc: 'Run unidex, and your app, in the browser emulator', href: 'try.html', icon: 'play' },
     { label: 'Send it to the store', desc: 'A pull request, checked and reviewed', href: 'developers.html#share', icon: 'send' },
   ] },
