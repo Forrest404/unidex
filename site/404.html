@@ -3,8 +3,9 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<!-- Served for any missing address under /unidex/, at any depth: every link below is relative to the site. -->
-<base href="/unidex/">
+<!-- Served for any missing address, at any depth: every link below is relative to the site's root, which is / on
+     tools.unidex.shop and /unidex/ on the old forrest404.github.io address. -->
+<script>document.write('<base href="' + (location.hostname.endsWith('github.io') ? '/unidex/' : '/') + '">');</script>
 <title>unidex: page not found</title>
 <meta name="robots" content="noindex">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">

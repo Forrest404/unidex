@@ -181,7 +181,7 @@ end
 
 ## Trying it
 
-- **Without a device:** open the emulator on the website, [Try unidex](https://forrest404.github.io/unidex/try.html) (or build it yourself, see
+- **Without a device:** open the emulator on the website, [Try unidex](https://tools.unidex.shop/try.html) (or build it yourself, see
   `emu/README.md`). Under "Try your app", choose your app's folder: it is
   installed the way the store installs it, you open it from Apps on the simulated screen, and what your code
   `print()`s shows beside it. Choose the folder again after a change.

@@ -2,7 +2,7 @@
 
 What changed in each release, in short. The full notes are on the
 [releases page](https://github.com/Forrest404/unidex/releases). To update, use
-https://forrest404.github.io/unidex/ (Update keeps your settings and files).
+https://tools.unidex.shop/ (Update keeps your settings and files).
 
 ## v1.8 (15 October 2026)
 
@@ -11,7 +11,7 @@ https://forrest404.github.io/unidex/ (Update keeps your settings and files).
 - **Chooser:** up to nine squares, in a 3×3 grid. The tally shows each square's number with its wins underneath,
   readable at every size.
 - **Try unidex** (new): the emulator runs in your browser at
-  [forrest404.github.io/unidex/try.html](https://forrest404.github.io/unidex/try.html), with your own app if you're
+  [tools.unidex.shop/try.html](https://tools.unidex.shop/try.html), with your own app if you're
   writing one. Its Version menu opens the newest release by default, or an older one, or the next version in
   development.
 - **Website:** a new design, with menus, a search (press /), a Help page, a Developers page, and a page for each app.
