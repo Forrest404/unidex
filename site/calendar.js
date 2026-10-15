@@ -22,7 +22,9 @@ export function eventsFrom(text) {
   const now = new Date(), first = dayOf(now), last = dayOf(new Date(now.getTime() + DAYS_AHEAD * 86400000));
   const masters = new Map(), out = [];
   const vevents = cal.getAllSubcomponents('vevent');
-  for (const v of vevents) if (!v.hasProperty('recurrence-id')) masters.set(v.getFirstPropertyValue('uid'), new ICAL.Event(v));
+  for (const v of vevents) {  // an event without a UID (some apps leave it out) still counts, as itself
+    if (!v.hasProperty('recurrence-id')) masters.set(v.getFirstPropertyValue('uid') || Symbol('no uid'), new ICAL.Event(v));
+  }
   for (const v of vevents) {  // moved or cancelled single occurrences of a repeating event
     const master = v.hasProperty('recurrence-id') && masters.get(v.getFirstPropertyValue('uid'));
     if (master) master.relateException(new ICAL.Event(v));
