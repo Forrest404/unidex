@@ -105,7 +105,7 @@ static void drawSplash() {
 
 // --- welcome: the first start of a new (or factory reset) device ---
 
-static const char *const SITE = "forrest404.github.io/unidex";
+static const char *const SITE = "tools.unidex.shop";
 
 static void drawWelcomeButtons() {
   drawHeader("Welcome");

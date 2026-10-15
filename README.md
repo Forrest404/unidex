@@ -29,8 +29,8 @@ If you'd like to support the project, there's a [Ko-fi](https://ko-fi.com/forres
 <p>
   <a href="https://github.com/Forrest404/unidex/releases/latest"><img height="36" alt="Latest release" src="https://img.shields.io/github/v/release/Forrest404/unidex?style=for-the-badge"></a>
   <a href="LICENSE"><img height="36" alt="Licence: PolyForm Noncommercial" src="https://img.shields.io/badge/licence-PolyForm%20Noncommercial-black?style=for-the-badge"></a>
-  <a href="https://forrest404.github.io/unidex/"><img height="36" alt="Install in your browser" src="https://img.shields.io/badge/install-in%20your%20browser-black?style=for-the-badge"></a>
-  <a href="https://forrest404.github.io/unidex/store.html"><img height="36" alt="Get apps" src="https://img.shields.io/badge/get-apps-black?style=for-the-badge"></a>
+  <a href="https://tools.unidex.shop/"><img height="36" alt="Install in your browser" src="https://img.shields.io/badge/install-in%20your%20browser-black?style=for-the-badge"></a>
+  <a href="https://tools.unidex.shop/store.html"><img height="36" alt="Get apps" src="https://img.shields.io/badge/get-apps-black?style=for-the-badge"></a>
   <a href="https://www.unidex.shop"><img height="36" alt="Join the wait list" src="https://img.shields.io/badge/join%20the-wait%20list-black?style=for-the-badge"></a>
 </p>
 
@@ -67,16 +67,16 @@ If unidex is useful to you, a star on GitHub helps other people find it.
 
 **Then:**
 
-1. **Install.** Open **https://forrest404.github.io/unidex/**, plug the board in, press one of its buttons so it's
+1. **Install.** Open **https://tools.unidex.shop/**, plug the board in, press one of its buttons so it's
    awake, and click **Install**. There's nothing to download. The first time it starts, it shows the buttons and a
    QR code for the website.
 2. **Set up the SD card.** Copy the contents of the [`starter`](starter) folder to the card (a few badges and an
    empty timetable) and put it in the board's slot.
 3. **Add your timetable.** Send your calendar from the website's
-   [Tools](https://forrest404.github.io/unidex/tools.html) page, or edit `timetable.csv` on the card (see
+   [Tools](https://tools.unidex.shop/tools.html) page, or edit `timetable.csv` on the card (see
    [Timetable](#timetable)).
 4. **Voice notes, if you want them.** Set up WiFi and your API keys on the
-   [Setup](https://forrest404.github.io/unidex/setup.html) page (see [Notes](#notes)).
+   [Setup](https://tools.unidex.shop/setup.html) page (see [Notes](#notes)).
 
 ## The buttons
 
@@ -136,7 +136,7 @@ Press **B** on the Notes screen to send anything still waiting, or **A** to open
 **hold B** deletes it). Inside an open note, **B** is **Open on phone**. It shows a QR code: join the device's own
 WiFi and you can browse, search, share and copy your notes on your phone. Hold A to stop it.
 
-Set it up on the [Setup page](https://forrest404.github.io/unidex/setup.html). You can save up to five WiFi networks
+Set it up on the [Setup page](https://tools.unidex.shop/setup.html). You can save up to five WiFi networks
 (home, eduroam and work networks, a phone hotspot: the device joins whichever is in range), your OpenAI key, which model tidies up (and an Anthropic key if you pick Claude), and
 GitHub (a repo and a [fine-grained token](https://github.com/settings/personal-access-tokens/new) with Contents:
 Read and write on that repo only). Each has a **Test** button. Your keys stay on the device: the page can't read
@@ -149,7 +149,7 @@ The Pet is a creature built from a body (blob, cat, bear, bunny, frog or robot),
 It blinks every few seconds, and **A** says hi. **B** opens Dress up: **A** moves between rows, **B** changes the
 part, and **hold B** goes back one. The **Name** row names it a letter at a time, and the name shows as a tag over
 its head. You can also dress it up and name it with a mouse on the website's
-[Tools](https://forrest404.github.io/unidex/tools.html) page.
+[Tools](https://tools.unidex.shop/tools.html) page.
 
 **Meet** (**hold B** on the Pet) is for two unidex side by side:
 
@@ -171,7 +171,7 @@ minutes without a press. Your Pet and its friends are kept through restarts and 
 
 Badge flips through full-screen badges: **A** for the next one, **hold B** for the previous one, and **B** for a
 picker with thumbnails. Make badges in the badge maker on the website's
-[Tools](https://forrest404.github.io/unidex/tools.html) page: drop in any image, adjust it, and **Send to device**
+[Tools](https://tools.unidex.shop/tools.html) page: drop in any image, adjust it, and **Send to device**
 (it opens straight away) or download it for the card's `badges` folder. They're shown in file name order, up to 32.
 
 ### Dex
@@ -242,24 +242,24 @@ says "App error" with the line it broke on, and goes back to the list. It never 
 1. Read [Writing apps for unidex](docs/APPS.md): the whole API, the limits, plugins, and examples.
 2. Copy an example from [`apps/examples`](apps/examples), or the template in the
    [store's repository](https://github.com/Forrest404/unidex-apps).
-3. Try it: in the [browser emulator](https://forrest404.github.io/unidex/try.html) without a device, or
+3. Try it: in the [browser emulator](https://tools.unidex.shop/try.html) without a device, or
    on your unidex with `python3 tools/appinstall.py install your-app`.
 4. Share it: open a pull request to [unidex-apps](https://github.com/Forrest404/unidex-apps). Automatic checks try
    it in the emulator, then it's read by a person, and accepted apps appear on the website's
-   [Apps](https://forrest404.github.io/unidex/store.html) page.
+   [Apps](https://tools.unidex.shop/store.html) page.
 
 ## The website
 
 Everything runs in Chrome or Edge on a computer and talks to the device over USB. Nothing is uploaded anywhere.
 
-- **[Install](https://forrest404.github.io/unidex/)** has **Install**, which puts unidex on a board (it erases the
+- **[Install](https://tools.unidex.shop/)** has **Install**, which puts unidex on a board (it erases the
   board first), and **Update**, which installs the newest version and keeps your settings, keys and files.
-- **[Tools](https://forrest404.github.io/unidex/tools.html)** has **Sync everything** (the newest firmware, the
+- **[Tools](https://tools.unidex.shop/tools.html)** has **Sync everything** (the newest firmware, the
   clock, your calendar file, and notes waiting to send, in one click, and optionally every time you plug in), the
   badge maker, the Pet designer, the clock and calendar, and the automatic Mac calendar sync.
-- **[Setup](https://forrest404.github.io/unidex/setup.html)** is where you set up WiFi, API keys and GitHub, run the
+- **[Setup](https://tools.unidex.shop/setup.html)** is where you set up WiFi, API keys and GitHub, run the
   tests, and download notes.
-- **[Apps](https://forrest404.github.io/unidex/store.html)** shows what's on your unidex and the store's apps and
+- **[Apps](https://tools.unidex.shop/store.html)** shows what's on your unidex and the store's apps and
   plugins: install, update, offload (the app goes, its data stays) or delete (it warns you how much data goes with
   it).
 

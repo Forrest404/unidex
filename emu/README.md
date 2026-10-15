@@ -2,7 +2,7 @@
 
 The firmware's own apps (everything in `src/` except the hardware drivers) compiled to WebAssembly with Emscripten,
 running behind a simulated screen and two buttons. Its page is `site/try.html`, published as
-[Try unidex](https://forrest404.github.io/unidex/try.html).
+[Try unidex](https://tools.unidex.shop/try.html).
 
 ## Versions
 

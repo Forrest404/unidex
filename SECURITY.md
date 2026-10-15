@@ -14,7 +14,7 @@ You'll get an answer once it's been looked at. Please give it time to be fixed b
 ## What's covered
 
 Only the latest release. Updates come out as new releases on GitHub and the website
-(https://forrest404.github.io/unidex/), and the website's Update button installs them.
+(https://tools.unidex.shop/), and the website's Update button installs them.
 
 ## Good to know
 
