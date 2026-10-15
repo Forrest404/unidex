@@ -198,6 +198,9 @@ details > :last-child:not(summary) { margin-bottom: var(--s5); }
 .search-btn .icon { width: 16px; height: 16px; }
 .button.small, button.small { min-height: 36px; padding: var(--s2) var(--s3); font-size: 12px; }
 .shop-link { display: none; }
+.gh-link { font: 500 13px var(--font-mono); color: var(--fg); text-decoration: underline; text-underline-offset: 5px; white-space: nowrap; }
+.gh-link:hover { background: var(--fg); color: var(--bg); text-decoration: none; }
+@media (max-width: 700px) { .gh-link { display: none; } }  /* the menu drawer has it */
 .menu-btn { display: none; background: none; color: var(--fg); border: 0; box-shadow: none; min-height: 44px; padding: var(--s3); }
 .menu-btn:active { transform: none; }
 @media (max-width: 1180px) { .brand small { display: none; } }
