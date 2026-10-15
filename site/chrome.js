@@ -108,8 +108,9 @@ const MENUS = [
     { label: 'On your unidex', desc: 'Install, update, offload and delete', href: 'store.html#device', icon: 'device' },
     { label: 'Create an app', desc: 'Start from the template on GitHub', href: STORE_REPO, icon: 'plus', ext: true },
   ] },
-  { label: 'Developers', page: ['developers.html', 'try.html'], items: [
-    { label: 'Make an app', desc: 'The example, the API and the sandbox', href: 'developers.html', icon: 'code' },
+  { label: 'Developers', page: ['developers.html', 'try.html', 'editor.html'], items: [
+    { label: 'App editor', desc: 'Write an app here and run it straight away', href: 'editor.html', icon: 'code' },
+    { label: 'Make an app', desc: 'The example, the API and the sandbox', href: 'developers.html', icon: 'book' },
     { label: 'The API', desc: 'Every unidex.* call, the limits, plugins', href: `${REPO}/blob/main/docs/APPS.md`, icon: 'book', ext: true },
     { label: 'Try it without a device', desc: 'Run unidex, and your app, in the browser emulator', href: 'try.html', icon: 'play' },
     { label: 'Send it to the store', desc: 'A pull request, checked and reviewed', href: 'developers.html#share', icon: 'send' },
@@ -241,6 +242,7 @@ const PAGES = [
   { group: 'Help', title: 'Passing it on (factory reset)', sub: 'Wipe your WiFi, keys and Pet', href: 'help.html#reset', icon: 'trash', words: 'wipe sell give erase' },
   { group: 'Help', title: 'Privacy', sub: 'What the device and this site send, and where', href: `${REPO}/blob/main/PRIVACY.md`, icon: 'key', ext: true, words: 'data keys tracking' },
   { group: 'Pages', title: 'Install unidex', sub: 'Install erases; Update keeps your files', href: './', icon: 'install', words: 'firmware flash erase update version esp32' },
+  { group: 'Pages', title: 'App editor', sub: 'Write an app in your browser and run it on the emulator', href: 'editor.html', icon: 'code', words: 'editor write code lua playground ide run test' },
   { group: 'Pages', title: 'Example: Hello', sub: 'A whole app in about 20 lines of Lua', href: 'developers.html#example', icon: 'code', words: 'lua sample code template' },
   { group: 'Pages', title: 'Building apps', sub: 'How an app runs, laying out a screen, saving through sleep', href: `${STORE_REPO}/blob/main/APPS.md`, icon: 'book', ext: true, words: 'guide tutorial lua layout sleep data tick' },
   { group: 'Pages', title: 'Writing plugins', sub: 'Badge plugins, with a template', href: `${STORE_REPO}/blob/main/PLUGINS.md`, icon: 'layers', ext: true, words: 'guide plugin badge extend' },

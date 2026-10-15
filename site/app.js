@@ -89,6 +89,7 @@ function render() {
         fact('Size', kb(app.bytes)),
         fact('Licence', app.license || 'Not given'),
         fact('Files', el('span', { class: 'files', text: app.files.map(f => f.path).join(', ') }))),
+      el('a', { class: 'button', href: `editor.html?app=${encodeURIComponent(app.id)}` }, 'Open in the App editor'),
       el('a', { class: 'button secondary', href: src, target: '_blank', rel: 'noopener' }, 'View the code ↗'),
       el('a', { class: 'quiet-link', href: `${STORE_REPO}/issues`, target: '_blank', rel: 'noopener', text: 'Report a problem with it ↗' })));
   $('app').replaceChildren(view);

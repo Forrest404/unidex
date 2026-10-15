@@ -39,7 +39,9 @@
 
   const keys = { a: 0, A: 0, ArrowLeft: 0, b: 1, B: 1, ' ': 1, Enter: 1 };
   addEventListener('keydown', (e) => {
-    if (!(e.key in keys) || e.repeat || e.target.matches('input, textarea')) return;
+    // Keys press the device's buttons, except while typing or using another control (the device's own A and B count)
+    if (!(e.key in keys) || e.repeat || e.metaKey || e.ctrlKey ||
+        e.target.matches('input, textarea, select, a, [contenteditable], button:not(#btnA):not(#btnB)')) return;
     e.preventDefault();
     press(keys[e.key], true);
   });

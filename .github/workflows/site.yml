@@ -134,6 +134,10 @@ jobs:
         run: |
           git clone https://github.com/Forrest404/unidex-apps.git ../unidex-apps  # with history: each app's last update
           python3 tools/make_store.py ../unidex-apps/apps --source https://github.com/Forrest404/unidex-apps/tree/main/apps
+          # The App editor's starting points (site/editor.html): the registry's own templates
+          mkdir -p site/starters
+          cp -R ../unidex-apps/template/my-app site/starters/app
+          cp -R ../unidex-apps/template/my-badge site/starters/badge
 
       - uses: actions/upload-pages-artifact@v3
         with:

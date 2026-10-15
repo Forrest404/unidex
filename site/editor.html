@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>App editor · unidex</title>
+<meta name="description" content="Write an app for the unidex e-ink device in your browser and run it straight away on the emulated device. Download it when it's ready to send to the store.">
+<link rel="canonical" href="https://forrest404.github.io/unidex/editor.html">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="unidex">
+<meta property="og:title" content="App editor · unidex">
+<meta property="og:description" content="Write an app for unidex in your browser and run it straight away on the emulated device.">
+<meta property="og:url" content="https://forrest404.github.io/unidex/editor.html">
+<meta property="og:image" content="https://forrest404.github.io/unidex/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="style.css">
+<style>
+  :root { --code-kw: #1f4e8c; --code-str: #a63c26; --code-num: #2d6a39; --code-com: #7d766b; --code-call: #5b3b8c; }
+  @media (prefers-color-scheme: dark) {
+    :root { --code-kw: #8fb4ec; --code-str: #ec9a86; --code-num: #8fcf9b; --code-com: #8f887d; --code-call: #c2a6f0; }
+  }
+  .ide { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: var(--s7); align-items: start; }
+  .toolbar { display: flex; gap: var(--s3); flex-wrap: wrap; align-items: center; margin-bottom: var(--s4); }
+  .toolbar .start { display: flex; gap: var(--s2); align-items: center; }
+  .toolbar .start label { margin: 0; }
+  .toolbar .start select { width: auto; max-width: 260px; }
+  .toolbar .spacer { flex: 1; }
+  .toolbar kbd { margin-left: var(--s1); }
+  .tabs { display: flex; gap: 0; border-bottom: var(--rule); overflow-x: auto; }
+  .tabs button { background: none; color: var(--muted); border: 0; box-shadow: none; border-radius: 0; min-height: 40px;
+                 padding: var(--s2) var(--s4); font: 400 13px var(--font-mono); }
+  .tabs button:hover { color: var(--fg); opacity: 1; }
+  .tabs button:active { transform: none; }
+  .tabs button[aria-selected=true] { background: var(--fg); color: var(--bg); }
+  .code { position: relative; height: min(62vh, 560px); min-height: 320px; border: 1px solid var(--line-strong); border-top: 0;
+          background: var(--card); display: grid; grid-template-columns: auto minmax(0, 1fr); overflow: hidden; }
+  .gutter { padding: var(--s3) var(--s2) var(--s3) var(--s3); text-align: right; color: var(--muted); user-select: none;
+            border-right: 1px solid var(--line); overflow: hidden; }
+  .gutter div { font: 13px/20px var(--font-mono); white-space: pre; }
+  .gutter div.err { color: var(--bad); font-weight: 700; }
+  .area { position: relative; overflow: hidden; }
+  .area pre, .area textarea { position: absolute; inset: 0; margin: 0; padding: var(--s3) var(--s4); border: 0; border-radius: 0;
+                              font: 13px/20px var(--font-mono); letter-spacing: 0; tab-size: 2; white-space: pre;
+                              overflow-wrap: normal; word-break: normal; background: transparent; }
+  .area pre { pointer-events: none; overflow: hidden; color: var(--fg); }
+  .area textarea { width: 100%; height: 100%; min-height: 0; resize: none; overflow: auto; color: transparent;
+                   caret-color: var(--fg); -webkit-text-fill-color: transparent; }
+  .area textarea:focus { box-shadow: none; }
+  .area textarea::selection { background: rgba(31, 78, 140, .22); }
+  .area textarea[readonly] { cursor: default; }
+  .tk-kw { color: var(--code-kw); }
+  .tk-str { color: var(--code-str); }
+  .tk-num { color: var(--code-num); }
+  .tk-com { color: var(--code-com); font-style: italic; }
+  .tk-call { color: var(--code-call); }
+  .output { margin-top: var(--s4); }
+  .output .head { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); }
+  .output h2 { font: 500 13px var(--font-mono); margin: 0; }
+  .log { margin: var(--s2) 0 0; height: 168px; overflow: auto; border: 1px solid var(--line); background: var(--card);
+         padding: var(--s2) var(--s3); font: 12px/18px var(--font-mono); white-space: pre-wrap; overflow-wrap: anywhere; }
+  .log:empty::before { content: "What your app prints, and any errors, show here."; color: var(--muted); }
+  .log .err { color: var(--bad); }
+  .log .ok { color: var(--ok); }
+  .log .muted { color: var(--muted); }
+  .log button { min-height: 0; padding: 0 var(--s1); margin-left: var(--s2); font-size: 11px; box-shadow: none; }
+  .side { position: sticky; top: calc(var(--head) + var(--s5)); display: grid; gap: var(--s4); }
+  .device { background: var(--card); border: 1px solid var(--line-strong); border-radius: 22px; padding: var(--s5); }
+  .screen { border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+  #screen { display: block; width: 100%; height: auto; aspect-ratio: 1; image-rendering: pixelated; background: #e9e6da; }
+  #screen.flash { filter: invert(1); }
+  .device .buttons { display: flex; gap: var(--s4); margin-top: var(--s5); }
+  .device .buttons button { flex: 1; min-height: 56px; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .device .buttons button.down { transform: translateY(2px); box-shadow: 0 0 0 var(--fg); }
+  .device .buttons small { display: block; font-weight: 400; opacity: .7; }
+  .opts { display: flex; gap: var(--s4); flex-wrap: wrap; align-items: center; }
+  .version { display: flex; gap: var(--s2); align-items: center; flex-basis: 100%; }
+  .version label { margin: 0; }
+  .version select { width: auto; flex: 1; }
+  .side .status { margin: 0; }
+  .keys { font-size: 13px; color: var(--muted); margin: 0; }
+  dialog.confirm { border: var(--rule); border-width: 2px; border-radius: 0; padding: var(--s5); width: min(420px, calc(100% - 32px));
+                   background: var(--bg); color: var(--fg); }
+  dialog.confirm::backdrop { background: color-mix(in srgb, var(--bg) 70%, transparent); }
+  dialog.confirm .buttons { display: flex; gap: var(--s3); justify-content: flex-end; margin-top: var(--s5); }
+  @media (max-width: 1000px) {
+    .ide { grid-template-columns: 1fr; }
+    .side { position: static; max-width: 360px; }
+  }
+</style>
+</head>
+<body>
+<header data-chrome><noscript><nav><a href="./">Install</a> <a href="tools.html">Tools</a> <a href="setup.html">Setup</a> <a href="store.html">Apps</a> <a href="developers.html">Developers</a></nav></noscript></header>
+<main class="wide" id="main">
+  <div class="page-head">
+    <h1>App editor</h1>
+    <p class="lead">Write an app and run it on the emulated unidex. Your work is saved in this browser as you type.</p>
+  </div>
+
+  <div class="ide">
+    <div class="editor">
+      <div class="toolbar">
+        <div class="start"><label for="starter">Start from</label><select id="starter"></select></div>
+        <span class="spacer"></span>
+        <button id="download" class="secondary" type="button">Download .zip</button>
+        <button id="run" type="button">Run <kbd id="runKey">Ctrl Enter</kbd></button>
+      </div>
+      <div class="tabs" role="tablist" id="tabs" aria-label="Files"></div>
+      <div class="code">
+        <div class="gutter" id="gutter" aria-hidden="true"></div>
+        <div class="area">
+          <pre id="paint" aria-hidden="true"></pre>
+          <textarea id="text" spellcheck="false" autocomplete="off" autocapitalize="off" aria-label="Code"></textarea>
+        </div>
+      </div>
+      <div class="output">
+        <div class="head">
+          <h2>Output</h2>
+          <label class="check"><input type="checkbox" id="fresh"> Start with no saved data</label>
+        </div>
+        <div class="log" id="log" role="log" aria-live="polite"></div>
+      </div>
+    </div>
+
+    <aside class="side" aria-label="The emulated unidex">
+      <div class="device">
+        <div class="screen"><canvas id="screen" width="200" height="200" aria-label="The unidex screen"></canvas></div>
+        <div class="buttons">
+          <button id="btnA" type="button" aria-label="Button A (BOOT)">A<small>BOOT</small></button>
+          <button id="btnB" type="button" aria-label="Button B (PWR)">B<small>PWR</small></button>
+        </div>
+      </div>
+      <div class="opts">
+        <div class="version" hidden><label for="emuVersion">Version</label><select id="emuVersion"></select></div>
+        <label class="check"><input type="checkbox" id="eink" checked> E-ink flash</label>
+        <button class="secondary small" id="restart" type="button">Restart</button>
+      </div>
+      <p class="keys">A: the A key or left arrow. B: the B key, space or enter. Hold a key for a long press. The keys
+        work when you're not typing in the code.</p>
+      <p id="status" class="status" role="status">Loading…</p>
+    </aside>
+  </div>
+</main>
+<footer data-chrome></footer>
+<script type="module" src="chrome.js"></script>
+<script src="emu.js"></script>
+<script type="module" src="editor.js"></script>
+</body>
+</html>
