@@ -114,6 +114,7 @@ const MENUS = [
     { label: 'The API', desc: 'Every unidex.* call, in one short list', href: `${STORE_REPO}/blob/main/API.md`, icon: 'book', ext: true },
     { label: 'Try it without a device', desc: 'Run unidex, and your app, in the browser emulator', href: 'try.html', icon: 'play' },
     { label: 'Send it to the store', desc: 'A pull request, checked and reviewed', href: 'developers.html#share', icon: 'send' },
+    { label: 'Learn to code', desc: 'Short C++ lessons you run in the browser', href: 'https://learn.unidex.shop', icon: 'book', ext: true },
   ] },
   { label: 'Help', page: 'help.html', items: [
     { label: 'Getting started', desc: 'Install, the SD card and your timetable', href: 'help.html#start', icon: 'flag' },
