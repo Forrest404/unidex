@@ -182,7 +182,9 @@ function header() {
   return el('div', { class: 'bar' },
     el('a', { class: 'brand', href: './', 'aria-label': 'unidex tools, home' }, logo(), el('small', { text: 'tools' })),
     el('nav', { 'aria-label': 'Main' }, menus),
-    el('div', { class: 'head-right' }, searchBtn,
+    el('div', { class: 'head-right' },
+      el('a', { class: 'gh-link', href: REPO, target: '_blank', rel: 'noopener', text: 'GitHub ↗', 'aria-label': 'unidex on GitHub' }),
+      searchBtn,
       el('a', { class: 'shop-link', href: SHOP, target: '_blank', rel: 'noopener', text: 'unidex.shop ↗' }), create, menuBtn));
 }
 
@@ -202,6 +204,7 @@ function openDrawer() {
         el('div', { class: 'actions' },
           el('button', { class: 'secondary', type: 'button', onclick: () => { close(); openSearch(); } }, 'Search'),
           el('a', { class: 'button', href: STORE_REPO, target: '_blank', rel: 'noopener' }, 'Create an app ↗'),
+          el('a', { class: 'button', href: REPO, target: '_blank', rel: 'noopener' }, 'unidex on GitHub ↗'),
           el('a', { href: SHOP, target: '_blank', rel: 'noopener', text: 'unidex.shop ↗' }))));
     drawer.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
     drawer.addEventListener('click', e => { if (e.target.closest('a')) drawer.classList.remove('open'); });
@@ -224,7 +227,7 @@ function footer() {
     el('div', { class: 'foot-row small' },
       el('span', { text: 'Free for non-commercial use.' }),
       el('nav', { 'aria-label': 'More' },
-        link('unidex.shop ↗', SHOP), link('Source ↗', REPO), link('Ko-fi ↗', 'https://ko-fi.com/forrest404'),
+        link('unidex.shop ↗', SHOP), link('GitHub ↗', REPO), link('Ko-fi ↗', 'https://ko-fi.com/forrest404'),
         link('Licence ↗', `${REPO}/blob/main/LICENSE`), link('Privacy ↗', `${REPO}/blob/main/PRIVACY.md`))),
   ];
 }
