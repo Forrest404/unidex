@@ -5,6 +5,7 @@ src/secrets.h
 shots/
 __pycache__/
 emu/out/
+emu/web/
 site/emu/
 site/store/
 site/starters/
