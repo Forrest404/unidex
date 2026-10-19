@@ -19,5 +19,5 @@ Only the latest release. Updates come out as new releases on GitHub and the webs
 ## Good to know
 
 - Anyone who has the device and a USB cable can use the keys saved on it. If you lose it, revoke your OpenAI,
-  Anthropic and GitHub keys. Before you pass a device on, use Settings > Reset data > Factory reset.
+  ElevenLabs, Anthropic and GitHub keys. Before you pass a device on, use Settings > Reset data > Factory reset.
 - [PRIVACY.md](PRIVACY.md) explains what the device and website keep and send.

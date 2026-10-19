@@ -14,6 +14,8 @@ size_t jobStackLeft() { return 0; }
 bool jobTakeShown(String &, String &) { return false; }
 static const char *NO = "Not in the demo";
 const char *cloudTranscribe(const NetPart *, int, String &) { return NO; }
+const char *cloudTranscribeKey() { return "openai_key"; }
+const char *cloudTranscribeService() { return "OpenAI"; }
 const char *cloudCleanup(NoteText &, const String &) { return NO; }
 const char *cloudPush(const String &, const String &, String &) { return NO; }
 const char *cloudTest(const char *) { return NO; }

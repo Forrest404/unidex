@@ -7,7 +7,9 @@
 // Names (also the NVS keys and the protocol names):
 //   wifi_ssid, wifi_pass                 WiFi for NTP and Notes
 //   wifi_user                            username for WPA2-Enterprise (eduroam); empty = a home network
+//   transcribe                           which service transcribes: "openai" (Whisper) or "elevenlabs" (Scribe)
 //   openai_key                           Whisper transcription (and cleanup when provider = openai)
+//   elevenlabs_key                       Scribe transcription (ElevenLabs), when transcribe = elevenlabs
 //   anthropic_key                        cleanup when provider = anthropic
 //   cleanup                              "openai", "anthropic" or "off"
 //   cleanup_model                        model name; empty = the provider's default
@@ -18,7 +20,7 @@
 //                                        (wifi_* is network 1; the device tries the one that worked last first)
 bool credKnown(const char *name);
 bool credSecret(const char *name);              // passwords and keys: never sent back over USB
-String credGet(const char *name);               // "" if not set (gh_branch/gh_dir/cleanup have defaults)
+String credGet(const char *name);               // "" if not set (gh_branch/gh_dir/cleanup/transcribe have defaults)
 bool credSet(const char *name, const String &value);  // false for an unknown name, a value too long or NVS full
 void credClear(const char *name);
 void credClearAll();
