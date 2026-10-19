@@ -1,11 +1,15 @@
 # Builds the firmware and the browser emulator, and publishes the website (site/) with the browser installer and the
 # Try it page (every release's emulator, and the next version's) to GitHub Pages.
-# Runs on every published release, every 6 hours (so apps accepted into the store, github.com/Forrest404/unidex-apps,
-# appear by themselves), or by hand from the Actions tab. The firmware always comes from the latest release tag, so
-# a run that isn't a release still offers the released version, not whatever is on main.
+# Runs on every push to main, every published release, or by hand from the Actions tab (the 6-hourly run, which
+# picks up apps accepted into the store, github.com/Forrest404/unidex-apps, is off). The firmware comes from the
+# latest release tag, so a run that isn't a release still offers the released version, not whatever is on main.
+# On a fork with no tags (a fork doesn't get them by default) it comes from main instead, named by its commit.
+# Pages is switched on by the workflow itself (configure-pages), so a fork needs no settings beyond enabling Actions.
 name: Website
 
 on:
+  push:
+    branches: [main]
   release:
     types: [published]
   workflow_dispatch:
@@ -36,13 +40,19 @@ jobs:
       - name: Install PlatformIO
         run: pip install platformio
 
-      - name: Build firmware from the latest release
+      - name: Build firmware from the latest release (or main, when there are no tags)
         run: |
           set -e
           tag="${{ github.event.release.tag_name }}"
-          [ -n "$tag" ] || tag="$(git describe --tags --abbrev=0)"
+          [ -n "$tag" ] || tag="$(git describe --tags --abbrev=0 2>/dev/null || true)"
+          if [ -n "$tag" ]; then
+            git worktree add ../release "$tag"
+          else
+            echo "::warning::no release tags: the installer offers main ($(git rev-parse --short HEAD)) instead"
+            tag="$(git describe --tags --always)"
+            git worktree add --detach ../release HEAD
+          fi
           echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
-          git worktree add ../release "$tag"
           cd ../release && pio run -e epaper154
 
       # The Try it page (site/try.html) can run any release that has an emulator (v1.7 and newer) and the next
@@ -138,6 +148,10 @@ jobs:
           mkdir -p site/starters
           cp -R ../unidex-apps/template/my-app site/starters/app
           cp -R ../unidex-apps/template/my-badge site/starters/badge
+
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true  # turns Pages on (source: GitHub Actions) the first time, so a fork needs no settings
 
       - uses: actions/upload-pages-artifact@v3
         with:
