@@ -9,8 +9,8 @@ on:
   release:
     types: [published]
   workflow_dispatch:
-  schedule:
-    - cron: "23 */6 * * *"
+  # schedule:
+  #   - cron: "23 */6 * * *"
 
 permissions:
   contents: write  # attaches the firmware files to the release
