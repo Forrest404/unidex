@@ -98,7 +98,7 @@ const MENUS = [
     { label: 'Mac calendar sync', desc: 'Your Apple Calendar, every time you plug in', href: 'tools.html#mac', icon: 'laptop' },
   ] },
   { label: 'Setup', page: 'setup.html', items: [
-    { label: 'WiFi & keys', desc: 'Networks, OpenAI or Claude, and GitHub for Notes', href: 'setup.html#connections', icon: 'wifi' },
+    { label: 'WiFi & keys', desc: 'Networks, OpenAI, ElevenLabs or Claude, and GitHub for Notes', href: 'setup.html#connections', icon: 'wifi' },
     { label: 'Microphone test', desc: 'Check it hears you', href: 'setup.html#microphone', icon: 'mic' },
     { label: 'Your notes', desc: 'Read and download your voice notes', href: 'setup.html#notes', icon: 'file' },
     { label: 'Remove keys', desc: 'Clear every key and network from the device', href: 'setup.html#remove', icon: 'trash' },

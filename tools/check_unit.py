@@ -12,8 +12,8 @@ import time
 import serial
 from serial.tools import list_ports
 
-SLOTS = ["wifi_ssid", "wifi_pass", "wifi_user", "openai_key", "anthropic_key", "cleanup", "cleanup_model",
-         "gh_on", "gh_repo", "gh_branch", "gh_dir", "gh_token"]
+SLOTS = ["wifi_ssid", "wifi_pass", "wifi_user", "openai_key", "elevenlabs_key", "anthropic_key", "transcribe",
+         "cleanup", "cleanup_model", "gh_on", "gh_repo", "gh_branch", "gh_dir", "gh_token"]
 
 
 def find_port():

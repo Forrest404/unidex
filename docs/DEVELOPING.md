@@ -28,7 +28,7 @@ src/
   apps/                 one folder per app (timetable, notes, pet, badge, dex, chooser, games, settings)
                         + apps.cpp (launcher order)
   apps/notes/           notes.cpp (screens), job (the online steps in the background), store (files on the card),
-                        cloud (Whisper, tidy-up, GitHub), usb (N commands), phone* (Open on phone)
+                        cloud (Whisper or Scribe, tidy-up, GitHub), usb (N commands), phone* (Open on phone)
   apps/pet/             pet.cpp (Pet, Dress up, Name), parts.h (the art), meet.cpp (Meet), meet_logic.h,
                         friends_logic.h, send_logic.h (the radio rules, tested on a computer), usb.cpp (P commands)
   apps/badge/           badge.cpp, badge_file.* (BMP checks, shared with the USB upload and Pet)
@@ -329,7 +329,7 @@ Text lines over USB serial, computer → device (`src/core/usbsync.cpp`; senders
 | `B <name> <bytes> <crc32>` | `OK B` or `ERR` (name: `[a-z0-9-]+.bmp`, max 16 KB) |
 | `D <hex>` (≤ 64 bytes per line) | `K` per line; after the last byte `OK F <name>` (then the board opens it) or `ERR` |
 | `N ?` / `N SET <name> <hex>` / `N CLR <name\|all>` (Setup page) | settings, as `NS <name> <set\|unset> <hex>` lines then `OK N ?`; secrets are never sent back |
-| `N TEST <wifi\|openai\|anthropic\|github>`, `N MIC` | `OK N TEST <what> ok` or `… fail <reason>`; `OK N MIC <peak> <rms>` |
+| `N TEST <wifi\|openai\|elevenlabs\|anthropic\|github>`, `N MIC` | `OK N TEST <what> ok` or `… fail <reason>`; `OK N MIC <peak> <rms>` |
 | `N LIST` / `N READ <id>` / `N DEL <id>` | `NF …` lines then `OK N LIST`; `ND <hex>` lines then `OK N READ <bytes> <crc32>`; `OK N DEL` |
 | `N SYNC` | starts sending waiting notes in the background: `OK N SYNC started <n>`, `none`, `busy` or `fail <reason>` |
 | `P GET` / `P SET <look hex> <name hex>` (Tools page, Pet) | `OK P <look> <name hex>`; `OK P SET` or `ERR` |

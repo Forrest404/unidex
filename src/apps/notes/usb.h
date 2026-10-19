@@ -10,7 +10,7 @@
 //                               name, its last chunk)
 //   N CLR <name|all>         -> "OK N CLR"
 //   N TEST <what>            -> "OK N TEST <what> ok" or "OK N TEST <what> fail <reason>"  (wifi, openai,
-//                               anthropic, github; takes a few seconds)
+//                               elevenlabs, anthropic, github; takes a few seconds)
 //   N MIC [wifi]             -> records 2 s: "OK N MIC <peak> <rms>" (0-32767) or "OK N MIC fail <reason>";
 //                               with "wifi", WiFi is connecting meanwhile (a check for radio hum)
 //   N LIST                   -> "NF <id> <bytes> <text 0|1> <pushed 0|1> <hex title>" per note, then "OK N LIST"

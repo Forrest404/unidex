@@ -14,15 +14,20 @@ struct NoteText {
   bool eventAllDay = false;
 };
 
-// `audio` is the whole WAV file (header and samples) as body parts.
+// `audio` is the whole WAV file (header and samples) as body parts. The service is the one chosen on the website
+// (OpenAI Whisper or ElevenLabs Scribe, the "transcribe" setting).
 const char *cloudTranscribe(const NetPart *audio, int nParts, String &text);
+// The chosen transcriber's key setting ("openai_key" or "elevenlabs_key") and its name for the screen.
+const char *cloudTranscribeKey();
+const char *cloudTranscribeService();
 // Title, summary, cleaned body, topics and event, with the provider chosen on the website. With cleanup
 // off (or no transcript) it only fills a short title from the first words.
 const char *cloudCleanup(NoteText &note, const String &nowLocal);
 // Pushes the note to <gh_dir>/<name>.md in the GitHub repo, adding " 2", " 3"... if the name is taken.
 // `path` gets the path it was saved at.
 const char *cloudPush(const String &name, const String &markdown, String &path);
-// Checks one service with the saved settings: "wifi", "openai", "anthropic" or "github". Connects WiFi itself.
+// Checks one service with the saved settings: "wifi", "openai", "elevenlabs", "anthropic" or "github". Connects
+// WiFi itself.
 const char *cloudTest(const char *what);
 
 String noteMarkdown(const NoteText &note, const String &id, const String &createdUtc);

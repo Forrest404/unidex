@@ -4,6 +4,11 @@ What changed in each release, in short. The full notes are on the
 [releases page](https://github.com/Forrest404/unidex/releases). To update, use
 https://tools.unidex.shop/ (Update keeps your settings and files).
 
+## Unreleased
+
+- **Notes:** the transcriber is a choice on the Setup page: OpenAI Whisper, as before, or ElevenLabs Scribe,
+  whose free plan covers about half an hour of notes a month. Each has its own key and Test button.
+
 ## v1.8 (15 October 2026)
 
 - **New logo:** the start-up screen shows the new unidex logo, the robot above the name, instead of the four squares.

@@ -15,7 +15,7 @@ When you record a note and the device has WiFi:
 
 | What | Sent to | When |
 |---|---|---|
-| The recording (audio) | OpenAI, to transcribe it (Whisper) | every note |
+| The recording (audio) | OpenAI (Whisper) or ElevenLabs (Scribe), whichever you chose, to transcribe it | every note |
 | The transcript (up to 6000 characters) and the note's date and time (to make sense of "tomorrow") | OpenAI or Anthropic (Claude), to tidy it up | unless tidy-up is set to off |
 | The finished note (text), with its title as the file name | your GitHub repo | only if GitHub is turned on |
 
@@ -23,11 +23,12 @@ These requests use **your own API keys and accounts**, so each service's own ter
 including how long they keep the data:
 
 - OpenAI: https://openai.com/policies/privacy-policy/ and, for the API, https://openai.com/enterprise-privacy/
+- ElevenLabs: https://elevenlabs.io/privacy-policy
 - Anthropic: https://www.anthropic.com/legal/privacy and https://privacy.anthropic.com/
 - GitHub: https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement
 
 The **Test** buttons on the Setup page each make one request with your key (OpenAI and Anthropic: list the
-available models; GitHub: read the repo's details). No note content is sent.
+available models; ElevenLabs: read your plan's details; GitHub: read the repo's details). No note content is sent.
 
 If you record other people, tell them first: their voice goes to these services too.
 
@@ -43,7 +44,7 @@ If you record other people, tell them first: their voice goes to these services 
   to your institution's login server. Without a CA certificate set on the Setup page, a fake network with the
   same name could capture them.
 - Anyone who has the device and a USB cable can use your saved keys. If you lose it, revoke the keys at OpenAI,
-  Anthropic and GitHub.
+  ElevenLabs, Anthropic and GitHub.
 
 ## Other features
 
@@ -86,4 +87,4 @@ If you record other people, tell them first: their voice goes to these services 
 - **Everything on the device:** Settings > Reset data > **Factory reset** (asks twice): your WiFi and keys, the
   Pet and its friends, every setting, the calendar and the Dex. Notes, badges and the timetable on the SD card stay:
   format the card on a computer too. A full erase (the website's **Install** button) also clears the board.
-- **Data held by OpenAI, Anthropic or GitHub:** follow their own policies above.
+- **Data held by OpenAI, ElevenLabs, Anthropic or GitHub:** follow their own policies above.

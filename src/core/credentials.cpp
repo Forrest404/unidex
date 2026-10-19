@@ -13,6 +13,7 @@ struct Field {
 static const Field FIELDS[] = {
   {"wifi_ssid", false, 32, ""},      {"wifi_pass", true, 128, ""},     {"wifi_user", false, 128, ""},
   {"openai_key", true, 256, ""},     {"anthropic_key", true, 256, ""},
+  {"transcribe", false, 12, "openai"}, {"elevenlabs_key", true, 256, ""},
   {"cleanup", false, 12, "openai"},  {"cleanup_model", false, 64, ""},
   {"gh_on", false, 1, "0"},          {"gh_repo", false, 100, ""},
   {"gh_branch", false, 64, "main"},  {"gh_dir", false, 64, "VoiceNotes"},
