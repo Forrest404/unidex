@@ -50,6 +50,29 @@ static const char *failure(int status, const char *service, const String &body) 
   return reason;
 }
 
+// ElevenLabs says why in the body ({"detail":{"status":"invalid_api_key"}}), and that goes on the screen, as its
+// statuses don't follow the usual codes: a wrong key is a 400, and a 401 is a key without the needed permission
+// or a free account its abuse check has flagged (another free account on the same network, or a VPN).
+static const char *elevenFailure(int status, const char *service, const String &body) {
+  JsonDocument doc;
+  String why;
+  if (status > 0 && !deserializeJson(doc, body)) why = doc["detail"]["status"] | "";
+  if (!why.length()) return failure(status, service, body);
+  static char reason[48];
+  if (why.startsWith("invalid_api_key")) snprintf(reason, sizeof reason, "%s: bad key", service);
+  else if (why == "quota_exceeded") snprintf(reason, sizeof reason, "%s: no credit", service);
+  else if (why == "missing_permissions") snprintf(reason, sizeof reason, "%s: key lacks permission", service);
+  else if (why == "detected_unusual_activity") snprintf(reason, sizeof reason, "%s: free plan blocked", service);
+  else {
+    why.replace('_', ' ');
+    snprintf(reason, sizeof reason, "%s: %s", service, why.c_str());
+  }
+#if DEBUG
+  Serial.printf("%s %d: %.300s\n", service, status, body.c_str());
+#endif
+  return reason;
+}
+
 static bool useScribe() { return credGet("transcribe") == "elevenlabs"; }
 
 const char *cloudTranscribeKey() { return useScribe() ? "elevenlabs_key" : "openai_key"; }
@@ -116,7 +139,7 @@ static const char *transcribeScribe(const NetPart *audio, int nParts, String &te
   String body;
   const int status =
     postAudio(ELEVENLABS, "/v1/speech-to-text", "xi-api-key: " + key + "\r\n", fields, 3, audio, nParts, body, 262144);
-  if (status != 200) return failure(status, "Scribe", body);
+  if (status != 200) return elevenFailure(status, "Scribe", body);
   JsonDocument filter, doc;
   filter["text"] = true;
   if (deserializeJson(doc, body, DeserializationOption::Filter(filter))) return "Scribe: bad reply";
@@ -373,7 +396,7 @@ const char *cloudTest(const char *what) {
     if (!key.length()) err = "no ElevenLabs key";
     else if ((status = netHttps(ELEVENLABS, "GET", "/v1/user/subscription", "xi-api-key: " + key + "\r\n", nullptr, 0,
                                 body, 2048)) != 200)
-      err = failure(status, "ElevenLabs", body);
+      err = elevenFailure(status, "ElevenLabs", body);
   } else if (strcmp(what, "anthropic") == 0) {
     const String key = credGet("anthropic_key");
     if (!key.length()) err = "no Anthropic key";

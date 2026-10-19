@@ -274,6 +274,12 @@ $('removeCa').onclick = () =>
     say('wifiStatus', 'Certificate removed.', 'ok');
   });
 
+// What to do about a Test failure, by the reason the device gives.
+const HINTS = [
+  ['key lacks permission', " The key is restricted: make one with every permission, or give it Speech to Text and User."],
+  ['free plan blocked', " ElevenLabs stops free accounts it thinks are shared: another free account on your network, or a VPN. A different network or a paid plan clears it."],
+];
+
 document.querySelectorAll('[data-test]').forEach(btn => {
   btn.onclick = () => {
     const what = btn.dataset.test;
@@ -282,7 +288,7 @@ document.querySelectorAll('[data-test]').forEach(btn => {
     run(status, async () => {
       say(status, 'Testing on the device… (a few seconds)');
       const r = await notesTest(dev, what);
-      say(status, r.ok ? 'Works.' : r.reason, r.ok ? 'ok' : 'bad');
+      say(status, r.ok ? 'Works.' : r.reason + (HINTS.find(h => r.reason.includes(h[0]))?.[1] ?? ''), r.ok ? 'ok' : 'bad');
     });
   };
 });
