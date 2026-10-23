@@ -26,10 +26,13 @@ bool jobStartNote(const String &id, int16_t *samples, size_t count, bool onCard)
 // Transcribes waiting recordings and pushes notes GitHub doesn't have yet. quiet: Notes trying by itself, so a try
 // that sends nothing leaves no result line.
 bool jobStartSweep(bool quiet = false);
-// Reminders: transcribes a recording from memory and keeps only the words (nothing is saved). Like jobStartNote,
-// the buffer becomes the job's. The words (or why there are none) wait for jobTakeText.
-bool jobStartText(int16_t *samples, size_t count);
-bool jobTakeText(String &text, String &error);  // true (and filled) once, when a jobStartText has finished
+// Reminders (reminders/waiting.h): saves a new recording (samples null: none) to /reminders, then, if WiFi can be
+// reached, turns every recording waiting there into words for the app. Like jobStartNote, the buffer becomes the
+// job's. False if it can't start now (a retry while the job is busy).
+bool jobStartReminders(const String &id, int16_t *samples, size_t count);
+// True (and filled) once, when a jobStartReminders has finished: why it stopped ("" if it didn't), and whether WiFi
+// couldn't be reached (the recordings wait).
+bool jobTakeRemindersDone(String &problem, bool &offline);
 JobStatus jobStatus();
 size_t jobStackLeft();  // bytes of the job's stack never used so far (0 before it first runs)
 // No card and no GitHub: the finished note is shown once instead of kept. True (and filled) if one is waiting.

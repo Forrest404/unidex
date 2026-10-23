@@ -2,6 +2,7 @@
 #include "cloud.h"
 #include "store.h"
 #include <esp_heap_caps.h>
+#include "../reminders/waiting.h"
 #include "../../core/audio.h"
 #include "../../core/clock.h"
 #include "../../core/credentials.h"
@@ -10,8 +11,8 @@
 #include "../../core/power.h"
 #include "../../core/storage.h"
 
-// One piece of work: a fresh recording (id + samples), a sweep of everything waiting, or a reminder's words.
-enum class Kind : uint8_t { Sweep, Note, Text };
+// One piece of work: a fresh recording (id + samples), a sweep of everything waiting, or Reminders' recordings.
+enum class Kind : uint8_t { Sweep, Note, Reminders };
 struct Item {
   Kind kind;
   char id[24];
@@ -28,8 +29,9 @@ static bool hasWaiting;   // a second recording, queued behind the running one
 static volatile bool busy;
 static String shownMd, shownTitle;  // no card, no GitHub: the finished note, for the screen to show once
 static volatile bool hasShown;
-static String heardText, heardError;  // a jobStartText's result, for Reminders to take
-static volatile bool hasHeard;
+static String remindersProblem;  // a Reminders run's outcome, for the app to take
+static bool remindersOffline;
+static volatile bool remindersDone;
 
 static TaskHandle_t task;
 static StaticTask_t taskBuffer;
@@ -223,30 +225,47 @@ static void runSweep(const Item &it) {
   publish(JobStep::Idle, it.quiet && !done ? "" : result);
 }
 
-// A reminder: only the words, straight from memory. Nothing is saved, so nothing waits for a later sync.
-static void runText(Item &it) {
+// Reminders (reminders/waiting.h): a new recording goes on the card first. Then, if WiFi can be reached, every
+// recording waiting there becomes words (a .txt for the app to add) and its .wav goes; without WiFi they wait for
+// the next try. No result line: that's for Notes' own work (Notes counts a run with one as a try of its own).
+static void runReminders(Item &it) {
   setNote("");
-  publish(JobStep::Connecting, "");
-  const char *err = netConnect();
-  String text;
-  if (!err) {
-    publish(JobStep::Transcribing);
-    if (devFakeCloud()) {  // test build: no upload, no cost
-      delay(1500);
-      text = devEmptyHeard() ? "" : "Remind me to call Sam tomorrow at 5pm.";
-    } else {
-      uint8_t header[44];
-      storeWavHeader(header, it.count * 2);
-      const NetPart audio[] = {NetPart::bytes(header, sizeof header), NetPart::bytes(it.samples, it.count * 2)};
-      err = cloudTranscribe(audio, 2, text);
-    }
+  const char *err = nullptr;
+  if (it.samples) {
+    publish(JobStep::Saving, "");
+    if (!waitingSave(it.id, it.samples, it.count)) err = "Couldn't save";
+    jobGiveBuffer(it.samples);  // on the card: a new recording can start
+    it.samples = nullptr;
   }
-  jobGiveBuffer(it.samples);
-  it.samples = nullptr;
-  heardText = err ? "" : text;
-  heardError = err ? err : "";
-  hasHeard = true;
-  publish(JobStep::Idle, "");  // no result line: that's for Notes' own work
+  bool offline = false;
+  if (!err) {
+    publish(JobStep::Connecting, "");
+    // The test build's fake cloud needs no WiFi: X NETFAIL says whether it's "reached" (both paths, anywhere).
+    offline = devFakeCloud() ? devNetFail() : netConnect() != nullptr;
+  }
+  if (!err && !offline)
+    for (const String &id : waitingRecordings()) {
+      publish(JobStep::Transcribing);
+      String words;
+      if (devFakeCloud()) {  // test build: no upload, no cost
+        delay(1500);
+        words = devEmptyHeard() ? "" : "Remind me to call Sam tomorrow at 5pm.";
+      } else {
+        fs::File f = storageOpen(waitingWavPath(id).c_str());
+        if (!f) continue;
+        const NetPart audio[] = {NetPart::rest(f)};
+        err = cloudTranscribe(audio, 1, words);
+      }
+      if (err) break;  // the service said no (a key, credit): they all wait for the next try
+      if (!waitingSetWords(id, words)) {
+        err = "Couldn't save";
+        break;
+      }
+    }
+  remindersProblem = err ? err : "";
+  remindersOffline = offline;
+  remindersDone = true;
+  publish(JobStep::Idle, "");
 }
 
 static void worker(void *) {
@@ -254,7 +273,7 @@ static void worker(void *) {
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     for (;;) {
       if (running.kind == Kind::Note) runNote(running);
-      else if (running.kind == Kind::Text) runText(running);
+      else if (running.kind == Kind::Reminders) runReminders(running);
       else runSweep(running);
       portENTER_CRITICAL(&mux);
       const bool more = hasWaiting;
@@ -274,7 +293,7 @@ static bool start(const Item &it) {
   if (!task) task = xTaskCreateStaticPinnedToCore(worker, "notes", sizeof stack / sizeof stack[0], nullptr, 1, stack,
                                                   &taskBuffer, 0);  // core 0: the screen and buttons stay on core 1
   if (busy) {
-    if (hasWaiting || it.kind == Kind::Sweep) return false;
+    if (hasWaiting || !it.samples) return false;  // only a new recording queues (a sweep or retry can wait)
     portENTER_CRITICAL(&mux);
     waitingItem = it;
     hasWaiting = true;
@@ -285,7 +304,7 @@ static bool start(const Item &it) {
   busy = true;
   netClaim(true);
   powerHold();  // no sleep (light sleep would drop the WiFi) until the work is done
-  publish(it.kind == Kind::Note ? JobStep::Saving : JobStep::Connecting, "");
+  publish(it.samples ? JobStep::Saving : JobStep::Connecting, "");
   xTaskNotifyGive(task);
   return true;
 }
@@ -319,8 +338,9 @@ void jobGiveBuffer(int16_t *buffer) {
 }
 
 bool jobCanTake() {
-  // A second note can queue only once the first is safely on the card (its memory freed), and only one.
-  return !busy || (!hasWaiting && running.kind == Kind::Note && !running.samples && running.onCard);
+  // A second recording can queue only once the first is safely on the card (its memory freed), and only one.
+  return !busy || (!hasWaiting && !running.samples &&
+                   ((running.kind == Kind::Note && running.onCard) || running.kind == Kind::Reminders));
 }
 
 bool jobStartNote(const String &id, int16_t *samples, size_t count, bool onCard) {
@@ -334,17 +354,17 @@ bool jobStartSweep(bool quiet) {
   return start(it);
 }
 
-bool jobStartText(int16_t *samples, size_t count) {
-  Item it = {Kind::Text, "", samples, count, false};
+bool jobStartReminders(const String &id, int16_t *samples, size_t count) {
+  Item it = {Kind::Reminders, "", samples, count, true};
+  strlcpy(it.id, id.c_str(), sizeof it.id);
   return start(it);
 }
 
-bool jobTakeText(String &text, String &error) {
-  if (!hasHeard) return false;
-  text = heardText;
-  error = heardError;
-  heardText = heardError = "";
-  hasHeard = false;
+bool jobTakeRemindersDone(String &problem, bool &offline) {
+  if (!remindersDone) return false;
+  problem = remindersProblem;
+  offline = remindersOffline;
+  remindersDone = false;
   return true;
 }
 

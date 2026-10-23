@@ -32,13 +32,21 @@ shot r-empty
 press A
 expect screen=Home
 # Saying one (device only: the emulator has no microphone). The cloud is faked, so nothing is uploaded and the
-# words are canned ("Remind me to call Sam tomorrow at 5pm"); with the samples on, nothing is written to the card.
+# words are canned ("Remind me to call Sam tomorrow at 5pm"); with the samples on, the list isn't written to the
+# card. The recording is, in /reminders, until it's turned into words. First with no WiFi: it waits, on a row of
+# its own. Then WiFi "comes back" and B on that row sends it.
 fake 1
+netfail 1
 demo 1
 select Reminders
 press b
 hold B 2500
 shot r-after-release
+waitjob 30
+shot r-saved-offline
+netfail 0
+press b
+shot r-sending
 waitjob 30
 shot r-added
 press A

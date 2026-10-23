@@ -1,10 +1,13 @@
 // Reminders: a to-do list, kept in /reminders.csv on the SD card. List: A = next, B = done (or undo), hold B = say
 // a new one ("call Sam tomorrow at 5"). The last row clears the done ones (B, then B again to confirm). Hold A = back.
-// The words come from Notes' transcriber (Whisper or Scribe, through its background job: no new key to set up);
-// which part says when is worked out on the device, by the rules in reminders_logic.h. When one falls due it chimes
+// Each recording goes on the card first (waiting.h); with WiFi it's turned into words by Notes' transcriber (Whisper
+// or Scribe, through its background job: no new key to set up) and the recording goes. Without, it waits (a row at
+// the top: B sends now) and is tried again every 10 min. Which part says when is worked out on the device, by the
+// rules in reminders_logic.h, from when it was said. When one falls due it chimes
 // and shows over whatever is on screen, waking the device for it: B = done, A = in 10 minutes, hold A = leave it.
 #include <vector>
 #include "reminders_logic.h"
+#include "waiting.h"
 #include "../notes/cloud.h"
 #include "../notes/job.h"
 #include "../notes/record.h"
@@ -16,6 +19,7 @@
 #include "../../core/devtools.h"
 #include "../../core/display.h"
 #include "../../core/launcher.h"
+#include "../../core/net.h"
 #include "../../core/power.h"
 #include "../../core/storage.h"
 #include "../../core/theme.h"
@@ -27,6 +31,7 @@ static const int ROWS = 5, ROW_H = 26, BOX = 11;
 static const uint32_t MAX_SECONDS = 30;  // a reminder is a sentence
 static const size_t MAX_TITLE = 120;
 static const int SNOOZE_MIN = 10;
+static const time_t RETRY_S = 600;  // recordings waiting for WiFi: tried again every 10 min
 
 enum Screen : uint8_t { LIST, CLEAR, ALERT };
 RTC_DATA_ATTR static uint8_t screen;
@@ -41,6 +46,8 @@ RTC_DATA_ATTR static int16_t openCount = -1, lateCount;
 RTC_DATA_ATTR static int32_t nextMin = -1;  // the next one due, in local minutes from 1970 (-1: none)
 RTC_DATA_ATTR static bool nextHasTime;
 RTC_DATA_ATTR static char nextTitle[32];
+RTC_DATA_ATTR static int16_t waitingCount;  // recordings on the card still to be sent
+RTC_DATA_ATTR static time_t lastTry;        // when they were last tried (0: not yet)
 
 // RAM cache: lost in deep sleep, read again on first use after a wake.
 static std::vector<Reminder> list;
@@ -68,9 +75,11 @@ static int doneCount() {
   return n;
 }
 
-static int rowCount() { return list.size() + (doneCount() ? 1 : 0); }  // the last row: "Clear 2 done"
-
-static bool onClearRow() { return cursor == list.size(); }
+// The rows: "2 waiting for WiFi" first if any are, the reminders, then "Clear 2 done" if any are done.
+static int firstItem() { return waitingCount > 0 ? 1 : 0; }
+static int rowCount() { return firstItem() + list.size() + (doneCount() ? 1 : 0); }
+static bool onWaitingRow() { return waitingCount > 0 && cursor == 0; }
+static bool onClearRow() { return cursor == firstItem() + list.size(); }
 
 static void remember() {
   const long now = nowMinutes();
@@ -120,6 +129,7 @@ static void ensureList() {
     if (reminders::fromLine(line.c_str(), r)) list.push_back(r);
   if (f) f.close();
   reminders::sortList(list);
+  waitingCount = waitingRecordings().size();
   listed = true;
   if (cursor >= rowCount()) cursor = 0;
   remember();
@@ -160,7 +170,8 @@ static void clearDone() {
 }
 
 static void toggleDone() {
-  list[cursor].done = !list[cursor].done;
+  Reminder &r = list[cursor - firstItem()];
+  r.done = !r.done;
   if (!save()) {
     listed = false;
     launcherToast("Couldn't save");
@@ -171,25 +182,18 @@ static void toggleDone() {
 
 // --- adding one by voice ---
 
+// A brown-out while the radio is on could damage the card.
 static void record() {
-  if (const char *low = batteryTooLow()) {  // a brown-out while the radio is on could damage the card
+  if (const char *low = batteryTooLow()) {
     launcherToast(low);
     return;
   }
-  if (!credWifiAny()) {
-    launcherToast("Setup: add your WiFi");
-    return;
-  }
-  if (cloudTranscribeMissing() && !devFakeCloud()) {
-    launcherToast("Setup: add a key");  // OpenAI's or ElevenLabs' (the Notes screen names it; a toast is too narrow)
-    return;
-  }
-  if ((int)list.size() >= reminders::MAX_REMINDERS) {
+  if ((int)list.size() + waitingCount >= reminders::MAX_REMINDERS) {
     launcherToast("Full: clear done ones");
     return;
   }
-  if (listening || !jobCanTake()) {
-    launcherToast("Still sending one");
+  if (!jobCanTake()) {  // the last recording isn't on the card yet
+    launcherToast("Still saving one");
     return;
   }
   int16_t *samples;
@@ -198,44 +202,106 @@ static void record() {
     launcherToast(err);
     return;
   }
-  if (!jobStartText(samples, count)) {
+  if (!jobStartReminders(waitingNewId(), samples, count)) {
     jobGiveBuffer(samples);
     launcherToast("Busy: try again");
     return;
   }
   listening = true;
   seenGen = jobStatus().gen;
+  lastTry = clockValid() ? time(nullptr) : 0;  // a try of its own: the waiting ones go with it
 }
 
-// What was heard: worked out into a reminder, saved, and selected in the list.
-static void addHeard(const String &text, const String &error) {
-  String said = asciiText(text);
-  said.trim();
-  failed = error.length() ? error : !said.length() ? "Heard nothing" : !storageCardMount() ? "No SD card" : "";
-  if (failed.length()) {
-    if (!isOpen) launcherToast("Reminder not added");  // the reason waits on the list
-    return;
+// The ones waiting for WiFi, sent now (B on their row) or every RETRY_S by themselves. Quiet: no toast if it can't.
+static bool sendWaiting(bool quiet) {
+  const char *why = !credWifiAny() ? "Setup: add your WiFi"
+                    : cloudTranscribeMissing() && !devFakeCloud() ? "Setup: add a key"  // OpenAI's or ElevenLabs'
+                    : jobBusy() || netClaimed() ? "Busy: try again"
+                    : batteryTooLow();
+  if (!why && !jobStartReminders("", nullptr, 0)) why = "Busy: try again";
+  if (why) {
+    if (!quiet) launcherToast(why);
+    return false;
   }
+  listening = true;
+  seenGen = jobStatus().gen;
+  lastTry = clockValid() ? time(nullptr) : 0;
+  return true;
+}
+
+static bool retryDue() {
+  static uint32_t triedMs;  // without the clock: once per start, then every RETRY_S awake
+  if (!clockValid()) {
+    if (triedMs && millis() - triedMs < RETRY_S * 1000) return false;
+    triedMs = millis() | 1;
+    return true;
+  }
+  const time_t now = time(nullptr);
+  return !lastTry || now < lastTry || now - lastTry >= RETRY_S;
+}
+
+// The words the job left on the card (waiting.h): each becomes a reminder, timed from when it was said, selected in
+// the list. Words that can't be added yet (the list is full, or it won't save) stay on the card for next time.
+static void addWords() {
+  const std::vector<String> ids = waitingWords();
+  if (ids.empty()) return;
   ensureList();
-  const long now = nowMinutes();
-  const reminders::Heard heard = reminders::parseReminder(said.c_str(), now);
-  Reminder r = {heard.due, false, heard.title.substr(0, MAX_TITLE)};
-  list.insert(list.begin(), r);  // the front: the newest of the undated ones
-  if (!save()) {
+  std::vector<String> taken;
+  int heardNothing = 0;
+  Reminder last;
+  for (const String &id : ids) {
+    String said = asciiText(waitingReadWords(id));
+    said.trim();
+    if (!said.length()) {
+      heardNothing++;
+      taken.push_back(id);
+      continue;
+    }
+    if ((int)list.size() >= reminders::MAX_REMINDERS) break;
+    const long saidAt = waitingSaidAt(id) >= 0 ? waitingSaidAt(id) : nowMinutes();
+    const reminders::Heard heard = reminders::parseReminder(said.c_str(), saidAt);
+    last = {heard.due, false, heard.title.substr(0, MAX_TITLE)};
+    list.insert(list.begin(), last);  // the front: the newest of the undated ones
+    taken.push_back(id);
+  }
+  const int added = taken.size() - heardNothing;
+  if (added && !save()) {
     listed = false;
     launcherToast("Couldn't save");
     return;
   }
+  for (const String &id : taken) waitingRemoveWords(id);
+  if (!added) {
+    failed = "Heard nothing";
+    if (!isOpen) launcherToast("Reminder not added");  // the reason waits on the list
+    return;
+  }
   for (size_t i = 0; i < list.size(); i++)
-    if (!list[i].done && list[i].title == r.title && list[i].due == r.due) {
-      cursor = i;
+    if (!list[i].done && list[i].title == last.title && list[i].due == last.due) {
+      cursor = firstItem() + i;
       break;
     }
   screen = LIST;
-  const std::string tag = reminders::dueTag(r, now);
+  const long now = nowMinutes();
+  const std::string tag = reminders::dueTag(last, now);
   // The row is selected, with its title: the toast says when.
-  const std::string msg = now < 0 ? "Added, no time: clock not set" : tag.empty() ? "Added" : "Added for " + tag;
+  char many[24];
+  snprintf(many, sizeof many, "%d added", added);
+  const std::string msg = added > 1 ? many : now < 0 ? "Added, no time: clock not set" : tag.empty() ? "Added" : "Added for " + tag;
   launcherToast(msg.c_str());
+}
+
+// A run of the job has finished: what it turned into words goes in the list; what it couldn't send waits.
+static void sent(const String &problem, bool offline) {
+  waitingCount = waitingRecordings().size();
+  if (cursor >= rowCount()) cursor = 0;
+  addWords();
+  if (problem.length()) {  // the service said no, or the card: the recordings wait, and say why
+    failed = problem;
+    if (!isOpen) launcherToast("Reminder not added yet");
+  } else if (offline && waitingCount > 0) {
+    launcherToast(credWifiAny() ? "Saved for WiFi" : "Saved: set up WiFi");
+  }
 }
 
 // --- falling due ---
@@ -307,7 +373,7 @@ static Redraw leaveAlert(Event e) {
 }
 
 static const char *stepName(JobStep s) {
-  return s == JobStep::Connecting ? "sending" : s == JobStep::Transcribing ? "listening" : "";
+  return s == JobStep::Saving ? "saving" : s == JobStep::Connecting ? "sending" : s == JobStep::Transcribing ? "listening" : "";
 }
 
 // --- drawing ---
@@ -329,7 +395,7 @@ static void drawList() {
   snprintf(count, sizeof count, "%d", openCount);
   const char *right = listening ? stepName(jobStatus().step) : list.empty() ? "" : count;
   drawHeader("Reminders", *right ? right : nullptr);
-  if (list.empty()) {
+  if (list.empty() && waitingCount <= 0) {
     drawEmpty("No reminders", "Hold B and say one,", "like: call Sam at 5");
     return;
   }
@@ -337,20 +403,22 @@ static void drawList() {
   const int rows = rowCount(), first = cursor / ROWS * ROWS;
   for (int r = 0; r < ROWS && first + r < rows; r++) {
     const int16_t top = CONTENT_TOP + 4 + r * ROW_H, baseline = top + 17;
-    const bool sel = first + r == cursor;
+    const int row = first + r;
+    const bool sel = row == cursor;
     const uint16_t ink = sel ? WHITE : BLACK;
     if (sel) display.fillRect(MARGIN - 4, top, display.width() - 2 * (MARGIN - 4), ROW_H - 2, BLACK);
     display.setTextColor(ink);
     display.setFont(FONT_SMALL);
-    if (first + r == (int)list.size()) {
-      char clear[20];
-      snprintf(clear, sizeof clear, "Clear %d done", doneCount());
+    if ((waitingCount > 0 && row == 0) || row == firstItem() + (int)list.size()) {
+      char text[28];
+      if (row == 0 && waitingCount > 0) snprintf(text, sizeof text, "%d waiting for WiFi", waitingCount);
+      else snprintf(text, sizeof text, "Clear %d done", doneCount());
       display.setCursor(MARGIN, baseline);
-      display.print(clear);
+      display.print(text);
       display.setTextColor(BLACK);
       continue;
     }
-    const Reminder &item = list[first + r];
+    const Reminder &item = list[row - firstItem()];
     drawBox(MARGIN, top + 7, item.done, ink);
     const std::string tag = reminders::dueTag(item, now);
     display.setFont(FONT_TINY);
@@ -396,8 +464,9 @@ static Redraw onButton(Event e) {
     cursor = (cursor + 1) % rowCount();
     return Redraw::Partial;
   }
-  if (e == Event::BShort && !list.empty()) {
-    if (onClearRow()) screen = CLEAR;
+  if (e == Event::BShort && rowCount() > 0) {
+    if (onWaitingRow()) sendWaiting(false);
+    else if (onClearRow()) screen = CLEAR;
     else toggleDone();
     return Redraw::Partial;
   }
@@ -437,18 +506,22 @@ static void draw() {
   }
   drawList();
   if (failed.length() && screen == LIST) {
-    drawSheet("Not added", fitText(failed.c_str(), display.width() - 2 * MARGIN - 16).c_str(), "Hold B to try again");
-    drawHints("ok", "ok", "again");
+    const bool kept = waitingCount > 0 && failed != "Heard nothing";  // the recordings wait on the card
+    drawSheet(kept ? "Not added yet" : "Not added", fitText(failed.c_str(), display.width() - 2 * MARGIN - 16).c_str(),
+              kept ? "Kept: tried again later" : "Hold B to try again");
+    drawHints("ok", "ok", kept ? "" : "again");
   } else if (screen == CLEAR) {
     const int n = doneCount();
     char title[24];
     snprintf(title, sizeof title, n == 1 ? "Clear 1 done?" : "Clear %d done?", n);
     drawSheet(title, "Ticked ones go.", "Can't be undone.");
     drawHints("keep", "clear", "");
-  } else if (list.empty()) {
+  } else if (rowCount() == 0) {
     drawHints("", "", "add");
   } else {
-    drawHints(rowCount() > 1 ? "next" : "", onClearRow() ? "clear" : list[cursor].done ? "undo" : "done", "add");
+    const char *b = onWaitingRow() ? (listening ? "" : "send") : onClearRow() ? "clear"
+                    : list[cursor - firstItem()].done ? "undo" : "done";
+    drawHints(rowCount() > 1 ? "next" : "", b, "add");
   }
   const struct tm t = clockLocal();
   drawnMinute = clockValid() ? t.tm_min : -1;
@@ -466,16 +539,18 @@ static Redraw tick() {
 
 // Every loop, wherever you are: words heard while away from the list are added now (RAM is lost in deep sleep).
 static bool background() {
-  String text, error;
-  if (jobTakeText(text, error)) {
+  String problem;
+  bool offline;
+  if (jobTakeRemindersDone(problem, offline)) {
     listening = false;
-    addHeard(text, error);
+    sent(problem, offline);
     return true;
   }
   static uint32_t checked;
   if (checked && millis() - checked < 1000) return false;
   checked = millis() | 1;
   checkDue();
+  if (waitingCount > 0 && !listening && retryDue()) sendWaiting(true);
   return false;
 }
 
@@ -494,6 +569,7 @@ static void status(char *out, size_t len) {
     snprintf(out, len, "%d late", lateCount + (nextMin >= 0 && now >= nextMin));
   else if (nextMin >= 0 && now >= 0 && nextMin / 1440 == now / 1440 && nextMin > now && nextHasTime)
     snprintf(out, len, "%s: %s", reminders::clockText(nextMin % 1440).c_str(), nextTitle);
+  else if (waitingCount > 0) snprintf(out, len, "%d waiting for WiFi", waitingCount);
   else if (openCount > 0) snprintf(out, len, "%d to do", openCount);
   else snprintf(out, len, "Hold B to add one");
 }

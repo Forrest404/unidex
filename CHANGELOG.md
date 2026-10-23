@@ -11,7 +11,8 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   you already set up for Notes. Working out the to-do and its time happens on the device, with no AI. B ticks one off, and the last row
   clears the done ones. When one falls due, the device wakes, chimes on the speaker and shows it over whatever is
   on screen: B = done, A = again in 10 minutes. The home screen shows the next one ("5pm: Call Sam") or how many
-  are late.
+  are late. Without WiFi the recording is kept on the card and added once WiFi is back (tried every 10 minutes, or
+  B on its "waiting for WiFi" row), timed from when you said it; the recording is deleted once it's written down.
 - **Notes:** listen back. In a note, B plays its recording on the speaker, even one that hasn't been sent yet, and
   any button stops it. Open on phone moves to hold B, and deleting is done from the list.
 - **Recording screen** (Notes and Reminders): a waveform of your voice, the last few seconds scrolling past, instead

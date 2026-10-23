@@ -31,7 +31,8 @@ src/
                         cloud (Whisper or Scribe, tidy-up, GitHub), usb (N commands), phone* (Open on phone), record (hold to
                         talk, shared with Reminders), play (a recording on the speaker)
   apps/reminders/       reminders.cpp (list, voice, falling due), reminders_logic.h (the file, the order, and the
-                        rules that turn "call Sam tomorrow at 5" into a title and a time; tested on a computer)
+                        rules that turn "call Sam tomorrow at 5" into a title and a time; tested on a computer),
+                        waiting (recordings in /reminders until they're words: .wav waits for WiFi, .txt for the app)
   apps/pet/             pet.cpp (Pet, Dress up, Name), parts.h (the art), meet.cpp (Meet), meet_logic.h,
                         friends_logic.h, send_logic.h (the radio rules, tested on a computer), usb.cpp (P commands)
   apps/badge/           badge.cpp, badge_file.* (BMP checks, shared with the USB upload and Pet)
