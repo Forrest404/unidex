@@ -39,6 +39,7 @@ async function run(statusId, fn) {
 }
 
 const cleanupChoice = () => document.querySelector('input[name=cleanup]:checked').value;
+const transcribeChoice = () => document.querySelector('input[name=transcribe]:checked').value;
 const enterprise = () => document.querySelector('input[name=wifiKind]:checked').value === 'enterprise';
 
 let caSaved = false;
@@ -109,6 +110,13 @@ function editNet(slot) {
   showWifiKind();
 }
 
+function showTranscribe() {
+  const eleven = transcribeChoice() === 'elevenlabs';
+  $('elevenlabsBox').hidden = $('testElevenLabs').hidden = !eleven;
+  $('whisperNote').hidden = eleven;
+}
+document.querySelectorAll('input[name=transcribe]').forEach(r => (r.onchange = showTranscribe));
+
 function showCleanup() {
   const c = cleanupChoice();
   $('anthropicBox').hidden = c !== 'anthropic';
@@ -135,12 +143,17 @@ async function load() {
   const cleanup = s('cleanup').value || 'openai';
   document.querySelector(`input[name=cleanup][value=${cleanup}]`).checked = true;
   showCleanup();
-  for (const name of ['openai_key', 'anthropic_key', 'gh_token']) {
+  const transcribe = s('transcribe').value === 'elevenlabs' ? 'elevenlabs' : 'openai';  // older firmware: Whisper
+  document.querySelector(`input[name=transcribe][value=${transcribe}]`).checked = true;
+  showTranscribe();
+  for (const name of ['openai_key', 'elevenlabs_key', 'anthropic_key', 'gh_token']) {
     $(name).value = '';
     $(name).placeholder = s(name).set ? (s(name).value ? `saved (…${s(name).value})` : 'saved') : '';
   }
   $('openaiSaved').textContent = s('openai_key').set ? '· saved' : '';
+  $('elevenlabsSaved').textContent = s('elevenlabs_key').set ? '· saved' : '';
   $('anthropicSaved').textContent = s('anthropic_key').set ? '· saved' : '';
+  $('transcribeSaved').textContent = transcribe === 'elevenlabs' ? '· ElevenLabs' : '· OpenAI';
   $('githubSaved').textContent = s('gh_on').value === '1' ? '· on' : '· off';
   $('cleanupSaved').textContent = cleanup === 'off' ? '· off' : cleanup === 'anthropic' ? '· Claude' : '· OpenAI';
   $('device').textContent = st.card
@@ -177,6 +190,7 @@ $('disconnect').onclick = async () => {
 // Which fields each Save sends. Secrets are only sent when typed (blank keeps the saved one).
 const GROUPS = {
   openai: { status: 'openaiStatus', plain: [], secret: ['openai_key'] },
+  transcribe: { status: 'transcribeStatus', plain: [], secret: ['elevenlabs_key'], extra: () => ({ transcribe: transcribeChoice() }) },
   cleanup: { status: 'cleanupStatus', plain: ['cleanup_model'], secret: ['anthropic_key'], extra: () => ({ cleanup: cleanupChoice() }) },
   github: { status: 'githubStatus', plain: ['gh_repo', 'gh_branch', 'gh_dir'], secret: ['gh_token'],
             extra: () => ({ gh_on: $('gh_on').checked ? '1' : '0' }) },
@@ -260,14 +274,21 @@ $('removeCa').onclick = () =>
     say('wifiStatus', 'Certificate removed.', 'ok');
   });
 
+// What to do about a Test failure, by the reason the device gives.
+const HINTS = [
+  ['key lacks permission', " The key is restricted: make one with every permission, or give it Speech to Text and User."],
+  ['free plan blocked', " ElevenLabs stops free accounts it thinks are shared: another free account on your network, or a VPN. A different network or a paid plan clears it."],
+];
+
 document.querySelectorAll('[data-test]').forEach(btn => {
   btn.onclick = () => {
     const what = btn.dataset.test;
-    const status = { wifi: 'wifiStatus', openai: 'openaiStatus', anthropic: 'cleanupStatus', github: 'githubStatus' }[what];
+    const status = { wifi: 'wifiStatus', openai: 'openaiStatus', elevenlabs: 'transcribeStatus', anthropic: 'cleanupStatus',
+                     github: 'githubStatus' }[what];
     run(status, async () => {
       say(status, 'Testing on the device… (a few seconds)');
       const r = await notesTest(dev, what);
-      say(status, r.ok ? 'Works.' : r.reason, r.ok ? 'ok' : 'bad');
+      say(status, r.ok ? 'Works.' : r.reason + (HINTS.find(h => r.reason.includes(h[0]))?.[1] ?? ''), r.ok ? 'ok' : 'bad');
     });
   };
 });
@@ -363,6 +384,7 @@ $('clearAll').onclick = () => {
   });
 };
 
+showTranscribe();
 showCleanup();
 
 // Let go of the port when the tab closes, so the Mac agent and flashing aren't blocked by a forgotten tab.

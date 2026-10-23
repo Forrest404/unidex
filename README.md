@@ -127,7 +127,8 @@ sync on the Tools page sends your calendar whenever the board is plugged in and 
 **Hold B** and talk, then let go to stop (a note can be up to 3 minutes). You're back on the screen in about a
 second, and the rest happens in the background, with progress shown on screen:
 
-1. the recording is **transcribed** (OpenAI Whisper, about $0.006 a minute),
+1. the recording is **transcribed** (OpenAI Whisper, about $0.006 a minute, or ElevenLabs Scribe, whose free plan
+   covers about half an hour a month),
 2. it's **tidied up** (by OpenAI or Claude, or not at all): a title, a one-line summary, a clean version that keeps
    every fact, topics, and a calendar event if you described a dated plan,
 3. it's **saved** to the SD card as Markdown next to the recording, and
@@ -140,9 +141,11 @@ speaker, sent or not (any button stops it), and **hold B** is **Open on phone**.
 device's own WiFi and you can browse, search, share and copy your notes on your phone. Hold A to stop it.
 
 Set it up on the [Setup page](https://tools.unidex.shop/setup.html). You can save up to five WiFi networks
-(home, eduroam and work networks, a phone hotspot: the device joins whichever is in range), your OpenAI key, which model tidies up (and an Anthropic key if you pick Claude), and
-GitHub (a repo and a [fine-grained token](https://github.com/settings/personal-access-tokens/new) with Contents:
-Read and write on that repo only). Each has a **Test** button. Your keys stay on the device: the page can't read
+(home, eduroam and work networks, a phone hotspot: the device joins whichever is in range), which service
+transcribes (OpenAI, or ElevenLabs with its own key), your OpenAI key, which model tidies up (and an Anthropic key
+if you pick Claude), and GitHub (a repo and a
+[fine-grained token](https://github.com/settings/personal-access-tokens/new) with Contents: Read and write on that
+repo only). Each has a **Test** button. No paid account at all: ElevenLabs with the tidy-up off. Your keys stay on the device: the page can't read
 them back, and they're never in the code or on the card. Treat the device like an unlocked phone, because anyone
 holding it could use them.
 

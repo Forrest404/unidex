@@ -165,7 +165,7 @@ export async function notesClear(dev, name = 'all') {
   if (!(await dev.expect('OK N CLR', 3000))) throw new Error(tooOld);
 }
 
-// Runs on the device, with its own WiFi: 'wifi', 'openai', 'anthropic' or 'github'. {ok, reason}
+// Runs on the device, with its own WiFi: 'wifi', 'openai', 'elevenlabs', 'anthropic' or 'github'. {ok, reason}
 export async function notesTest(dev, what) {
   await dev.send(`N TEST ${what}`);
   const line = await dev.expect(`OK N TEST ${what}`, 60000);

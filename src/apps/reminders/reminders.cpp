@@ -1,10 +1,11 @@
 // Reminders: a to-do list, kept in /reminders.csv on the SD card. List: A = next, B = done (or undo), hold B = say
 // a new one ("call Sam tomorrow at 5"). The last row clears the done ones (B, then B again to confirm). Hold A = back.
-// The words come from Whisper, through Notes' background job (no new key to set up); which part says when is worked
-// out on the device, by the rules in reminders_logic.h. When one falls due it chimes and shows over whatever is on
-// screen, waking the device for it: B = done, A = in 10 minutes, hold A = leave it.
+// The words come from Notes' transcriber (Whisper or Scribe, through its background job: no new key to set up);
+// which part says when is worked out on the device, by the rules in reminders_logic.h. When one falls due it chimes
+// and shows over whatever is on screen, waking the device for it: B = done, A = in 10 minutes, hold A = leave it.
 #include <vector>
 #include "reminders_logic.h"
+#include "../notes/cloud.h"
 #include "../notes/job.h"
 #include "../notes/record.h"
 #include "../../core/app.h"
@@ -179,8 +180,8 @@ static void record() {
     launcherToast("Setup: add your WiFi");
     return;
   }
-  if (!credHas("openai_key") && !devFakeCloud()) {
-    launcherToast("Setup: add OpenAI key");
+  if (cloudTranscribeMissing() && !devFakeCloud()) {
+    launcherToast("Setup: add a key");  // OpenAI's or ElevenLabs' (the Notes screen names it; a toast is too narrow)
     return;
   }
   if ((int)list.size() >= reminders::MAX_REMINDERS) {
@@ -206,7 +207,7 @@ static void record() {
   seenGen = jobStatus().gen;
 }
 
-// What Whisper heard: worked out into a reminder, saved, and selected in the list.
+// What was heard: worked out into a reminder, saved, and selected in the list.
 static void addHeard(const String &text, const String &error) {
   String said = asciiText(text);
   said.trim();

@@ -7,8 +7,8 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 ## Next release
 
 - **Reminders** (new): a to-do list. Hold B and say one ("call Sam tomorrow at 5pm", "take the cake out in 20
-  minutes", "dentist on the 3rd of November"). Whisper writes it down, using the OpenAI key you already set up for
-  Notes. Working out the to-do and its time happens on the device, with no AI. B ticks one off, and the last row
+  minutes", "dentist on the 3rd of November"). It's written down by the same service as your notes, with the key
+  you already set up for Notes. Working out the to-do and its time happens on the device, with no AI. B ticks one off, and the last row
   clears the done ones. When one falls due, the device wakes, chimes on the speaker and shows it over whatever is
   on screen: B = done, A = again in 10 minutes. The home screen shows the next one ("5pm: Call Sam") or how many
   are late.
@@ -20,6 +20,9 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   themselves: they're transcribed and summarised once WiFi is in reach. The device tries when you wake it and
   every 10 minutes while it's on, whatever app is open, and stays quiet if there's still no WiFi. B on the Notes screen still sends
   them straight away.
+- **Notes:** the transcriber is a choice on the Setup page: OpenAI Whisper, as before, or ElevenLabs Scribe, whose
+  free plan covers about half an hour of notes a month with no card needed. Each has its own key and Test button.
+  ElevenLabs with the tidy-up off is a free setup: notes keep the plain transcript.
 - **Settings > Volume:** a slider for the speaker (notes playing back and the reminder chime), 0 (off) to 10. B is
   louder, hold B quieter, and each step chimes so you can hear it.
 - **Clock:** fixed the time not showing on boards where the clock chip's connection is powered from the audio

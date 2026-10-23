@@ -1,4 +1,4 @@
-// Notes: hold B to record a voice note, let go to stop. It's transcribed (Whisper), tidied up (OpenAI or
+// Notes: hold B to record a voice note, let go to stop. It's transcribed (Whisper or Scribe), tidied up (OpenAI or
 // Claude), kept on the SD card and, if switched on, pushed to GitHub as Markdown (for Obsidian). Set up
 // from the website's Setup page. Without a card it still works online, but nothing is kept on the device.
 // The online steps run in the background (job.h): letting go of B returns to the screen at once.
@@ -7,6 +7,7 @@
 // hotspot, phone.h, and shows its QR code until hold A). Hold A = back everywhere.
 #include <vector>
 #include <qrcode.h>
+#include "cloud.h"
 #include "job.h"
 #include "phone.h"
 #include "play.h"
@@ -210,7 +211,7 @@ static void drawMain() {
     display.setFont(FONT_SMALL);
     String line = ascii(message);
     if (!line.length() && !credWifiAny()) line = "Setup: add your WiFi";
-    else if (!line.length() && !credHas("openai_key")) line = "Setup: add OpenAI key";
+    else if (!line.length() && cloudTranscribeMissing()) line = cloudTranscribeMissing();
     else if (!line.length() && !hasCard()) line = githubOn() ? "No SD card: GitHub only" : "No SD card: nothing is kept";
     else if (!line.length() && waiting()) line = String(waiting()) + " waiting: sends on WiFi";
     else if (!line.length()) line = "to record a note";
@@ -536,7 +537,7 @@ static bool background() {
       ensureList();
     }
   }
-  if (waitingCount <= 0 || jobBusy() || netClaimed() || !credWifiAny() || !credHas("openai_key")) return false;
+  if (waitingCount <= 0 || jobBusy() || netClaimed() || !credWifiAny() || cloudTranscribeMissing()) return false;
   if (batteryTooLow() || !autoSyncDue()) return false;
   tried();
   jobStartSweep(true);

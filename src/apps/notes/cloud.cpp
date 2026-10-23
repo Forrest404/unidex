@@ -4,8 +4,10 @@
 #include "../../core/credentials.h"
 #include "../../core/devtools.h"
 
-static const char *OPENAI = "api.openai.com", *ANTHROPIC = "api.anthropic.com", *GITHUB = "api.github.com";
+static const char *OPENAI = "api.openai.com", *ELEVENLABS = "api.elevenlabs.io", *ANTHROPIC = "api.anthropic.com",
+                  *GITHUB = "api.github.com";
 static const char *DEFAULT_OPENAI_MODEL = "gpt-4o-mini", *DEFAULT_ANTHROPIC_MODEL = "claude-haiku-4-5";
+static const char *WHISPER_MODEL = "whisper-1", *SCRIBE_MODEL = "scribe_v2";
 static const size_t MAX_TRANSCRIPT = 6000;  // characters sent to the cleanup model
 
 // The cleanup instructions, from forrest-notes (the AI cleanup it added to its voice notes).
@@ -36,8 +38,10 @@ static const char *CLEANUP_PROMPT =
 static const char *failure(int status, const char *service, const String &body) {
   static char reason[40];
   if (status < 0) snprintf(reason, sizeof reason, "%s: no connection", service);
+  // Out of credit: OpenAI says so with 429 ("insufficient_quota"), ElevenLabs with 401 ("quota_exceeded").
+  else if ((status == 429 || status == 401) && body.indexOf("quota") >= 0)
+    snprintf(reason, sizeof reason, "%s: no credit", service);
   else if (status == 401 || status == 403) snprintf(reason, sizeof reason, "%s: bad key", service);
-  else if (status == 429 && body.indexOf("quota") >= 0) snprintf(reason, sizeof reason, "%s: no credit", service);
   else if (status == 429) snprintf(reason, sizeof reason, "%s: busy, try later", service);
   else snprintf(reason, sizeof reason, "%s: error %d", service, status);
 #if DEBUG
@@ -46,30 +50,73 @@ static const char *failure(int status, const char *service, const String &body) 
   return reason;
 }
 
-const char *cloudTranscribe(const NetPart *audio, int nParts, String &text) {
-  if (devFakeCloud()) {  // test build: no upload, no cost
-    delay(1500);
-    if (devFailNote()) return "Whisper: error 400";
-    text = devEmptyHeard() ? "" : "This is a test note from the unidex test tools.";
-    return nullptr;
+// ElevenLabs says why in the body ({"detail":{"status":"invalid_api_key"}}), and that goes on the screen, as its
+// statuses don't follow the usual codes: a 401 can be a wrong key, a key without the needed permission, no credit
+// left, or a free account its abuse check has flagged (another free account on the same network, or a VPN).
+// Anything else keeps its code ("error 400 ..."), so the sync can tell a refused recording from a problem that
+// would stop every note (job.cpp's aboutThisNote) and carry on with the others.
+static const char *elevenFailure(int status, const char *service, const String &body) {
+  JsonDocument doc;
+  String why;
+  if (status > 0 && !deserializeJson(doc, body)) why = doc["detail"]["status"] | "";
+  if (!why.length()) return failure(status, service, body);
+  static char reason[48];
+  if (why.startsWith("invalid_api_key")) snprintf(reason, sizeof reason, "%s: bad key", service);
+  else if (why == "quota_exceeded") snprintf(reason, sizeof reason, "%s: no credit", service);
+  else if (why == "missing_permissions") snprintf(reason, sizeof reason, "%s: key lacks permission", service);
+  else if (why == "detected_unusual_activity") snprintf(reason, sizeof reason, "%s: free plan blocked", service);
+  else {
+    why.replace('_', ' ');
+    snprintf(reason, sizeof reason, "%s: error %d %s", service, status, why.c_str());
   }
-  const String key = credGet("openai_key");
-  if (!key.length()) return "no OpenAI key";
+#if DEBUG
+  Serial.printf("%s %d: %.300s\n", service, status, body.c_str());
+#endif
+  return reason;
+}
+
+static bool useScribe() { return credGet("transcribe") == "elevenlabs"; }
+
+const char *cloudTranscribeKey() { return useScribe() ? "elevenlabs_key" : "openai_key"; }
+
+const char *cloudTranscribeMissing() {
+  if (credHas(cloudTranscribeKey())) return nullptr;
+  return useScribe() ? "Setup: ElevenLabs key" : "Setup: add OpenAI key";
+}
+
+struct FormField {
+  const char *name, *value;
+};
+
+// Posts the WAV as a multipart form: the text fields, then the audio as "file" (note.wav). `headers` is the
+// service's own (auth) lines; the content type is added. Returns the HTTP status, with the reply in `body`.
+static int postAudio(const char *host, const char *path, const String &headers, const FormField *fields, int nFields,
+                     const NetPart *audio, int nParts, String &body, size_t maxBody = 65536) {
   static const char *BOUNDARY = "unidexnote7MA4YWxkTrZu0gW";
-  const String pre = String("--") + BOUNDARY +
-                     "\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\nwhisper-1\r\n--" + BOUNDARY +
-                     "\r\nContent-Disposition: form-data; name=\"response_format\"\r\n\r\nverbose_json\r\n--" + BOUNDARY +
-                     "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"note.wav\"\r\n"
-                     "Content-Type: audio/wav\r\n\r\n";
+  String pre;
+  for (int i = 0; i < nFields; i++)
+    pre += String("--") + BOUNDARY + "\r\nContent-Disposition: form-data; name=\"" + fields[i].name + "\"\r\n\r\n" +
+           fields[i].value + "\r\n";
+  pre += String("--") + BOUNDARY +
+         "\r\nContent-Disposition: form-data; name=\"file\"; filename=\"note.wav\"\r\n"
+         "Content-Type: audio/wav\r\n\r\n";
   const String post = String("\r\n--") + BOUNDARY + "--\r\n";
   std::vector<NetPart> parts;
   parts.push_back(NetPart::text(pre));
   for (int i = 0; i < nParts; i++) parts.push_back(audio[i]);
   parts.push_back(NetPart::text(post));
-  const String headers = "Authorization: Bearer " + key + "\r\nContent-Type: multipart/form-data; boundary=" +
-                         BOUNDARY + "\r\n";
+  return netHttps(host, "POST", path, headers + "Content-Type: multipart/form-data; boundary=" + BOUNDARY + "\r\n",
+                  parts.data(), parts.size(), body, maxBody);
+}
+
+// OpenAI Whisper.
+static const char *transcribeWhisper(const NetPart *audio, int nParts, String &text) {
+  const String key = credGet("openai_key");
+  if (!key.length()) return "no OpenAI key";
+  const FormField fields[] = {{"model", WHISPER_MODEL}, {"response_format", "verbose_json"}};
   String body;
-  const int status = netHttps(OPENAI, "POST", "/v1/audio/transcriptions", headers, parts.data(), parts.size(), body);
+  const int status = postAudio(OPENAI, "/v1/audio/transcriptions", "Authorization: Bearer " + key + "\r\n", fields, 2,
+                               audio, nParts, body);
   if (status != 200) return failure(status, "Whisper", body);
   JsonDocument filter, doc;
   filter["text"] = true;
@@ -82,6 +129,38 @@ const char *cloudTranscribe(const NetPart *audio, int nParts, String &text) {
   for (JsonVariant s : doc["segments"].as<JsonArray>())
     if (!((s["no_speech_prob"] | 0.0) > 0.6 && (s["avg_logprob"] | 0.0) < -1.0)) speech = true;
   text = speech ? (doc["text"] | "") : "";
+  return nullptr;
+}
+
+// ElevenLabs Scribe (https://elevenlabs.io/docs/api-reference/speech-to-text/convert). Its free plan covers
+// about half an hour of audio a month, so it's the no-cost option.
+static const char *transcribeScribe(const NetPart *audio, int nParts, String &text) {
+  const String key = credGet("elevenlabs_key");
+  if (!key.length()) return "no ElevenLabs key";
+  // No "(laughs)" tags in the text, and no per-word timings: the reply is the text alone (or nearly: the word
+  // list, if it still comes, is ~100 bytes a word, so a 3-minute note needs room for ~100 KB).
+  const FormField fields[] = {
+    {"model_id", SCRIBE_MODEL}, {"tag_audio_events", "false"}, {"timestamps_granularity", "none"}};
+  String body;
+  const int status =
+    postAudio(ELEVENLABS, "/v1/speech-to-text", "xi-api-key: " + key + "\r\n", fields, 3, audio, nParts, body, 262144);
+  if (status != 200) return elevenFailure(status, "Scribe", body);
+  JsonDocument filter, doc;
+  filter["text"] = true;
+  if (deserializeJson(doc, body, DeserializationOption::Filter(filter))) return "Scribe: bad reply";
+  text = doc["text"] | "";
+  return nullptr;
+}
+
+const char *cloudTranscribe(const NetPart *audio, int nParts, String &text) {
+  if (devFakeCloud()) {  // test build: no upload, no cost
+    delay(1500);
+    if (devFailNote()) return "Whisper: error 400";
+    text = devEmptyHeard() ? "" : "This is a test note from the unidex test tools.";
+    return nullptr;
+  }
+  const char *err = useScribe() ? transcribeScribe(audio, nParts, text) : transcribeWhisper(audio, nParts, text);
+  if (err) return err;
   text.trim();
   return nullptr;
 }
@@ -317,6 +396,12 @@ const char *cloudTest(const char *what) {
     else if ((status = netHttps(OPENAI, "GET", "/v1/models", "Authorization: Bearer " + key + "\r\n", nullptr, 0,
                                 body, 1024)) != 200)
       err = failure(status, "OpenAI", body);
+  } else if (strcmp(what, "elevenlabs") == 0) {
+    const String key = credGet("elevenlabs_key");
+    if (!key.length()) err = "no ElevenLabs key";
+    else if ((status = netHttps(ELEVENLABS, "GET", "/v1/user/subscription", "xi-api-key: " + key + "\r\n", nullptr, 0,
+                                body, 2048)) != 200)
+      err = elevenFailure(status, "ElevenLabs", body);
   } else if (strcmp(what, "anthropic") == 0) {
     const String key = credGet("anthropic_key");
     if (!key.length()) err = "no Anthropic key";
