@@ -31,6 +31,9 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 - **Website: Release or Beta.** Install and Update each have a Version menu: the newest release (the default) or
   Beta, the newest changes before they're released. Beta is rebuilt whenever it changes. Update back to Release
   the same way.
+- **Website: simpler to get around.** The top bar is six plain links (Install, Tools, Setup, Apps, Learn, Help), one
+  click each, with Learn to code and GitHub always in reach. On a phone the menu lists every page with its
+  sections. Each place goes by one name everywhere, and outside links open in a new tab.
 
 ## v1.8 (15 October 2026)
 

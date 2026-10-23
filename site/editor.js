@@ -300,7 +300,7 @@ $('download').onclick = () => {
   a.download = `${id}.zip`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  say(`Downloaded ${id}.zip. To send it to the store, see Developers › Send it in.`, 'muted');
+  say(`Downloaded ${id}.zip. To send it to the store, see Learn › Send it to the store.`, 'muted');
 };
 
 // ---- Start from: a template or an app in the store (it replaces what's in the editor, so it asks first) ----

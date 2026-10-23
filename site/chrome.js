@@ -84,109 +84,76 @@ export const el = (tag, props = {}, ...children) => {
   return e;
 };
 
-// ---- the menus ----
-const MENUS = [
-  { label: 'Install', page: 'index.html', items: [
+// ---- the pages ----
+// Six pages, one click each from the header. Each page's sections are listed in the drawer (phones don't show the
+// pages' own contents lists) and are what the search finds.
+const LEARN = 'https://learn.unidex.shop/course.html?c=apps';
+const NAV = [
+  { label: 'Install', href: './', pages: ['index.html'], sections: [
     { label: 'Install or update', desc: 'Put unidex on a board, or update it and keep your files', href: './', icon: 'install' },
     { label: "What's new", desc: 'Every change, release by release', href: `${REPO}/blob/main/CHANGELOG.md`, icon: 'list', ext: true },
   ] },
-  { label: 'Tools', page: 'tools.html', items: [
+  { label: 'Tools', href: 'tools.html', pages: ['tools.html'], sections: [
     { label: 'Sync everything', desc: 'Firmware, clock, calendar and notes in one click', href: 'tools.html#sync', icon: 'sync' },
     { label: 'Badge maker', desc: 'Turn any picture into a name badge', href: 'tools.html#badges', icon: 'image' },
-    { label: 'Pet designer', desc: 'Dress up and name your Pet', href: 'tools.html#pet', icon: 'pet' },
+    { label: 'Pet', desc: 'Dress up and name your Pet', href: 'tools.html#pet', icon: 'pet' },
     { label: 'Clock & calendar', desc: 'Set the time, send a calendar file', href: 'tools.html#clock', icon: 'calendar' },
-    { label: 'Mac calendar sync', desc: 'Your Apple Calendar, every time you plug in', href: 'tools.html#mac', icon: 'laptop' },
+    { label: 'Calendar sync (Mac)', desc: 'Your Apple Calendar, every time you plug in', href: 'tools.html#mac', icon: 'laptop' },
   ] },
-  { label: 'Setup', page: 'setup.html', items: [
+  { label: 'Setup', href: 'setup.html', pages: ['setup.html'], sections: [
     { label: 'WiFi & keys', desc: 'Networks, OpenAI, ElevenLabs or Claude, and GitHub for Notes', href: 'setup.html#connections', icon: 'wifi' },
     { label: 'Microphone test', desc: 'Check it hears you', href: 'setup.html#microphone', icon: 'mic' },
     { label: 'Your notes', desc: 'Read and download your voice notes', href: 'setup.html#notes', icon: 'file' },
-    { label: 'Remove keys', desc: 'Clear every key and network from the device', href: 'setup.html#remove', icon: 'trash' },
+    { label: 'Remove everything', desc: 'Clear every key and network from the device', href: 'setup.html#remove', icon: 'trash' },
   ] },
-  { label: 'Apps', page: ['store.html', 'app.html'], items: [
+  { label: 'Apps', href: 'store.html', pages: ['store.html', 'app.html'], sections: [
     { label: 'Browse apps & plugins', desc: 'Search and filter everything in the store', href: 'store.html', icon: 'apps' },
     { label: 'On your unidex', desc: 'Install, update, offload and delete', href: 'store.html#device', icon: 'device' },
-    { label: 'Create an app', desc: 'Start from the template on GitHub', href: STORE_REPO, icon: 'plus', ext: true },
   ] },
-  { label: 'Developers', page: ['developers.html', 'try.html', 'editor.html'], items: [
+  { label: 'Learn', href: 'developers.html', pages: ['developers.html', 'editor.html', 'try.html'], sections: [
+    { label: 'Learn to code', desc: 'Build your first unidex app, step by step', href: LEARN, icon: 'book', ext: true },
+    { label: 'Learn to make apps', desc: 'The example, the API and the sandbox', href: 'developers.html', icon: 'book' },
     { label: 'App editor', desc: 'Write an app here and run it straight away', href: 'editor.html', icon: 'code' },
-    { label: 'Make an app', desc: 'The example, the API and the sandbox', href: 'developers.html', icon: 'book' },
+    { label: 'Try it in your browser', desc: 'Run unidex, and your app, without a device', href: 'try.html', icon: 'play' },
     { label: 'The API', desc: 'Every unidex.* call, in one short list', href: `${STORE_REPO}/blob/main/API.md`, icon: 'book', ext: true },
-    { label: 'Try it without a device', desc: 'Run unidex, and your app, in the browser emulator', href: 'try.html', icon: 'play' },
+    { label: 'Create an app', desc: 'Start from the template on GitHub', href: STORE_REPO, icon: 'plus', ext: true },
     { label: 'Send it to the store', desc: 'A pull request, checked and reviewed', href: 'developers.html#share', icon: 'send' },
-    { label: 'Learn to code', desc: 'Build your first unidex app, step by step', href: 'https://learn.unidex.shop/course.html?c=apps', icon: 'book', ext: true },
   ] },
-  { label: 'Help', page: 'help.html', items: [
+  { label: 'Help', href: 'help.html', pages: ['help.html'], sections: [
     { label: 'Getting started', desc: 'Install, the SD card and your timetable', href: 'help.html#start', icon: 'flag' },
     { label: 'Questions', desc: 'Battery, files, privacy, updates', href: 'help.html#faq', icon: 'help' },
     { label: 'Troubleshooting', desc: "When it can't be found, or something's off", href: 'help.html#trouble', icon: 'wrench' },
-    { label: 'Ask a question', desc: 'Open an issue on GitHub', href: `${REPO}/issues`, icon: 'chat', ext: true },
+    { label: 'Ask a question', desc: 'Open an issue on GitHub', href: `${REPO}/issues/new/choose`, icon: 'chat', ext: true },
   ] },
 ];
 
 const here = location.pathname.split('/').pop() || 'index.html';
-const isHere = page => (Array.isArray(page) ? page : [page]).includes(here);
 const extProps = item => (item.ext ? { target: '_blank', rel: 'noopener' } : {});
 
-function menuLink(item) {
-  const a = el('a', { href: item.href, ...extProps(item) });
-  const sameTarget = !item.ext && item.href.split('#')[0] === here && !item.href.includes('#');
-  if (sameTarget) a.setAttribute('aria-current', 'page');
-  a.textContent = item.label + (item.ext ? ' ↗' : '');
+function pageLink(page, cls) {
+  const a = el('a', { class: cls, href: page.href, text: page.label });
+  if (page.pages.includes(here)) a.setAttribute('aria-current', 'page');
   return a;
 }
 
-let openPanel = null;
-function closePanels(except) {
-  for (const b of document.querySelectorAll('.menus .top[aria-expanded=true]')) {
-    if (b === except) continue;
-    b.setAttribute('aria-expanded', 'false');
-    document.getElementById(b.getAttribute('aria-controls')).classList.remove('open');
-  }
-  if (!except) openPanel = null;
+function sectionLink(item) {
+  return el('a', { href: item.href, ...extProps(item), text: item.label + (item.ext ? ' ↗' : '') });
 }
 
 function header() {
-  const menus = el('ul', { class: 'menus' });
-  MENUS.forEach((m, i) => {
-    const id = `menu-${i}`;
-    const btn = el('button', { class: 'top', type: 'button', 'aria-expanded': 'false', 'aria-controls': id },
-                   m.label, icon('chevron'));
-    if (isHere(m.page)) btn.setAttribute('aria-current', 'page');
-    const panel = el('ul', { class: 'panel', id }, m.items.map(it => el('li', {}, menuLink(it))));
-    btn.addEventListener('click', () => {
-      const open = btn.getAttribute('aria-expanded') !== 'true';
-      closePanels(btn);
-      btn.setAttribute('aria-expanded', String(open));
-      panel.classList.toggle('open', open);
-      openPanel = open ? btn : null;
-      if (open && btn.dataset.keyboard) panel.querySelector('a').focus();
-      delete btn.dataset.keyboard;
-    });
-    btn.addEventListener('keydown', e => {
-      if (e.key === 'ArrowDown' || e.key === 'Enter' || e.key === ' ') btn.dataset.keyboard = '1';
-      if (e.key === 'ArrowDown') { e.preventDefault(); btn.click(); }
-    });
-    panel.addEventListener('keydown', e => {
-      const links = [...panel.querySelectorAll('a')], i2 = links.indexOf(document.activeElement);
-      if (e.key === 'ArrowDown') { e.preventDefault(); links[(i2 + 1) % links.length].focus(); }
-      if (e.key === 'ArrowUp') { e.preventDefault(); links[(i2 - 1 + links.length) % links.length].focus(); }
-    });
-    menus.append(el('li', {}, btn, panel));
-  });
-
+  const links = el('ul', { class: 'nav-links' }, NAV.map(p => el('li', {}, pageLink(p))));
   const searchBtn = el('button', { class: 'search-btn', type: 'button', 'aria-label': 'Search (press /)', onclick: () => openSearch() },
                        icon('search'), el('span', { class: 'label', text: 'Search' }), el('kbd', { text: '/' }));
-  const create = el('a', { class: 'button small', href: STORE_REPO, target: '_blank', rel: 'noopener' }, 'Create an app ↗');
   const menuBtn = el('button', { class: 'menu-btn', type: 'button', 'aria-label': 'Menu', 'aria-expanded': 'false',
                                  onclick: () => openDrawer() }, icon('menu'));
   return el('div', { class: 'bar' },
     el('a', { class: 'brand', href: './', 'aria-label': 'unidex tools, home' }, logo(), el('small', { text: 'tools' })),
-    el('nav', { 'aria-label': 'Main' }, menus),
+    el('nav', { 'aria-label': 'Main' }, links),
     el('div', { class: 'head-right' },
-      el('a', { class: 'gh-link', href: REPO, target: '_blank', rel: 'noopener', text: 'GitHub ↗', 'aria-label': 'unidex on GitHub' }),
       searchBtn,
-      el('a', { class: 'shop-link', href: SHOP, target: '_blank', rel: 'noopener', text: 'unidex.shop ↗' }), create, menuBtn));
+      el('a', { class: 'gh-link', href: REPO, target: '_blank', rel: 'noopener', text: 'GitHub ↗', 'aria-label': 'unidex on GitHub' }),
+      el('a', { class: 'button small learn', href: LEARN, target: '_blank', rel: 'noopener' }, 'Learn to code ↗'),
+      menuBtn));
 }
 
 // ---- the drawer (narrow screens) ----
@@ -201,10 +168,11 @@ function openDrawer() {
         el('div', { class: 'sheet-top' },
           el('a', { class: 'brand', href: './' }, logo()),
           el('button', { class: 'quiet', type: 'button', 'aria-label': 'Close the menu', onclick: close }, icon('close'))),
-        MENUS.map(m => [el('h2', { text: m.label }), el('ul', {}, m.items.map(it => el('li', {}, menuLink(it))))]),
+        el('a', { class: 'button learn', href: LEARN, target: '_blank', rel: 'noopener' }, 'Learn to code ↗'),
+        NAV.map(p => [pageLink(p, 'page'), el('ul', {}, p.sections.filter(it => it.href !== p.href && it.href !== LEARN)
+          .map(it => el('li', {}, sectionLink(it))))]),
         el('div', { class: 'actions' },
           el('button', { class: 'secondary', type: 'button', onclick: () => { close(); openSearch(); } }, 'Search'),
-          el('a', { class: 'button', href: STORE_REPO, target: '_blank', rel: 'noopener' }, 'Create an app ↗'),
           el('a', { class: 'button', href: REPO, target: '_blank', rel: 'noopener' }, 'unidex on GitHub ↗'),
           el('a', { href: SHOP, target: '_blank', rel: 'noopener', text: 'unidex.shop ↗' }))));
     drawer.addEventListener('keydown', e => { if (e.key === 'Escape') close(); });
@@ -222,13 +190,11 @@ function footer() {
   return [
     el('div', { class: 'foot-row' },
       el('a', { class: 'brand', href: './' }, logo(), el('small', { text: 'tools' })),
-      el('nav', { 'aria-label': 'Footer' },
-        link('Install', './'), link('Tools', 'tools.html'), link('Setup', 'setup.html'), link('Apps', 'store.html'),
-        link('Developers', 'developers.html'), link('Help', 'help.html'))),
+      el('nav', { 'aria-label': 'Footer' }, NAV.map(p => link(p.label, p.href)))),
     el('div', { class: 'foot-row small' },
       el('span', { text: 'Free for non-commercial use.' }),
       el('nav', { 'aria-label': 'More' },
-        link('unidex.shop ↗', SHOP), link('GitHub ↗', REPO), link('Ko-fi ↗', 'https://ko-fi.com/forrest404'),
+        link('Learn to code ↗', LEARN), link('GitHub ↗', REPO), link('unidex.shop ↗', SHOP), link('Ko-fi ↗', 'https://ko-fi.com/forrest404'),
         link('Licence ↗', `${REPO}/blob/main/LICENSE`), link('Privacy ↗', `${REPO}/blob/main/PRIVACY.md`))),
   ];
 }
@@ -237,7 +203,7 @@ function footer() {
 // Pages, sections and topics (fixed), then the store's apps when this page may load them (Setup may not: its
 // CSP blocks any request, so it searches the rest).
 const PAGES = [
-  ...MENUS.flatMap(m => m.items.map(it => ({ group: m.label === 'Apps' ? 'Apps' : m.label === 'Help' ? 'Help' : 'Pages',
+  ...NAV.flatMap(m => m.sections.map(it => ({ group: m.label === 'Apps' ? 'Apps' : m.label === 'Help' ? 'Help' : 'Pages',
     title: it.label, sub: it.desc, href: it.href, icon: it.icon, ext: it.ext, words: `${m.label} ${it.desc}` }))),
   { group: 'Help', title: 'The website can\'t find my unidex', sub: 'It\'s asleep, or needs BOOT mode', href: 'help.html#not-found', icon: 'wrench', words: 'usb serial port connect missing list nothing' },
   { group: 'Help', title: 'Battery and charging', sub: 'Low battery, Charge me, the percentage', href: 'help.html#battery', icon: 'help', words: 'power flat charge me percent' },
@@ -248,7 +214,7 @@ const PAGES = [
   { group: 'Pages', title: 'Install unidex', sub: 'Install erases; Update keeps your files', href: './', icon: 'install', words: 'firmware flash erase update version esp32' },
   { group: 'Pages', title: 'App editor', sub: 'Write an app in your browser and run it on the emulator', href: 'editor.html', icon: 'code', words: 'editor write code lua playground ide run test' },
   { group: 'Pages', title: 'Example: Hello', sub: 'A whole app in about 20 lines of Lua', href: 'developers.html#example', icon: 'code', words: 'lua sample code template' },
-  { group: 'Pages', title: 'Building apps', sub: 'How an app runs, laying out a screen, saving through sleep', href: `${STORE_REPO}/blob/main/APPS.md`, icon: 'book', ext: true, words: 'guide tutorial lua layout sleep data tick' },
+  { group: 'Pages', title: 'The guide', sub: 'How an app runs, laying out a screen, saving through sleep', href: `${STORE_REPO}/blob/main/APPS.md`, icon: 'book', ext: true, words: 'guide tutorial lua layout sleep data tick' },
   { group: 'Pages', title: 'Writing plugins', sub: 'Badge plugins, with a template', href: `${STORE_REPO}/blob/main/PLUGINS.md`, icon: 'layers', ext: true, words: 'guide plugin badge extend' },
   { group: 'Pages', title: 'Plugins', sub: 'Add to the built-in apps (Badge)', href: 'developers.html#plugins', icon: 'layers', words: 'extend badge plugin' },
   { group: 'Pages', title: 'App limits and the sandbox', sub: 'Memory, time, files, permissions', href: 'developers.html#limits', icon: 'key', words: 'memory sandbox permission wifi safe' },
@@ -282,7 +248,6 @@ function score(entry, q) {
 
 let dialog;
 function openSearch() {
-  closePanels();
   if (!dialog) buildSearch();
   dialog.showModal();
   const input = dialog.querySelector('input');
@@ -376,14 +341,10 @@ function mount() {
 }
 mount();
 
-document.addEventListener('click', e => { if (openPanel && !e.target.closest('.menus')) closePanels(); });
 document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && openPanel) { const b = openPanel; closePanels(); b.focus(); }
   const typing = /^(input|textarea|select)$/i.test(e.target.tagName) || e.target.isContentEditable;
   if ((e.key === 'k' && (e.metaKey || e.ctrlKey)) || (e.key === '/' && !typing)) { e.preventDefault(); openSearch(); }
 });
-// Section links on the same page: close the menu after following one
-document.addEventListener('focusin', e => { if (openPanel && !e.target.closest('.menus')) closePanels(); });
 
 // "On this page" lists (.toc): mark the section being read
 const toc = document.querySelector('.toc');
