@@ -296,7 +296,7 @@ progress { width: 100%; height: 6px; margin-top: var(--s3); accent-color: var(--
 .dev-apps .info b { display: block; }
 .dev-apps .info small { color: var(--muted); font-size: 13px; }
 .dev-apps .actions { display: flex; gap: var(--s2); flex-wrap: wrap; justify-content: flex-end; }
-.dev-apps button, .app-row button { min-height: 36px; padding: var(--s2) var(--s3); font-size: 12px; }
+.dev-apps button { min-height: 36px; padding: var(--s2) var(--s3); font-size: 12px; }
 
 .library { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: var(--s7); align-items: start; }
 .filters { position: sticky; top: calc(var(--head) + var(--s5)); max-height: calc(100dvh - var(--head) - var(--s7)); overflow-y: auto; }
@@ -324,22 +324,33 @@ progress { width: 100%; height: 6px; margin-top: var(--s3); accent-color: var(--
                   background: var(--bg); padding: var(--s1) var(--s2); font: 400 12px var(--font-mono); }
 .chip.removable:hover { background: var(--fg); color: var(--bg); opacity: 1; }
 .chip.removable:active { transform: none; }
-/* The list reads like the device's own Apps screen: one row per app, under a rule */
-.app-list { list-style: none; margin: 0; padding: 0; }
-.app-row { display: grid; grid-template-columns: 52px minmax(0, 1fr) auto; gap: var(--s4); align-items: center; padding: var(--s4) 0;
-           border-bottom: 1px solid var(--line); margin: 0; position: relative; }
-.app-row h3 { margin: 0; font-size: 18px; display: flex; align-items: baseline; gap: var(--s2); flex-wrap: wrap; }
-.app-row h3 a { text-decoration: none; }
-.app-row h3 a::after { content: ""; position: absolute; inset: 0; }
-.app-row:hover h3 a { text-decoration: underline; text-underline-offset: 4px; }
-.app-row .by { font: 400 12px var(--font-mono); color: var(--muted); font-weight: 400; }
-.app-row .desc { margin: var(--s1) 0; color: var(--muted); font-size: 15px; line-height: 1.5; max-width: 62ch; }
-.app-row .tags { display: flex; flex-wrap: wrap; gap: var(--s1) var(--s4); }
-.app-row .side { display: flex; flex-direction: column; align-items: flex-end; gap: var(--s2); position: relative; z-index: 1; }
-.app-row .meta { font: 400 12px var(--font-mono); color: var(--muted); }
-.app-row.create { grid-template-columns: 52px 1fr; border-bottom: 0; }
-.app-row.create .plus { width: 52px; height: 52px; border: 1.5px dashed var(--fg); display: grid; place-items: center;
-                        font: 400 26px var(--font-mono); border-radius: 2px; }
+/* A grid of boxes, one per app: the whole box opens the app's page, Install sits on top of that link */
+.app-grid { list-style: none; margin: var(--s4) 0 0; padding: 0; display: grid; gap: var(--s4);
+            grid-template-columns: repeat(auto-fill, minmax(232px, 1fr)); }
+.app-card { position: relative; display: flex; flex-direction: column; gap: var(--s1); margin: 0; padding: var(--s4);
+            background: var(--card); border: 1px solid var(--line-strong); border-radius: var(--radius);
+            transition: border-color .15s ease-out, transform .15s ease-out; }
+.app-card:hover { border-color: var(--fg); transform: translateY(-2px); }
+.app-card .top { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--s2); margin-bottom: var(--s3); }
+.app-card h3 { margin: 0; font-size: 18px; line-height: 1.25; }
+.app-card h3 a { text-decoration: none; color: inherit; }
+.app-card h3 a::after { content: ""; position: absolute; inset: 0; border-radius: var(--radius); }
+.app-card h3 a:focus-visible { outline: 0; }
+.app-card h3 a:focus-visible::after { outline: 2px solid var(--fg); outline-offset: 2px; }
+.app-card .by { margin: 0; font: 400 12px var(--font-mono); color: var(--muted); }
+.app-card .desc { margin: var(--s2) 0 0; color: var(--muted); font-size: 15px; line-height: 1.5;
+                  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.app-card .tags { display: flex; flex-wrap: wrap; gap: var(--s1); margin-top: auto; padding-top: var(--s3); }
+.app-card .tags .chip { border: 1px solid var(--line); border-radius: 3px; padding: 3px var(--s2); }
+.app-card .foot { display: flex; justify-content: space-between; align-items: center; gap: var(--s3); margin-top: var(--s3);
+                  padding-top: var(--s3); border-top: 1px solid var(--line); position: relative; z-index: 1; }
+.app-card .meta { font: 400 12px var(--font-mono); color: var(--muted); }
+.app-card button { min-height: 36px; padding: var(--s2) var(--s4); font-size: 12px; }
+.app-card.create { background: transparent; border: 1.5px dashed var(--line-strong); justify-content: center; }
+.app-card.create:hover { border-color: var(--fg); }
+.app-card.create .plus { width: 56px; height: 56px; border: 1.5px dashed var(--fg); display: grid; place-items: center;
+                         font: 400 26px var(--font-mono); border-radius: 2px; margin-bottom: var(--s3); }
+.app-grid .empty { grid-column: 1 / -1; padding-top: var(--s4); border-bottom: 0; }
 .empty { padding: var(--s6) 0; text-align: left; border-bottom: 1px solid var(--line); }
 .empty h3 { margin-bottom: var(--s1); }
 dialog.confirm { border: var(--rule); border-width: 2px; border-radius: 0; padding: var(--s5); width: min(420px, calc(100% - 32px));
@@ -360,8 +371,16 @@ dialog.confirm .buttons { display: flex; gap: var(--s3); justify-content: flex-e
   .device-row { flex-wrap: wrap; }
   .device-row .device-text { flex: 1 1 200px; }
   .device-row #connect { width: 100%; }
-  .app-row { grid-template-columns: 44px 1fr; }
-  .app-row .side { grid-column: 2; flex-direction: row; align-items: center; justify-content: space-between; }
+  /* One box per row: the icon beside the name, so more apps fit on the screen */
+  .app-card:not(.create) { display: grid; grid-template-columns: 48px minmax(0, 1fr); column-gap: var(--s3); row-gap: 0; }
+  .app-card .top { display: contents; }
+  .app-card .top canvas { grid-row: 1 / span 2; width: 48px !important; height: 48px !important; align-self: center; }
+  .app-card h3 { grid-row: 1; grid-column: 2; align-self: end; }
+  .app-card .by { grid-row: 2; grid-column: 2; align-self: start; }
+  .app-card .top .chip { grid-row: 3; grid-column: 1 / -1; margin-top: var(--s3); }
+  .app-card .desc { grid-row: 4; grid-column: 1 / -1; margin-top: var(--s3); }
+  .app-card .tags { grid-row: 5; grid-column: 1 / -1; }
+  .app-card .foot { grid-row: 6; grid-column: 1 / -1; }
   .dev-apps li { flex-wrap: wrap; } .dev-apps .actions { width: 100%; justify-content: flex-start; }
 }
 
