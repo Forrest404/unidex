@@ -51,7 +51,7 @@
       <h2>An example</h2>
       <p>Here's a whole app. <code>app.json</code> says what it is and <code>main.lua</code> is the code. It counts
         presses of B and remembers the count.</p>
-<pre><code>{
+<pre data-file="app.json"><code>{
   "id": "hello",
   "name": "Hello",
   "version": "1.0.0",
@@ -60,7 +60,7 @@
   "category": "fun",
   "api": 1
 }</code></pre>
-<pre><code>local count = tonumber(unidex.data.read("count") or "0")
+<pre data-file="main.lua"><code>local count = tonumber(unidex.data.read("count") or "0")
 
 function draw()
   unidex.header("Hello")

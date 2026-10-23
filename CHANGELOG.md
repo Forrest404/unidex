@@ -36,6 +36,11 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   sections. Each place goes by one name everywhere, and outside links open in a new tab.
 - **Website: Apps page.** Apps are shown as boxes in a grid (three across on a computer, one per row on a phone),
   each with its icon, what it does, its tags, its size and Install, instead of one long list.
+- **Website: smaller fixes.** Code to paste has a Copy button, and the Learn page's examples say which file they are.
+  In the App editor on a phone, the unidex sits between the code and the output, so Run shows it straight away. The
+  menu button no longer falls off the smallest phones. Also: Install and Update line up, two-line choices fill
+  their button, the sliders and phone filters are easier to tap, Clear all keys is red, the Run key hint is
+  readable, and the footer links sit in even columns on a phone.
 
 ## v1.8 (15 October 2026)
 

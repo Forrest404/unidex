@@ -37,6 +37,8 @@
   #tryApp .card > * + * { margin-top: var(--s4); }
   #appLog { width: 100%; font: 13px/1.5 var(--font-mono); }
   section + section { margin-top: var(--s7); }
+  main > section p { max-width: 72ch; }  /* lines short enough to read on a wide screen */
+  @media (max-width: 720px) { .device { margin: 0 auto; } }  /* alone on its row: in the middle */
 </style>
 </head>
 <body>

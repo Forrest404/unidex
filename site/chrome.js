@@ -360,6 +360,26 @@ if (toc && 'IntersectionObserver' in window) {
   for (const id of links.keys()) { const s = document.getElementById(id); if (s) spy.observe(s); }
 }
 
+// Code to type or paste (commands, examples) gets a Copy button, and its file name above it when it has one
+// (<pre data-file="main.lua">)
+for (const pre of document.querySelectorAll('main pre:not([aria-hidden])')) {
+  const copy = el('button', { class: 'quiet small copy', type: 'button', text: 'Copy', 'aria-live': 'polite' });
+  copy.onclick = async () => {
+    try {
+      await navigator.clipboard.writeText(pre.textContent.trim());
+      copy.textContent = 'Copied';
+    } catch (e) {
+      copy.textContent = 'Select and copy it';
+    }
+    clearTimeout(copy.timer);
+    copy.timer = setTimeout(() => { copy.textContent = 'Copy'; }, 2000);
+  };
+  const box = el('div', { class: 'code-block' });
+  pre.replaceWith(box);
+  if (pre.dataset.file) box.append(el('div', { class: 'code-name', text: pre.dataset.file }));
+  box.append(el('div', { class: 'code-body' }, pre, copy));
+}
+
 // A link to a question on Help (help.html#battery) opens it
 function openTarget() {
   const t = location.hash && document.getElementById(decodeURIComponent(location.hash.slice(1)));

@@ -16,7 +16,7 @@
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="style.css">
 <style>
-  :root { --code-kw: #1f4e8c; --code-str: #a63c26; --code-num: #2d6a39; --code-com: #7d766b; --code-call: #5b3b8c; }
+  :root { --code-kw: #1f4e8c; --code-str: #a63c26; --code-num: #2d6a39; --code-com: #6f685e; --code-call: #5b3b8c; }
   @media (prefers-color-scheme: dark) {
     :root { --code-kw: #8fb4ec; --code-str: #ec9a86; --code-num: #8fcf9b; --code-com: #8f887d; --code-call: #c2a6f0; }
   }
@@ -27,6 +27,7 @@
   .toolbar .start select { width: auto; max-width: 260px; }
   .toolbar .spacer { flex: 1; }
   .toolbar kbd { margin-left: var(--s1); }
+  button kbd { color: inherit; background: transparent; border-color: currentColor; opacity: .85; }  /* the key, readable on the dark Run button */
   .tabs { display: flex; gap: 0; border-bottom: var(--rule); overflow-x: auto; }
   .tabs button { background: none; color: var(--muted); border: 0; box-shadow: none; border-radius: 0; min-height: 40px;
                  padding: var(--s2) var(--s4); font: 400 13px var(--font-mono); }
@@ -84,8 +85,11 @@
   dialog.confirm::backdrop { background: color-mix(in srgb, var(--bg) 70%, transparent); }
   dialog.confirm .buttons { display: flex; gap: var(--s3); justify-content: flex-end; margin-top: var(--s5); }
   @media (max-width: 1000px) {
-    .ide { grid-template-columns: 1fr; }
-    .side { position: static; max-width: 360px; }
+    /* One column: the code, then the unidex (so Run shows it straight away), then the output */
+    .ide { display: flex; flex-direction: column; gap: 0; align-items: stretch; }
+    .editor { display: contents; }
+    .side { position: static; order: 1; width: 100%; max-width: 360px; margin: var(--s5) auto 0; }
+    .output { order: 2; margin-top: var(--s5); }
   }
 </style>
 </head>
