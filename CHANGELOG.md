@@ -28,6 +28,9 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   each step so you can hear it.
 - **Clock:** fixed the time not showing on boards where the clock chip's connection is powered from the audio
   supply. That supply was off except while recording, so the clock couldn't be read or set.
+- **Website: Release or Beta.** Install and Update each have a Version menu: the newest release (the default) or
+  Beta, the newest changes before they're released. Beta is rebuilt whenever it changes. Update back to Release
+  the same way.
 
 ## v1.8 (15 October 2026)
 

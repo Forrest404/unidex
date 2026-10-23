@@ -25,6 +25,7 @@
   .actions .status:empty { display: none; }  /* both boxes end on their button until there is something to say */
   .actions p { margin: 0; }
   esp-web-install-button button { width: 100%; }
+  .actions label { margin: 0; }
 </style>
 </head>
 <body>
@@ -49,7 +50,14 @@
         <p class="muted">Starts from scratch. It <b>erases</b> the device's settings, including your WiFi and the
           keys saved for Notes.</p>
         <p class="muted">The files on your SD card aren't touched, and your Pet's friends come back from there.</p>
-        <esp-web-install-button manifest="firmware/install.json">
+        <label for="installChannel">Version</label>
+        <select id="installChannel" data-channel>
+          <option value="release">Release</option>
+          <option value="beta">Beta</option>
+        </select>
+        <p class="muted" data-beta-note hidden>Beta has the newest changes before they're released, so it may have
+          bugs. You can go back to Release with Update.</p>
+        <esp-web-install-button id="install" manifest="firmware/install.json">
           <button slot="activate">Install</button>
           <span slot="unsupported" class="unsupported">Your browser can't do this. Use <b>Chrome</b> or <b>Edge</b> on a computer.</span>
           <span slot="not-allowed" class="unsupported">This page must be opened over https.</span>
@@ -59,6 +67,13 @@
         <h2>Update</h2>
         <p class="muted">Gets the newest version of unidex and <b>keeps</b> everything else: your badges, Dex,
           calendar, notes, settings, keys and Pet.</p>
+        <label for="updateChannel">Version</label>
+        <select id="updateChannel" data-channel>
+          <option value="release">Release</option>
+          <option value="beta">Beta</option>
+        </select>
+        <p class="muted" data-beta-note hidden>Beta has the newest changes before they're released, so it may have
+          bugs. You can go back to Release the same way.</p>
         <button id="update" class="secondary">Update</button>
         <p id="updateStatus" class="status"></p>
       </div>
@@ -92,10 +107,32 @@
 <script type="module" src="chrome.js"></script>
 <script type="module">
   // Update writes only the app and never erases (site/update.js), so settings and the SD card stay.
-  import { latestVersion, updateFirmware } from './update.js';
+  // Release or Beta (the beta branch, built by the website workflow): one choice for both boxes.
+  import { firmwareDir, latestVersion, updateFirmware } from './update.js';
   const $ = id => document.getElementById(id);
-  let version = 'unknown';
-  latestVersion().then(v => { version = v || version; $('version').textContent = version; });
+  const versions = { release: 'unknown', beta: null };
+  let channel = 'release';
+  const pickers = document.querySelectorAll('[data-channel]');
+
+  function choose(c) {
+    channel = c;
+    for (const p of pickers) p.value = c;
+    for (const n of document.querySelectorAll('[data-beta-note]')) n.hidden = c !== 'beta';
+    $('install').setAttribute('manifest', `${firmwareDir(c)}/install.json`);
+  }
+  for (const p of pickers) p.onchange = () => choose(p.value);
+
+  Promise.all([latestVersion('release'), latestVersion('beta')]).then(([release, beta]) => {
+    versions.release = release || versions.release;
+    versions.beta = beta;
+    $('version').textContent = versions.release;
+    for (const p of pickers) {
+      p.options[0].textContent = `Release (${versions.release}, recommended)`;
+      p.options[1].textContent = beta ? `Beta (${beta}, newest)` : 'Beta (not available yet)';
+      p.options[1].disabled = !beta;
+    }
+    if (!beta && channel === 'beta') choose('release');
+  });
 
   const status = text => { $('updateStatus').textContent = text; };
   if (!('serial' in navigator)) {
@@ -113,8 +150,8 @@
     }
     $('update').disabled = true;
     try {
-      await updateFirmware(port, status);
-      status(`Updated to ${version}. Your data was kept.`);
+      await updateFirmware(port, status, channel);
+      status(`Updated to ${versions[channel] || channel}. Your data was kept.`);
     } catch (e) {
       status(`Update failed: ${e.message || e}. Unplug the device, hold BOOT while you plug it back in, and try again.`);
     } finally {

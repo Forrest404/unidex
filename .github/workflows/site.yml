@@ -1,13 +1,17 @@
 # Builds the firmware and the browser emulator, and publishes the website (site/) with the browser installer and the
 # Try it page (every release's emulator, and the next version's) to GitHub Pages.
-# Runs on every published release, every 6 hours (so apps accepted into the store, github.com/Forrest404/unidex-apps,
-# appear by themselves), or by hand from the Actions tab. The firmware always comes from the latest release tag, so
-# a run that isn't a release still offers the released version, not whatever is on main.
+# Runs on every published release, every push to beta, every 6 hours (so apps accepted into the store,
+# github.com/Forrest404/unidex-apps, appear by themselves), or by hand from the Actions tab. The installer offers two
+# firmwares: the latest release tag (Release, the default) and the beta branch as it is (Beta), so a run that isn't a
+# release still offers the released version first, not whatever is on main. The site itself always comes from main
+# (or the release).
 name: Website
 
 on:
   release:
     types: [published]
+  push:
+    branches: [beta]  # a new Beta firmware on the site as soon as it's pushed
   workflow_dispatch:
   schedule:
     - cron: "23 */6 * * *"
@@ -28,6 +32,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # tags, for the version shown on the site
+          ref: ${{ github.event_name == 'push' && 'main' || '' }}  # a push to beta still publishes main's site
 
       - uses: actions/setup-python@v5
         with:
@@ -44,6 +49,13 @@ jobs:
           echo "RELEASE_TAG=$tag" >> "$GITHUB_ENV"
           git worktree add ../release "$tag"
           cd ../release && pio run -e epaper154
+
+      - name: Build firmware from beta
+        run: |
+          set -e
+          git worktree add ../beta origin/beta
+          cd ../beta && pio run -e epaper154
+          echo "BETA_VERSION=$(git describe --tags --always)" >> "$GITHUB_ENV"
 
       # The Try it page (site/try.html) can run any release that has an emulator (v1.7 and newer) and the next
       # version (main), picked from a list; the newest release is the default. A release never changes, so its build is
@@ -95,13 +107,14 @@ jobs:
       - name: Collect firmware and write the installer manifests
         run: |
           set -e
-          out=site/firmware
+          # Release in site/firmware, Beta in site/firmware/beta: the same files, and their own manifests.
+          collect() {
+          out="$1"
           mkdir -p "$out"
-          b=../release/.pio/build/epaper154
+          b="$2/.pio/build/epaper154"
           cp "$b/bootloader.bin" "$b/partitions.bin" "$b/firmware.bin" "$out/"
           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin "$out/"
-          version="$RELEASE_TAG"
-          python3 - "$out" "$version" <<'PY'
+          python3 - "$out" "$3" <<'PY'
           import json, sys
           out, version = sys.argv[1], sys.argv[2]
           parts = [("bootloader.bin", 0x0), ("partitions.bin", 0x8000), ("boot_app0.bin", 0xE000),
@@ -116,6 +129,9 @@ jobs:
           json.dump(manifest([p for p in parts if p[0] == "firmware.bin"], False), open(f"{out}/update.json", "w"), indent=2)
           PY
           ls -la "$out"
+          }
+          collect site/firmware ../release "$RELEASE_TAG"
+          collect site/firmware/beta ../beta "$BETA_VERSION"
 
       - name: Attach the firmware files to the release
         if: github.event_name == 'release'
