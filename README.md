@@ -6,10 +6,10 @@
 </h1>
 
 **A pocket e-ink OS for the Waveshare ESP32-S3 1.54" e-paper board.** It shows your next class with a live countdown,
-records voice notes and tidies them into Markdown for Obsidian, and keeps a little Pet you can dress up, which meets
-your friends' Pets on their unidex (they visit, chat and swap badges). It also flips through name badges, plays a
-WiFi collection game and four one-button games, and goes to sleep whenever you aren't pressing a button, looking
-after its battery and your files as it goes.
+records voice notes and tidies them into Markdown for Obsidian, and reminds you of anything you tell it out loud.
+There's a little Pet you can dress up, which meets your friends' Pets on their unidex (they visit, chat and swap
+badges). It also flips through name badges, plays a WiFi collection game and four one-button games, and goes to
+sleep whenever you aren't pressing a button, looking after its battery and your files as it goes.
 
 **And it's yours to hack.** Anyone can write apps and plugins for it in a few lines of Lua, in a plain text editor,
 with no tools to install: a game, a tracker, a clock, a dashboard that fetches from the web, a badge that changes
@@ -44,15 +44,15 @@ If you'd like to support the project, there's a [Ko-fi](https://ko-fi.com/forres
 | **Pet** | A cute creature you dress up and name. Bring two unidex together and the Pets visit, chat, become friends and swap badges. |
 | **Badge** | Full-screen name tags, logos and photos. |
 | **Dex** | A WiFi collection game: every new network name nearby is logged with a rarity. |
-| **Chooser** | Pick 2–6 squares, spin, get a random winner. |
+| **Chooser** | Pick 2–9 squares, spin, get a random winner. |
 | **Games** | Four one-button games: Flappy, Dino, Stack and Jetpack, with best scores. |
 | **Settings** | Date and time, sleep, volume, invert, battery and info, reset data, factory reset. |
 | **Apps** | Everything else: apps and plugins from the store, or ones you write yourself. |
 
-**New in v1.7: apps and plugins.** unidex now runs apps that anyone can write, and plugins that add to the built-in
-apps (the first kind adds live badges to Badge). There's an Apps page on the website to install, update and remove
-them, and a store that anyone can send apps to. It also saves up to five WiFi networks, and Notes no longer loses a
-quiet recording or gets stuck behind one note that won't send. Every change is in [CHANGELOG.md](CHANGELOG.md).
+**Coming in v1.9: Reminders, and Notes you can listen to.** Reminders is a to-do list you talk to, and it chimes
+when something's due. Notes plays your recordings back on the speaker, and a note recorded without WiFi now sends
+itself once WiFi is back. You can also pick ElevenLabs instead of OpenAI to transcribe (its free plan needs no card),
+and set the speaker's volume. Every change is in [CHANGELOG.md](CHANGELOG.md).
 
 If unidex is useful to you, a star on GitHub helps other people find it.
 
@@ -145,9 +145,27 @@ Set it up on the [Setup page](https://tools.unidex.shop/setup.html). You can sav
 transcribes (OpenAI, or ElevenLabs with its own key), your OpenAI key, which model tidies up (and an Anthropic key
 if you pick Claude), and GitHub (a repo and a
 [fine-grained token](https://github.com/settings/personal-access-tokens/new) with Contents: Read and write on that
-repo only). Each has a **Test** button. No paid account at all: ElevenLabs with the tidy-up off. Your keys stay on the device: the page can't read
-them back, and they're never in the code or on the card. Treat the device like an unlocked phone, because anyone
-holding it could use them.
+repo only). Each has a **Test** button. If you'd rather not pay for anything, pick ElevenLabs and turn the tidy-up
+off: you get the plain transcript with a short title.
+
+Your keys stay on the device: the page can't read them back, and they're never in the code or on the card. Treat
+the device like an unlocked phone, because anyone holding it could use them.
+
+### Reminders
+
+**Hold B** and say one: "call Sam tomorrow at 5pm", "take the cake out in 20 minutes", "dentist on the 3rd of
+November". It's written down by the same service as your notes, so set up Notes first. The device works out the
+to-do and its time by itself, with no AI.
+
+In the list, **A** moves down and **B** ticks one off (press it again to undo). The last row clears the ticked ones.
+The home screen shows what's next ("5pm: Call Sam"), or how many are late. It holds up to 40.
+
+When one is due, the device wakes up, chimes and shows it over whatever's on screen. **B** marks it done, **A**
+brings it back in 10 minutes, and **hold A** leaves it in the list.
+
+No WiFi? The recording waits on the card and is added when WiFi is back. It tries every 10 minutes, or press **B**
+on its "waiting for WiFi" row. Times count from when you spoke, so "in 20 minutes" means 20 minutes after you said
+it, not after it was sent.
 
 ### Pet
 
@@ -188,7 +206,7 @@ listens and never connects, and it doesn't keep the networks' hardware addresses
 
 ### Chooser
 
-**A** sets the number of squares (2–6) and **B** spins, landing on a random winner. **Hold B** shows how often each
+**A** sets the number of squares (2–9) and **B** spins, landing on a random winner. **Hold B** shows how often each
 number has won.
 
 ### Games
@@ -279,19 +297,19 @@ there's a newer release.
 The percentage is an estimate from the battery's voltage. While charging, it climbs slowly to 100% over the last
 stretch instead of jumping there, and 100% means it has been topping up long enough. The board can't tell a
 finished plain wall charger from a battery, so it may go to sleep while on one. How long a charge lasts depends on
-how much you use it: it sleeps between presses, and WiFi is only on while Notes sends, during a Dex scan or a time
-sync.
+how much you use it: it sleeps between presses, and WiFi is only on while a note or reminder sends, during a Dex scan
+or a time sync.
 
-When the battery gets low, the things that need a lot of power (WiFi, the Pet's Meet, Dex scans and recording a
-note) say **"Battery too low"**. When it's flat, the screen shows **"Charge me"** and the device switches itself
+When the battery gets low, the things that need a lot of power (WiFi, the Pet's Meet, Dex scans and recording)
+say **"Battery too low"**. When it's flat, the screen shows **"Charge me"** and the device switches itself
 off so the battery isn't drained further. Plug in USB to charge it, then press PWR.
 
 ## Troubleshooting
 
 - **The website can't find the device.** It's asleep, so press a button and try again. If it's a brand-new board
   (or one with other firmware), unplug it, hold **BOOT** while you plug it back in, let go, then try again.
-- **"No SD card".** Check that the card is FAT32 and pushed fully into the slot. Timetable, Badge, Dex and Apps need
-  it.
+- **"No SD card".** Check that the card is FAT32 and pushed fully into the slot. Timetable, Reminders, Badge, Dex
+  and Apps need it.
 - **"App error".** The app hit a bug or one of its limits; the message says where. Tell its author (open an issue
   on [unidex-apps](https://github.com/Forrest404/unidex-apps)), or offload or delete it with **hold B** in Apps.
 - **"Time not set".** Set it in Settings, or use Set the clock or Sync everything on the Tools page.
@@ -302,7 +320,7 @@ off so the battery isn't drained further. Plug in USB to charge it, then press P
 ## Privacy
 
 unidex has no account, analytics or tracking. [PRIVACY.md](PRIVACY.md) covers what the device and website send
-and where (Notes, the Pet's Meet, the website).
+and where (Notes and Reminders, the Pet's Meet, the website).
 
 ## Licence
 

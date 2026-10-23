@@ -6,8 +6,8 @@
 ## In short
 
 unidex has no account, no analytics and no tracking. Nothing is ever sent to whoever made or sold your device.
-Only the Notes app and the clock's time sync send anything over the internet, and Notes only talks to services you
-set up with your own keys.
+Only Notes, Reminders and the clock's time sync send anything over the internet (and apps from the store that you
+allow WiFi), and Notes and Reminders only talk to services you set up with your own keys.
 
 ## Notes
 
@@ -32,6 +32,13 @@ available models; ElevenLabs: read your plan's details; GitHub: read the repo's 
 
 If you record other people, tell them first: their voice goes to these services too.
 
+## Reminders
+
+When you say a reminder, the recording goes to the same transcriber as your notes (OpenAI or ElevenLabs), only to
+turn it into words. Working out the to-do and its time happens on the device. The recording is saved on the SD card
+first (in `reminders/`, where it waits if there's no WiFi) and deleted once it's written down. The reminders
+themselves are kept on the card in `reminders.csv`.
+
 ## On the device
 
 - **SD card:** recordings (`.wav`) and notes (`.md`), kept until you delete the note. Also your timetable, badges,
@@ -48,7 +55,7 @@ If you record other people, tell them first: their voice goes to these services 
 
 ## Other features
 
-- **Open on phone** (B in an open note) turns on the device's own WiFi network (named `unidex-` and 4 characters, with a new
+- **Open on phone** (hold B in an open note) turns on the device's own WiFi network (named `unidex-` and 4 characters, with a new
   random password each time, shown on the screen and in its QR code). A phone that joins can read, search, play and
   copy your notes and recordings, straight from the device: nothing goes over the internet. Anyone who can see the
   screen can join while it's on, so close it when you're done; it also switches off by itself after 5 minutes unused.
