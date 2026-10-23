@@ -1,0 +1,17 @@
+# Settings > Volume: the slider, louder and quieter (a chime at each level), ending where it started.
+select Settings
+press b
+press a a
+shot v-list
+press b
+shot v-volume
+press b
+shot v-louder
+press B
+press B
+shot v-quieter
+press b
+press A
+shot v-list-after
+press A
+expect screen=Home

@@ -16,6 +16,10 @@ RTC_DATA_ATTR static int current = HOME;  // open app, HOME, NO_CARD or WELCOME
 RTC_DATA_ATTR static uint8_t welcomePage; // WELCOME: 0 the buttons, 1 the website
 RTC_DATA_ATTR static int noCardFor;       // the app that couldn't open
 RTC_DATA_ATTR static int selected;        // highlighted app on the home screen
+static const int NOWHERE = -99;
+RTC_DATA_ATTR static int interruptedFrom = NOWHERE;  // launcherInterrupt: where to go back to
+static bool quietWake;  // woken by the reminder timer: back to sleep unless something falls due
+static bool interrupted;  // launcherInterrupt showed something since the last poll
 
 static const App *open() { return APPS[current]; }
 
@@ -182,6 +186,7 @@ void systemRestart(const char *why) {
 }
 
 void launcherBegin(bool woke) {
+  quietWake = powerTimerWake();
   if (woke) return;  // the screen still shows where you were; the wake press redraws (with the time)
   const bool first = firstStart();
   current = HOME;  // a fresh boot (power-on, flash or restart) always starts at home
@@ -230,6 +235,31 @@ static void openApp(int i) {
   displayShow(drawApp, true);
 }
 
+void launcherInterrupt(const App *app) {
+  int i = 0;
+  while (i < APP_COUNT && APPS[i] != app) i++;
+  if (i == APP_COUNT || current == WELCOME) return;  // a new device's first screens come first
+  if (current != i && interruptedFrom == NOWHERE) interruptedFrom = current;  // the app there isn't left: no onExit
+  current = i;
+  interrupted = true;
+  displayShow(drawApp, true);
+}
+
+// After an interruption's Exit: where it came from, as it was.
+static void goBack() {
+  const int to = interruptedFrom;
+  interruptedFrom = NOWHERE;
+  if (to == HOME) {
+    goHome();
+  } else if (to == NO_CARD) {
+    current = NO_CARD;
+    displayShow(drawNoCard, true);
+  } else {
+    current = to;
+    displayShow(drawApp, true);
+  }
+}
+
 void launcherHandle(Event e) {
   if (e == Event::Reset) systemRestart("");
   *toastText = 0;  // any press clears a message
@@ -269,7 +299,8 @@ void launcherHandle(Event e) {
   else r = open()->onButton(e);
   if (r == Redraw::Exit) {
     open()->onExit();
-    goHome();
+    if (interruptedFrom != NOWHERE) goBack();
+    else goHome();
   } else {
     showApp(r);
   }
@@ -282,17 +313,32 @@ const char *launcherScreenName() {
 const char *launcherSelectedName() { return APPS[selected]->name; }
 
 void launcherPoll() {
+  bool changed = false;
+  for (int i = 0; i < APP_COUNT; i++)
+    if (APPS[i]->background && APPS[i]->background()) changed = true;
+  if (quietWake) {  // the apps have had a look: if nothing came up, straight back to sleep, the screen untouched
+    quietWake = false;
+    if (!interrupted && !changed) {
+      powerSleepSoon();
+      return;
+    }
+  }
+  interrupted = false;
   const bool toastOver = *toastText && millis() - toastAt >= TOAST_MS;
   if (toastOver) *toastText = 0;
+  if (changed && current >= 0) {
+    showApp(Redraw::Partial);
+    return;
+  }
   if (current == HOME) {
     // Live clock and status line while awake: redraw when what's on screen goes out of date. Asleep, the
     // clock chip keeps counting silently and the time catches up on the next press (no wake-ups).
     char line[sizeof shownLine];
     appStatus(APPS[selected], line, sizeof line);
     const bool minuteChanged = clockValid() && clockLocal().tm_min != shownMinute;
-    if (toastOver || minuteChanged || strcmp(line, shownLine) != 0) displayTick(drawHome);
+    if (changed || toastOver || minuteChanged || strcmp(line, shownLine) != 0) displayTick(drawHome);
   } else if (current == NO_CARD) {
-    if (toastOver) displayTick(drawNoCard);
+    if (changed || toastOver) displayTick(drawNoCard);
   } else if (current == WELCOME) {
     // nothing changes on its own
   } else {

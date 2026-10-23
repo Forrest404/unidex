@@ -1,0 +1,44 @@
+# Notes: listening back, and sending by itself. Needs a card. The cloud is faked, so nothing is uploaded and the
+# words are canned; "sweeponly new" keeps the fake sync to the note made here, and it's deleted at the end.
+fake 1
+sweeponly none
+notes mark
+netfail 1
+select Notes
+press b
+shotduring 2500 np-recording X HOLD B 4000
+waitjob 60
+shot np-kept
+press a
+shot np-list
+press b
+shot np-view-unsent
+# B plays it (the press answers when it ends); hold B is Open on phone now
+shotduring 2000 np-playing X BTN b
+shot np-after-play
+press A
+press A
+press A
+expect screen=Home
+shot np-home-waiting
+# WiFi back: it goes by itself, with nothing pressed
+sweeponly new
+netfail 0
+autosync 5
+sleep 8
+waitjob 60
+shot np-home-sent
+select Notes
+press b
+shot np-main-after
+press a
+press b
+shot np-view-sent
+press A
+press B
+shot np-delete-confirm
+press b
+shot np-deleted
+press A
+press A
+expect screen=Home

@@ -5,6 +5,8 @@
 #include <esp_rom_crc.h>
 #include <esp_system.h>
 #include <sys/time.h>
+#include <Wire.h>
+#include "audio.h"
 #include "battery.h"
 #include "clock.h"
 #include "display.h"
@@ -16,7 +18,7 @@
 static bool dryRun, fakeCloud, netFail, noCard, noPush, demo, manualFrames, emptyHeard;
 static int failNotes;
 static String sweepPrefix;
-static uint32_t seed;
+static uint32_t seed, autoSync;
 static void (*frameStepper)(int, const char *);
 static const char *(*detailFn)();
 
@@ -31,6 +33,7 @@ bool devSweepOn() { return fakeCloud && sweepPrefix.length(); }
 bool devSweepAllows(const String &id) { return !fakeCloud || (sweepPrefix.length() && id.startsWith(sweepPrefix)); }
 bool devDemo() { return demo; }
 uint32_t devSeed() { return seed; }
+uint32_t devAutoSync() { return autoSync; }
 bool devManualFrames() { return manualFrames; }
 void devSetFrameStepper(void (*fn)(int, const char *)) { frameStepper = fn; }
 void devSetDetail(const char *(*fn)()) { detailFn = fn; }
@@ -139,6 +142,20 @@ bool devUsb(const char *l) {
   } else if (strcmp(c, "BATTCALLS") == 0) {  // X BATTCALLS: every % worked out lately, with what it saw
     batteryPrintCalls();
     Serial.println("OK X BATTCALLS");
+  } else if (strcmp(c, "I2C") == 0) {  // the clock chip's bus: which addresses answer
+    Serial.printf("OK X I2C sda=%d scl=%d", digitalRead(47), digitalRead(48));  // both 1 when the bus is free
+    for (uint8_t a = 1; a < 127; a++) {
+      Wire.beginTransmission(a);
+      const uint8_t err = Wire.endTransmission();
+      if (err == 0) Serial.printf(" %02x", a);
+      if (err == 5) {  // a timeout: the bus is held, so every other address would wait as long
+        Serial.print(" timeout");
+        break;
+      }
+    }
+    Serial.print('\n');
+  } else if (strcmp(c, "BEEP") == 0) {
+    Serial.println(audioChime() ? "OK X BEEP" : "ERR codec");
   } else if (strcmp(c, "MEM") == 0) {
     Serial.printf("OK X MEM internal=%u block=%u psram=%u psblock=%u\n", heap_caps_get_free_size(MALLOC_CAP_INTERNAL),
                   heap_caps_get_largest_free_block(MALLOC_CAP_INTERNAL), heap_caps_get_free_size(MALLOC_CAP_SPIRAM),
@@ -205,6 +222,9 @@ bool devUsb(const char *l) {
     Serial.printf("OK X %s\n", c);
   } else if (!strncmp(c, "FAILNOTE ", 9)) {
     failNotes = atoi(c + 9);
+    Serial.printf("OK X %s\n", c);
+  } else if (!strncmp(c, "AUTOSYNC ", 9)) {  // X AUTOSYNC <s>: Notes' automatic sync interval (0 = the usual)
+    autoSync = atoi(c + 9);
     Serial.printf("OK X %s\n", c);
   } else if (!strncmp(c, "EMPTY ", 6)) {  // X EMPTY <0|1>: the canned transcription hears nothing
     emptyHeard = l[strlen(l) - 1] == '1';

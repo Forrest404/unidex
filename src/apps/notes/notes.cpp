@@ -3,44 +3,44 @@
 // from the website's Setup page. Without a card it still works online, but nothing is kept on the device.
 // The online steps run in the background (job.h): letting go of B returns to the screen at once.
 // Main: hold B = record, B = sync waiting notes, A = list. List: A = next, B = open, hold B = delete.
-// Note: A = next page, B = open on phone (starts the hotspot, phone.h, and shows its QR code until hold A),
-// hold B = delete. Hold A = back everywhere.
+// Note: A = next page, B = play the recording (play.h; any button stops it), hold B = open on phone (starts the
+// hotspot, phone.h, and shows its QR code until hold A). Hold A = back everywhere.
 #include <vector>
 #include <qrcode.h>
 #include "job.h"
 #include "phone.h"
+#include "play.h"
+#include "record.h"
 #include "store.h"
 #include "../../core/app.h"
 #include "../../core/battery.h"
-#include "../../core/audio.h"
+#include "../../core/clock.h"
 #include "../../core/credentials.h"
 #include "../../core/devtools.h"
 #include "../../core/display.h"
-#include "../../core/input.h"
 #include "../../core/launcher.h"
-#include "../../core/power.h"
+#include "../../core/net.h"
 #include "../../core/storage.h"
 #include "../../core/theme.h"
 
-static const uint32_t MAX_SECONDS = 180, MIN_MS = 600;  // 3 min = 5.8 MB of PSRAM
-static uint32_t maxSeconds = MAX_SECONDS;  // what the buffer holds (less if memory was already split up)
+static const uint32_t MAX_SECONDS = 180, AUTO_SYNC_S = 600;  // waiting notes: tried by themselves every 10 min
 static const int ROWS = 5, ROW_H = 26, LINES = 7, LINE_H = 19;
 
 enum Screen : uint8_t { MAIN, LIST, VIEW, CONFIRM, PHONE };
-RTC_DATA_ATTR static uint8_t screen, cursor, page, confirmFrom;
+RTC_DATA_ATTR static uint8_t screen, cursor, page;
 RTC_DATA_ATTR static char openId[24];  // the note on screen in VIEW / CONFIRM
 RTC_DATA_ATTR static int16_t noteCount = -1, waitingCount;  // for the home screen (it can't read the card)
+RTC_DATA_ATTR static time_t lastAutoSync;  // clock time of the last try by itself (millis start again after sleep)
 
 // RAM caches: lost in deep sleep, rebuilt on first use after a wake.
 static std::vector<NoteInfo> notes;
 static bool listed;
 static std::vector<String> lines;  // the open note, wrapped
 static String linesFor, viewTitle;  // viewTitle: a note shown but not kept (no card, no GitHub)
+static bool hasWav;  // the open note's recording is on the card (it can be played)
 static String message;   // one line under the main screen's prompt: the last result or a problem
 static uint32_t seenGen;  // the job status last taken in (results arriving while away show on return)
 static uint32_t phoneShown;  // pages the phone had loaded when the screen was last drawn
-static uint32_t recordMs;
-static int recordLevel;  // 0-100
 
 static int8_t card = -1;  // SD card readable: checked once per visit (with no card, each check takes a while)
 
@@ -93,36 +93,7 @@ static void ensureList() {
 
 static int waiting() { return waitingCount; }
 
-// The display font is ASCII: fold the usual UTF-8 punctuation from transcripts, drop the rest.
-static String ascii(const String &s) {
-  String out;
-  for (size_t i = 0; i < s.length(); i++) {
-    const uint8_t c = s[i];
-    if (c < 0x80) {
-      out += (char)c;
-      continue;
-    }
-    if (c == 0xE2 && i + 2 < s.length()) {  // U+2000 block: quotes, dashes, ellipsis
-      const uint8_t b = s[i + 2];
-      if (b == 0x98 || b == 0x99) out += '\'';
-      else if (b == 0x9C || b == 0x9D) out += '"';
-      else if (b == 0x93 || b == 0x94) out += '-';
-      else if (b == 0xA6) out += "...";
-      i += 2;
-      continue;
-    }
-    if (c == 0xC3 && i + 1 < s.length()) {  // Latin-1 letters lose their accents
-      static const char *const FOLD = "AAAAAAACEEEEIIIIDNOOOOOxOUUUUYTsaaaaaaaceeeeiiiidnooooo/ouuuuyty";
-      const uint8_t b = s[i + 1];
-      if (b >= 0x80 && b < 0xC0) out += FOLD[b - 0x80];
-      i += 1;
-      continue;
-    }
-    while (i + 1 < s.length() && (s[i + 1] & 0xC0) == 0x80) i++;  // skip the rest of anything else
-    out += '?';
-  }
-  return out;
-}
+static String ascii(const String &s) { return asciiText(s); }
 
 // Words into lines that fit the screen width in the small font.
 static void wrap(const String &text, std::vector<String> &out) {
@@ -187,7 +158,8 @@ static void ensureLines() {
   const String md = storeReadNote(openId);
 #endif
   if (md.length()) wrap(readable(md), lines);
-  else wrap("Not transcribed yet. Press B on the Notes screen to sync it when WiFi is set up.", lines);
+  else wrap("Not sent yet. It goes by itself when WiFi is in reach. B to listen.", lines);
+  hasWav = hasCard() && storeValidId(openId) && storageExists(storeWavPath(openId).c_str());
   linesFor = openId;
 }
 
@@ -240,27 +212,11 @@ static void drawMain() {
     if (!line.length() && !credWifiAny()) line = "Setup: add your WiFi";
     else if (!line.length() && !credHas("openai_key")) line = "Setup: add OpenAI key";
     else if (!line.length() && !hasCard()) line = githubOn() ? "No SD card: GitHub only" : "No SD card: nothing is kept";
-    else if (!line.length() && waiting()) line = String(waiting()) + " waiting: B to sync";
+    else if (!line.length() && waiting()) line = String(waiting()) + " waiting: sends on WiFi";
     else if (!line.length()) line = "to record a note";
     drawCentered(fitText(line.c_str(), display.width() - 2 * MARGIN).c_str(), 128);
   }
   drawHints(hasCard() ? "list" : "", waiting() && !jobBusy() ? "sync" : "", jobCanTake() ? "record" : "");
-}
-
-static void drawRecording() {
-  char time[12];
-  const uint32_t s = recordMs / 1000;
-  snprintf(time, sizeof time, "%lu:%02lu", (unsigned long)(s / 60), (unsigned long)(s % 60));
-  drawHeader("Recording", time);
-  display.setFont(FONT_LARGE);
-  drawCentered(time, 66);
-  // Level bar: how loud the last second was.
-  const int16_t barW = display.width() - 4 * MARGIN, x = 2 * MARGIN, y = 92;
-  display.drawRect(x, y, barW, 12, BLACK);
-  display.fillRect(x + 2, y + 2, (barW - 4) * recordLevel / 100, 8, BLACK);
-  display.setFont(FONT_SMALL);
-  drawCentered(recordMs / 1000 + 10 >= maxSeconds ? "nearly at the limit" : "let go to stop", 132);
-  drawHints("", "", "");
 }
 
 static void drawListRows() {
@@ -335,7 +291,7 @@ static void drawViewText() {
 
 static void drawView() {
   drawViewText();
-  drawHints(viewPages() > 1 ? "more" : "", hasCard() ? "phone" : "", hasCard() ? "delete" : "");
+  drawHints(viewPages() > 1 ? "more" : "", hasWav ? "play" : "", hasCard() ? "phone" : "");
 }
 
 static void drawConfirm() {
@@ -343,8 +299,7 @@ static void drawConfirm() {
   String title = openId;
   for (const NoteInfo &n : notes)
     if (n.id == openId) title = titleOf(n), pushed = n.pushed;
-  if (confirmFrom == VIEW) drawViewText();
-  else drawListRows();
+  drawListRows();
   drawSheet("Delete this note?", title.c_str(), pushed ? "GitHub copy stays." : "Can't be undone.");
   drawHints("keep", "delete", "");
 }
@@ -362,39 +317,10 @@ static void record() {
   }
   card = -1;  // look again: a card may have gone in since
   const bool onCard = hasCard();  // mounted here, on the screen's side, before the job uses it
-  size_t limit = 0;
-  int16_t *samples = jobTakeBuffer(MAX_SECONDS * AUDIO_RATE, limit);
-  maxSeconds = limit / AUDIO_RATE;
-  if (!samples || !audioBegin()) {
-    jobGiveBuffer(samples);
-    message = samples ? "Microphone not answering" : "Not enough memory";
-    return;
-  }
-  size_t count = 0;
-  const uint32_t t0 = millis();
-  uint32_t shown = 0;
-  int peak = 0;
-  recordMs = 0;
-  recordLevel = 0;
-  displayFrame(drawRecording);
-  while (inputBHeld() && count < limit) {
-    powerAlive();
-    const size_t n = audioRead(samples + count, min((size_t)1024, limit - count));
-    for (size_t i = 0; i < n; i++) peak = max(peak, abs((int)samples[count + i]));
-    count += n;
-    recordMs = millis() - t0;
-    if (recordMs - shown >= 1000) {  // the refresh blocks ~0.4 s; the 1 s DMA buffer keeps recording
-      shown = recordMs;
-      recordLevel = min(100, peak * 300 / 32767);  // x3: speech rarely gets near full scale
-      peak = 0;
-      displayFrame(drawRecording);
-    }
-  }
-  audioEnd();
-  powerActivity();
-  if (recordMs < MIN_MS) {
-    jobGiveBuffer(samples);
-    message = "Too short: hold B longer";
+  int16_t *samples;
+  size_t count;
+  if (const char *err = recordWhileHeld(MAX_SECONDS, samples, count)) {
+    message = err;
     return;
   }
   message = "";
@@ -456,7 +382,6 @@ static Redraw onButton(Event e) {
         screen = VIEW;
       } else if (e == Event::BLong) {
         strlcpy(openId, notes[cursor].id.c_str(), sizeof openId);
-        confirmFrom = LIST;
         screen = CONFIRM;
       } else
         return Redraw::None;
@@ -466,7 +391,11 @@ static Redraw onButton(Event e) {
         page++;  // wraps in drawView
         return Redraw::Partial;
       }
-      if (e == Event::BShort && hasCard()) {  // read it (and the other notes) on a phone
+      if (e == Event::BShort && hasWav) {
+        if (const char *err = playNote(openId)) launcherToast(err);
+        return Redraw::Partial;
+      }
+      if (e == Event::BLong && hasCard()) {  // read it (and the other notes) on a phone
         if (!phoneStart()) {
           launcherToast("Sending a note: try soon");
           return Redraw::Partial;
@@ -474,12 +403,7 @@ static Redraw onButton(Event e) {
         screen = PHONE;
         return Redraw::Partial;
       }
-      if (e == Event::BLong && hasCard()) {
-        confirmFrom = VIEW;
-        screen = CONFIRM;
-        return Redraw::Partial;
-      }
-      return Redraw::None;
+      return Redraw::None;  // deleting is in the list (hold B there)
     case CONFIRM:
       if (e == Event::BShort) {
         if (jobBusy() && strcmp(openId, jobStatus().noteId) == 0) {
@@ -496,7 +420,7 @@ static Redraw onButton(Event e) {
         return Redraw::Partial;
       }
       if (e == Event::AShort) {
-        screen = confirmFrom;
+        screen = LIST;
         return Redraw::Partial;
       }
       return Redraw::None;
@@ -509,7 +433,7 @@ static Redraw onBack() {
     case MAIN: return Redraw::Exit;
     case LIST: screen = MAIN; break;
     case VIEW: screen = hasCard() ? LIST : MAIN; break;
-    case CONFIRM: screen = confirmFrom; break;
+    case CONFIRM: screen = LIST; break;
     case PHONE:
       phoneStop();
       screen = VIEW;
@@ -581,4 +505,43 @@ static void status(char *out, size_t len) {
   else snprintf(out, len, noteCount == 1 ? "1 note" : "%d notes", noteCount);
 }
 
-extern const App notesApp = {"Notes", ICON_NOTES, onEnter, onButton, draw, onExit, onBack, status, tick};
+// Notes tries sending by itself every 10 min while awake, and on waking if 10 min have passed since the last try.
+// Without the clock set: once per wake, then every 10 min. Any send counts as a try (a note just recorded too).
+static uint32_t lastTryMs;
+static bool triedThisWake;
+
+static void tried() {
+  if (clockValid()) lastAutoSync = time(nullptr);
+  lastTryMs = millis();
+  triedThisWake = true;
+}
+
+static bool autoSyncDue() {
+  const uint32_t every = devAutoSync() ? devAutoSync() : AUTO_SYNC_S;
+  if (triedThisWake) return millis() - lastTryMs >= every * 1000;
+  if (!clockValid() || !lastAutoSync) return true;
+  const time_t now = time(nullptr);
+  return now < lastAutoSync || now - lastAutoSync >= (time_t)every;
+}
+
+// Every loop, whatever is on screen: recordings that couldn't go (no WiFi) are sent once it can be reached.
+static bool background() {
+  static uint32_t seen;
+  const JobStatus js = jobStatus();
+  if (js.gen != seen && !jobBusy()) {
+    seen = js.gen;
+    if (*js.result) {  // a note's work finished (not a reminder's): it was a try, and what's waiting may have changed
+      tried();
+      listed = false;
+      ensureList();
+    }
+  }
+  if (waitingCount <= 0 || jobBusy() || netClaimed() || !credWifiAny() || !credHas("openai_key")) return false;
+  if (batteryTooLow() || !autoSyncDue()) return false;
+  tried();
+  jobStartSweep(true);
+  return false;
+}
+
+extern const App notesApp = {"Notes", ICON_NOTES, onEnter, onButton, draw,  onExit,
+                             onBack,  status,     tick,    false,    background};

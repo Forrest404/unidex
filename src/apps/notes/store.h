@@ -21,6 +21,7 @@ bool storeSaveNote(const String &id, const String &markdown);
 String storeReadNote(const String &id);              // "" if missing
 void storeMarkPushed(const String &id, const String &path);
 void storeDelete(const String &id);
+void storeUnsend(const String &id);  // drops the .md and .gh only: the recording waits to be sent again
 std::vector<NoteInfo> storeList();                   // newest first
 String storeTitleOf(const String &markdown);         // the front matter title
 

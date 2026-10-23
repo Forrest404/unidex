@@ -10,13 +10,15 @@
 #include "../../core/power.h"
 #include "../../core/storage.h"
 
-// One piece of work: a fresh recording (id + samples), or a sweep of everything waiting.
+// One piece of work: a fresh recording (id + samples), a sweep of everything waiting, or a reminder's words.
+enum class Kind : uint8_t { Sweep, Note, Text };
 struct Item {
-  bool note;
+  Kind kind;
   char id[24];
   int16_t *samples;  // from jobTakeBuffer, owned by the job; given back once it's on the card (or sent)
   size_t count;
   bool onCard;
+  bool quiet;  // a sweep Notes started by itself: if nothing goes, it says nothing (no "No WiFi" every 10 min)
 };
 
 static portMUX_TYPE mux = portMUX_INITIALIZER_UNLOCKED;
@@ -26,6 +28,8 @@ static bool hasWaiting;   // a second recording, queued behind the running one
 static volatile bool busy;
 static String shownMd, shownTitle;  // no card, no GitHub: the finished note, for the screen to show once
 static volatile bool hasShown;
+static String heardText, heardError;  // a jobStartText's result, for Reminders to take
+static volatile bool hasHeard;
 
 static TaskHandle_t task;
 static StaticTask_t taskBuffer;
@@ -174,6 +178,7 @@ static void runNote(Item &it) {
   }
   publish(JobStep::Connecting);
   const char *err = netConnect();
+  const bool offline = err;  // no WiFi (or none set up): a recording on the card just waits for the next sync
   String title;
   if (!err) {
     if (it.samples) {  // not on the card: send it from memory
@@ -199,12 +204,13 @@ static void runNote(Item &it) {
     snprintf(result, sizeof result, "Heard nothing: not kept");
   } else if (!err) snprintf(result, sizeof result, "Saved: %s", title.c_str());
   else if (err == FULL_PUSHED || err == FULL_SHOWN) snprintf(result, sizeof result, "%s", err);
+  else if (saved && offline) snprintf(result, sizeof result, "Saved: sends on WiFi");
   else if (saved) snprintf(result, sizeof result, "%s (kept)", err);
   else snprintf(result, sizeof result, "%s: not kept", err);
   publish(JobStep::Idle, result);
 }
 
-static void runSweep() {
+static void runSweep(const Item &it) {
   char result[48];
   publish(JobStep::Connecting, "");
   const char *err = netConnect();
@@ -214,15 +220,42 @@ static void runSweep() {
   if (stuck && done) snprintf(result, sizeof result, "%d synced, %d stuck", done, stuck);  // (the reason won't fit)
   else if (err) snprintf(result, sizeof result, done ? "%s (%d done)" : "%s", err, done);
   else snprintf(result, sizeof result, done == 1 ? "1 note synced" : "%d notes synced", done);
-  publish(JobStep::Idle, result);
+  publish(JobStep::Idle, it.quiet && !done ? "" : result);
+}
+
+// A reminder: only the words, straight from memory. Nothing is saved, so nothing waits for a later sync.
+static void runText(Item &it) {
+  setNote("");
+  publish(JobStep::Connecting, "");
+  const char *err = netConnect();
+  String text;
+  if (!err) {
+    publish(JobStep::Transcribing);
+    if (devFakeCloud()) {  // test build: no upload, no cost
+      delay(1500);
+      text = devEmptyHeard() ? "" : "Remind me to call Sam tomorrow at 5pm.";
+    } else {
+      uint8_t header[44];
+      storeWavHeader(header, it.count * 2);
+      const NetPart audio[] = {NetPart::bytes(header, sizeof header), NetPart::bytes(it.samples, it.count * 2)};
+      err = cloudTranscribe(audio, 2, text);
+    }
+  }
+  jobGiveBuffer(it.samples);
+  it.samples = nullptr;
+  heardText = err ? "" : text;
+  heardError = err ? err : "";
+  hasHeard = true;
+  publish(JobStep::Idle, "");  // no result line: that's for Notes' own work
 }
 
 static void worker(void *) {
   for (;;) {
     ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
     for (;;) {
-      if (running.note) runNote(running);
-      else runSweep();
+      if (running.kind == Kind::Note) runNote(running);
+      else if (running.kind == Kind::Text) runText(running);
+      else runSweep(running);
       portENTER_CRITICAL(&mux);
       const bool more = hasWaiting;
       if (more) running = waitingItem, hasWaiting = false;
@@ -241,7 +274,7 @@ static bool start(const Item &it) {
   if (!task) task = xTaskCreateStaticPinnedToCore(worker, "notes", sizeof stack / sizeof stack[0], nullptr, 1, stack,
                                                   &taskBuffer, 0);  // core 0: the screen and buttons stay on core 1
   if (busy) {
-    if (hasWaiting || !it.note) return false;
+    if (hasWaiting || it.kind == Kind::Sweep) return false;
     portENTER_CRITICAL(&mux);
     waitingItem = it;
     hasWaiting = true;
@@ -252,7 +285,7 @@ static bool start(const Item &it) {
   busy = true;
   netClaim(true);
   powerHold();  // no sleep (light sleep would drop the WiFi) until the work is done
-  publish(it.note ? JobStep::Saving : JobStep::Connecting, "");
+  publish(it.kind == Kind::Note ? JobStep::Saving : JobStep::Connecting, "");
   xTaskNotifyGive(task);
   return true;
 }
@@ -287,18 +320,32 @@ void jobGiveBuffer(int16_t *buffer) {
 
 bool jobCanTake() {
   // A second note can queue only once the first is safely on the card (its memory freed), and only one.
-  return !busy || (!hasWaiting && running.note && !running.samples && running.onCard);
+  return !busy || (!hasWaiting && running.kind == Kind::Note && !running.samples && running.onCard);
 }
 
 bool jobStartNote(const String &id, int16_t *samples, size_t count, bool onCard) {
-  Item it = {true, "", samples, count, onCard};
+  Item it = {Kind::Note, "", samples, count, onCard};
   strlcpy(it.id, id.c_str(), sizeof it.id);
   return start(it);
 }
 
-bool jobStartSweep() {
-  Item it = {false, "", nullptr, 0, true};
+bool jobStartSweep(bool quiet) {
+  Item it = {Kind::Sweep, "", nullptr, 0, true, quiet};
   return start(it);
+}
+
+bool jobStartText(int16_t *samples, size_t count) {
+  Item it = {Kind::Text, "", samples, count, false};
+  return start(it);
+}
+
+bool jobTakeText(String &text, String &error) {
+  if (!hasHeard) return false;
+  text = heardText;
+  error = heardError;
+  heardText = heardError = "";
+  hasHeard = false;
+  return true;
 }
 
 JobStatus jobStatus() {

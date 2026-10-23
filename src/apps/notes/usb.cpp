@@ -4,6 +4,7 @@
 #include <math.h>
 #include "cloud.h"
 #include "job.h"
+#include "play.h"
 #include "store.h"
 #include "../../core/audio.h"
 #include "../../core/credentials.h"
@@ -184,6 +185,10 @@ bool notesUsb(const char *l) {
     powerActivity();
   } else if (strcmp(cmd, "MIC") == 0) {
     micTest(strcmp(arg, "wifi") == 0);
+  } else if (strcmp(cmd, "PLAY") == 0) {
+    const char *err = playNote(arg);
+    if (err) Serial.printf("OK N PLAY fail %s\n", err);
+    else Serial.println("OK N PLAY");
   } else if (strcmp(cmd, "LIST") == 0) {
     list();
   } else if (strcmp(cmd, "READ") == 0) {
@@ -195,6 +200,15 @@ bool notesUsb(const char *l) {
     }
     if (storeValidId(arg)) storeDelete(arg);
     Serial.println("OK N DEL");
+#if UNIDEX_DEV
+  } else if (strcmp(cmd, "UNSEND") == 0) {  // test build: the note is a waiting recording again (its .wav stays)
+    if (jobBusy() || !storeValidId(arg) || !storageExists(storeWavPath(arg).c_str())) {
+      Serial.println("ERR");
+      return true;
+    }
+    storeUnsend(arg);
+    Serial.println("OK N UNSEND");
+#endif
   } else if (strcmp(cmd, "SYNC") == 0) {
     startSync();
   } else if (strcmp(cmd, "JOB") == 0) {

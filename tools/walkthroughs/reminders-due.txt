@@ -1,0 +1,27 @@
+# Reminders falling due (device only: each one chimes). The sample list (X DEMO 1), with the clock moved to just
+# before its times; the clock is put back at the end. Over the open list, then over Home: done, later, left.
+demo 1
+select Reminders
+press b
+clock today 07:59:50
+sleep 15000
+expect screen=Reminders
+shot d-alert-over-list
+press b
+shot d-done-back-to-list
+press A
+expect screen=Home
+clock today 16:59:50
+sleep 15000
+expect screen=Reminders
+shot d-alert-over-home
+press a
+expect screen=Home
+shot d-later-home
+clock today 17:09:50
+sleep 15000
+expect screen=Reminders
+shot d-snoozed-alert
+press A
+expect screen=Home
+shot d-left-home

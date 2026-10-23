@@ -25,10 +25,13 @@ comes from git (`tools/version.py`).
 ```
 src/
   main.cpp              setup/loop: input -> launcher -> sleep
-  apps/                 one folder per app (timetable, notes, pet, badge, dex, chooser, games, settings)
+  apps/                 one folder per app (timetable, notes, reminders, pet, badge, dex, chooser, games, settings)
                         + apps.cpp (launcher order)
   apps/notes/           notes.cpp (screens), job (the online steps in the background), store (files on the card),
-                        cloud (Whisper, tidy-up, GitHub), usb (N commands), phone* (Open on phone)
+                        cloud (Whisper, tidy-up, GitHub), usb (N commands), phone* (Open on phone), record (hold to
+                        talk, shared with Reminders), play (a recording on the speaker)
+  apps/reminders/       reminders.cpp (list, voice, falling due), reminders_logic.h (the file, the order, and the
+                        rules that turn "call Sam tomorrow at 5" into a title and a time; tested on a computer)
   apps/pet/             pet.cpp (Pet, Dress up, Name), parts.h (the art), meet.cpp (Meet), meet_logic.h,
                         friends_logic.h, send_logic.h (the radio rules, tested on a computer), usb.cpp (P commands)
   apps/badge/           badge.cpp, badge_file.* (BMP checks, shared with the USB upload and Pet)
@@ -45,7 +48,7 @@ src/
                         replaces another is written to a temp file, then storageReplace() checks its size and
                         swaps it in (the old copy is kept until the new one is in place)
     clock.*             PCF85063 clock chip, NTP
-    audio.*             ES8311 microphone (16 kHz mono, I2S)
+    audio.*             ES8311 microphone (16 kHz mono, I2S) and the speaker's chime
     net.*               WiFi on/off and a small HTTPS client (checks certificates)
     credentials.*       WiFi, API keys and GitHub settings in their own NVS namespace
     usbsync.*           serial protocol for the Mac calendar sync, the Tools page and the Setup page
@@ -223,7 +226,7 @@ Everything here was read from the chip, seen working on the device, or taken fro
 | USB | Native USB-Serial/JTAG (`303A:1001`), no UART bridge | confirmed |
 | Panel | 1.54" black/white e-paper, 200×200, SSD1681 | confirmed |
 | Driver | our own SSD1681 driver (`src/core/display.cpp`), drawing with Adafruit GFX | confirmed |
-| Also on board | SHTC3 temp/humidity, ES8311 audio codec, mic, speaker header | vendor (unused here) |
+| Also on board | SHTC3 temp/humidity, ES8311 audio codec, mic, speaker header | codec, mic and speaker used (Notes, Reminders); SHTC3 unused |
 | Micro SD slot | SD_MMC 1-bit, FAT32, holds all files | confirmed (mounted a 128 GB SDHC card) |
 
 | Function | GPIO | Notes |
@@ -231,12 +234,12 @@ Everything here was read from the chip, seen working on the device, or taken fro
 | EPD SCK / MOSI | 12 / 13 | SPI, no MISO |
 | EPD CS / DC / RST / BUSY | 11 / 10 / 9 / 8 | |
 | EPD power enable | 6 | **active LOW**; an external pull-up turns the panel off if the pin floats |
-| Audio power enable | 42 | active LOW; LOW only while Notes records, HIGH (off) otherwise |
-| Audio codec (ES8311) | I2S MCLK 14, BCLK 15, WS 38, DOUT 45, DIN 16 | I2C address 0x18 on the clock chip's bus. Mic only (speaker amp pin 46 unused). `src/core/audio.cpp` is a small driver on the legacy I2S API: Espressif's `esp_codec_dev` needs ESP-IDF 5. Confirmed: records |
+| Audio power enable | 42 | active LOW. Also powers the I2C pull-ups: with it off both lines sit low and the clock chip can't be read or set (seen as "i2c-fail" from `C`). LOW whenever awake (`clock.cpp` turns it on at start-up), HIGH in deep sleep |
+| Audio codec (ES8311) | I2S MCLK 14, BCLK 15, WS 38, DOUT 45, DIN 16 | I2C address 0x18 on the clock chip's bus. Mic, and the speaker through its amplifier (enable 46, active HIGH, on only while a chime plays; `X BEEP` in the test build). `src/core/audio.cpp` is a small driver on the legacy I2S API: Espressif's `esp_codec_dev` needs ESP-IDF 5. Confirmed: records |
 | Battery power latch | 17 | **HIGH = stay on**; has a pull-down, so it must be held HIGH, including through deep sleep |
 | BOOT button (A) | 0 | active LOW, RTC GPIO, external 10k pull-up |
 | PWR button (B) | 18 | active LOW, RTC GPIO, external 10k pull-up |
-| I2C SDA / SCL | 47 / 48 | PCF85063 clock (0x51), SHTC3 |
+| I2C SDA / SCL | 47 / 48 | PCF85063 clock (0x51), SHTC3 (0x70), codec (0x18); pull-ups on the audio supply (42). `X I2C` lists what answers |
 | RTC interrupt | 5 | active LOW (vendor, unused) |
 | SD CLK / CMD / D0 | 39 / 41 / 40 | SD_MMC 1-bit (D3/CS not connected, pulled up). Separate from the display's SPI pins, so no bus sharing. No card-detect pin, and no power switch: the card stays powered in deep sleep (idle cards draw roughly 50–200 µA) |
 | Battery voltage | 4 (ADC1 ch3) | ×2 divider (R21/R38, 200k 1%), read by `src/core/battery.cpp`. The ADC reads ~2% low: a full battery (charger finished) read 4.08–4.09 V where the cell is ~4.17 V, so readings are scaled by 4170/4085. 100% from 4.15 V (resting LiPo curve); on battery the % only goes down, so noise can't make it bounce |

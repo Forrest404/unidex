@@ -14,6 +14,9 @@ void powerRelease() {}
 #if UNIDEX_DEV
 void powerSleepFor(uint32_t) {}
 #endif
+void powerWakeAt(time_t) {}
+bool powerTimerWake() { return false; }
+void powerSleepSoon() {}
 void powerWakeWithin(uint32_t) {}
 void powerNap() { delay(8); }  // lets the page run between passes
 void powerOffIfFlat() {}

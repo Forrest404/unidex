@@ -23,7 +23,13 @@ void jobGiveBuffer(int16_t *buffer);  // back from the recording screen, or done
 bool jobCanTake();  // a new recording can start (its buffer can be handed over when it ends)
 // Hands over a finished recording (the buffer from jobTakeBuffer becomes the job's, which gives it back) and returns at once.
 bool jobStartNote(const String &id, int16_t *samples, size_t count, bool onCard);
-bool jobStartSweep();  // transcribes waiting recordings and pushes notes GitHub doesn't have yet
+// Transcribes waiting recordings and pushes notes GitHub doesn't have yet. quiet: Notes trying by itself, so a try
+// that sends nothing leaves no result line.
+bool jobStartSweep(bool quiet = false);
+// Reminders: transcribes a recording from memory and keeps only the words (nothing is saved). Like jobStartNote,
+// the buffer becomes the job's. The words (or why there are none) wait for jobTakeText.
+bool jobStartText(int16_t *samples, size_t count);
+bool jobTakeText(String &text, String &error);  // true (and filled) once, when a jobStartText has finished
 JobStatus jobStatus();
 size_t jobStackLeft();  // bytes of the job's stack never used so far (0 before it first runs)
 // No card and no GitHub: the finished note is shown once instead of kept. True (and filled) if one is waiting.

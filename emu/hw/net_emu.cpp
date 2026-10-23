@@ -18,3 +18,10 @@ bool linkPoll(LinkPacket &) { return false; }
 bool audioBegin() { return false; }
 size_t audioRead(int16_t *, size_t) { return 0; }
 void audioEnd() {}
+bool audioChime() { return false; }
+bool audioPlayBegin() { return false; }
+void audioPlay(const int16_t *, size_t) {}
+void audioPlayEnd(bool) {}
+static int volume = 8;
+int audioVolume() { return volume; }
+void audioSetVolume(int v) { volume = v; }

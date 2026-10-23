@@ -13,9 +13,12 @@
 //                               anthropic, github; takes a few seconds)
 //   N MIC [wifi]             -> records 2 s: "OK N MIC <peak> <rms>" (0-32767) or "OK N MIC fail <reason>";
 //                               with "wifi", WiFi is connecting meanwhile (a check for radio hum)
+//   N PLAY <id>              -> plays the recording on the speaker (blocks until it ends or a button is pressed):
+//                               "OK N PLAY" or "OK N PLAY fail <reason>"
 //   N LIST                   -> "NF <id> <bytes> <text 0|1> <pushed 0|1> <hex title>" per note, then "OK N LIST"
 //   N READ <id>              -> "ND <hex, up to 64 bytes>" lines, then "OK N READ <bytes> <crc32>" (or "ERR")
 //   N DEL <id>               -> "OK N DEL" ("ERR busy" for the note being sent)
+//   N UNSEND <id>            -> test build: drops the note's text and GitHub mark, so its recording waits again
 //   N SYNC                   -> starts sending waiting notes in the background (as B on the Notes screen):
 //                               "OK N SYNC started <waiting>", "OK N SYNC none", "OK N SYNC busy",
 //                               "OK N SYNC fail <reason>" (no SD card, WiFi not set up); then watch N JOB

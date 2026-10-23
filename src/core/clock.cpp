@@ -11,6 +11,10 @@ static const char *TZ_LONDON = "GMT0BST,M3.5.0/1,M10.5.0";
 static const uint8_t PCF_ADDR = 0x51, PCF_CONTROL1 = 0x00, PCF_SECONDS = 0x04;  // 0x04-0x0A: s m h day wday month year
 static const uint8_t CONTROL1_STOP = 0x20, CONTROL1_12H = 0x02;  // 0x00 = running, 24-hour mode
 static const int PIN_SDA = 47, PIN_SCL = 48;
+// The supply the audio codec shares with this bus's pull-ups (active LOW). Off, both lines sit low and nothing on the
+// bus answers, so it's on whenever the device is awake. power.cpp turns it off for deep sleep (the clock chip runs on
+// its own cell).
+static const int PIN_BUS_PWR = 42;
 static const uint32_t NTP_TIMEOUT_MS = 8000;
 
 static uint8_t fromBcd(uint8_t v) { return (v >> 4) * 10 + (v & 0x0F); }
@@ -26,6 +30,9 @@ static void start() {
   if (started) return;
   started = true;
   setTz(TZ_LONDON);
+  pinMode(PIN_BUS_PWR, OUTPUT);
+  digitalWrite(PIN_BUS_PWR, LOW);
+  delay(5);  // the pull-ups come up
   Wire.begin(PIN_SDA, PIN_SCL);
 }
 

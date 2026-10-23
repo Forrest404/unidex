@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include <time.h>
 
 void powerInit();          // call first in setup()
 bool powerWokeFromSleep();
@@ -12,6 +13,11 @@ void powerRelease();
 #if UNIDEX_DEV
 void powerSleepFor(uint32_t ms);  // test build: real deep sleep now, woken by the timer (RAM is lost, as in use)
 #endif
+// Deep sleep ends by `utc` (a reminder falling due); 0 = nothing to wake for. A long wait wakes early, as the sleep
+// timer drifts: the launcher then finds nothing due yet and sleeps again at once, without touching the screen.
+void powerWakeAt(time_t utc);
+bool powerTimerWake();  // this start is a wake by that timer, not by a button
+void powerSleepSoon();  // nothing to do on this wake: sleep at the next idle check, without the usual wait
 void powerWakeWithin(uint32_t ms);  // the next light sleep ends within ms (an app's timed redraw, e.g. a blink)
 void powerNap();
 // A flat battery: "Charge me" on the screen (e-ink keeps it), then the power is cut so the cell isn't drained

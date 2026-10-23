@@ -8,7 +8,9 @@ int16_t *jobTakeBuffer(size_t, size_t &got) { got = 0; return nullptr; }
 void jobGiveBuffer(int16_t *) {}
 bool jobCanTake() { return false; }
 bool jobStartNote(const String &, int16_t *, size_t, bool) { return false; }
-bool jobStartSweep() { return false; }
+bool jobStartSweep(bool) { return false; }
+bool jobStartText(int16_t *, size_t) { return false; }
+bool jobTakeText(String &, String &) { return false; }
 JobStatus jobStatus() { JobStatus s = {}; return s; }
 size_t jobStackLeft() { return 0; }
 bool jobTakeShown(String &, String &) { return false; }

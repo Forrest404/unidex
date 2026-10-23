@@ -1,0 +1,45 @@
+# Reminders, with the sample list (X DEMO 1) so nothing on the card changes, and clearing as a dry run.
+dry 1
+demo 1
+select Reminders
+shot r-home-status
+press b
+shot r-list
+press a
+shot r-list-row2
+press b
+shot r-ticked
+press a a a a
+shot r-page2
+press b
+shot r-undo
+press a
+shot r-clear-row
+press b
+shot r-clear-confirm
+press a
+shot r-clear-keep
+press b
+press b
+shot r-clear-dry
+press A
+expect screen=Home
+shot r-home-after
+demo 0
+select Reminders
+press b
+shot r-empty
+press A
+expect screen=Home
+# Saying one (device only: the emulator has no microphone). The cloud is faked, so nothing is uploaded and the
+# words are canned ("Remind me to call Sam tomorrow at 5pm"); with the samples on, nothing is written to the card.
+fake 1
+demo 1
+select Reminders
+press b
+hold B 2500
+shot r-after-release
+waitjob 30
+shot r-added
+press A
+expect screen=Home

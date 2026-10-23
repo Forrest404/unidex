@@ -4,6 +4,27 @@ What changed in each release, in short. The full notes are on the
 [releases page](https://github.com/Forrest404/unidex/releases). To update, use
 https://tools.unidex.shop/ (Update keeps your settings and files).
 
+## Next release
+
+- **Reminders** (new): a to-do list. Hold B and say one ("call Sam tomorrow at 5pm", "take the cake out in 20
+  minutes", "dentist on the 3rd of November"). Whisper writes it down, using the OpenAI key you already set up for
+  Notes. Working out the to-do and its time happens on the device, with no AI. B ticks one off, and the last row
+  clears the done ones. When one falls due, the device wakes, chimes on the speaker and shows it over whatever is
+  on screen: B = done, A = again in 10 minutes. The home screen shows the next one ("5pm: Call Sam") or how many
+  are late.
+- **Notes:** listen back. In a note, B plays its recording on the speaker, even one that hasn't been sent yet, and
+  any button stops it. Open on phone moves to hold B, and deleting is done from the list.
+- **Recording screen** (Notes and Reminders): a waveform of your voice, the last few seconds scrolling past, instead
+  of the level bar. The time is in the header.
+- **Notes:** recordings made without WiFi are kept as voice recordings ("Saved: sends on WiFi") and send
+  themselves: they're transcribed and summarised once WiFi is in reach. The device tries when you wake it and
+  every 10 minutes while it's on, whatever app is open, and stays quiet if there's still no WiFi. B on the Notes screen still sends
+  them straight away.
+- **Settings > Volume:** a slider for the speaker (notes playing back and the reminder chime), 0 (off) to 10. B is
+  louder, hold B quieter, and each step chimes so you can hear it.
+- **Clock:** fixed the time not showing on boards where the clock chip's connection is powered from the audio
+  supply. That supply was off except while recording, so the clock couldn't be read or set.
+
 ## v1.8 (15 October 2026)
 
 - **New logo:** the start-up screen shows the new unidex logo, the robot above the name, instead of the four squares.

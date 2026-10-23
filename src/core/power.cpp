@@ -12,7 +12,9 @@
 static uint32_t idleMs = 10000;  // Settings: 10, 20, 30 or 60 s (NVS sleep_s)
 
 static const gpio_num_t PIN_LATCH = GPIO_NUM_17;      // HIGH keeps battery power on; has a pull-down
-static const gpio_num_t PIN_AUDIO_PWR = GPIO_NUM_42;  // active LOW; external pull-up keeps it off in sleep
+// Active LOW: the codec's supply, which also powers the I2C pull-ups. clock.cpp turns it on at start-up (the clock chip
+// can't be read without it); off for deep sleep.
+static const gpio_num_t PIN_AUDIO_PWR = GPIO_NUM_42;
 static const gpio_num_t PIN_EPD_PWR = GPIO_NUM_6;     // active LOW
 static const gpio_num_t PIN_EPD_RST = GPIO_NUM_9;
 static const gpio_num_t PIN_EPD_CS = GPIO_NUM_11;
@@ -20,7 +22,9 @@ static const gpio_num_t PIN_EPD_CS = GPIO_NUM_11;
 static const uint64_t WAKE_MASK = (1ULL << GPIO_NUM_0) | (1ULL << GPIO_NUM_18);
 
 static uint32_t lastActivity;
+static time_t wakeAt;  // powerWakeAt: 0 = nothing to wake for
 static void deepSleep(uint64_t timerUs);
+static uint64_t untilWake();
 static volatile int holds;  // powerHold() calls not yet released (from either core)
 static portMUX_TYPE holdMux = portMUX_INITIALIZER_UNLOCKED;
 
@@ -66,6 +70,22 @@ void powerActivity() {
   lastActivity = millis();
 }
 
+void powerWakeAt(time_t utc) { wakeAt = utc; }
+
+bool powerTimerWake() { return powerWokeFromSleep() && esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER; }
+
+void powerSleepSoon() { lastActivity = millis() - idleMs; }
+
+// Microseconds of sleep until powerWakeAt's time (0: none). The sleep timer runs on the chip's own rough oscillator,
+// a few percent out, so a long wait stops at 90% of the way: the clock chip, which is accurate, sets the rest.
+static uint64_t untilWake() {
+  if (!wakeAt) return 0;
+  int64_t s = wakeAt - time(nullptr);
+  if (s < 1) s = 1;
+  if (s > 120) s = s * 9 / 10;
+  return (uint64_t)s * 1000000;
+}
+
 void powerSleepIfIdle() {
   // Sleeping with a button held would wake straight away, in a loop.
   if (millis() - lastActivity < idleMs || inputAnyDown() || holds) return;
@@ -82,7 +102,7 @@ void powerSleepIfIdle() {
     lastCheck = millis();
   }
   if (onUsb) return;
-  deepSleep(0);
+  deepSleep(untilWake());
 }
 
 // Keep the panel powered in its own deep sleep (RAM retained), so the first refresh after waking can be
@@ -95,6 +115,7 @@ static void deepSleep(uint64_t timerUs) {
   gpio_deep_sleep_hold_en();
 
   storageEnd();  // unmount the SD card cleanly (it stays powered: no switch on its supply)
+  digitalWrite(PIN_AUDIO_PWR, HIGH);  // the codec's supply off: pins are held as they are through the sleep
   esp_sleep_disable_wakeup_source(ESP_SLEEP_WAKEUP_ALL);  // drop powerNap's timer and GPIO sources
   esp_sleep_enable_ext1_wakeup(WAKE_MASK, ESP_EXT1_WAKEUP_ANY_LOW);
   if (timerUs) esp_sleep_enable_timer_wakeup(timerUs);
@@ -102,7 +123,10 @@ static void deepSleep(uint64_t timerUs) {
 }
 
 #if UNIDEX_DEV
-void powerSleepFor(uint32_t ms) { deepSleep((uint64_t)ms * 1000); }
+void powerSleepFor(uint32_t ms) {  // a reminder due sooner wakes it sooner, as in use
+  const uint64_t us = (uint64_t)ms * 1000, reminder = untilWake();
+  deepSleep(reminder && reminder < us ? reminder : us);
+}
 #endif
 
 static uint32_t wakeWithin;  // 0: nothing asked for

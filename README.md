@@ -40,12 +40,13 @@ If you'd like to support the project, there's a [Ko-fi](https://ko-fi.com/forres
 |---|---|
 | **Timetable** | Your next class or calendar event with a live countdown, and today's list. |
 | **Notes** | Hold a button and talk: the note is transcribed, tidied up and saved, and can go to GitHub for Obsidian. |
+| **Reminders** | A to-do list you talk to: hold B and say "call Sam tomorrow at 5". When it's due, it chimes and shows on screen. |
 | **Pet** | A cute creature you dress up and name. Bring two unidex together and the Pets visit, chat, become friends and swap badges. |
 | **Badge** | Full-screen name tags, logos and photos. |
 | **Dex** | A WiFi collection game: every new network name nearby is logged with a rarity. |
 | **Chooser** | Pick 2–6 squares, spin, get a random winner. |
 | **Games** | Four one-button games: Flappy, Dino, Stack and Jetpack, with best scores. |
-| **Settings** | Date and time, sleep, invert, battery and info, reset data, factory reset. |
+| **Settings** | Date and time, sleep, volume, invert, battery and info, reset data, factory reset. |
 | **Apps** | Everything else: apps and plugins from the store, or ones you write yourself. |
 
 **New in v1.7: apps and plugins.** unidex now runs apps that anyone can write, and plugins that add to the built-in
@@ -132,9 +133,11 @@ second, and the rest happens in the background, with progress shown on screen:
 3. it's **saved** to the SD card as Markdown next to the recording, and
 4. if you switch it on, it's **sent to your GitHub repo**, ready for Obsidian.
 
-Press **B** on the Notes screen to send anything still waiting, or **A** to open the list (**B** opens a note and
-**hold B** deletes it). Inside an open note, **B** is **Open on phone**. It shows a QR code: join the device's own
-WiFi and you can browse, search, share and copy your notes on your phone. Hold A to stop it.
+No WiFi? The recording waits on the card and goes by itself once WiFi is in reach: the device tries when you wake
+it and every 10 minutes while it's on. **B** on the Notes screen sends anything waiting straight away. **A** opens
+the list (**B** opens a note and **hold B** deletes it). Inside an open note, **B** plays the recording on the
+speaker, sent or not (any button stops it), and **hold B** is **Open on phone**. It shows a QR code: join the
+device's own WiFi and you can browse, search, share and copy your notes on your phone. Hold A to stop it.
 
 Set it up on the [Setup page](https://tools.unidex.shop/setup.html). You can save up to five WiFi networks
 (home, eduroam and work networks, a phone hotspot: the device joins whichever is in range), your OpenAI key, which model tidies up (and an Anthropic key if you pick Claude), and
@@ -194,6 +197,8 @@ action (tap or hold, depending on the game). Best scores are kept on the device.
 
 - **Date & time:** set the clock by hand (the website, the Mac sync and WiFi can also set it).
 - **Sleep:** stay awake for 10, 20, 30 or 60 seconds after the last press.
+- **Volume:** the speaker, for playing notes and the reminder chime. **B** is louder, **hold B** quieter, with a
+  chime at each step; 0 turns it off.
 - **Invert:** white on black.
 - **Battery & info:** battery voltage and %, firmware version, storage used, and the device's name (`unidex-1A2B`,
   handy when you ask for help).

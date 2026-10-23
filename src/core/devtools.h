@@ -11,6 +11,9 @@
 //   X HOLD B <ms>     -> holds B for <ms> (hold-to-talk), same reply
 //   X STATE           -> "OK X STATE screen=<hex> sel=<hex> clock=<0|1> ... detail=<hex>" (detail: from the app)
 //   X MEM             -> "OK X MEM internal=<free> block=<largest> psram=<free>"
+//   X I2C             -> "OK X I2C sda=<0|1> scl=<0|1> <addresses that answer, hex>" on the clock chip's bus
+//                        (0x18 codec, 0x51 clock, 0x70 SHTC3); both lines 0 = the bus has no power
+//   X BEEP            -> the reminder chime on the speaker; "OK X BEEP" (or "ERR codec" if it didn't play)
 //   X BATT            -> "OK X BATT mv=<battery mV> pct=<% shown> usb=<0|1> up=<s>"
 //   X CLOCK UNSET     -> system time to 0 in RAM only (the clock chip keeps its time); "T <unix>" sets it back
 //   X SEED <n>        -> games start from random seed n (0 = truly random); "OK X SEED"
@@ -23,6 +26,7 @@
 //   X SWEEPONLY <prefix>  -> with FAKE on, a sync (sweep) handles only notes whose id starts with prefix (none: off)
 //   X FAILNOTE <n>    -> with FAKE on, the next n canned transcriptions fail with "Whisper: error 400"
 //   X EMPTY <0|1>     -> with FAKE on, the canned transcription hears nothing (the "Heard nothing" note)
+//   X AUTOSYNC <s>    -> Notes tries sending waiting recordings by itself every s seconds (0 = the usual 10 min)
 //   X WELCOME         -> the first-start welcome screens (finishing them saves "welcomed" = 1)
 //   X HANG            -> the main loop stops for good: the loop watchdog restarts the device after 30 s
 //   X BATTMV <mv>     -> pretend the battery reads mv, as if on battery (0 = the real reading): low-battery tests
@@ -43,6 +47,7 @@ bool devFailNote();                       // consumes one of X FAILNOTE's failur
 bool devSweepOn();                        // X SWEEPONLY is set
 bool devSweepAllows(const String &id);    // a sync may handle this note
 bool devDemo();
+uint32_t devAutoSync();  // X AUTOSYNC's seconds, 0 when not set
 uint32_t devSeed();
 bool devManualFrames();
 // What X FRAMES and X PLAY call (the Games app sets it). held: B per frame ('1' down), or null for the real B.
@@ -63,6 +68,7 @@ inline bool devSweepAllows(const String &) { return true; }
 inline bool devNoCard() { return false; }
 inline bool devNoPush() { return false; }
 inline bool devDemo() { return false; }
+inline uint32_t devAutoSync() { return 0; }
 inline uint32_t devSeed() { return 0; }
 inline bool devManualFrames() { return false; }
 #endif

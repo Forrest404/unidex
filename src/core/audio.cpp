@@ -1,18 +1,23 @@
-// ES8311 microphone capture. Register values follow Espressif's es8311 driver in esp_codec_dev (Apache-2.0),
+// ES8311 microphone capture, and sound on the speaker (recordings, a chime). Register values follow Espressif's es8311 driver in esp_codec_dev (Apache-2.0),
 // as used by Waveshare's 08_Audio_Test for this board. That library needs ESP-IDF 5, so this is a small
 // standalone version on the legacy I2S driver and the Wire bus the clock chip already uses.
 #include "audio.h"
 #include <Arduino.h>
 #include <Wire.h>
 #include <driver/i2s.h>
+#include "storage.h"
 
 static const uint8_t ES8311_ADDR = 0x18;
-static const gpio_num_t PIN_AUDIO_PWR = GPIO_NUM_42;  // active LOW; external pull-up keeps it off
+// Active LOW; an external pull-up keeps it off. It also powers the I2C pull-ups, so the clock (clock.cpp) turns it on
+// at start-up and it stays on: when sound stops, the codec is only put to sleep.
+static const gpio_num_t PIN_AUDIO_PWR = GPIO_NUM_42;
 static const i2s_port_t PORT = I2S_NUM_0;
 static const int PIN_MCLK = 14, PIN_BCLK = 15, PIN_WS = 38, PIN_DOUT = 45, PIN_DIN = 16;  // Waveshare board config
+static const int PIN_AMP = 46;  // the speaker amplifier's enable, active HIGH
 static const uint8_t MIC_GAIN = 7;  // REG16 PGA step: 0 = 0 dB ... 7 = 42 dB (a small onboard mic needs most of it)
 
-static bool running;
+static bool running, playing;  // the mic / the speaker (one at a time: they share the I2S port)
+static int dmaBuffers;  // of 1024 samples: how much sound can be queued and not yet heard
 
 static bool writeReg(uint8_t reg, uint8_t value) {
   Wire.beginTransmission(ES8311_ADDR);
@@ -58,20 +63,21 @@ static void suspendCodec() {
   for (auto &r : off) writeReg(r[0], r[1]);
 }
 
-bool audioBegin() {
-  if (running) return true;
+// Powers the codec and starts I2S: capture from the mic, or (play) output to the speaker.
+static bool start(bool play, int buffers = 16) {
   pinMode(PIN_AUDIO_PWR, OUTPUT);
-  digitalWrite(PIN_AUDIO_PWR, LOW);
+  digitalWrite(PIN_AUDIO_PWR, LOW);  // already on (see above); kept so audio never depends on the clock going first
   delay(20);  // let the codec's supply settle before talking to it
 
   // The ESP32 is the I2S master and drives MCLK, which the codec needs before its registers take effect.
   i2s_config_t cfg = {};
-  cfg.mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX);
+  cfg.mode = (i2s_mode_t)(I2S_MODE_MASTER | (play ? I2S_MODE_TX : I2S_MODE_RX));
   cfg.sample_rate = AUDIO_RATE;
   cfg.bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT;
-  cfg.channel_format = I2S_CHANNEL_FMT_ONLY_LEFT;  // the mic is the ADC's left channel
+  // The mic is the ADC's left channel. Played sound goes out on both, whichever one the DAC takes.
+  cfg.channel_format = play ? I2S_CHANNEL_FMT_RIGHT_LEFT : I2S_CHANNEL_FMT_ONLY_LEFT;
   cfg.communication_format = I2S_COMM_FORMAT_STAND_I2S;
-  cfg.dma_buf_count = 16;  // 16 x 1024 samples = 1 s of audio: a screen refresh (~0.4 s) never drops any
+  cfg.dma_buf_count = dmaBuffers = buffers;  // 16 x 1024 samples = 1 s: a screen refresh (~0.4 s) never drops any
   cfg.dma_buf_len = 1024;
   cfg.mclk_multiple = I2S_MCLK_MULTIPLE_256;
   i2s_pin_config_t pins = {};
@@ -80,10 +86,7 @@ bool audioBegin() {
   pins.ws_io_num = PIN_WS;
   pins.data_out_num = PIN_DOUT;
   pins.data_in_num = PIN_DIN;
-  if (i2s_driver_install(PORT, &cfg, 0, nullptr) != ESP_OK) {
-    digitalWrite(PIN_AUDIO_PWR, HIGH);
-    return false;
-  }
+  if (i2s_driver_install(PORT, &cfg, 0, nullptr) != ESP_OK) return false;
   i2s_set_pin(PORT, &pins);
 
   if (!configureCodec()) {
@@ -91,12 +94,26 @@ bool audioBegin() {
     Serial.printf("audio: ES8311 not answering (id %02x)\n", readReg(0xFD));
 #endif
     i2s_driver_uninstall(PORT);
-    digitalWrite(PIN_AUDIO_PWR, HIGH);
     return false;
   }
   i2s_zero_dma_buffer(PORT);
-  running = true;
   return true;
+}
+
+static void stop() {
+  suspendCodec();
+  i2s_driver_uninstall(PORT);
+  pinMode(PIN_MCLK, INPUT);  // stop driving the unpowered codec's pins
+  pinMode(PIN_BCLK, INPUT);
+  pinMode(PIN_WS, INPUT);
+  pinMode(PIN_DOUT, INPUT);
+}
+
+bool audioBegin() {
+  if (running) return true;
+  if (playing) return false;
+  running = start(false);
+  return running;
 }
 
 size_t audioRead(int16_t *out, size_t samples) {
@@ -108,12 +125,85 @@ size_t audioRead(int16_t *out, size_t samples) {
 
 void audioEnd() {
   if (!running) return;
-  suspendCodec();
-  i2s_driver_uninstall(PORT);
-  pinMode(PIN_MCLK, INPUT);  // stop driving the unpowered codec's pins
-  pinMode(PIN_BCLK, INPUT);
-  pinMode(PIN_WS, INPUT);
-  pinMode(PIN_DOUT, INPUT);
-  digitalWrite(PIN_AUDIO_PWR, HIGH);
+  stop();
   running = false;
+}
+
+// One note: a sine at `hz` for `ms`, faded in and out so it doesn't click.
+static void tone(float hz, int ms) {
+  static int16_t frames[256 * 2];  // stereo
+  const int total = AUDIO_RATE * ms / 1000, fade = AUDIO_RATE / 100;  // 10 ms
+  float phase = 0;
+  const float step = 2 * PI * hz / AUDIO_RATE;
+  for (int done = 0; done < total;) {
+    const int n = min(256, total - done);
+    for (int i = 0; i < n; i++, done++) {
+      const float env = min(1.0f, min(done, total - done) / (float)fade);
+      frames[2 * i] = frames[2 * i + 1] = (int16_t)(sinf(phase) * env * 9000);  // about a quarter of full scale
+      phase += step;
+    }
+    size_t wrote;
+    i2s_write(PORT, frames, n * 2 * sizeof(int16_t), &wrote, portMAX_DELAY);
+  }
+}
+
+// Volume 0-10, saved. 8 is the DAC at 0 dB (how it always played); each step is 3 dB, so 10 is +6 dB and 1 is
+// -21 dB. 0 is off: the amplifier stays off.
+static const int VOLUME_DEFAULT = 8;
+static int volume = -1;  // not read yet
+
+int audioVolume() {
+  if (volume < 0) volume = constrain(storageGetInt("volume", VOLUME_DEFAULT), 0, AUDIO_VOLUME_MAX);
+  return volume;
+}
+
+void audioSetVolume(int v) {
+  volume = constrain(v, 0, AUDIO_VOLUME_MAX);
+  storagePutInt("volume", volume);
+}
+
+// `buffers`: 16 (1 s) for a recording, which plays on while the screen refreshes; a chime needs only a few.
+static bool playBegin(int buffers) {
+  if (running || playing || !start(true, buffers)) return false;  // never over a recording
+  // Speaker path: DAC input on (16-bit I2S, not muted), DAC unmuted at the volume (REG32: 0xBF = 0 dB, 0.5 dB steps).
+  const int v = audioVolume();
+  writeReg(0x09, 0x0C);
+  writeReg(0x31, 0x00);
+  writeReg(0x32, v ? 0xBF + (v - VOLUME_DEFAULT) * 6 : 0x00);
+  pinMode(PIN_AMP, OUTPUT);
+  digitalWrite(PIN_AMP, v ? HIGH : LOW);
+  delay(10);  // the amplifier wakes up
+  playing = true;
+  return true;
+}
+
+bool audioPlayBegin() { return playBegin(16); }
+
+void audioPlay(const int16_t *mono, size_t samples) {
+  static int16_t frames[256 * 2];  // stereo
+  while (playing && samples) {
+    const size_t n = min((size_t)256, samples);
+    for (size_t i = 0; i < n; i++) frames[2 * i] = frames[2 * i + 1] = mono[i];
+    size_t wrote;
+    i2s_write(PORT, frames, n * 2 * sizeof(int16_t), &wrote, portMAX_DELAY);
+    mono += n;
+    samples -= n;
+  }
+}
+
+void audioPlayEnd(bool now) {
+  if (!playing) return;
+  // Played to the end: silence pushes the last of the sound out of the DMA buffers before the amplifier goes off.
+  if (!now) tone(0, dmaBuffers * 1024 * 1000 / AUDIO_RATE + 20);
+  digitalWrite(PIN_AMP, LOW);
+  stop();
+  playing = false;
+}
+
+bool audioChime() {
+  if (!playBegin(2)) return false;
+  tone(880, 140);
+  tone(1319, 220);
+  audioPlayEnd(false);
+  return true;
 }

@@ -104,6 +104,10 @@ void storeDelete(const String &id) {
   for (const char *ext : {".wav", ".md", ".gh", ".tmp"}) storageRemove(path(id, ext).c_str());
 }
 
+void storeUnsend(const String &id) {
+  for (const char *ext : {".md", ".gh"}) storageRemove(path(id, ext).c_str());
+}
+
 String storeTitleOf(const String &md) {
   const int at = md.indexOf("\ntitle: \"");
   if (!md.startsWith("---") || at < 0) return "";

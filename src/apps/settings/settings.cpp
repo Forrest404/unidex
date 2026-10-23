@@ -1,6 +1,8 @@
-// Settings: date and time, sleep, invert, battery and info, reset data (one thing, or the whole device).
+// Settings: date and time, sleep, volume, invert, battery and info, reset data (one thing, or the whole device).
 // A = next row or field, B = change, open or clear, hold A = back (in the date editor: leave without saving).
+// Volume: B = louder, hold B = quieter, each with a chime at the new level.
 #include "../../core/app.h"
+#include "../../core/audio.h"
 #include "../../core/battery.h"
 #include "../../core/clock.h"
 #include "../../core/devtools.h"
@@ -17,10 +19,10 @@
 
 static const char *VERSION = UNIDEX_VERSION;  // from git, tools/version.py
 static const int SLEEP_CHOICES[] = {10, 20, 30, 60};
-static const int ROW_H = 26;
+static const int ROW_H = 22;  // six rows fit above the hints
 
-enum Screen : uint8_t { LIST, DATETIME, INFO, RESET, CONFIRM, CONFIRM_AGAIN };
-enum Row : uint8_t { DATE, SLEEP, INVERT, INFO_ROW, RESET_ROW, ROWS };
+enum Screen : uint8_t { LIST, DATETIME, INFO, RESET, CONFIRM, CONFIRM_AGAIN, VOLUME };
+enum Row : uint8_t { DATE, SLEEP, VOLUME_ROW, INVERT, INFO_ROW, RESET_ROW, ROWS };
 enum Reset : uint8_t { TALLY, DEX, CALENDAR, PET_FRIENDS, EVERYTHING, FACTORY, RESETS };
 static const char *RESET_NAMES[] = {"Chooser tally", "Dex", "Calendar", "Pet friends", "Everything", "Factory reset"};
 static const int RESET_ROW_H = 22;  // six rows fit above the hints
@@ -46,6 +48,16 @@ static void drawRow(int i, bool selected, const char *label, const char *val, in
   display.setTextColor(BLACK);
 }
 
+// The volume screen's slider: AUDIO_VOLUME_MAX blocks, centred, filled up to the volume.
+static void drawSlider(int16_t cy) {
+  const int16_t w = 14, h = 24, gap = 3, x0 = (display.width() - AUDIO_VOLUME_MAX * (w + gap) + gap) / 2;
+  for (int i = 0; i < AUDIO_VOLUME_MAX; i++) {
+    const int16_t x = x0 + i * (w + gap);
+    if (i < audioVolume()) display.fillRect(x, cy - h / 2, w, h, BLACK);
+    else display.drawRect(x, cy - h / 2, w, h, BLACK);
+  }
+}
+
 static void drawList() {
   drawHeader("Settings");
   display.setFont(FONT_SMALL);
@@ -57,10 +69,29 @@ static void drawList() {
   snprintf(sleep, sizeof sleep, "%d s", powerSleepSeconds());
   drawRow(DATE, cursor == DATE, "Date & time", time);
   drawRow(SLEEP, cursor == SLEEP, "Sleep after", sleep);
+  drawRow(VOLUME_ROW, cursor == VOLUME_ROW, "Volume", "");
+  {  // a small bar, filled as far as the volume
+    const int16_t w = 50, x = display.width() - MARGIN - w, y = CONTENT_TOP + 4 + VOLUME_ROW * ROW_H + 5;
+    const uint16_t ink = cursor == VOLUME_ROW ? WHITE : BLACK;
+    display.drawRect(x, y, w, 10, ink);
+    display.fillRect(x + 2, y + 2, (w - 4) * audioVolume() / AUDIO_VOLUME_MAX, 6, ink);
+  }
   drawRow(INVERT, cursor == INVERT, "Invert", display.inverted ? "on" : "off");
   drawRow(INFO_ROW, cursor == INFO_ROW, "Battery & info", ">");
   drawRow(RESET_ROW, cursor == RESET_ROW, "Reset data", ">");
   drawHints("next", cursor == SLEEP || cursor == INVERT ? "change" : "open", "");
+}
+
+static void drawVolume() {
+  drawHeader("Volume");
+  char n[8];
+  snprintf(n, sizeof n, "%d", audioVolume());
+  display.setFont(FONT_LARGE);
+  drawCentered(audioVolume() ? n : "Off", 64);
+  drawSlider(108);
+  display.setFont(FONT_SMALL);
+  drawCentered("Notes and reminders", 144);
+  drawHints("", audioVolume() < AUDIO_VOLUME_MAX ? "louder" : "", audioVolume() ? "quieter" : "");
 }
 
 // Text pieces in a line, centred; the piece at `active` is inverted in a box `boxH` tall.
@@ -289,6 +320,8 @@ static Redraw onButton(Event e) {
           for (int i = 0; i < 3; i++)
             if (SLEEP_CHOICES[i] == now) next = SLEEP_CHOICES[i + 1];
           powerSetSleepSeconds(next);
+        } else if (cursor == VOLUME_ROW) {
+          screen = VOLUME;
         } else if (cursor == INVERT) {
           displaySetInverted(!display.inverted);
           return Redraw::Full;  // every pixel changes
@@ -312,6 +345,13 @@ static Redraw onButton(Event e) {
       return Redraw::Partial;
     case INFO:
       return e == Event::BShort ? Redraw::Partial : Redraw::None;  // refresh the readings
+    case VOLUME: {
+      const int v = audioVolume() + (e == Event::BShort ? 1 : e == Event::BLong ? -1 : 0);
+      if (v == audioVolume() || v < 0 || v > AUDIO_VOLUME_MAX) return Redraw::None;
+      audioSetVolume(v);
+      audioChime();  // how loud it is now (silent at 0)
+      return Redraw::Partial;
+    }
     case RESET:
       if (e == Event::AShort) resetCursor = (resetCursor + 1) % RESETS;
       else if (e == Event::BShort) screen = CONFIRM;
@@ -350,6 +390,7 @@ static void draw() {
   switch (screen) {
     case DATETIME: drawDateTime(); break;
     case INFO: drawInfo(); break;
+    case VOLUME: drawVolume(); break;
     case RESET: drawReset(); break;
     case CONFIRM:
     case CONFIRM_AGAIN: drawConfirm(); break;

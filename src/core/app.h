@@ -21,4 +21,7 @@ struct App {
   void (*status)(char *out, size_t len);  // home screen line under the name; cached state only (no SD, no WiFi)
   Redraw (*tick)();           // called every loop while open, for live content; None when nothing changed
   bool needsCard;             // shows "No SD card" instead of opening without one
+  // Called every loop whatever is on screen, open or not (Reminders: words heard while you were elsewhere are
+  // added at once, before a deep sleep can lose them). True: redraw the screen. nullptr for most apps.
+  bool (*background)();
 };

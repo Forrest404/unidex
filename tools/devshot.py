@@ -7,7 +7,8 @@
   ... run tools/walkthroughs/home.txt --emu     the same, against the browser emulator (emu/build.sh first)
 
 Walkthrough lines: home | welcome | select <app> | pick <game> | waitjob <s> | job | seed <n> | manual <0|1> | frames <n> | play <0/1...> | press <keys...> | hold B <ms> | shot <name> | expect screen=<name> | sleep <ms>
-                   | dry|fake|netfail|nocard|nopush|demo <0|1> | keep <setting>|pet | clock unset | # comment
+                   | dry|fake|netfail|nocard|nopush|demo <0|1> | keep <setting>|pet | clock unset | clock today <HH:MM:SS>
+                   | # comment
 Pause the Mac agent first (it shares the port). Each run ends with the switches off, and puts the clock back
 if the run unset it.
 """
@@ -212,6 +213,14 @@ class Run:
                 return p[3], p[4], p[5], bytes.fromhex(p[6]).decode(), bytes.fromhex(p[7]).decode() if len(p) > 7 else ""
         raise TimeoutError("no reply to N JOB")
 
+    def note_ids(self):
+        """The ids of the notes on the card (N LIST), newest first."""
+        self.dev.s.write(b"N LIST\n")
+        ids = []
+        while not (r := self.dev.reply("", ("NF ", "OK N LIST"))).startswith("OK"):
+            ids.append(r.split()[1])
+        return ids
+
     def select(self, name):
         """Home, then A until `name` is highlighted."""
         self.home()
@@ -244,6 +253,12 @@ class Run:
                 self.last = self.dev.press(k)
         elif w[0] == "hold" and w[1] == "B":
             self.last = self.dev.hold_b(int(w[2]))
+        elif w[0] == "shotduring":  # shotduring <ms> <name> <X command>: a shot <ms> into a press that blocks the
+            # loop while it lasts (recording, playing), which answers X SHOT meanwhile
+            self.dev.s.write((" ".join(w[3:]) + "\n").encode())
+            time.sleep(int(w[1]) / 1000)
+            self.shot(w[2])
+            self.dev.reply("", "OK X BTN", timeout=200)
         elif w[0] == "shot":
             self.shot(w[1])
         elif w[0] == "expect":
@@ -276,6 +291,20 @@ class Run:
             self.dev.cmd("X WELCOME")
         elif w[0] in ("dry", "fake", "netfail", "nocard", "nopush", "demo"):
             self.dev.cmd(f"X {w[0].upper()} {w[1]}")
+        elif w[0] == "notes" and w[1] == "mark":  # remember which notes are on the card now (for "sweeponly new")
+            self.marked = set(self.note_ids())
+        elif w[0] == "sweeponly":  # fake syncs touch only these notes; "new" = the ones made since "notes mark"
+            prefix = w[1] if len(w) > 1 else ""
+            if prefix == "new":
+                new = [i for i in self.note_ids() if i not in self.marked]
+                if len(new) != 1:
+                    self.problems.append(f"expected one new note, found {len(new)}")
+                prefix = new[0] if len(new) == 1 else "none"  # never a note this run didn't make
+            self.dev.cmd(f"X SWEEPONLY {prefix}".strip())
+            self.swept = True
+        elif w[0] == "autosync":  # Notes tries sending by itself every n seconds (0 = the usual 10 min)
+            self.dev.cmd(f"X AUTOSYNC {w[1]}")
+            self.swept = True
         elif w[0] == "keep" and w[1] == "pet":  # the Pet's look and name, put back at the end (P GET / P SET)
             if "pet" not in self.kept:
                 self.kept["pet"] = self.dev.reply("P GET", "OK P ").split()[2:]
@@ -284,6 +313,13 @@ class Run:
                 self.kept[w[1]] = self.dev.cmd(f"X KEY {w[1]}")[-1].split()[-1]
         elif w[0] == "clock" and w[1] == "unset":
             self.dev.cmd("X CLOCK UNSET")
+            self.clock_touched = True
+        elif w[0] == "clock" and w[1] == "today":  # the clock to HH:MM:SS today, London time (a reminder falling due)
+            import datetime, zoneinfo
+            zone = zoneinfo.ZoneInfo("Europe/London")
+            h, m, sec = (int(x) for x in w[2].split(":"))
+            at = datetime.datetime.combine(datetime.datetime.now(zone).date(), datetime.time(h, m, sec), zone)
+            self.dev.reply(f"T {int(at.timestamp())}", "OK T")
             self.clock_touched = True
         else:
             raise ValueError(f"unknown step: {line}")
@@ -298,6 +334,9 @@ class Run:
         self.dev.cmd("X MANUAL 0")
         for sw in ("DRY", "FAKE", "NETFAIL", "NOCARD", "NOPUSH", "DEMO"):
             self.dev.cmd(f"X {sw} 0")
+        if getattr(self, "swept", False):
+            self.dev.cmd("X SWEEPONLY")
+            self.dev.cmd("X AUTOSYNC 0")
         if self.clock_touched:
             self.dev.s.write(f"T {int(time.time())}\n".encode())
             time.sleep(0.3)
