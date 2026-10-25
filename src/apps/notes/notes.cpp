@@ -215,7 +215,25 @@ static void drawMain() {
     else if (!line.length() && !hasCard()) line = githubOn() ? "No SD card: GitHub only" : "No SD card: nothing is kept";
     else if (!line.length() && waiting()) line = String(waiting()) + " waiting: sends on WiFi";
     else if (!line.length()) line = "to record a note";
-    drawCentered(fitText(line.c_str(), display.width() - 2 * MARGIN).c_str(), 128);
+    // A long one ("No SD card: GitHub only", an error) goes on two lines, split after its colon if it has one.
+    const int16_t w = display.width() - 2 * MARGIN;
+    String lines[2];
+    const int colon = line.indexOf(": ");
+    if (textWidth(line.c_str()) <= w) {
+      lines[0] = line;
+    } else if (colon > 0 && textWidth(line.substring(0, colon + 1).c_str()) <= w &&
+               textWidth(line.substring(colon + 2).c_str()) <= w) {
+      lines[0] = line.substring(0, colon + 1);
+      lines[1] = line.substring(colon + 2);
+    } else {
+      wrapText(line.c_str(), w, lines, 2);
+    }
+    if (!lines[1].length()) {
+      drawCentered(lines[0].c_str(), 128);
+    } else {
+      drawCentered(lines[0].c_str(), 121);
+      drawCentered(lines[1].c_str(), 140);
+    }
   }
   drawHints(hasCard() ? "list" : "", waiting() && !jobBusy() ? "sync" : "", jobCanTake() ? "record" : "");
 }
