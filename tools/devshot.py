@@ -7,7 +7,7 @@
   ... run tools/walkthroughs/home.txt --emu     the same, against the browser emulator (emu/build.sh first)
 
 Walkthrough lines: home | welcome | select <app> | pick <game> | waitjob <s> | job | seed <n> | manual <0|1> | frames <n> | play <0/1...> | press <keys...> | hold B <ms> | shot <name> | expect screen=<name> | sleep <ms>
-                   | dry|fake|netfail|nocard|nopush|nosave|demo <0|1> | keep <setting>|pet | clock unset | clock today <HH:MM:SS>
+                   | dry|fake|netfail|nocard|nopush|nosave|demo <0|1> | keep|same <setting> | keep pet | pet <look> [<name>] | clock unset | clock today <HH:MM:SS>
                    | # comment
 Pause the Mac agent first (it shares the port). Each run ends with the switches off, and puts the clock back
 if the run unset it.
@@ -175,6 +175,7 @@ class Run:
         self.dev, self.out, self.compare = dev, out, compare
         self.tiles, self.problems, self.clock_touched, self.last = [], [], False, ("-", 0)
         self.kept = {}  # saved settings to put back at the end (keep <key>)
+        self.same = set()  # of those, the ones that must not have changed (same <key>)
         os.makedirs(out, exist_ok=True)
 
     def shot(self, name):
@@ -308,9 +309,14 @@ class Run:
         elif w[0] == "keep" and w[1] == "pet":  # the Pet's look and name, put back at the end (P GET / P SET)
             if "pet" not in self.kept:
                 self.kept["pet"] = self.dev.reply("P GET", "OK P ").split()[2:]
-        elif w[0] == "keep":  # put this saved setting back as it was when the run ends
+        elif w[0] == "pet":  # pet <look hex> [<name hex>]: a known Pet to start from (keep pet first)
+            self.dev.reply("P SET " + " ".join(w[1:]), "OK P SET")
+        elif w[0] in ("keep", "same"):  # put this saved setting back as it was when the run ends; "same" also
+            # says it must end as it started (a PROBLEM if not: the presses went somewhere else)
             if w[1] not in self.kept:
                 self.kept[w[1]] = self.dev.cmd(f"X KEY {w[1]}")[-1].split()[-1]
+            if w[0] == "same":
+                self.same.add(w[1])
         elif w[0] == "clock" and w[1] == "unset":
             self.dev.cmd("X CLOCK UNSET")
             self.clock_touched = True
@@ -329,6 +335,10 @@ class Run:
             if key == "pet":
                 self.dev.reply("P SET " + " ".join(value), "OK P SET")
             else:
+                if key in self.same:
+                    now = self.dev.cmd(f"X KEY {key}")[-1].split()[-1]
+                    if now != value:
+                        self.problems.append(f"{key} went from {value} to {now}: put back (restart to use it)")
                 self.dev.cmd(f"X KEY {key} {value}")
         self.dev.cmd("X SEED 0")
         self.dev.cmd("X MANUAL 0")

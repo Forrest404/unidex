@@ -1,7 +1,7 @@
-# Pet: the main screen and the dress-up editor. The saved look is put back as it was at the end (keep pet_look);
-# Random is repeatable (seed); no blinking (manual), so the shots repeat.
-keep pet_look
+# Pet: the main screen and the dress-up editor. It starts from a known Pet with no name, and your Pet's look and
+# name are put back at the end (keep pet); Random is repeatable (seed); no blinking (manual), so the shots repeat.
 keep pet
+pet 00000
 seed 7
 manual 1
 select Pet

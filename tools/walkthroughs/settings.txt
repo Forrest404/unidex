@@ -1,4 +1,8 @@
-# Settings. Every setting changed here is changed back; the date editor is always cancelled; clearing is a dry run.
+# Settings. Every setting changed here is changed back (and checked: same); the date editor is always cancelled;
+# clearing is a dry run. Volume has its own walkthrough (volume.txt).
+same sleep_s
+same volume
+same invert
 select Settings
 shot s-home-status
 press b
@@ -11,6 +15,8 @@ press b
 press b
 press b
 shot s-sleep-back-to-10
+press a
+shot s-list-volume-row
 press a
 press b
 shot s-inverted
