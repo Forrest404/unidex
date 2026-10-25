@@ -4,6 +4,8 @@ shot home-timetable
 press a
 shot home-notes
 press a
+shot home-reminders
+press a
 shot home-pet
 press a
 shot home-badge
@@ -13,6 +15,8 @@ press a
 shot home-chooser
 press a
 shot home-games
+press a
+shot home-apps
 press a
 shot home-settings
 press a
