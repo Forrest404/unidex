@@ -39,6 +39,7 @@ bool scriptsRunning(const char *id) { return screen == RUN && strcmp(runId, id) 
 void scriptsListChanged() {
   listed = false;
   changed = true;
+  appCount = appsList(false).size();  // the home screen's line, which can't wait for the list to be looked at
 }
 
 static void showFailure(const char *title, const String &why) {

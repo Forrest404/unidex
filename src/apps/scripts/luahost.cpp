@@ -71,7 +71,11 @@ size_t hostMemoryUsed() { return heap && L ? ARENA - multi_heap_free_size(heap) 
 
 // --- limits ---
 static void hook(lua_State *s, lua_Debug *) {
-  if (millis() - callStart > CALL_MS) luaL_error(s, "took too long (over %d s)", (int)(CALL_MS / 1000));
+  if (millis() - callStart <= CALL_MS) return;
+  luaL_where(s, 0);  // the line running now, the loop (luaL_error would name the line that called its function)
+  lua_pushfstring(s, "took too long (over %d s)", (int)(CALL_MS / 1000));
+  lua_concat(s, 2);
+  lua_error(s);
 }
 
 // --- small helpers ---

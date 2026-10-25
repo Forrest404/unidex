@@ -41,6 +41,8 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   instead of falling behind.
 - **Reminders:** setting the clock back (by hand, or putting a fast clock right) no longer silences the reminders due
   before the old time: they come up when their time comes.
+- **Apps:** an app stopped for running too long names the line that was looping, not the line that called it. The
+  home screen's count of apps is right straight after one is added or removed from the website.
 - **Website: Release or Beta.** Install and Update each have a Version menu: the newest release (the default) or
   Beta, the newest changes before they're released. Beta is rebuilt whenever it changes. Update back to Release
   the same way.
