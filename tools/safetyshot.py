@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # Tests the safety features on one board running the test build (pio run -e dev), and puts everything back:
-#   low battery     X BATTMV 3400: Notes and Dex refuse with "Battery too low"
+#   low battery     X BATTMV 3400: Notes (recording, Open on phone) and Dex refuse with "Battery too low"
 #   flat battery    X BATTMV 3300: "Charge me" within ~31 s (the test build shows it but stays on), then a restart
 #   watchdog        X HANG: the main loop stops; the board must restart by itself within ~40 s
 #   safe saving     a calendar sent with a wrong checksum is refused and the saved one is untouched; with no SD card
@@ -48,7 +48,10 @@ class Run:
     def select(self, name):
         self.home()
         for _ in range(10):
-            if self.dev.state()["sel"] == name:
+            st = self.dev.state()
+            if st["screen"] != "Home":  # sel is the home screen's: inside an app it says nothing about where we are
+                return False
+            if st["sel"] == name:
                 return True
             self.dev.press("a")
         return False
@@ -111,6 +114,13 @@ class Run:
             st = self.dev.state()
             self.shot("low-notes")
             self.check(toast(st) == LOW, f"Notes refuses to record when low (toast: {toast(st)!r})")
+            self.dev.press("a")  # the list
+            self.dev.press("b")  # the newest note
+            if self.dev.state()["screen"] == "Notes":
+                self.dev.press("B")  # hold B: Open on phone
+                st = self.dev.state()
+                self.shot("low-phone")
+                self.check(toast(st) == LOW, f"Open on phone refuses when low (toast: {toast(st)!r})")
         if self.select("Dex"):
             self.dev.press("b")
             if self.dev.state()["screen"] == "Dex":

@@ -31,6 +31,7 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 - **Notes:** fixed a note being sent to GitHub twice (or more) when the card filled up or went missing between the
   recording and its text. The device now remembers it's on GitHub, writes the text to the card once there's room,
   and doesn't transcribe it again.
+- **Notes:** Open on phone says "Battery too low" on a low battery, like everything else that uses WiFi.
 - **Website: Release or Beta.** Install and Update each have a Version menu: the newest release (the default) or
   Beta, the newest changes before they're released. Beta is rebuilt whenever it changes. Update back to Release
   the same way.

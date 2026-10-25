@@ -397,6 +397,10 @@ static Redraw onButton(Event e) {
         return Redraw::Partial;
       }
       if (e == Event::BLong && hasCard()) {  // read it (and the other notes) on a phone
+        if (const char *low = batteryTooLow()) {  // the hotspot draws as much as normal WiFi
+          launcherToast(low);
+          return Redraw::Partial;
+        }
         if (!phoneStart()) {
           launcherToast("Sending a note: try soon");
           return Redraw::Partial;
