@@ -39,6 +39,8 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   the Tools page (reinstall the Mac app: `tools/calsync/install.sh`).
 - **Notes:** playing a note starts about half a second sooner, and the time and bar move on as each second is heard
   instead of falling behind.
+- **Reminders:** setting the clock back (by hand, or putting a fast clock right) no longer silences the reminders due
+  before the old time: they come up when their time comes.
 - **Website: Release or Beta.** Install and Update each have a Version menu: the newest release (the default) or
   Beta, the newest changes before they're released. Beta is rebuilt whenever it changes. Update back to Release
   the same way.

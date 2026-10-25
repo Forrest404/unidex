@@ -111,7 +111,10 @@ static void demoList() {
 
 static void ensureList() {
 #if UNIDEX_DEV
-  if (listed && listedDemo != devDemo()) listed = false;
+  if (listed && listedDemo != devDemo()) {
+    listed = false;
+    alertedUpTo = nowMinutes();  // a fresh start for the other list: the samples already past don't come up
+  }
   listedDemo = devDemo();
   if (!listed && devDemo()) {
     demoList();
@@ -334,7 +337,9 @@ static void checkDue() {
     if (!storageCardMount()) return;
     ensureList();
   }
-  if (alertedUpTo < 0) {  // a fresh start: only what falls due from now on comes up (the late ones are in the list)
+  // A fresh start: only what falls due from now on comes up (the late ones are in the list). The same when the clock
+  // goes back (set by hand, or a fast clock put right), or what falls due before the old time would never come up.
+  if (alertedUpTo < 0 || now < alertedUpTo - 1) {
     alertedUpTo = now;
     remember();
   }
