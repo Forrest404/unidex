@@ -21,9 +21,12 @@ func requestAccess() -> Bool {
   return granted
 }
 
-// The device font is ASCII only, and fields are comma-separated with fixed sizes.
+// The device font is ASCII only, and fields are comma-separated with fixed sizes and an event is one line, so a line
+// break or comma becomes a space ("Charrington Street\nLondon" -> "Charrington Street London").
 func clean(_ s: String?, _ max: Int) -> String {
-  let ascii = (s ?? "").applyingTransform(.toLatin, reverse: false)?
+  let flat = (s ?? "").replacingOccurrences(of: ",", with: " ")
+    .components(separatedBy: .whitespacesAndNewlines).filter { !$0.isEmpty }.joined(separator: " ")
+  let ascii = flat.applyingTransform(.toLatin, reverse: false)?
     .applyingTransform(.stripDiacritics, reverse: false) ?? ""
   let safe = String(ascii.unicodeScalars.filter { $0.isASCII && $0.value >= 32 && $0 != "," }.map(Character.init))
   return String(safe.trimmingCharacters(in: .whitespaces).prefix(max))

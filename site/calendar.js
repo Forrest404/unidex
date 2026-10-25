@@ -6,9 +6,10 @@ import { crc32 } from './serial.js';
 export const DAYS_AHEAD = 7;
 const MAX_EVENTS = 64, TZ = 'Europe/London';  // the device shows London time
 
-// Same cleaning as tools/calsync/calsync.swift: the device font is ASCII, fields are comma-separated.
+// Same cleaning as tools/calsync/calsync.swift: the device font is ASCII, fields are comma-separated and an event is
+// one line, so a line break or comma becomes a space ("Charrington Street\nLondon" -> "Charrington Street London").
 const clean = (s, max) => (s || '').normalize('NFKD').replace(/[̀-ͯ]/g, '')
-  .replace(/[^\x20-\x7e]|,/g, '').trim().slice(0, max);
+  .replace(/[\s,]+/g, ' ').replace(/[^\x20-\x7e]/g, '').trim().slice(0, max);
 const parts = d => Object.fromEntries(new Intl.DateTimeFormat('en-GB', { timeZone: TZ, year: 'numeric',
   month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
   .formatToParts(d).map(p => [p.type, p.value]));

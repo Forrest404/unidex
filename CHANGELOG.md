@@ -34,6 +34,9 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 - **Notes:** Open on phone says "Battery too low" on a low battery, like everything else that uses WiFi.
 - **Notes:** a long line on the Notes screen ("No SD card: GitHub only", "1 waiting: sends on WiFi", an error) goes
   on two lines instead of being cut off.
+- **Timetable:** a long class's length is shortened ("2h 45m") when it wouldn't fit next to the time. A place written
+  on two lines in your calendar ("Charrington Street" / "London") keeps a space between them, from the Mac app and
+  the Tools page (reinstall the Mac app: `tools/calsync/install.sh`).
 - **Website: Release or Beta.** Install and Update each have a Version menu: the newest release (the default) or
   Beta, the newest changes before they're released. Beta is rebuilt whenever it changes. Update back to Release
   the same way.

@@ -209,10 +209,11 @@ static int findToday(int16_t *out, const struct tm &now) {
   return n;
 }
 
-static void formatDuration(char *buf, size_t len, int32_t min) {
-  if (min < 60) snprintf(buf, len, "%ld min", (long)min);
-  else if (min % 60 == 0) snprintf(buf, len, "%ld h", (long)(min / 60));
-  else snprintf(buf, len, "%ld h %ld min", (long)(min / 60), (long)(min % 60));
+// "2 h 45 min", or "2h 45m" (short) where that doesn't fit.
+static void formatDuration(char *buf, size_t len, int32_t min, bool short_ = false) {
+  if (min < 60) snprintf(buf, len, short_ ? "%ldm" : "%ld min", (long)min);
+  else if (min % 60 == 0) snprintf(buf, len, short_ ? "%ldh" : "%ld h", (long)(min / 60));
+  else snprintf(buf, len, short_ ? "%ldh %ldm" : "%ld h %ld min", (long)(min / 60), (long)(min % 60));
 }
 
 static void formatHm(char *buf, size_t len, int min) { snprintf(buf, len, "%02d:%02d", min / 60, min % 60); }
@@ -331,6 +332,10 @@ static void drawNext(const struct tm &now) {
   formatDuration(dur, sizeof dur, c.end - c.start);
   snprintf(line, sizeof line, "%s   %s", span, dur);
   display.setFont(FONT_SMALL);
+  if (textWidth(line) > width) {  // "12:15-15:00   2 h 45 min" is a little too wide
+    formatDuration(dur, sizeof dur, c.end - c.start, true);
+    snprintf(line, sizeof line, "%s   %s", span, dur);
+  }
   const int16_t y = CONTENT_TOP + 96;
   display.setCursor(MARGIN, y);
   display.print(line);
