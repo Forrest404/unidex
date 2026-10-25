@@ -8,6 +8,7 @@
 # Nothing here writes to your calendar, Dex or notes, and the battery reading is put back to the real one.
 #   python3 tools/safetyshot.py [port] [--skip flat,hang]
 # Screens go to shots/safety/.
+import argparse
 import os
 import sys
 import time
@@ -183,12 +184,15 @@ class Run:
 
 
 def main():
-    args = [a for a in sys.argv[1:] if not a.startswith("--")]
-    skip = set()
-    for a in sys.argv[1:]:
-        if a.startswith("--skip="):
-            skip |= set(a.split("=", 1)[1].split(","))
-    run = Run(args[0] if args else find_port())
+    ap = argparse.ArgumentParser()
+    ap.add_argument("port", nargs="?")
+    ap.add_argument("--skip", default="", help="flat,hang: tests to leave out")
+    a = ap.parse_args()
+    skip = set(a.skip.split(",")) - {""}
+    unknown = skip - {"flat", "hang"}
+    if unknown:
+        ap.error(f"can't skip {', '.join(sorted(unknown))}: only flat and hang")
+    run = Run(a.port or find_port())
     try:
         run.home()
         run.low_battery()
