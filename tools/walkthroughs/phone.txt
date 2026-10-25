@@ -1,5 +1,5 @@
-# Notes "Open on phone": open a note, B starts the hotspot, the QR screen, hold A stops it and goes back to the
-# note. Leaves the hotspot off. The phone side (scanning, the page) needs a real phone.
+# Notes "Open on phone": open a note, hold B starts the hotspot (B plays the recording), the QR screen, hold A
+# stops it and goes back to the note. Leaves the hotspot off. The phone side (scanning, the page) needs a real phone.
 select Notes
 press b
 expect screen=Notes
@@ -7,7 +7,7 @@ press a
 shot p-list
 press b
 shot p-view
-press b
+press B
 shot p-qr
 press a
 shot p-qr-press-a
