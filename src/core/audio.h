@@ -10,7 +10,9 @@ bool audioBegin();                               // power up the codec and start
 size_t audioRead(int16_t *out, size_t samples);  // blocks until `samples` mono samples arrive (or ~100 ms pass)
 void audioEnd();                                 // stop capture and power the codec down
 // Sound out of the speaker, 16 kHz mono like the mic: begin (false while recording or if the codec is silent), play
-// (blocks while the 1 s of DMA buffers is full), end. now: stop at once; else what's queued plays out first.
+// (blocks while the DMA buffers are full), end. now: stop at once; else what's queued plays out first.
+// A sample is heard AUDIO_PLAY_QUEUE samples after it's played: the buffers start out full of silence.
+const size_t AUDIO_PLAY_QUEUE = 8 * 1024;  // 0.5 s: longer than a screen refresh (~0.35 s), so none drops any sound
 bool audioPlayBegin();
 void audioPlay(const int16_t *mono, size_t samples);
 void audioPlayEnd(bool now);

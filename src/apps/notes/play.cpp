@@ -57,11 +57,11 @@ const char *playNote(const String &id) {
     }
     const int got = f.read((uint8_t *)buf, min(sizeof buf, (total - done) * 2));
     if (got <= 0) break;
-    audioPlay(buf, got / 2);  // blocks while the 1 s of DMA buffers is full, so this runs at the sound's pace
+    audioPlay(buf, got / 2);  // blocks while the DMA buffers are full, so this runs at the sound's pace
     done += got / 2;
-    const size_t queued = AUDIO_RATE;  // about 1 s waits in the DMA buffers, not heard yet
+    const size_t queued = AUDIO_PLAY_QUEUE;  // not heard yet
     playedMs = done > queued ? (uint64_t)(done - queued) * 1000 / AUDIO_RATE : 0;
-    if (playedMs - shown >= 1000) {  // the refresh blocks ~0.4 s; the queued second keeps playing
+    if (playedMs / 1000 != shown / 1000) {  // each new second; the refresh blocks ~0.35 s, the queue keeps playing
       shown = playedMs;
       displayFrame(drawPlaying);
     }

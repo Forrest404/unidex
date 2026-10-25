@@ -177,7 +177,7 @@ static bool playBegin(int buffers) {
   return true;
 }
 
-bool audioPlayBegin() { return playBegin(16); }
+bool audioPlayBegin() { return playBegin(AUDIO_PLAY_QUEUE / 1024); }
 
 void audioPlay(const int16_t *mono, size_t samples) {
   static int16_t frames[256 * 2];  // stereo

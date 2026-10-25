@@ -37,6 +37,8 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 - **Timetable:** a long class's length is shortened ("2h 45m") when it wouldn't fit next to the time. A place written
   on two lines in your calendar ("Charrington Street" / "London") keeps a space between them, from the Mac app and
   the Tools page (reinstall the Mac app: `tools/calsync/install.sh`).
+- **Notes:** playing a note starts about half a second sooner, and the time and bar move on as each second is heard
+  instead of falling behind.
 - **Website: Release or Beta.** Install and Update each have a Version menu: the newest release (the default) or
   Beta, the newest changes before they're released. Beta is rebuilt whenever it changes. Update back to Release
   the same way.
