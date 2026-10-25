@@ -7,7 +7,7 @@
   ... run tools/walkthroughs/home.txt --emu     the same, against the browser emulator (emu/build.sh first)
 
 Walkthrough lines: home | welcome | select <app> | pick <game> | waitjob <s> | job | seed <n> | manual <0|1> | frames <n> | play <0/1...> | press <keys...> | hold B <ms> | shot <name> | expect screen=<name> | sleep <ms>
-                   | dry|fake|netfail|nocard|nopush|demo <0|1> | keep <setting>|pet | clock unset | clock today <HH:MM:SS>
+                   | dry|fake|netfail|nocard|nopush|nosave|demo <0|1> | keep <setting>|pet | clock unset | clock today <HH:MM:SS>
                    | # comment
 Pause the Mac agent first (it shares the port). Each run ends with the switches off, and puts the clock back
 if the run unset it.
@@ -289,7 +289,7 @@ class Run:
             time.sleep(int(w[1]) / 1000)
         elif w[0] == "welcome":  # the first-start screens (X WELCOME)
             self.dev.cmd("X WELCOME")
-        elif w[0] in ("dry", "fake", "netfail", "nocard", "nopush", "demo"):
+        elif w[0] in ("dry", "fake", "netfail", "nocard", "nopush", "nosave", "demo"):
             self.dev.cmd(f"X {w[0].upper()} {w[1]}")
         elif w[0] == "notes" and w[1] == "mark":  # remember which notes are on the card now (for "sweeponly new")
             self.marked = set(self.note_ids())
@@ -332,7 +332,7 @@ class Run:
                 self.dev.cmd(f"X KEY {key} {value}")
         self.dev.cmd("X SEED 0")
         self.dev.cmd("X MANUAL 0")
-        for sw in ("DRY", "FAKE", "NETFAIL", "NOCARD", "NOPUSH", "DEMO"):
+        for sw in ("DRY", "FAKE", "NETFAIL", "NOCARD", "NOPUSH", "NOSAVE", "DEMO"):
             self.dev.cmd(f"X {sw} 0")
         if getattr(self, "swept", False):
             self.dev.cmd("X SWEEPONLY")

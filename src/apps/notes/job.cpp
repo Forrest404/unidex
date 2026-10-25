@@ -75,6 +75,48 @@ static String fileName(const String &title, const String &id) {  // a safe GitHu
 
 static bool githubOn() { return credGet("gh_on") == "1"; }
 
+// A note that reached GitHub but couldn't be written to the card (it filled up, or went) is remembered, in NVS so a
+// restart doesn't lose it, so its recording isn't transcribed and pushed again. Its text stays in memory while the
+// device is awake; after a restart the card gets a short note that points to GitHub instead.
+static const char *const ON_GITHUB_ONLY = "note_ghonly";  // "<id>\n<path in the repo>"
+static const char *const CARD_FULL = "Card full";
+static String onlyMd;  // that note's text ("" = already on the card)
+
+static void rememberPushed(const String &id, const String &md, const String &repoPath) {
+  onlyMd = md;
+  storagePutString(ON_GITHUB_ONLY, (id + "\n" + repoPath).c_str());
+}
+
+// Puts the remembered note on the card if it takes it now (`wrote` says it did). True when nothing is left waiting
+// for the card.
+static bool settlePushed(int &wrote) {
+  const String r = storageGetString(ON_GITHUB_ONLY);
+  const int nl = r.indexOf('\n');
+  if (nl < 0) return true;
+  const String id = r.substring(0, nl), repoPath = r.substring(nl + 1);
+  if (!storeReady()) return false;
+  const bool hasText = storeReadNote(id).length();
+  if (!hasText && !storageExists(storeWavPath(id).c_str())) {  // deleted since
+    storageRemoveKey(ON_GITHUB_ONLY);
+    onlyMd = "";
+    return true;
+  }
+  String md = hasText ? String() : onlyMd;
+  if (!hasText && !md.length()) {  // the text went with a restart: GitHub has it
+    NoteText note;
+    note.title = repoPath.substring(repoPath.lastIndexOf('/') + 1);
+    if (note.title.endsWith(".md")) note.title.remove(note.title.length() - 3);
+    note.body = "The card couldn't save this note, so its text is on GitHub: " + repoPath;
+    md = noteMarkdown(note, id, localIso(id));
+  }
+  if (md.length() && !storeSaveNote(id, md)) return false;
+  if (!storeMarkPushed(id, repoPath)) return false;
+  storageRemoveKey(ON_GITHUB_ONLY);
+  onlyMd = "";
+  wrote++;
+  return true;
+}
+
 static const char *const NO_SPEECH = "Heard nothing";  // finish(): a recording with nothing to keep
 static const char *const NOTHING_KEPT = "Heard nothing: kept";  // finish(): nothing heard, but the recording stays
 static const char *const FULL_PUSHED = "Card full: on GitHub", *const FULL_SHOWN = "Card full: shown once";
@@ -82,6 +124,9 @@ static const char *const FULL_PUSHED = "Card full: on GitHub", *const FULL_SHOWN
 // Transcribe (from the audio parts), tidy up, save and push one note. WiFi must be up.
 // Returns nullptr or the reason it stopped; `title` gets the note's title.
 static const char *finish(const String &id, const NetPart *audio, int nParts, bool onCard, String &title) {
+  // The card still can't take the last note that went to GitHub: this one would end the same way (and be paid for).
+  int wrote = 0;
+  if (onCard && !settlePushed(wrote)) return CARD_FULL;
   NoteText note;
   publish(JobStep::Transcribing);
   if (const char *err = cloudTranscribe(audio, nParts, note.transcript)) return err;
@@ -91,7 +136,7 @@ static const char *finish(const String &id, const NetPart *audio, int nParts, bo
     note.title = "Heard nothing";
     note.body = "Nothing was heard in this recording. The audio is kept.";
     if (onCard && storeSaveNote(id, noteMarkdown(note, id, localIso(id)))) {
-      storeMarkPushed(id, "");
+      if (!storeMarkPushed(id, "")) rememberPushed(id, "", "");
       title = note.title;
       return NOTHING_KEPT;
     }
@@ -113,7 +158,8 @@ static const char *finish(const String &id, const NetPart *audio, int nParts, bo
     publish(JobStep::Pushing);
     String path;
     if (const char *err = cloudPush(fileName(title, id), md, path)) return err;
-    if (saved) storeMarkPushed(id, path);
+    if (saved && !storeMarkPushed(id, path)) rememberPushed(id, "", path);
+    else if (!saved && onCard) rememberPushed(id, md, path);
   }
   if (onCard && !saved) return githubOn() ? FULL_PUSHED : FULL_SHOWN;
   return cleanupErr;
@@ -132,6 +178,7 @@ static bool aboutThisNote(const char *err) {
 static const char *sweep(const char *skip, int &done, int &stuck) {
   static char firstErr[48];
   firstErr[0] = 0;
+  if (!settlePushed(done)) return CARD_FULL;  // a note already on GitHub still waits for the card
   for (const NoteInfo &n : storeList()) {
     if (n.id == skip) continue;
     if (!devSweepAllows(n.id)) continue;
@@ -154,7 +201,7 @@ static const char *sweep(const char *skip, int &done, int &stuck) {
       publish(JobStep::Pushing);
       String path;
       err = cloudPush(fileName(n.title, n.id), storeReadNote(n.id), path);
-      if (!err) storeMarkPushed(n.id, path);
+      if (!err && !storeMarkPushed(n.id, path)) rememberPushed(n.id, "", path);
     } else {
       continue;
     }
@@ -214,9 +261,10 @@ static void runNote(Item &it) {
 
 static void runSweep(const Item &it) {
   char result[48];
+  int done = 0, stuck = 0;
+  settlePushed(done);  // needs no WiFi
   publish(JobStep::Connecting, "");
   const char *err = netConnect();
-  int done = 0, stuck = 0;
   if (!err && devFakeCloud() && !devSweepOn()) err = "fake cloud: sync skipped";
   if (!err) err = sweep("", done, stuck);
   if (stuck && done) snprintf(result, sizeof result, "%d synced, %d stuck", done, stuck);  // (the reason won't fit)

@@ -28,6 +28,9 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   each step so you can hear it.
 - **Clock:** fixed the time not showing on boards where the clock chip's connection is powered from the audio
   supply. That supply was off except while recording, so the clock couldn't be read or set.
+- **Notes:** fixed a note being sent to GitHub twice (or more) when the card filled up or went missing between the
+  recording and its text. The device now remembers it's on GitHub, writes the text to the card once there's room,
+  and doesn't transcribe it again.
 - **Website: Release or Beta.** Install and Update each have a Version menu: the newest release (the default) or
   Beta, the newest changes before they're released. Beta is rebuilt whenever it changes. Update back to Release
   the same way.

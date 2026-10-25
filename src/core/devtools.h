@@ -25,6 +25,8 @@
 //                        WiFi fails / the SD card reads as missing / real transcription but nothing sent to GitHub
 //   X SWEEPONLY <prefix>  -> with FAKE on, a sync (sweep) handles only notes whose id starts with prefix (none: off)
 //   X FAILNOTE <n>    -> with FAKE on, the next n canned transcriptions fail with "Whisper: error 400"
+//   X NOSAVE <0|1>    -> Notes can't write a note's text or its "on GitHub" mark (a card that filled up after
+//                        the recording was saved)
 //   X EMPTY <0|1>     -> with FAKE on, the canned transcription hears nothing (the "Heard nothing" note)
 //   X AUTOSYNC <s>    -> Notes tries sending waiting recordings by itself every s seconds (0 = the usual 10 min)
 //   X WELCOME         -> the first-start welcome screens (finishing them saves "welcomed" = 1)
@@ -42,6 +44,7 @@ bool devFakeCloud();
 bool devNetFail();
 bool devNoCard();
 bool devNoPush();
+bool devNoSave();
 bool devEmptyHeard();
 bool devFailNote();                       // consumes one of X FAILNOTE's failures
 bool devSweepOn();                        // X SWEEPONLY is set
@@ -67,6 +70,7 @@ inline bool devSweepOn() { return false; }
 inline bool devSweepAllows(const String &) { return true; }
 inline bool devNoCard() { return false; }
 inline bool devNoPush() { return false; }
+inline bool devNoSave() { return false; }
 inline bool devDemo() { return false; }
 inline uint32_t devAutoSync() { return 0; }
 inline uint32_t devSeed() { return 0; }

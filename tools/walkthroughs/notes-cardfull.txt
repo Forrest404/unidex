@@ -1,0 +1,39 @@
+# Notes: a note that reached GitHub when the card couldn't take its text (it filled up after the recording) isn't
+# transcribed or sent again; its text goes on the card once there's room. The cloud is faked, and the note made
+# here is deleted at the end.
+fake 1
+sweeponly none
+notes mark
+nosave 1
+select Notes
+press b
+hold B 3000
+waitjob 60
+shot cf-sent
+# back past the list to Notes' main screen
+press A
+press A
+shot cf-main
+# a sync while the card still can't take it: nothing is sent again
+sweeponly new
+press b
+waitjob 60
+job
+shot cf-still-full
+# room on the card again: the text goes on it, no new transcription
+nosave 0
+press b
+waitjob 60
+job
+shot cf-written
+press a
+shot cf-list
+press b
+shot cf-view
+press A
+press B
+press b
+shot cf-deleted
+press A
+press A
+expect screen=Home

@@ -15,7 +15,7 @@
 #include "power.h"
 #include "storage.h"
 
-static bool dryRun, fakeCloud, netFail, noCard, noPush, demo, manualFrames, emptyHeard;
+static bool dryRun, fakeCloud, netFail, noCard, noPush, noSave, demo, manualFrames, emptyHeard;
 static int failNotes;
 static String sweepPrefix;
 static uint32_t seed, autoSync;
@@ -27,6 +27,7 @@ bool devFakeCloud() { return fakeCloud; }
 bool devNetFail() { return netFail; }
 bool devNoCard() { return noCard; }
 bool devNoPush() { return noPush; }
+bool devNoSave() { return noSave; }
 bool devEmptyHeard() { return emptyHeard; }
 bool devFailNote() { return failNotes > 0 && failNotes--; }
 bool devSweepOn() { return fakeCloud && sweepPrefix.length(); }
@@ -225,6 +226,9 @@ bool devUsb(const char *l) {
     Serial.printf("OK X %s\n", c);
   } else if (!strncmp(c, "AUTOSYNC ", 9)) {  // X AUTOSYNC <s>: Notes' automatic sync interval (0 = the usual)
     autoSync = atoi(c + 9);
+    Serial.printf("OK X %s\n", c);
+  } else if (!strncmp(c, "NOSAVE ", 7)) {  // X NOSAVE <0|1>: Notes can't write a note's text (as on a full card)
+    noSave = l[strlen(l) - 1] == '1';
     Serial.printf("OK X %s\n", c);
   } else if (!strncmp(c, "EMPTY ", 6)) {  // X EMPTY <0|1>: the canned transcription hears nothing
     emptyHeard = l[strlen(l) - 1] == '1';

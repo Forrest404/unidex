@@ -2,6 +2,7 @@
 #include <algorithm>
 #include "../../core/audio.h"
 #include "../../core/clock.h"
+#include "../../core/devtools.h"
 #include "../../core/storage.h"
 
 static const char *DIR = "/notes";
@@ -68,6 +69,7 @@ bool storeSaveWav(const String &id, const int16_t *samples, size_t count) {
 String storeWavPath(const String &id) { return path(id, ".wav"); }
 
 bool storeSaveNote(const String &id, const String &markdown) {
+  if (devNoSave()) return false;  // test build switch (X NOSAVE 1)
   const String tmp = path(id, ".tmp");
   fs::File f = storageOpen(tmp.c_str(), "w");
   if (!f) return false;
@@ -95,9 +97,13 @@ String storeReadNote(const String &id) {
   return md;
 }
 
-void storeMarkPushed(const String &id, const String &repoPath) {
+bool storeMarkPushed(const String &id, const String &repoPath) {
+  if (devNoSave()) return false;
   fs::File f = storageOpen(path(id, ".gh").c_str(), "w");
-  if (f) f.print(repoPath);
+  if (!f) return false;
+  const bool ok = f.print(repoPath) == repoPath.length();
+  f.close();
+  return ok && storageExists(path(id, ".gh").c_str());
 }
 
 void storeDelete(const String &id) {
