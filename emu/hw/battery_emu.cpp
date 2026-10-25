@@ -8,5 +8,6 @@ const char *batteryTooLow() { return nullptr; }
 bool batteryEmpty() { return false; }
 #if UNIDEX_DEV
 void batteryFake(int mv) { fakeMv = mv; }
+bool batteryKept() { return false; }
 void batteryPrintCalls() {}
 #endif

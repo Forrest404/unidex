@@ -14,7 +14,8 @@
 //   X I2C             -> "OK X I2C sda=<0|1> scl=<0|1> <addresses that answer, hex>" on the clock chip's bus
 //                        (0x18 codec, 0x51 clock, 0x70 SHTC3); both lines 0 = the bus has no power
 //   X BEEP            -> the reminder chime on the speaker; "OK X BEEP" (or "ERR codec" if it didn't play)
-//   X BATT            -> "OK X BATT mv=<battery mV> pct=<% shown> usb=<0|1> up=<s>"
+//   X BATT            -> "OK X BATT mv=<battery mV> pct=<% shown> usb=<0|1> up=<s> kept=<0|1>" (kept: the % carried
+//                        on from before the last restart)
 //   X CLOCK UNSET     -> system time to 0 in RAM only (the clock chip keeps its time); "T <unix>" sets it back
 //   X SEED <n>        -> games start from random seed n (0 = truly random); "OK X SEED"
 //   X FRAMES <n>      -> the game being played runs n frames at once, then shows the result; "OK X FRAMES"

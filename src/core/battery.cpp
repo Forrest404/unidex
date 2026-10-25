@@ -1,5 +1,6 @@
 #include "battery.h"
 #include <Arduino.h>
+#include <esp_system.h>
 #include "battery_logic.h"
 
 static const int PIN_BATTERY = 4;  // ADC1 ch3, behind a divider by 2
@@ -10,7 +11,6 @@ static const float CALIBRATION = 4170.0f / 4085.0f;
 
 #if UNIDEX_DEV
 static int fakeMv;  // test build (X BATTMV <mv>): pretend the battery reads this (0 = the real reading)
-void batteryFake(int mv) { fakeMv = mv; }
 #endif
 
 int batteryMillivolts() {
@@ -23,7 +23,48 @@ int batteryMillivolts() {
   return sum / 32 * 2 * CALIBRATION;
 }
 
-RTC_DATA_ATTR static battery::State state;  // survives sleep (constant-initialized, so set only at power-up)
+// Kept through deep sleep and through a restart (a crash, the watchdog, an update), so the % carries on instead of
+// starting again from the voltage; only a power cut loses it. Checked, as this memory isn't cleared at power-up.
+RTC_NOINIT_ATTR static battery::State state;
+RTC_NOINIT_ATTR static uint32_t stateCheck, topupFor;  // topupFor: ms topped up so far (millis() restarts at 0)
+
+static uint32_t checksum() {
+  uint32_t h = 2166136261u ^ topupFor;  // FNV-1a over the state
+  for (size_t i = 0; i < sizeof state; i++) h = (h ^ ((const uint8_t *)&state)[i]) * 16777619u;
+  return h;
+}
+
+static void keep() {
+  topupFor = state.toppingUp ? millis() - state.topupAt : 0;
+  stateCheck = checksum();
+}
+
+static bool kept;
+
+static void restore() {
+  static bool done;
+  if (done) return;
+  done = true;
+  const esp_reset_reason_t why = esp_reset_reason();
+  const bool power = why == ESP_RST_POWERON || why == ESP_RST_BROWNOUT || why == ESP_RST_UNKNOWN;
+  kept = !power && stateCheck == checksum() && state.shown <= 100;
+  if (!kept) state = battery::State();
+  state.topupAt = millis() - topupFor;
+}
+
+#if UNIDEX_DEV
+bool batteryKept() {
+  restore();
+  return kept;
+}
+
+void batteryFake(int mv) {
+  fakeMv = mv;
+  restore();
+  state = battery::State();  // a pretend reading mustn't shape the real %: start again as at power-up
+  keep();
+}
+#endif
 
 #if UNIDEX_DEV
 // Test build: every % worked out (by the screens or the battery log), for X BATTCALLS.
@@ -46,7 +87,9 @@ void batteryPrintCalls() {
 int batteryPercent() {
   const int mv = batteryMillivolts();
   const bool charging = batteryCharging();
+  restore();
   const int pct = battery::update(state, mv, charging, millis());
+  keep();
 #if UNIDEX_DEV
   calls[callCount++ % 300] = {millis(), (int16_t)mv, (int8_t)pct, (uint8_t)HWCDC::isPlugged(), (uint8_t)charging};
 #endif
@@ -69,4 +112,7 @@ bool batteryCharging() {
   return HWCDC::isPlugged() || batteryMillivolts() >= 4190;  // the charger holds 4.20 V while topping up
 }
 
-bool batteryToppingUp() { return state.toppingUp; }
+bool batteryToppingUp() {
+  restore();
+  return state.toppingUp;
+}

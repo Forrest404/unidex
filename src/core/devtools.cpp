@@ -132,8 +132,8 @@ bool devUsb(const char *l) {
     Serial.print('\n');
   } else if (strcmp(c, "BATT") == 0) {
     const int mv = batteryMillivolts(), pct = batteryPercent();
-    Serial.printf("OK X BATT mv=%d pct=%d usb=%d up=%lu\n", mv, pct, (int)batteryCharging(),
-                  (unsigned long)(millis() / 1000));
+    Serial.printf("OK X BATT mv=%d pct=%d usb=%d up=%lu kept=%d\n", mv, pct, (int)batteryCharging(),
+                  (unsigned long)(millis() / 1000), (int)batteryKept());
   } else if (strcmp(c, "BATTLOG") == 0) {  // X BATTLOG: "BL <s> <mv> <usb> <pct>" lines, oldest first
     for (uint32_t i = battCount > 720 ? battCount - 720 : 0; i < battCount; i++) {
       const BattEntry &e = battLog[i % 720];
