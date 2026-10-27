@@ -4,6 +4,7 @@
 #include "../../core/credentials.h"
 #include "../../core/clock.h"
 #include "../../core/devtools.h"
+#include "languages.h"
 #include "../timetable/callink.h"
 #include "phone.h"
 
@@ -35,7 +36,9 @@ static const char *CLEANUP_PROMPT =
   "the current local date/time given below. If only a day is mentioned with no clock time, "
   "set allDay true and use 00:00. If a start time is given but no end, leave end empty. "
   "If there is no dated plan, set event to null}. If the transcript is empty or "
-  "unintelligible return {\"title\":\"\",\"summary\":\"\",\"cleaned\":\"\",\"topics\":[],\"event\":null}.";
+  "unintelligible return {\"title\":\"\",\"summary\":\"\",\"cleaned\":\"\",\"topics\":[],\"event\":null}. "
+  "Language: write the title, summary, cleaned note and topics in the language the transcript is in, never "
+  "translated into English (unless the transcript is in English).";
 
 // A short reason from an HTTP status, for the screen.
 static const char *failure(int status, const char *service, const String &body) {
@@ -116,10 +119,11 @@ static int postAudio(const char *host, const char *path, const String &headers, 
 static const char *transcribeWhisper(const NetPart *audio, int nParts, String &text) {
   const String key = credGet("openai_key");
   if (!key.length()) return "no OpenAI key";
-  const FormField fields[] = {{"model", WHISPER_MODEL}, {"response_format", "verbose_json"}};
+  const String lang = credGet("note_lang");  // "" = Auto: Whisper works it out
+  FormField fields[] = {{"model", WHISPER_MODEL}, {"response_format", "verbose_json"}, {"language", lang.c_str()}};
   String body;
-  const int status = postAudio(OPENAI, "/v1/audio/transcriptions", "Authorization: Bearer " + key + "\r\n", fields, 2,
-                               audio, nParts, body);
+  const int status = postAudio(OPENAI, "/v1/audio/transcriptions", "Authorization: Bearer " + key + "\r\n", fields,
+                               lang.length() ? 3 : 2, audio, nParts, body);
   if (status != 200) return failure(status, "Whisper", body);
   JsonDocument filter, doc;
   filter["text"] = true;
@@ -142,11 +146,14 @@ static const char *transcribeScribe(const NetPart *audio, int nParts, String &te
   if (!key.length()) return "no ElevenLabs key";
   // No "(laughs)" tags in the text, and no per-word timings: the reply is the text alone (or nearly: the word
   // list, if it still comes, is ~100 bytes a word, so a 3-minute note needs room for ~100 KB).
-  const FormField fields[] = {
-    {"model_id", SCRIBE_MODEL}, {"tag_audio_events", "false"}, {"timestamps_granularity", "none"}};
+  const String lang = credGet("note_lang");  // "" = Auto
+  const FormField fields[] = {{"model_id", SCRIBE_MODEL},
+                              {"tag_audio_events", "false"},
+                              {"timestamps_granularity", "none"},
+                              {"language_code", lang.c_str()}};
   String body;
-  const int status =
-    postAudio(ELEVENLABS, "/v1/speech-to-text", "xi-api-key: " + key + "\r\n", fields, 3, audio, nParts, body, 262144);
+  const int status = postAudio(ELEVENLABS, "/v1/speech-to-text", "xi-api-key: " + key + "\r\n", fields,
+                               lang.length() ? 4 : 3, audio, nParts, body, 262144);
   if (status != 200) return elevenFailure(status, "Scribe", body);
   JsonDocument filter, doc;
   filter["text"] = true;
@@ -222,7 +229,11 @@ const char *cloudCleanup(NoteText &note, const String &nowLocal) {
   if (model.startsWith("sk-")) model = "";  // a key saved in the model box would be sent as the model: 404 every time
   if (!model.length()) model = claude ? DEFAULT_ANTHROPIC_MODEL : DEFAULT_OPENAI_MODEL;
 
-  const String user = "Current local date/time: " + nowLocal + "\n\nTranscript:\n" +
+  const int lang = languages::find(credGet("note_lang").c_str());
+  const String said = lang > 0 ? String("The note is in ") + languages::LIST[lang].name + ": write the title, summary "
+                                   "and note in " + languages::LIST[lang].name + ".\n"
+                                 : String();
+  const String user = said + "Current local date/time: " + nowLocal + "\n\nTranscript:\n" +
                       note.transcript.substring(0, MAX_TRANSCRIPT);
   JsonDocument req;
   req["model"] = model;
