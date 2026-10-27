@@ -42,7 +42,7 @@ themselves are kept on the card in `reminders.csv`.
 ## On the device
 
 - **SD card:** recordings (`.wav`) and notes (`.md`), kept until you delete the note. Also your timetable, badges,
-  calendar events and the Dex list. The card is not encrypted: anyone who has it can read it.
+  calendar events and your apps' own files. The card is not encrypted: anyone who has it can read it.
 - **The board's settings storage:** your WiFi name and password, API keys, GitHub token and settings. Keys are
   only sent to their own service. The Setup page never sees your passwords or whole keys: only whether each is set
   and the last 4 characters of each key. It does show plain settings such as the network name, eduroam username
@@ -64,8 +64,9 @@ themselves are kept on the card in `reminders.csv`.
   Settings, the device looks for nearby WiFi names to suggest them; it keeps nothing of that scan.
 
 - **Clock:** the time sync contacts `pool.ntp.org` or `time.google.com`, which see your IP address.
-- **Dex** scans for nearby WiFi networks and keeps network names and salted, hashed router IDs on the SD card.
-  Nothing is sent anywhere.
+- **Apps** with the `wifi` permission can see the names of WiFi networks nearby (`unidex.wifi.scan`: name, signal
+  and security, never a network's address). The Dex app from the store keeps the names it finds in its own folder
+  on the SD card. Nothing is sent anywhere.
 - **Calendar sync (Mac):** the Mac app reads your calendar on your Mac and sends events to the device over USB
   only.
 - **Pet > Meet** talks straight to other unidex devices nearby over the radio (ESP-NOW: no internet, no router).
@@ -95,6 +96,6 @@ themselves are kept on the card in `reminders.csv`.
 - **Keys and WiFi:** **Clear all keys** on the Setup page. It clears unidex's own settings only: anything left by
   other firmware the board ran before stays until a full erase.
 - **Everything on the device:** Settings > Reset data > **Factory reset** (asks twice): your WiFi and keys, the
-  Pet and its friends, every setting, the calendar and the Dex. Notes, badges and the timetable on the SD card stay:
+  Pet and its friends, every setting and the calendar. Notes, badges, apps and the timetable on the SD card stay:
   format the card on a computer too. A full erase (the website's **Install** button) also clears the board.
 - **Data held by OpenAI, ElevenLabs, Anthropic or GitHub:** follow their own policies above.

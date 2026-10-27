@@ -6,6 +6,13 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 
 ## Next release
 
+- **Dex moves to the app store.** The WiFi network collecting game no longer comes built in: install it from the
+  store on the website (Apps). Your finds are kept: the update moves them into the app's folder, so Apps lists an
+  offloaded "dex" until you install it, and it carries on with them. It plays the same, but it lives in Apps now (no
+  home screen line) and is cleared from inside it or with Delete in Apps; Settings > Reset data no longer has a Dex
+  row. It keeps network names only, no longer a hashed address per find.
+- **Apps: `unidex.wifi.scan()`** (API level 2, with the `wifi` permission) lists the WiFi networks nearby: name,
+  signal and security, never their addresses. Apps that use it need this update.
 - **Badge:** delete a badge. In the picker, hold B on it and press B to confirm, or tap Delete under it in the phone
   portal's Tools tab (it asks first there too). A plugin's badge goes with the plugin, in Apps.
 - **Phone portal: Tools** (new): a fourth tab with the badge maker and the Pet designer. Choose a photo (or take

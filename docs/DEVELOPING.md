@@ -25,7 +25,7 @@ comes from git (`tools/version.py`).
 ```
 src/
   main.cpp              setup/loop: input -> launcher -> sleep
-  apps/                 one folder per app (timetable, notes, reminders, pet, badge, dex, chooser, games, settings)
+  apps/                 one folder per app (timetable, notes, reminders, pet, badge, chooser, games, settings)
                         + apps.cpp (launcher order)
   apps/notes/           notes.cpp (screens), job (the online steps in the background), store (files on the card),
                         cloud (Whisper or Scribe, tidy-up, GitHub), usb (N commands), phone* (Open on phone), record (hold to
@@ -182,7 +182,7 @@ site always offers a released version, and writes two manifests for
 [ESP Web Tools](https://esphome.github.io/esp-web-tools/):
 
 - **Install** has the bootloader, partitions, boot_app0 and the app, and is offered with a full erase.
-- **Update** has the app only, so badges, the Dex, events and settings stay.
+- **Update** has the app only, so badges, apps, events and settings stay.
 
 ESP Web Tools flashes at 115200 baud with a modern esptool stub, which works on this board. The PlatformIO upload
 problems came from its older bundled esptool together with a baud switch. The Tools page talks to the device with the
@@ -274,7 +274,7 @@ Everything here was read from the chip, seen working on the device, or taken fro
   board can't sense USB power directly (USB 5 V isn't wired to any GPIO), so "USB power" means a computer is
   talking to it, or the battery reads at least 4.19 V (the charger holding it at 4.2 V while topping up). A plain
   charger that has *finished* charging looks like battery, so it sleeps. Checked at most every 10 s.
-- The CPU runs at 80 MHz (240 MHz only while WiFi is on). WiFi is off except during a Dex scan, Notes and the NTP
+- The CPU runs at 80 MHz (240 MHz only while WiFi is on). WiFi is off except for an app's scan or fetch, Notes and the NTP
   sync.
 - Datasheet estimates, **not measured** with a meter: about 2 mA awake with light sleep (vs about 20 mA). In deep
   sleep the chip itself draws µA, but the SD card stays powered (roughly 50–200 µA idle), plus the board's
@@ -294,9 +294,9 @@ Everything here was read from the chip, seen working on the device, or taken fro
   boot a stopped or 12-hour chip is started in 24-hour mode. Its frozen time isn't trusted: after a deep-sleep
   wake the board's own time is written back; after power-on it's set to 2000-01-01, which reads as "not set".
   The USB command `C` prints the chip's registers and the system time, to check it's counting.
-- Files live on the **micro SD card** (FAT32, root: `timetable.csv`, `badges/`, `dex.csv`, `events.csv`). It's
+- Files live on the **micro SD card** (FAT32, root: `timetable.csv`, `badges/`, `events.csv`, `apps/`). It's
   mounted on first use and unmounted before deep sleep; a missing or unreadable card shows "No SD card" in
-  Timetable, Badge and Dex instead of crashing. The USB command `S` prints the card's state and files.
+  Timetable, Badge and Apps instead of crashing. The USB command `S` prints the card's state and files.
 - Files used to live in LittleFS on internal flash. The first time a card mounts, any of them missing on the card
   are copied over once (never overwriting); NVS `sd_copied` records that it's done. Small settings live in NVS
   (namespace `unidex`):
@@ -306,7 +306,6 @@ Everything here was read from the chip, seen working on the device, or taken fro
 | `badge` | Badge: filename of the last badge shown |
 | `events_crc` | Mac sync: crc32 of the saved `/events.csv`, to skip identical writes |
 | `ch_w1`…`ch_w6` | Chooser: wins per square |
-| `dex_salt` | Dex: random salt for hashing BSSIDs |
 | `sleep_s` | Settings: seconds awake after the last press (10/20/30/60) |
 | `invert` | Settings: 1 = white on black |
 | `sd_copied` | Storage: the one-time copy from internal flash to the card is done |

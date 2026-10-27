@@ -116,13 +116,19 @@ Only the app's own `data/` folder. Names use a-z, 0-9, `.`, `_` and `-`.
 | `unidex.toast(text)` | A short message over the screen. |
 | `unidex.wake_in(ms)` | Ask to be redrawn after this long (the device may be asleep until then). |
 | `unidex.random(n)` | A number from 1 to `n`. |
-| `unidex.api` | The API level of this firmware. |
+| `unidex.api` | The API level of this firmware: 2 (1 before `unidex.wifi`). |
 
 ### The network (permission `"wifi"`)
 
 `unidex.http.get(url)` returns `status, body`. HTTPS only, up to 32 KB of reply, 15 seconds, and it blocks the
 screen while it works. The device refuses it on a low battery. Apps never see the saved WiFi password or any
 key, and can't ask for one.
+
+`unidex.wifi.scan()` (API 2) lists the WiFi networks nearby, up to 64: a table of `{ssid=, rssi=, security=}`
+(security: `open`, `WEP`, `WPA`, `WPA2`, `WPA2-E` or `WPA3`), hidden networks left out, one entry per access point
+(a name can show more than once). Never a network's address. It takes about 2 seconds, which don't count against
+the app's time, and returns `nil` and the reason on a low battery or while the radio is busy. Set `"api": 2` in
+`app.json` to use it: older firmware then refuses the install with "needs newer firmware".
 
 Other permission names (`"mic"`, `"meet"`) are reserved and do nothing yet.
 
