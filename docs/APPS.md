@@ -243,8 +243,8 @@ keep anything it needs to remember in its data files.
 |---|---|---|
 | `"badge"` | `badge()`: draw the whole badge (200 x 200, no header or hints needed) | It is listed in Badge after the image badges, with a thumbnail. Each time it is shown, `badge()` runs, so it can show today's date, a countdown, a QR code... If it fails, Badge says so in its place. |
 
-More built-in apps will take plugins later; each is added to this table first. `apps/examples/today-badge` is an
-example.
+More built-in apps will take plugins later; each is added to this table first. `today-badge` in the
+[store's repository](https://github.com/Forrest404/unidex-apps/tree/main/apps/today-badge) is an example.
 
 ```json
 { "id": "today-badge", "name": "Today", "version": "1.0.0", "api": 1, "type": "plugin", "extends": "badge" }

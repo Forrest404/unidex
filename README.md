@@ -304,8 +304,8 @@ says "App error" with the line it broke on, and goes back to the list. It never 
 **Getting started:**
 
 1. Read [Writing apps for unidex](docs/APPS.md): the whole API, the limits, games, plugins, and examples.
-2. Copy an example from [`apps/examples`](apps/examples), or the template in the
-   [store's repository](https://github.com/Forrest404/unidex-apps).
+2. Copy the template, or any app, from the [store's repository](https://github.com/Forrest404/unidex-apps): every
+   app lives there.
 3. Try it: in the [browser emulator](https://tools.unidex.shop/try.html) without a device, or
    on your unidex with `python3 tools/appinstall.py install your-app`.
 4. Share it: open a pull request to [unidex-apps](https://github.com/Forrest404/unidex-apps). Automatic checks try

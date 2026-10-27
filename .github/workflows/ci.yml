@@ -47,6 +47,7 @@ jobs:
 
       - name: App store catalogue and the store page's USB steps against the emulator
         run: |
-          python3 tools/make_store.py
+          git clone --depth 1 https://github.com/Forrest404/unidex-apps.git ../unidex-apps  # every app lives there
+          python3 tools/make_store.py ../unidex-apps/apps
           node emu/test/store_test.mjs
-          node emu/test/app_smoke.mjs apps/examples/*
+          node emu/test/app_smoke.mjs ../unidex-apps/apps/*

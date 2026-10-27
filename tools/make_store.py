@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Builds the website's app store catalogue (site/store/) from app folders.
 
-  python3 tools/make_store.py                     the examples in apps/examples (until the registry repo exists)
+  python3 tools/make_store.py                     the apps in ../unidex-apps/apps (the store's repo, cloned beside this one)
   python3 tools/make_store.py path/to/apps ...    every app folder inside these folders
   ... --source https://github.com/Forrest404/unidex-apps/tree/main/apps   where each app's code can be read
 
@@ -133,7 +133,10 @@ def main():
         i = args.index("--source")
         source = args[i + 1].rstrip("/")
         del args[i:i + 2]
-    sources = args or [os.path.join(root, "apps", "examples")]
+    sources = args or [os.path.join(root, "..", "unidex-apps", "apps")]
+    for src in sources:
+        if not os.path.isdir(src):
+            sys.exit(f"{src} isn't there: clone https://github.com/Forrest404/unidex-apps beside this repo, or name a folder")
     out = os.path.join(root, "site", "store")
     apps, failed = [], False
     for src in sources:

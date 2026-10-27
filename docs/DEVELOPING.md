@@ -57,7 +57,6 @@ src/
     theme.*             fonts, header, button hints, toast, confirm sheet, empty states, 40x40 pixel icons
     devtools.*          test build only: USB screenshots and virtual buttons (tools/devshot.py)
 lib/lua/                Lua 5.4.7 for third-party apps (only the safe parts; see lib/lua/README.md)
-apps/examples/          example apps (Hello, Big Clock); tools/appinstall.py installs one over USB
 tools/                  badges.py, badge-template.svg, calsync/ (macOS), upload_nostub.py, check_unit.py,
                         devshot.py + walkthroughs/ (screenshots and button walkthroughs), gfxfont.py (fonts)
 site/                   the website: installer (index.html), Tools (badge maker, clock, calendar file), Notes

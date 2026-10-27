@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Install, list and remove unidex apps over USB, the same way the website's store page does (docs/APPS.md).
 
-  python3 tools/appinstall.py install apps/examples/hello [--port /dev/cu.usbmodem101]
+  python3 tools/appinstall.py install ../unidex-apps/apps/hello [--port /dev/cu.usbmodem101]
   python3 tools/appinstall.py list
   python3 tools/appinstall.py rm hello [--keep]      (--keep: offload, its data stays)
   python3 tools/appinstall.py data hello
