@@ -19,7 +19,7 @@ static void recover(const char *path) {
 
 fs::File storageOpen(const char *path, const char *mode) {
   if (!storageCardMount()) return fs::File();
-  if (*mode == 'r') recover(path);
+  recover(path);  // any mode: adding to a file that only exists as .old would start a new one and lose the old
   if (*mode != 'r') {  // FAT won't create a file in a missing folder (e.g. /badges on a new card)
     String dir = String(path).substring(0, String(path).lastIndexOf('/'));
     if (dir.length()) storageMakeDirs(dir.c_str());
@@ -215,29 +215,41 @@ bool storageUsage(uint64_t &used, uint64_t &total) {
 }
 
 // Files used to live in internal flash (LittleFS). The first time a card mounts, copy any of them the
-// card doesn't have yet (never overwriting), once. Each file is streamed and written in one go.
-static void copyFile(const String &path) {
-  if (SD_MMC.exists(path) || !LittleFS.exists(path)) return;
-  fs::File in = LittleFS.open(path, "r"), out = SD_MMC.open(path, "w");
+// card doesn't have yet (never overwriting), once. Each file goes to a temporary copy that's checked against the
+// original before it takes the real name, so a power cut can't leave half a file that later starts would keep.
+// False if a copy was needed and didn't work.
+static bool copyFile(const String &path) {
+  if (SD_MMC.exists(path) || !LittleFS.exists(path)) return true;
+  const String tmp = path + ".tmp";
+  fs::File in = LittleFS.open(path, "r"), out = SD_MMC.open(tmp, "w");
+  const size_t want = in ? in.size() : 0;
+  size_t copied = 0;
   uint8_t buf[512];
-  for (size_t n; in && out && (n = in.read(buf, sizeof buf)) > 0;) out.write(buf, n);
+  for (size_t n; in && out && (n = in.read(buf, sizeof buf)) > 0;) copied += out.write(buf, n);
+  const bool opened = in && out;
+  if (in) in.close();
+  if (out) out.close();
+  if (opened && copied == want) return storageReplace(tmp.c_str(), path.c_str(), copied);
+  if (SD_MMC.exists(tmp)) SD_MMC.remove(tmp);
+  return false;
 }
 
 static void copyFromFlashOnce() {
   if (storageGetInt("sd_copied", 0)) return;
+  bool ok = true;
   if (LittleFS.begin(false)) {
-    copyFile("/timetable.csv");
-    copyFile("/dex.csv");
-    copyFile("/events.csv");
+    ok &= copyFile("/timetable.csv");
+    ok &= copyFile("/dex.csv");
+    ok &= copyFile("/events.csv");
     if (!SD_MMC.exists("/badges")) SD_MMC.mkdir("/badges");
     fs::File dir = LittleFS.open("/badges");
     for (fs::File f = dir ? dir.openNextFile() : fs::File(); f; f = dir.openNextFile()) {
       String n = f.name();
-      if (n.endsWith(".bmp")) copyFile("/badges/" + n);
+      if (n.endsWith(".bmp")) ok &= copyFile("/badges/" + n);
     }
     LittleFS.end();
   }
-  storagePutInt("sd_copied", 1);
+  if (ok) storagePutInt("sd_copied", 1);  // otherwise tried again next time (a full card, say)
 }
 
 // Dex left the device for the app store: its finds (/dex.csv: hash,ssid,rssi,enc,rarity,first_seen) move into the

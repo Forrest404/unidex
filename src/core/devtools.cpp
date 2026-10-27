@@ -14,6 +14,7 @@
 #include "launcher.h"
 #include "power.h"
 #include "storage.h"
+#include <LittleFS.h>
 #include "../apps/notes/store.h"
 #include "../apps/timetable/callink.h"
 
@@ -238,6 +239,23 @@ bool devUsb(const char *l) {
   } else if (!strncmp(c, "WELCOME", 7)) {  // X WELCOME: the first-start screens, without wiping anything
     launcherShowWelcome();
     Serial.println("OK X WELCOME");
+  } else if (!strncmp(c, "FLASHFILE ", 10)) {  // X FLASHFILE <path> <bytes>: a file in internal flash (0: removed)
+    char path[48] = "";
+    long bytes = 0;
+    bool ok = sscanf(c + 10, "%47s %ld", path, &bytes) == 2 && path[0] == '/' && LittleFS.begin(true);
+    if (ok && bytes > 0) {
+      fs::File f = LittleFS.open(path, "w", true);
+      for (long i = 0; f && i < bytes; i++) f.write((uint8_t)('a' + i % 26));
+      if (f) f.close();
+      fs::File check = LittleFS.open(path, "r");
+      ok = check && check.size() == (size_t)bytes;  // (a file's size is only right once it's closed)
+    } else if (ok) {
+      LittleFS.remove(path);
+    }
+    if (ok) LittleFS.end();
+    Serial.println(ok ? "OK X FLASHFILE" : "ERR");
+  } else if (!strncmp(c, "RMFILE /", 8)) {  // X RMFILE <path>: removes one file from the card (test leftovers)
+    Serial.println(storageRemove(c + 7) ? "OK X RMFILE" : "ERR");
   } else if (!strncmp(c, "NOTES ", 6)) {  // X NOTES <n>: n made-up notes (test-0001 ...) for long lists; 0 removes them
     const int n = atoi(c + 6);
     for (int i = 1; i <= 999; i++) {

@@ -23,6 +23,9 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 - **Notes:** without the clock set, a new note could overwrite an older one after a reset (the numbering started
   again at 1 while the notes stayed on the card). Taken numbers are now skipped.
 - **Notes:** with more than 255 notes, the later ones couldn't be reached in the list (it went back to the top).
+- **Saving:** a power cut can't lose a file when something is later added to it (the backup copy is put back first,
+  whatever the file is opened for), and the one-time copy from internal memory to the card (boards updated from
+  before the SD card) is checked before it counts, and tried again if it didn't work.
 ## v1.9 (27 October 2026)
 
 - **Set up from your phone** (new): in Settings, hold B. The device shows a QR code; your phone joins its WiFi and
