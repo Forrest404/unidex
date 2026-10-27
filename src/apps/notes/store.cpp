@@ -29,10 +29,15 @@ String storeNewId() {
     for (char c = 'b'; storageExists(path(s, ".wav").c_str()) && c <= 'z'; c++) s = String(id) + c;  // same second
     return s;
   }
-  const int32_t n = storageGetInt("note_seq", 0) + 1;  // no clock: numbered, still sorts in order
-  storagePutInt("note_seq", n);
+  // No clock: numbered, still sorts in order. The count starts again after a reset while the notes stay on the
+  // card, so a number already taken (its recording, text or GitHub mark) is skipped, never overwritten.
+  int32_t n = storageGetInt("note_seq", 0);
   char id[20];
-  snprintf(id, sizeof id, "note-%05ld", (long)n);
+  do {
+    snprintf(id, sizeof id, "note-%05ld", (long)++n);
+  } while (storageExists(path(id, ".wav").c_str()) || storageExists(path(id, ".md").c_str()) ||
+           storageExists(path(id, ".gh").c_str()));
+  storagePutInt("note_seq", n);
   return id;
 }
 

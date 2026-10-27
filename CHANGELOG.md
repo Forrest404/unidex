@@ -20,6 +20,8 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   badge and the Badge app opens on it. The Pet designer loads your Pet as it is, lets you change each part and its
   name (or Surprise me), and sends it.
 
+- **Notes:** without the clock set, a new note could overwrite an older one after a reset (the numbering started
+  again at 1 while the notes stayed on the card). Taken numbers are now skipped.
 ## v1.9 (27 October 2026)
 
 - **Set up from your phone** (new): in Settings, hold B. The device shows a QR code; your phone joins its WiFi and
