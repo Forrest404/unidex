@@ -21,6 +21,7 @@
 #include "../../core/battery.h"
 #include "../../core/clock.h"
 #include "../../core/credentials.h"
+#include "../../core/wifi_logic.h"
 #include "../../core/storage.h"
 #include "../../core/devtools.h"
 #include "../../core/display.h"
@@ -49,6 +50,7 @@ static bool redrawSoon;    // or a partial one (a message to show: "Badge saved"
 static PhoneTab tab;
 static bool online;        // on the normal WiFi too (the hotspot on its channel), so the Apps tab can install
 static String nearby = "[]";  // the WiFi names around, strongest first, as a JSON array
+static bool savedNearby;      // one of the saved networks was among them (worth joining for the Apps tab)
 static char ssid[24], password[12], joinCode[64];  // the code: 28 characters and the name (20 at most)
 
 #if UNIDEX_DEV
@@ -324,6 +326,11 @@ static void scanNearby() {
     const String name = WiFi.SSID(i);
     if (name.length() && std::find(names.begin(), names.end(), name) == names.end() && names.size() < 15)
       names.push_back(name);
+  }
+  savedNearby = false;
+  for (int slot = 0; slot < wifi::SLOTS; slot++) {
+    const String saved = credWifiSaved(slot) ? credGet(credWifiName(slot, "ssid").c_str()) : String();
+    for (int i = 0; i < n && saved.length() && !savedNearby; i++) savedNearby = WiFi.SSID(i) == saved;
   }
   WiFi.scanDelete();
   nearby = "[";
@@ -680,9 +687,9 @@ static void serveHttp() {
   }
 }
 
-static void drawConnecting() {
+static void drawLooking() {
   drawHeader("Phone");
-  drawEmpty("Connecting to WiFi", "for the app store");
+  drawEmpty("Looking for WiFi", "for the app store");
 }
 
 const char *phoneStart(PhoneTab startTab) {
@@ -700,14 +707,19 @@ const char *phoneStart(PhoneTab startTab) {
   buildList();  // reads the card once, before the radio starts
   netOff();
   setCpuFrequencyMhz(240);  // full speed while the radio is on (as for normal WiFi): phones join faster
-  if (tab == PhoneTab::Notes) nearby = "[]";
-  else scanNearby();  // for the WiFi name box on Setup
+  if (tab == PhoneTab::Notes) {
+    nearby = "[]";
+    savedNearby = false;
+  } else {
+    displayShow(drawLooking, false);
+    scanNearby();  // for the WiFi name box on Setup, and to see if a saved network is in range
+  }
   // The Apps tab installs over the normal WiFi, which the phone on the hotspot can't reach: the device joins it
   // first and puts the hotspot on its channel (joining after would move the hotspot and drop the phone). Not
-  // from a note ("Open on phone" should open at once), nor with no WiFi saved (netBegin says so at once).
+  // from a note ("Open on phone" should open at once), nor when none of the saved networks is in range: then the
+  // hotspot starts straight away, and the Apps tab shows the store's list from last time.
   online = false;
-  if (tab != PhoneTab::Notes) {
-    displayShow(drawConnecting, false);
+  if (savedNearby) {
     WiFi.setAutoReconnect(false);  // a drop mustn't send it looking on other channels, taking the hotspot along
     online = !netConnect();
     if (online) appfetchCatalogue();  // if it fails, the list saved last time is shown

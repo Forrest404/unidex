@@ -253,8 +253,8 @@ your phone's camera and join, and a page opens by itself with five tabs:
 - **Tools:** the badge maker (choose a photo or take one, adjust it, and it's saved as a new badge that the Badge
   app opens on), your badges with Delete, and the Pet designer (each part of its look, and its name).
 - **Apps:** the app store. Tap Install and the device downloads the app itself (your phone has no internet while
-  it's on the device's WiFi, so the device joins your saved WiFi first, which takes a few seconds before the QR
-  code shows). The apps on the device are listed above the store (tap to show them), with Update and Delete, and
+  it's on the device's WiFi, so the device looks for your saved WiFi first and joins it if it's in range, which
+  takes a few seconds before the QR code shows; if it isn't, the code shows straight away). The apps on the device are listed above the store (tap to show them), with Update and Delete, and
   the store has a search box. With no WiFi saved or in
   range, the store shows the list from last time and Install waits until it can connect.
 
