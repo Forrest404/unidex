@@ -381,12 +381,13 @@ class Reader {
     return lines;
   }
 
+  bool isCalendar() const { return sawCalendar; }  // false for anything else (a web page from a wrong link)
   size_t kept() const { return masters.size() + overrides.size(); }  // events held for the window (memory check)
 
  private:
   Secs now, nowDay;
   std::string pending;
-  bool havePending = false;
+  bool havePending = false, sawCalendar = false;
   std::map<std::string, Zone> zones;
   std::vector<Event> masters, overrides;
   std::map<std::string, size_t> masterAt;  // uid -> index in masters (a later copy replaces it in place)
@@ -476,6 +477,7 @@ class Reader {
     }
 
     if (name == "BEGIN") {
+      if (value == "VCALENDAR") sawCalendar = true;
       if (in == OUTSIDE && value == "VEVENT") {
         in = EVENT;
         ev = Event();
@@ -553,18 +555,11 @@ class Reader {
       if (keep) masters.push_back(ev);
       return;
     }
+    // A later copy of an event replaces the earlier one in its place. (Only kept events are remembered, so a big
+    // calendar costs nothing for the rest.)
     auto it = masterAt.find(ev.uid);
-    if (it != masterAt.end()) {  // a later copy replaces the earlier, in its place
-      masters[it->second] = keep ? ev : Event();
-      return;
-    }
-    if (!keep) {  // remembered without its text, in case a later copy of it is kept
-      Event empty;
-      empty.uid = ev.uid;
-      ev = empty;
-    }
-    masterAt[ev.uid] = masters.size();
-    masters.push_back(ev);
+    if (it != masterAt.end()) masters[it->second] = keep ? ev : Event();
+    else if (keep) masterAt[ev.uid] = masters.size(), masters.push_back(ev);
   }
 
   void endZone() {

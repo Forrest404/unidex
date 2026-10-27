@@ -110,21 +110,55 @@ static void writeChipNow() {
 }
 
 
+// The time from a web server's Date header ("Tue, 27 Oct 2026 10:25:41 GMT"), for networks that block NTP (UDP
+// port 123, as some halls and eduroam do). Good to a second. 0 if it couldn't be had.
+static time_t webTime() {
+  String date;
+  if (netHttpsHeader("www.google.com", "/generate_204", "date", date) <= 0) return 0;
+  static const char *MONTHS = "JanFebMarAprMayJunJulAugSepOctNovDec";
+  char mon[4] = "";
+  int d, y, h, mi, s;
+  if (sscanf(date.c_str(), "%*[^,], %d %3s %d %d:%d:%d", &d, mon, &y, &h, &mi, &s) != 6) return 0;
+  const char *at = strstr(MONTHS, mon);
+  if (!at || y < 2024) return 0;
+  int m = (at - MONTHS) / 3 + 1;
+  y -= m <= 2;  // days since 1970 (days_from_civil)
+  const int era = y / 400, yoe = y - era * 400, doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
+  const long days = era * 146097L + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468;
+  return (time_t)days * 86400 + h * 3600 + mi * 60 + s;
+}
+
+const char *clockSyncOnline() {
+  // Wait for a real NTP answer: getLocalTime() alone returns at once if the clock was already set.
+  sntp_set_sync_status(SNTP_SYNC_STATUS_RESET);
+  configTzTime(TZ_LONDON, "pool.ntp.org", "time.google.com");
+  const uint32_t t0 = millis();
+  while (sntp_get_sync_status() != SNTP_SYNC_STATUS_COMPLETED && millis() - t0 < NTP_TIMEOUT_MS) {
+    powerAlive();
+    delay(100);
+  }
+  bool ok = sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED;
+  sntp_stop();
+  if (!ok) {  // NTP blocked: the web's time instead
+    const time_t t = webTime();
+    if (t) {
+      struct timeval tv = {t, 0};
+      settimeofday(&tv, nullptr);
+      ok = true;
+    }
+  }
+#if DEBUG
+  Serial.printf("clock: %s\n", ok ? (sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED ? "ntp" : "web") : "none");
+#endif
+  if (ok) writeChipNow();
+  return ok ? nullptr : "no time server";
+}
+
 const char *clockSync() {
   if (netClaimed()) return "WiFi busy: a note is sending";
   const char *err = netConnect();  // the WiFi saved from the website's Setup page
   if (!err) {
-    // Wait for a real NTP answer: getLocalTime() alone returns at once if the clock was already set.
-    sntp_set_sync_status(SNTP_SYNC_STATUS_RESET);
-    configTzTime(TZ_LONDON, "pool.ntp.org", "time.google.com");
-    const uint32_t t0 = millis();
-    while (sntp_get_sync_status() != SNTP_SYNC_STATUS_COMPLETED && millis() - t0 < NTP_TIMEOUT_MS) {
-      powerAlive();
-      delay(100);
-    }
-    if (sntp_get_sync_status() == SNTP_SYNC_STATUS_COMPLETED) writeChipNow();
-    else err = "no time server";
-    sntp_stop();
+    err = clockSyncOnline();
     netOff();
   }
 #if DEBUG

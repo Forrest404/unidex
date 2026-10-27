@@ -29,6 +29,6 @@ const char *cloudCleanup(NoteText &note, const String &nowLocal);
 const char *cloudPush(const String &name, const String &markdown, String &path);
 // Checks one service with the saved settings: "wifi", "openai", "elevenlabs", "anthropic" or "github". Connects
 // WiFi itself.
-const char *cloudTest(const char *what);
+const char *cloudTest(const char *what, String &detail);
 
 String noteMarkdown(const NoteText &note, const String &id, const String &createdUtc);

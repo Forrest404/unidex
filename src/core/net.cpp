@@ -1,6 +1,7 @@
 #include "net.h"
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
+#include <functional>
 #include <memory>
 #include <esp_wpa2.h>
 #include "credentials.h"
@@ -127,16 +128,19 @@ static bool readLine(WiFiClientSecure &c, String &line) {
   return false;
 }
 
-// Reads exactly `n` bytes (or to the end), appending up to the cap.
-static void readBytes(WiFiClientSecure &c, size_t n, String &body, size_t maxBody) {
-  uint8_t buf[256];
+typedef std::function<bool(const uint8_t *, size_t)> Sink;  // where the reply's body goes; false = stop reading
+
+// Reads exactly `n` bytes (or to the end) into the sink. False if the sink stopped it.
+static bool readBytes(WiFiClientSecure &c, size_t n, const Sink &sink) {
+  uint8_t buf[512];
   uint32_t t0 = millis();
   while (n > 0 && millis() - t0 < IO_TIMEOUT_MS) {
     const int got = c.read(buf, min(n, sizeof buf));
     if (got > 0) {
-      for (int i = 0; i < got && body.length() < maxBody; i++) body += (char)buf[i];
+      if (!sink(buf, got)) return false;
       n -= got;
       t0 = millis();
+      powerAlive();  // a big download is a long wait in the main loop
     } else if (!c.connected()) {
       break;
     } else {
@@ -144,11 +148,12 @@ static void readBytes(WiFiClientSecure &c, size_t n, String &body, size_t maxBod
       delay(2);
     }
   }
+  return true;
 }
 
-int netHttps(const char *host, const char *method, const char *path, const String &headers,
-             const NetPart *parts, int nParts, String &body, size_t maxBody) {
-  body = "";
+static int request(const char *host, const char *method, const char *path, const String &headers,
+                   const NetPart *parts, int nParts, const Sink &sink, const char *header = nullptr,
+                   String *value = nullptr) {
   // On the heap: the client holds ~4 KB of mbedTLS state, too much next to the handshake on the 8 KB loop stack.
   std::unique_ptr<WiFiClientSecure> client(new WiFiClientSecure);
   WiFiClientSecure &c = *client;
@@ -190,19 +195,45 @@ int netHttps(const char *host, const char *method, const char *path, const Strin
     lower.toLowerCase();
     if (lower.startsWith("transfer-encoding:") && lower.indexOf("chunked") > 0) chunked = true;
     if (lower.startsWith("content-length:")) contentLength = lower.substring(15).toInt();
+    if (header && lower.startsWith(header) && lower[strlen(header)] == ':') {  // the one header asked for
+      *value = line.substring(strlen(header) + 1);
+      value->trim();
+    }
   }
   if (chunked) {
     for (;;) {  // <hex size>\r\n<data>\r\n ... 0\r\n\r\n
       if (!readLine(c, line)) break;
       const long size = strtol(line.c_str(), nullptr, 16);
       if (size <= 0) break;
-      readBytes(c, size, body, maxBody);
+      if (!readBytes(c, size, sink)) break;
       readLine(c, line);
     }
   } else {
-    readBytes(c, contentLength >= 0 ? (size_t)contentLength : SIZE_MAX, body, maxBody);
+    readBytes(c, contentLength >= 0 ? (size_t)contentLength : SIZE_MAX, sink);
   }
   c.stop();
   powerActivity();
   return status;
 }
+
+int netHttps(const char *host, const char *method, const char *path, const String &headers,
+             const NetPart *parts, int nParts, String &body, size_t maxBody) {
+  body = "";
+  return request(host, method, path, headers, parts, nParts, [&](const uint8_t *p, size_t n) {
+    for (size_t i = 0; i < n && body.length() < maxBody; i++) body += (char)p[i];
+    return true;
+  });
+}
+
+int netHttpsGet(const char *host, const char *path, const std::function<bool(const uint8_t *, size_t)> &sink,
+                String &location) {
+  location = "";
+  return request(host, "GET", path, "User-Agent: unidex\r\n", nullptr, 0, sink, "location", &location);
+}
+
+int netHttpsHeader(const char *host, const char *path, const char *name, String &value) {
+  value = "";
+  return request(host, "GET", path, "User-Agent: unidex\r\n", nullptr, 0, [](const uint8_t *, size_t) { return true; },
+                 name, &value);
+}
+

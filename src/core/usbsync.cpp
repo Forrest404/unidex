@@ -118,6 +118,26 @@ static void finishEvents() {
   Serial.printf("OK E %lu\n", (unsigned long)crc);
 }
 
+bool usbSyncSaveEvents(const std::vector<std::string> &lines) {
+  uint32_t sum = 0;  // the same crc as an E transfer's, so the same events from either way aren't written again
+  for (const std::string &l : lines) {
+    sum = esp_rom_crc32_le(sum, (const uint8_t *)l.c_str(), l.size());
+    sum = esp_rom_crc32_le(sum, (const uint8_t *)"\n", 1);
+  }
+  if ((uint32_t)storageGetInt("events_crc", 0) != sum || !storageExists(EVENTS)) {
+    fs::File f = storageOpen(EVENTS_TMP, "w");
+    if (!f) return false;
+    size_t bytes = 0;
+    for (const std::string &l : lines) bytes += f.println(l.c_str());
+    f.close();
+    if (!storageReplace(EVENTS_TMP, EVENTS, bytes)) return false;
+    storagePutInt("events_crc", (int32_t)sum);
+    generation++;
+  }
+  lastSync = time(nullptr);
+  return true;
+}
+
 static void handle(const char *l) {
   if (appsUsbData(l)) return;  // a file of an app being installed (A PUT)
   if (badgeLeft > 0 && l[0] == 'D' && l[1] == ' ') {

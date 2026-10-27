@@ -165,13 +165,15 @@ export async function notesClear(dev, name = 'all') {
   if (!(await dev.expect('OK N CLR', 3000))) throw new Error(tooOld);
 }
 
-// Runs on the device, with its own WiFi: 'wifi', 'openai', 'elevenlabs', 'anthropic' or 'github'. {ok, reason}
+// Runs on the device, with its own WiFi: 'wifi', 'openai', 'elevenlabs', 'anthropic', 'github' or 'calendar'.
+// {ok, detail} or {ok: false, reason}; detail is what was found ("12 events this week"), if the device says.
 export async function notesTest(dev, what) {
   await dev.send(`N TEST ${what}`);
   const line = await dev.expect(`OK N TEST ${what}`, 60000);
   if (!line) throw new Error('No answer from the device.');
   const rest = line.slice(`OK N TEST ${what} `.length);
-  return rest === 'ok' ? { ok: true } : { ok: false, reason: rest.replace(/^fail /, '') };
+  if (rest === 'ok' || rest.startsWith('ok ')) return { ok: true, detail: rest.slice(3) };
+  return { ok: false, reason: rest.replace(/^fail /, '') };
 }
 
 // Two seconds from the microphone: {peak, rms} (0-32767), or {reason}.

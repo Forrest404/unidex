@@ -31,6 +31,7 @@
 //   X EMPTY <0|1>     -> with FAKE on, the canned transcription hears nothing (the "Heard nothing" note)
 //   X AUTOSYNC <s>    -> Notes tries sending waiting recordings by itself every s seconds (0 = the usual 10 min)
 //   X WELCOME         -> the first-start welcome screens (finishing them saves "welcomed" = 1)
+//   X CALSYNC         -> what Settings > Sync does: "OK X CALSYNC <ok|reason>|<the line for the screen>"
 //   X HANG            -> the main loop stops for good: the loop watchdog restarts the device after 30 s
 //   X BATTMV <mv>     -> pretend the battery reads mv, as if on battery (0 = the real reading): low-battery tests
 //   X KEY <name> [<int>|none] -> reads (or sets, or removes) one saved number in NVS:

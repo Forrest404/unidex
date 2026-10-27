@@ -18,6 +18,7 @@ static const Field FIELDS[] = {
   {"gh_on", false, 1, "0"},          {"gh_repo", false, 100, ""},
   {"gh_branch", false, 64, "main"},  {"gh_dir", false, 64, "VoiceNotes"},
   {"gh_token", true, 256, ""},
+  {"cal_url", true, 256, ""},  // the calendar's private link (.ics), for Settings > Sync
   {"wifi_ca", true, 3000, ""},  // eduroam CA certificate: the PEM's base64 body, no header lines or line breaks
   // Networks 2 to 5: the same four settings each (network 1 is the wifi_* set above).
   {"wifi2_ssid", false, 32, ""}, {"wifi2_pass", true, 128, ""}, {"wifi2_user", false, 128, ""}, {"wifi2_ca", true, 3000, ""},

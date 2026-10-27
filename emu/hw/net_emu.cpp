@@ -9,6 +9,8 @@ void netOff() {}
 void netClaim(bool) {}
 bool netClaimed() { return false; }
 int netHttps(const char *, const char *, const char *, const String &, const NetPart *, int, String &, size_t) { return -1; }
+int netHttpsGet(const char *, const char *, const std::function<bool(const uint8_t *, size_t)> &, String &) { return -1; }
+int netHttpsHeader(const char *, const char *, const char *, String &) { return -1; }
 const char *linkStart() { return "Not in the demo"; }
 void linkStop() {}
 bool linkOn() { return false; }

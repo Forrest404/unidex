@@ -2,7 +2,9 @@
 #include <ArduinoJson.h>
 #include <mbedtls/base64.h>
 #include "../../core/credentials.h"
+#include "../../core/clock.h"
 #include "../../core/devtools.h"
+#include "../timetable/callink.h"
 
 static const char *OPENAI = "api.openai.com", *ELEVENLABS = "api.elevenlabs.io", *ANTHROPIC = "api.anthropic.com",
                   *GITHUB = "api.github.com";
@@ -384,7 +386,7 @@ const char *cloudPush(const String &name, const String &markdown, String &path) 
   return nullptr;
 }
 
-const char *cloudTest(const char *what) {
+const char *cloudTest(const char *what, String &detail) {
   if (netClaimed()) return "busy: a note is sending";
   if (const char *err = netConnect()) return err;
   String body;
@@ -419,6 +421,11 @@ const char *cloudTest(const char *what) {
       err = "GitHub: repo not found";
     else if (status != 200)
       err = failure(status, "GitHub", body);
+  } else if (strcmp(what, "calendar") == 0) {
+    int events = 0;
+    if (!credHas("cal_url")) err = "no calendar link";
+    else if (clockValid() || !(err = clockSyncOnline())) err = calendarCheck(events);
+    if (!err) detail = String(events) + (events == 1 ? " event" : " events") + " this week";
   } else {
     err = "unknown test";
   }

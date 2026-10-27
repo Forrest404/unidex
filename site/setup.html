@@ -216,6 +216,22 @@
         </div>
         <p class="status" id="githubStatus"></p>
       </div>
+
+      <div class="card">
+        <h3>Calendar <span class="saved" id="calendarSaved"></span></h3>
+        <label for="cal_url">Calendar link <span class="hint">(.ics, private)</span></label>
+        <input id="cal_url" type="password" autocomplete="off" spellcheck="false" maxlength="256">
+        <p class="note">With a link saved, <b>Settings &gt; Sync</b> on the device sets the clock and fetches the next
+          week's events over WiFi, with no computer. Where to find it: in Google Calendar, your calendar's settings,
+          <b>Secret address in iCal format</b>. In Outlook, Settings &gt; Calendar &gt; Shared calendars &gt;
+          <b>Publish a calendar</b>, the ICS link. In iCloud, share the calendar as a <b>Public Calendar</b> (anyone
+          with the link can see it).</p>
+        <div class="buttons">
+          <button data-save="calendar">Save</button>
+          <button class="secondary" data-test="calendar">Test</button>
+        </div>
+        <p class="status" id="calendarStatus"></p>
+      </div>
     </div>
   </section>
 

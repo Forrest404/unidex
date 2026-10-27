@@ -179,8 +179,10 @@ bool notesUsb(const char *l) {
     else if (credKnown(arg)) credClear(arg);
     Serial.println("OK N CLR");
   } else if (strcmp(cmd, "TEST") == 0) {
-    const char *err = cloudTest(arg);
+    String detail;
+    const char *err = cloudTest(arg, detail);
     if (err) Serial.printf("OK N TEST %s fail %s\n", arg, err);
+    else if (detail.length()) Serial.printf("OK N TEST %s ok %s\n", arg, detail.c_str());
     else Serial.printf("OK N TEST %s ok\n", arg);
     powerActivity();
   } else if (strcmp(cmd, "MIC") == 0) {

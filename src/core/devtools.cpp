@@ -14,6 +14,7 @@
 #include "launcher.h"
 #include "power.h"
 #include "storage.h"
+#include "../apps/timetable/callink.h"
 
 static bool dryRun, fakeCloud, netFail, noCard, noPush, noSave, demo, manualFrames, emptyHeard;
 static int failNotes;
@@ -236,6 +237,10 @@ bool devUsb(const char *l) {
   } else if (!strncmp(c, "WELCOME", 7)) {  // X WELCOME: the first-start screens, without wiping anything
     launcherShowWelcome();
     Serial.println("OK X WELCOME");
+  } else if (!strcmp(c, "CALSYNC")) {  // X CALSYNC: what Settings > Sync does (clock, then the calendar link)
+    char result[64];
+    const char *err = calendarSync(result, sizeof result);
+    Serial.printf("OK X CALSYNC %s|%s\n", err ? err : "ok", result);
   } else if (!strcmp(c, "HANG")) {  // X HANG: the main loop stops; the watchdog should restart the device in 30 s
     Serial.println("OK X HANG");
     Serial.flush();

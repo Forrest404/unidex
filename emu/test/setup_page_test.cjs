@@ -9,9 +9,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const FAKE = `
 (() => {
-  const names = ['wifi_ssid','wifi_pass','wifi_user','openai_key','anthropic_key','cleanup','cleanup_model','gh_on','gh_repo','gh_branch','gh_dir','gh_token','wifi_ca'];
+  const names = ['wifi_ssid','wifi_pass','wifi_user','openai_key','anthropic_key','cleanup','cleanup_model','gh_on','gh_repo','gh_branch','gh_dir','gh_token','wifi_ca','cal_url'];
   for (let i = 2; i <= 5; i++) for (const p of ['ssid','pass','user','ca']) names.push('wifi' + i + '_' + p);
-  const secret = n => /_pass$|_key$|_token$|_ca$/.test(n);
+  const secret = n => /_pass$|_key$|_token$|_ca$|^cal_url$/.test(n);
   const hex = s => [...new TextEncoder().encode(s)].map(b => b.toString(16).padStart(2, '0')).join('');
   const unhex = h => new TextDecoder().decode(new Uint8Array((h.match(/../g) || []).map(x => parseInt(x, 16))));
   const store = window.__device = {};
@@ -32,7 +32,7 @@ const FAKE = `
     }
     if (w[0] === 'N' && w[1] === 'ADD') { chunks[w[2]] = (chunks[w[2]] || '') + unhex(w[3] || ''); return ['OK N ADD ' + w[2]]; }
     if (w[0] === 'N' && w[1] === 'CLR') { for (const k of Object.keys(store)) delete store[k]; return ['OK N CLR']; }
-    if (w[0] === 'N' && w[1] === 'TEST') return ['OK N TEST ' + w[2] + ' ok'];
+    if (w[0] === 'N' && w[1] === 'TEST') return ['OK N TEST ' + w[2] + (w[2] === 'calendar' ? ' ok 12 events this week' : ' ok')];
     return [];
   }
   let controller, pending = '';
@@ -108,6 +108,16 @@ const FAKE = `
   out.modelKey = [await cleanupStatus(), JSON.parse(await dev()).cleanup_model || ''];
   await fill('cleanup_model', 'gpt-4o-mini'); await click('[data-save=cleanup]'); await sleep(800);
   out.modelName = [await cleanupStatus(), JSON.parse(await dev()).cleanup_model];
+  // the calendar link: only a web link saves; Test says what it found
+  const calendarStatus = () => js(`document.getElementById('calendarStatus').textContent`);
+  await fill('cal_url', 'my calendar'); await click('[data-save=calendar]'); await sleep(500);
+  out.calBad = [await calendarStatus(), JSON.parse(await dev()).cal_url || ''];
+  await fill('cal_url', 'webcal://p01-caldav.icloud.com/published/2/abc'); await click('[data-save=calendar]'); await sleep(800);
+  out.calSaved = [await calendarStatus(), JSON.parse(await dev()).cal_url, await js(`document.getElementById('calendarSaved').textContent`)];
+  await click('[data-test=calendar]'); await sleep(800);
+  out.calTest = await calendarStatus();
+  await click('[data-test=openai]'); await sleep(800);
+  out.openaiTest = await js(`document.getElementById('openaiStatus').textContent`);
   console.log(JSON.stringify(out, null, 1));
   chrome.kill(); process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });
