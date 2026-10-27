@@ -75,6 +75,8 @@ int main() {
   m = good();
   m.api = 2;
   check(check(m, "hello") == nullptr, "an app for api 2 (unidex.wifi) is fine");
+  m.api = 3;
+  check(check(m, "hello") == nullptr, "an app for api 3 (unidex.frame) is fine");
   m = good();
   m.api = API_LEVEL + 1;
   check(strcmp(check(m, "hello"), "needs newer firmware") == 0, "a newer api level is refused");

@@ -452,6 +452,36 @@ static int l_scan(lua_State *s) {
   return 1;
 }
 
+// --- unidex.frame (API 3): draw() shown now, mid-call, as an animation frame (a quick partial refresh) ---
+static int frameCount;      // frames in the current call (60 at most, so an endless animation still ends)
+static String frameError;   // an error in draw() during a frame, raised in the caller once the frame is done
+
+static void frameDraw() {
+  display.fillScreen(WHITE);
+  lua_getglobal(L, "draw");
+  if (lua_pcall(L, 0, 0, 0) != LUA_OK) {
+    const char *m = lua_tostring(L, -1);
+    frameError = m ? m : "error";
+    lua_pop(L, 1);
+  }
+}
+
+static int l_frame(lua_State *s) {
+  const int ms = constrain((int)luaL_optinteger(s, 1, 0), 0, 1000);  // a pause after it, for easing
+  if (++frameCount > 60) return luaL_error(s, "frame: at most 60 frames in one go");
+  frameError = "";
+  const uint32_t t0 = millis();
+  displayFrame(frameDraw);
+  if (ms) delay(ms);
+  powerAlive();
+  callStart += millis() - t0;  // the screen and the pause don't count against the app's 2 s
+  if (frameError.length()) {  // draw()'s own error, with its own line ("main.lua:3: ...")
+    lua_pushstring(s, frameError.c_str());
+    return lua_error(s);
+  }
+  return 0;
+}
+
 // --- require: only .lua files inside the app's folder, loaded once ---
 static int l_require(lua_State *s) {
   const char *name = luaL_checkstring(s, 1);
@@ -499,7 +529,7 @@ static int setup(lua_State *s) {
                           {"wrap", l_wrap},     {"width", l_width},     {"rect", l_rect},       {"fill", l_fill},
                           {"line", l_line},     {"qr", l_qr},           {"icon", l_icon},       {"bitmap", l_bitmap},
                           {"time", l_time},     {"battery", l_battery}, {"toast", l_toast},     {"wake_in", l_wake_in},
-                          {"random", l_random}, {nullptr, nullptr}};
+                          {"random", l_random}, {"frame", l_frame},     {nullptr, nullptr}};
   luaL_newlib(s, API);
   lua_pushinteger(s, apps::API_LEVEL);
   lua_setfield(s, -2, "api");
@@ -542,6 +572,7 @@ static bool call(const char *fn, bool &defined) {
   }
   defined = true;
   callStart = millis();
+  frameCount = 0;
   if (lua_pcall(L, 0, 1, 0) != LUA_OK) {
     const char *m = lua_tostring(L, -1);
     String why = m ? m : "error";

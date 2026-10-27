@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import sys
 
-API_LEVEL = 2  # the newest the firmware offers; an app may ask for any level up to it
+API_LEVEL = 3  # the newest the firmware offers; an app may ask for any level up to it
 MAX_FILE, MAX_APP = 64 * 1024, 512 * 1024
 PERMISSIONS = {"wifi", "mic", "meet"}
 EXTENDABLE = {"badge"}  # the built-in apps plugins can add to (apps_logic.h, extendable())
@@ -101,7 +101,8 @@ def check(folder):
     files.sort(key=lambda f: f["path"] == "app.json")  # sent last, as the device expects
     entry = {"id": m.get("id"), "name": name, "version": m.get("version"), "author": author, "description": desc,
              "type": kind, "extends": extends if kind == "plugin" else "", "category": category,
-             "permissions": perms, "license": m.get("license", ""), "icon": icon, "bytes": total, "files": files}
+             "permissions": perms, "license": m.get("license", ""), "icon": icon, "bytes": total, "files": files,
+             "api": m.get("api")}  # the firmware's API level it needs (unidex.api): newer firmware may be needed
     return entry, problems
 
 
