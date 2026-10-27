@@ -33,6 +33,7 @@
 //   X WELCOME         -> the first-start welcome screens (finishing them saves "welcomed" = 1)
 //   X FLASHFILE <path> <bytes> -> a file in internal flash (made-up bytes; 0 removes it), to test the one-time copy
 //                        to the card (X KEY sd_copied none, then restart)
+//   X ADDLINE <path> <text> -> adds a line to a card file (test data, e.g. a timetable.csv)
 //   X RMFILE <path>   -> removes one file from the card (cleaning up after a test)
 //   X NOTES <n>       -> n made-up notes on the card (test-0001 ...), for long lists; X NOTES 0 removes them
 //   X CALSYNC         -> what Settings > Sync does: "OK X CALSYNC clock=<ok|reason> link=<0|1> calendar=<ok|reason>

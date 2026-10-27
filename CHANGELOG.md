@@ -28,6 +28,10 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   before the SD card) is checked before it counts, and tried again if it didn't work.
 - **Notes:** a recording made just as the previous one finished sending could wait until the next sync (up to 10
   minutes) before it was sent. It now goes straight away.
+- **Timetable:** a long timetable.csv no longer pushes this week's calendar events out (each file has its own
+  room: 128 classes, 64 events); a class ending at midnight (00:00, 24:00, or after it) shows, cut at midnight; a
+  name or room in quotes can hold a comma (`"Maths, advanced"`); and a time that isn't one (`ab:cd`) is skipped
+  instead of read as 00:00.
 ## v1.9 (27 October 2026)
 
 - **Set up from your phone** (new): in Settings, hold B. The device shows a QR code; your phone joins its WiFi and
