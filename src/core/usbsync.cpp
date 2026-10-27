@@ -195,9 +195,17 @@ static void handle(const char *l) {
     // A number and a time from 2024 to 2099 only: "T abc" or "T 0" used to set 1970 and a nonsense year on the chip.
     Serial.println(end != l + 2 && !*end && clockSet((time_t)t) ? "OK T" : "ERR");
   } else if (l[0] == 'E' && l[1] == ' ') {
-    char *end;
-    remaining = strtol(l + 2, &end, 10);
-    expectedCrc = strtoul(end, nullptr, 10);
+    // "E <count> <crc>", both numbers: "E abc" or "E -1 0" used to read as an empty calendar and replace the saved
+    // one. ("E 0 0" is a real empty week: the crc of nothing is 0.)
+    char *end, *crcEnd;
+    const long count = strtol(l + 2, &end, 10);
+    const unsigned long sum = strtoul(end, &crcEnd, 10);
+    if (end == l + 2 || crcEnd == end || *crcEnd || count < 0 || count > 1000 || strchr(end, '-')) {
+      Serial.println("ERR");
+      return;
+    }
+    remaining = count;
+    expectedCrc = sum;
     crc = 0;
     written = 0;
     unchanged = (uint32_t)storageGetInt("events_crc", 0) == expectedCrc && storageExists(EVENTS);
