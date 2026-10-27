@@ -26,9 +26,10 @@ const char *phoneStart(PhoneTab) { return "Not in the demo"; }
 void phoneStop() {}
 bool phoneOn() { return false; }
 Redraw phoneTick() { return Redraw::None; }
-void phoneDraw(const char *) {}
+void phoneDraw(const char *, const char *) {}
 void phoneActivity() {}
 bool phoneChanged() { return false; }
+bool phoneDone() { return false; }
 const char *phoneSsid() { return "unidex-demo"; }
 const char *phonePassword() { return ""; }
 const char *phoneJoinCode() { return ""; }

@@ -36,6 +36,7 @@ static uint32_t lastUse, served, startedAt, firstAt;  // firstAt: the first requ
 static uint32_t shown;     // requests answered when the screen was last drawn ("Phone connected" once there are some)
 static uint32_t stopAt;    // Done was pressed: stop at this time (after its answer has gone out)
 static bool changed;       // setup was saved since the start
+static bool done;          // Done was pressed (it stops, or has stopped, because of that)
 static bool redrawFull;    // the screen needs a full refresh (invert changed)
 static PhoneTab tab;
 static String nearby = "[]";  // the WiFi names around, strongest first, as a JSON array
@@ -210,7 +211,8 @@ static String setupJson() {
          ",\"volume\":" + String(audioVolume()) + ",\"volumeMax\":" + String(AUDIO_VOLUME_MAX) +
          ",\"invert\":" + String(display.inverted ? 1 : 0) +
          ",\"time\":" + String(clockValid() ? (long long)time(nullptr) : 0LL) +
-         ",\"battery\":" + String(batteryPercent()) + ",\"version\":\"" + str(json(UNIDEX_VERSION)) +
+         ",\"battery\":" + String(batteryPercent()) + ",\"charging\":" + String(batteryCharging() ? 1 : 0) +
+         ",\"name\":\"" + String(ssid) + "\",\"version\":\"" + str(json(UNIDEX_VERSION)) +
          "\",\"nearby\":" + nearby + ",\"busy\":" + String(jobBusy() ? 1 : 0) + "}";
 }
 
@@ -295,6 +297,7 @@ static void post(WiFiClient &c, const Request &r) {
     else credClearAll(), changed = false, error = nullptr;
   } else if (r.path == "/done") {
     stopAt = millis() + 500;  // the answer goes out first
+    done = true;
     error = nullptr;
   }
   reply(c, error ? 400 : 200, "application/json", answer(error));
@@ -505,7 +508,7 @@ const char *phoneStart(PhoneTab startTab) {
   http.begin();
   dns.start(53, "*", WiFi.softAPIP());
   powerHold();  // no light or deep sleep while the phone may be reading
-  on = true, served = 0, firstAt = 0, shown = 0, stopAt = 0, changed = false, redrawFull = false;
+  on = true, served = 0, firstAt = 0, shown = 0, stopAt = 0, changed = false, done = false, redrawFull = false;
   startedAt = lastUse = millis();
 #if UNIDEX_DEV
   joinedAt = addressAt = 0;
@@ -558,21 +561,31 @@ Redraw phoneTick() {
 }
 
 // The QR code the camera joins with, then the name and password to type.
-void phoneDraw(const char *title) {
+void phoneDraw(const char *title, const char *computer) {
   shown = served;
   drawHeader(title);
   QRCode qr;
   uint8_t modules[qrcode_getBufferSize(3)];
-  if (qrcode_initText(&qr, modules, 3, ECC_LOW, joinCode) == 0) {  // version 3: 29x29, 4 px each
-    const int scale = 4, x0 = (display.width() - qr.size * scale) / 2, y0 = CONTENT_TOP + 4;
+  if (qrcode_initText(&qr, modules, 3, ECC_LOW, joinCode) == 0) {  // version 3: 29x29, 4 px each (3 with `computer`)
+    const int scale = computer ? 3 : 4, x0 = (display.width() - qr.size * scale) / 2, y0 = CONTENT_TOP + (computer ? 3 : 4);
     for (uint8_t y = 0; y < qr.size; y++)
       for (uint8_t x = 0; x < qr.size; x++)
         if (qrcode_getModule(&qr, x, y)) display.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, BLACK);
   }
+  char line[48];
+  if (computer) {  // everything above the hints
+    display.setFont(FONT_SMALL);
+    drawCenteredLine(shown ? "Phone connected" : "Scan with your phone", 128);
+    display.setFont(FONT_TINY);
+    snprintf(line, sizeof line, "%s   %s", ssid, password);
+    drawCenteredLine(line, 142);
+    snprintf(line, sizeof line, "Computer: %s", computer);
+    drawCenteredLine(line, 157);
+    return;
+  }
   display.setFont(FONT_SMALL);
   drawCenteredLine(shown ? "Phone connected" : "Scan with your camera", 164);
   display.setFont(FONT_TINY);
-  char line[40];
   snprintf(line, sizeof line, "%s   %s", ssid, password);
   drawCenteredLine(line, 181);
   drawCenteredLine("Hold A to stop", 196);
@@ -580,6 +593,7 @@ void phoneDraw(const char *title) {
 
 void phoneActivity() { lastUse = millis(); }
 bool phoneChanged() { return changed; }
+bool phoneDone() { return done; }
 const char *phoneSsid() { return ssid; }
 const char *phonePassword() { return password; }
 const char *phoneJoinCode() { return joinCode; }
