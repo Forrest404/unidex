@@ -21,9 +21,12 @@ permissions:
   pages: write
   id-token: write
 
+# A release's run has a group of its own, so nothing cancels it before the firmware files are attached to the
+# release (a beta push did, to v1.12); the other runs (beta pushes, the schedule, by hand) replace each other, since
+# only the newest site matters.
 concurrency:
-  group: pages
-  cancel-in-progress: true
+  group: ${{ github.event_name == 'release' && format('release-{0}', github.event.release.tag_name) || 'pages' }}
+  cancel-in-progress: ${{ github.event_name != 'release' }}
 
 jobs:
   build:
