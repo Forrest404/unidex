@@ -119,6 +119,26 @@ int main() {
   says(a, "Digital Cultures and Society - in 10 min, Room 414 Marshgate", HAPPY, true,
        "a long title is said in full (the screen wraps or cuts it)");
 
+  // Poses
+  a = at(9, 0);
+  add(a, "Maths", "B12", 10, 60);
+  check(say(a).pose == BACKPACK, "within 15 min: the backpack");
+  a.events[0].start = 20;
+  check(say(a).pose == NO_POSE, "20 min away: no backpack yet");
+  a.events[0].start = -5;
+  check(say(a).pose == WAVE, "on now: a wave");
+  a = at(15, 10);
+  a.dayDoneAgo = 10;
+  add(a, "Maths", "", 18 * 60, 60);
+  const Talk done = say(a);
+  check(done.text == "Done for today!" && done.pose == CHEER && done.mood == HAPPY && done.home, "10 min after the last class: done for today");
+  a.dayDoneAgo = 31;
+  check(say(a).text == "Free till tomorrow 9:10", "31 min after: free till tomorrow");
+  a.dayDoneAgo = 10;
+  a.reminderIn = 30;
+  a.reminderTitle = "Call Sam";
+  check(say(a).text == "Call Sam at 3:40pm", "a reminder within 2 hours comes before done for today");
+
   printf(failures ? "\n%d check(s) failed\n" : "\nall checks passed\n", failures);
   return failures ? 1 : 0;
 }

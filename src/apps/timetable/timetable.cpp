@@ -47,6 +47,8 @@ using Soon = TimetableSoon;
 RTC_DATA_ATTR static Soon soon[3];
 RTC_DATA_ATTR static int8_t soonCount = -1;  // -1 = not worked out since power-up
 RTC_DATA_ATTR static time_t staleLookAt;     // when the card was last read because they had all ended
+RTC_DATA_ATTR static time_t dayEnds;         // when today's last timed event ends (0: none)
+RTC_DATA_ATTR static int32_t dayEndsFor;     // the day that is (days since 1970)
 
 // Rows as timetable_logic.h reads them; ones that don't parse (a header, a bad day, date or time) are skipped. Each
 // file has its own room, so a long timetable can't push this week's events out (or the other way round).
@@ -215,9 +217,18 @@ static void formatSpan(char *buf, size_t len, const Class &c) {
   snprintf(buf, len, "%s-%s", a, b);
 }
 
-// Remembers the next few events for the home screen's line.
+// Remembers the next few events for the home screen's line, and when today's last one ends.
 static void rememberSoon(const Upcoming *up, int n) {
   const time_t now = time(nullptr);
+  const struct tm t = clockLocal();
+  const int32_t day = today(t);
+  int last = -1;
+  for (int i = 0; i < count; i++) {
+    const Class &c = classes[i];
+    if (!c.allDay && (c.date == day || (c.date < 0 && c.wday == t.tm_wday))) last = max<int>(last, c.end);
+  }
+  dayEndsFor = day;
+  dayEnds = last < 0 ? 0 : now - (t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec) + (time_t)last * 60;
   soonCount = min(n, 3);
   for (int i = 0; i < soonCount; i++) {
     const Class &c = classes[up[i].index];
@@ -530,6 +541,12 @@ static void ensureSoon() {
     Upcoming up[MAX_UPCOMING];
     rememberSoon(up, findUpcoming(up, clockLocal()));
   }
+}
+
+time_t timetableDayEnds() {
+  if (!clockValid()) return 0;
+  ensureSoon();
+  return dayEndsFor == today(clockLocal()) ? dayEnds : 0;
 }
 
 int timetableSoon(TimetableSoon out[3]) {

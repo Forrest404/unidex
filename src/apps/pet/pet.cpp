@@ -57,6 +57,50 @@ static const char *const HEART[] = {  // beside its head while it's happy
   "....#....",
 };
 
+// What it's up to, beside it under the bubble (talk_logic.h Pose), 12 x 12 at scale 3.
+static const char *const PROP_BACKPACK[] = {  // just before a class
+  "....####....",
+  "...#....#...",
+  "..########..",
+  ".##......##.",
+  ".#.######.#.",
+  ".#.#....#.#.",
+  ".#.######.#.",
+  ".#........#.",
+  ".#..####..#.",
+  ".#..#..#..#.",
+  ".##.####.##.",
+  "..########..",
+};
+static const char *const PROP_WAVE[] = {  // during one
+  "....#.#.....",
+  "..#.#.#.#...",
+  "..#.#.#.#...",
+  "..#.#.#.#...",
+  "..#######.#.",
+  "..#######.#.",
+  "..########..",
+  "..#######...",
+  "...######...",
+  "...#####....",
+  "....###.....",
+  "............",
+};
+static const char *const PROP_CONFETTI[] = {  // the day's classes over
+  "#.......#...",
+  "...##.......",
+  "...##....#.#",
+  "..........#.",
+  ".#....#..#.#",
+  "#.#..###....",
+  ".#....#.....",
+  "........##..",
+  "..#.....##..",
+  ".###........",
+  "..#....#..#.",
+  "......#.....",
+};
+
 uint32_t petLookBits() { return storageGetInt("pet_look", pet::pack(pet::DEFAULT_LOOK)); }
 
 String petName() { return storageGetString("pet_name"); }
@@ -94,6 +138,8 @@ static const talk::Talk &todaysTalk() {
       a.events[i] = {soon[i].title, soon[i].room, start > 0 ? (long)(start + 59) / 60 : (long)start / 60,
                      (long)(end + 59) / 60};
     }
+    const time_t dayEnds = timetableDayEnds();
+    if (dayEnds && now >= dayEnds) a.dayDoneAgo = (long)(now - dayEnds) / 60;
     RemindersNext r;
     if (remindersNext(&r)) {
       a.late = r.late;
@@ -213,7 +259,8 @@ static bool wordsFit(const char *text, int16_t w) {
   }
 }
 
-static void drawTalk(const char *text, const Outline &o, int16_t x0) {
+// Returns the bubble's bottom edge.
+static int16_t drawTalk(const char *text, const Outline &o, int16_t x0) {
   static const int MAX_LINES = 8;
   const int16_t right = display.width() - 1;
   String lines[MAX_LINES];
@@ -247,6 +294,7 @@ static void drawTalk(const char *text, const Outline &o, int16_t x0) {
     display.setCursor(cx - textWidth(lines[i].c_str()) / 2, top + lineH - 1 + i * lineH);
     display.print(lines[i]);
   }
+  return bottom;
 }
 
 static void drawMain() {
@@ -272,7 +320,17 @@ static void drawMain() {
     const Outline o = outlineOf(dressed);
     const int16_t x0 = -o.first * MAIN_SCALE + max<int8_t>(wobble, 0);  // its drawing from the screen's edge
     drawAvatar(dressed, MAIN_SCALE, MAIN_Y, eyes, x0);
-    drawTalk(text, o, x0);
+    const int16_t bottom = drawTalk(text, o, x0);
+    const char *const *prop = reaction ? nullptr
+                              : said.pose == talk::BACKPACK ? PROP_BACKPACK
+                              : said.pose == talk::WAVE     ? PROP_WAVE
+                              : said.pose == talk::CHEER    ? PROP_CONFETTI
+                                                            : nullptr;
+    static const int16_t PROP = 12 * 3, propX = display.width() - PROP - 8, propY = HINTS_TOP - PROP - 6;
+    if (prop && bottom < propY - 2)  // under the bubble, when there's room
+      for (int y = 0; y < 12; y++)
+        for (int x = 0; x < 12; x++)
+          if (prop[y][x] == '#') display.fillRect(propX + x * 3, propY + y * 3, 3, 3, BLACK);
     if (heart) petDrawHeart(display.width() - 22, HINTS_TOP - 14, heart);  // under the bubble
   } else {
     drawAvatar(dressed, MAIN_SCALE, MAIN_Y, eyes, (display.width() - pet::SIZE * MAIN_SCALE) / 2 + wobble);

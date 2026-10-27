@@ -11,3 +11,6 @@ struct TimetableSoon {
 
 // Up to 3, soonest first (one on now comes first). 0 if there are none, or the clock isn't set.
 int timetableSoon(TimetableSoon out[3]);
+
+// When today's last timed class or event ends (or ended), 0 if there's none today (or it isn't known yet).
+time_t timetableDayEnds();
