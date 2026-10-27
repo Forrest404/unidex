@@ -36,6 +36,8 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   clock to 1970 and a nonsense year on the clock chip).
 - **Calendar:** a garbled calendar transfer over USB (no numbers, a negative count) is refused instead of being taken
   as an empty week, which replaced the saved calendar with nothing.
+- **Phone portal:** the website's Sync, Test and microphone check leave the phone hotspot alone while it's on
+  (they used to switch the radio over and end it), and say so.
 ## v1.9 (27 October 2026)
 
 - **Set up from your phone** (new): in Settings, hold B. The device shows a QR code; your phone joins its WiFi and

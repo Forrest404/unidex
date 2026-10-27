@@ -5,6 +5,7 @@
 #include "../../core/clock.h"
 #include "../../core/devtools.h"
 #include "../timetable/callink.h"
+#include "phone.h"
 
 static const char *OPENAI = "api.openai.com", *ELEVENLABS = "api.elevenlabs.io", *ANTHROPIC = "api.anthropic.com",
                   *GITHUB = "api.github.com";
@@ -387,7 +388,7 @@ const char *cloudPush(const String &name, const String &markdown, String &path) 
 }
 
 const char *cloudTest(const char *what, String &detail) {
-  if (netClaimed()) return "busy: a note is sending";
+  if (netClaimed()) return phoneOn() ? "busy: the phone hotspot is on" : "busy: a note is sending";
   if (const char *err = netConnect()) return err;
   String body;
   const char *err = nullptr;
