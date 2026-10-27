@@ -49,7 +49,7 @@ static bool redrawSoon;    // or a partial one (a message to show: "Badge saved"
 static PhoneTab tab;
 static bool online;        // on the normal WiFi too (the hotspot on its channel), so the Apps tab can install
 static String nearby = "[]";  // the WiFi names around, strongest first, as a JSON array
-static char ssid[16], password[12], joinCode[64];
+static char ssid[24], password[12], joinCode[64];  // the code: 28 characters and the name (20 at most)
 
 #if UNIDEX_DEV
 // Test build: the hotspot, so a computer can join it, and when a phone got through each step of joining, in ms
@@ -217,6 +217,32 @@ static String answer(const char *error) {  // what a save sends back: {"ok":1} o
   return error ? "{\"error\":\"" + str(json(error)) + "\"}" : String("{\"ok\":1}");
 }
 
+// One value of a form ("" if it isn't there).
+static String formValue(const String &body, const char *name) {
+  for (const auto &p : formPairs(body.c_str()))
+    if (p.first == name) return p.second.c_str();
+  return "";
+}
+
+// "unidex-" and the last 4 hex digits of the hotspot's address: the name until the person gives it one.
+static String defaultName() {
+  uint8_t mac[6];
+  esp_read_mac(mac, ESP_MAC_WIFI_SOFTAP);
+  char out[16];
+  snprintf(out, sizeof out, "unidex-%02X%02X", mac[4], mac[5]);
+  return out;
+}
+
+// The device's name (name=..., empty for the default). The hotspot keeps the name it started with: changing it now
+// would drop the phone, so the new one is used from the next start.
+static const char *saveName(const String &body) {
+  const String name = formValue(body, "name");
+  if (const char *why = checkName(name.c_str())) return why;
+  if (name.length()) storagePutString("dev_name", name.c_str());
+  else storageRemoveKey("dev_name");
+  return nullptr;
+}
+
 // Everything the Settings and Setup tabs show. Keys only as their last 4 characters, WiFi passwords not at all
 // (credStatus's rules).
 static String setupJson() {
@@ -227,7 +253,8 @@ static String setupJson() {
          ",\"invert\":" + String(display.inverted ? 1 : 0) + ",\"mute\":" + String(audioAlertsMuted() ? 1 : 0) +
          ",\"time\":" + String(clockValid() ? (long long)time(nullptr) : 0LL) +
          ",\"battery\":" + String(batteryPercent()) + ",\"charging\":" + String(batteryCharging() ? 1 : 0) +
-         ",\"name\":\"" + String(ssid) + "\",\"version\":\"" + str(json(UNIDEX_VERSION)) +
+         ",\"name\":\"" + str(json(ssid)) + "\",\"devname\":\"" + str(json(storageGetString("dev_name").c_str())) +
+         "\",\"defname\":\"" + defaultName() + "\",\"version\":\"" + str(json(UNIDEX_VERSION)) +
          "\",\"nearby\":" + nearby + ",\"busy\":" + String(jobBusy() ? 1 : 0) + "}";
 }
 
@@ -392,12 +419,6 @@ static String installedJson() {
   return out + "]}";
 }
 
-static String formValue(const String &body, const char *name) {
-  for (const auto &p : formPairs(body.c_str()))
-    if (p.first == name) return p.second.c_str();
-  return "";
-}
-
 static const char *installApp(const String &id) {
   if (!online || WiFi.status() != WL_CONNECTED) return "Your unidex isn't on WiFi. Set it up in Setup, then start again.";
   return appfetchStart(id);
@@ -419,6 +440,7 @@ static void post(WiFiClient &c, const Request &r) {
   if (r.path == "/set") error = saveCredentials(r.body);
   else if (r.path == "/settings") error = saveSettings(r.body);
   else if (r.path == "/time") error = saveTime(r.body);
+  else if (r.path == "/name") error = saveName(r.body);
   else if (r.path == "/clear") {  // Remove everything: WiFi, keys, GitHub, the calendar link
     if (jobBusy()) error = "A note is sending. Try again in a moment.";
     else credClearAll(), changed = false, error = nullptr;
@@ -667,9 +689,9 @@ const char *phoneStart(PhoneTab startTab) {
   tab = startTab;
   if (on) return nullptr;
   if (netClaimed()) return "Sending a note: try soon";  // over the normal WiFi
-  uint8_t mac[6];
-  esp_read_mac(mac, ESP_MAC_WIFI_SOFTAP);
-  snprintf(ssid, sizeof ssid, "unidex-%02X%02X", mac[4], mac[5]);
+  const String name = storageGetString("dev_name");  // what the person called it (Settings on the page)
+  if (name.length() && !checkName(name.c_str())) strlcpy(ssid, name.c_str(), sizeof ssid);
+  else strlcpy(ssid, defaultName().c_str(), sizeof ssid);
   // No look-alike characters (l/1, O/0), so it can be typed from the screen if the camera can't scan.
   static const char ALPHABET[] = "abcdefghjkmnpqrstuvwxyz23456789";
   for (size_t i = 0; i < sizeof password - 2; i++) password[i] = ALPHABET[esp_random() % (sizeof ALPHABET - 1)];
@@ -768,6 +790,13 @@ Redraw phoneTick() {
   return !shown && firstAt && millis() - firstAt > 3000 ? Redraw::Partial : Redraw::None;
 }
 
+// The hotspot's name and password, to type if the camera can't scan. A long name is cut to fit beside the password.
+static void drawJoinLine(int16_t baseline) {
+  display.setFont(FONT_TINY);
+  const String pw = String("   ") + password;
+  drawCenteredLine((fitText(ssid, display.width() - 8 - textWidth(pw.c_str())) + pw).c_str(), baseline);
+}
+
 // The QR code the camera joins with, then the name and password to type.
 void phoneDraw(const char *title, const char *computer) {
   shown = served;
@@ -785,8 +814,7 @@ void phoneDraw(const char *title, const char *computer) {
     display.setFont(FONT_SMALL);
     drawCenteredLine(shown ? "Phone connected" : "Scan with your phone", 128);
     display.setFont(FONT_TINY);
-    snprintf(line, sizeof line, "%s   %s", ssid, password);
-    drawCenteredLine(line, 142);
+    drawJoinLine(142);
     snprintf(line, sizeof line, "Computer: %s", computer);
     drawCenteredLine(line, 157);
     return;
@@ -794,8 +822,7 @@ void phoneDraw(const char *title, const char *computer) {
   display.setFont(FONT_SMALL);
   drawCenteredLine(shown ? "Phone connected" : "Scan with your camera", 162);
   display.setFont(FONT_TINY);
-  snprintf(line, sizeof line, "%s   %s", ssid, password);
-  drawCenteredLine(line, 179);
+  drawJoinLine(179);
   drawCenteredLine("Hold A to stop", 194);  // descenders clear of the 2 px margin
 }
 

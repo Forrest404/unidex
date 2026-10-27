@@ -130,6 +130,21 @@ inline std::string statusJson(const std::string &lines) {
   return out + "}";
 }
 
+// The device's own name, which its hotspot is called (empty: "unidex-" and 4 characters). Up to 20 printable
+// characters, so the QR code that joins it still fits on the screen; not the characters a WiFi QR code would have
+// to escape (\ ; , : "), so the code stays plain.
+static const size_t DEVICE_NAME_LEN = 20;  // (NAME_MAX is a libc macro)
+inline const char *checkName(const std::string &n) {
+  if (n.empty()) return nullptr;
+  if (n.size() > DEVICE_NAME_LEN) return "Up to 20 characters.";
+  if (n.front() == ' ' || n.back() == ' ') return "No spaces at the start or end.";
+  for (char c : n) {
+    if (c < 0x20 || c > 0x7e) return "Letters, numbers, spaces and simple symbols only.";
+    if (strchr("\\;,:\"", c)) return "Not \\ ; , : or \" (the QR code can't hold them).";
+  }
+  return nullptr;
+}
+
 // --- the Tools tab ---
 
 // Base64, standard or URL-safe ("-" and "_", which a form sends without escaping), padding optional.

@@ -278,6 +278,9 @@ max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
 <div class="card hero"><div class="mini" id="mini" aria-hidden="true"><div class="scr"><b>unidex</b><span id="miniT">--:--</span></div><div class="mbtn"><i></i><i></i></div></div>
 <div class="grow"><h2 id="devName">Your unidex</h2><p class="hint" id="devInfo">&nbsp;</p>
 <div class="bat" role="img" id="batBox"><i id="batI"></i></div></div></div>
+<div class="card" id="cName"><div class="ch"><i class="ic sand"><svg viewBox="0 0 24 24"><path d="M3.5 12.6V4.5a1 1 0 011-1h8.1a1 1 0 01.7.3l7.4 7.4a1 1 0 010 1.4l-8.1 8.1a1 1 0 01-1.4 0l-7.4-7.4a1 1 0 01-.3-.7z"/><circle cx="8" cy="8" r="1.4"/></svg></i><div><h2>Name</h2><p class="hint">What your unidex is called. Its WiFi takes the name the next time it starts.</p></div></div>
+<label class="field"><span>Name <i>(up to 20 characters)</i></span><input class="input" id="dname" maxlength="20" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done"></label>
+<button class="btn" id="nameSave" data-save>Save</button><p class="say" id="nameSay" role="status"></p></div>
 <div class="card"><div class="ch"><i class="ic lilac"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></i><div><h2>Sleep after</h2><p class="hint">How long it stays on after the last button press.</p></div></div>
 <div class="seg" role="radiogroup" aria-label="Sleep after" style="margin:0"><label><input type="radio" name="sleep" value="10"><span>10 s</span></label><label><input type="radio" name="sleep" value="20"><span>20 s</span></label><label><input type="radio" name="sleep" value="30"><span>30 s</span></label><label><input type="radio" name="sleep" value="60"><span>1 min</span></label></div>
 <p class="say" id="sleepSay" role="status"></p></div>
@@ -490,7 +493,8 @@ function loadSetup(){asked=1;return fetch('/setup.json').then(function(r){return
 function(){lost(true)})}
 // Settings: each change is saved as it's made.
 function drawSettings(){setRadio('sleep',S.sleep);$('vol').max=S.volumeMax;$('vol').value=S.volume;$('volv').textContent=S.volume?S.volume:'Off';
-$('inv').checked=!!S.invert;$('chime').checked=!S.mute;$('mini').classList.toggle('inv',!!S.invert);$('devName').textContent=S.name||'Your unidex';
+$('inv').checked=!!S.invert;$('chime').checked=!S.mute;$('mini').classList.toggle('inv',!!S.invert);$('devName').textContent=S.devname||S.name||'Your unidex';
+$('dname').value=S.devname||'';$('dname').placeholder=S.defname||'unidex';$('cName').classList.remove('dirty');
 $('devInfo').textContent=(S.battery>=0?(S.charging?'Charging, ':'Battery ')+S.battery+'%':'On USB')+' · '+S.version.replace(/-g[0-9a-f]+/,'').replace('-dirty','');
 $('batI').style.width=(S.battery>=0?S.battery:100)+'%';$('batBox').setAttribute('aria-label',S.battery>=0?'Battery '+S.battery+'%':'No battery');clock()}
 function saveSetting(k,v,say){post('/settings',obj(k,v)).then(function(){S[k]=+v;tell(say,'');drawSettings();toast('Saved')},function(e){tell(say,e.message,'bad');drawSettings()})}
@@ -749,6 +753,13 @@ else{w.classList.remove('open');c.style.transform='';if(swOpen==w)swOpen=null}};
 c.addEventListener('pointerup',end);c.addEventListener('pointercancel',end);return w}
 $('odel').onclick=function(){var b=this,id=shownId;twoTap(b,'Tap again to delete',function(){busy(b,true,'Deleting…');
 delNote(id).then(function(){busy(b,false);history.back();render()},function(e){busy(b,false);toast(e.message)})})};
+// The name: the characters a WiFi QR code would have to escape, and anything the screen can't draw, never go in.
+$('dname').oninput=function(){var v=this.value.replace(/[^\x20-\x7e]|[\;,:"]/g,'');if(v!=this.value)this.value=v};
+$('dname').onkeydown=function(e){if(e.key=='Enter')$('nameSave').click()};
+$('nameSave').onclick=function(){var b=this,v=$('dname').value.trim();$('dname').value=v;busy(b,true);tell('nameSay','');
+post('/name',{name:v}).then(function(){busy(b,false);saved(b);$('cName').classList.remove('dirty');S.devname=v;$('devName').textContent=v||S.name;
+var now=v||S.defname;tell('nameSay',now==S.name?'Saved.':'Saved. Its WiFi is called “'+now+'” from the next time it starts.','ok')},
+function(e){busy(b,false);tell('nameSay',e.message,'bad')})};
 function start(d){notes=d;byId={};notes.forEach(function(o){byId[o.id]=o});render();route();setTimeout(prefetch,250)}
 if(NOTES)start(NOTES);
 else fetch('/notes.json').then(function(r){return r.json()}).then(start)

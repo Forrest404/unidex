@@ -56,7 +56,7 @@ themselves are kept on the card in `reminders.csv`.
 ## Other features
 
 - **Open on phone** (hold B in an open note) and **phone setup** (hold B in Settings) turn on the device's own WiFi
-  network (named `unidex-` and 4 characters, with a new random password each time, shown on the screen and in its
+  network (named `unidex-` and 4 characters, or the name you gave it, with a new random password each time, shown on the screen and in its
   QR code). A phone that joins can read, search, play and copy your notes and recordings, change settings, and save
   WiFi networks and keys, straight from the device: nothing goes over the internet. Keys and passwords are never
   sent back to the page (a key shows as its last 4 characters). Anyone who can see the screen can join while it's

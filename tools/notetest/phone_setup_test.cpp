@@ -55,6 +55,13 @@ int main() {
         "status as JSON: only what the status lines hold, escaped");
   check(statusJson("") == "{}" && statusJson("junk\n") == "{}", "nothing to report gives {}");
 
+  check(!checkName("") && !checkName("Forrest's unidex") && !checkName("Room 4 (B)") && !checkName(std::string(20, 'a')),
+        "a name: empty (the default) or up to 20 printable characters");
+  check(checkName(std::string(21, 'a')) && checkName(" lead") && checkName("trail ") && checkName("caf\xc3\xa9") &&
+            checkName("a;b") && checkName("a:b") && checkName("a,b") && checkName("a\\b") && checkName("a\"b") &&
+            checkName("tab\there"),
+        "a name: too long, spaces at the ends, non-ASCII, or what a WiFi QR code would escape");
+
   std::vector<uint8_t> b;
   check(base64Decode("aGk=", b) && b == std::vector<uint8_t>{'h', 'i'} && base64Decode("-_8", b) && b.size() == 2 &&
             b[0] == 0xfb && b[1] == 0xff && !base64Decode("a*b", b),
