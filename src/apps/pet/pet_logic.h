@@ -69,9 +69,15 @@ template <typename Rand> Look randomLook(Rand rand) {
 
 // Draws the look, layer by layer: pixel(x, y, ink) for every pixel a layer sets ('#' ink, 'o' paper), with x
 // and y from 0 to SIZE - 1. `eyes` replaces the chosen eyes (EYES_CLOSED for a blink, EYES_DIZZY...); null keeps them.
-template <typename Pixel> void drawLook(const Look &l, const PetPart *eyes, Pixel pixel) {
-  for (int layer = 0; layer < LAYERS; layer++) {
-    const PetPart &p = layer == EYES_LAYER && eyes ? *eyes : partsOf(layer).parts[l.part[layer]];
+// `hat` replaces the hat (a season's) and `over` goes on top of everything (sunglasses); null for neither.
+template <typename Pixel>
+void drawLook(const Look &l, const PetPart *eyes, const PetPart *hat, const PetPart *over, Pixel pixel) {
+  for (int layer = 0; layer <= LAYERS; layer++) {
+    if (layer == LAYERS && !over) break;
+    const PetPart &p = layer == LAYERS                ? *over
+                       : layer == EYES_LAYER && eyes ? *eyes
+                       : layer == HAT && hat         ? *hat
+                                                     : partsOf(layer).parts[l.part[layer]];
     for (int y = 0; y < SIZE; y++)
       for (int x = 0; x < SIZE; x++) {
         const char c = p.rows[y][x];
@@ -81,8 +87,41 @@ template <typename Pixel> void drawLook(const Look &l, const PetPart *eyes, Pixe
   }
 }
 
+template <typename Pixel> void drawLook(const Look &l, const PetPart *eyes, Pixel pixel) {
+  drawLook(l, eyes, nullptr, nullptr, pixel);
+}
+
 template <typename Pixel> void drawLook(const Look &l, bool eyesClosed, Pixel pixel) {
-  drawLook(l, eyesClosed ? &EYES_CLOSED : nullptr, pixel);
+  drawLook(l, eyesClosed ? &EYES_CLOSED : nullptr, nullptr, nullptr, pixel);
+}
+
+// Dressed for the time of year: a scarf in winter (December to February), sunglasses in summer (June to August), a
+// witch's hat on 31 October and a Santa hat (and scarf) from 24 to 26 December. What you chose always wins: the
+// scarf only with no extra, the hats only with no hat.
+enum Season : uint8_t { NO_SEASON, WINTER, SUMMER, HALLOWEEN, CHRISTMAS };
+static const int SCARF = 2;  // in EXTRAS
+
+inline Season seasonOf(int month, int day) {
+  if (month == 10 && day == 31) return HALLOWEEN;
+  if (month == 12 && day >= 24 && day <= 26) return CHRISTMAS;
+  if (month == 12 || month <= 2) return WINTER;
+  if (month >= 6 && month <= 8) return SUMMER;
+  return NO_SEASON;
+}
+
+struct Dressed {
+  Look look;
+  const PetPart *hat, *over;  // for drawLook; null for none
+};
+
+// shades: sunglasses may go on (not while the eyes are closed, or anything other than its own eyes).
+inline Dressed dressFor(Look l, Season s, bool shades) {
+  Dressed d = {l, nullptr, nullptr};
+  if ((s == WINTER || s == CHRISTMAS) && l.part[EXTRA] == 0) d.look.part[EXTRA] = SCARF;
+  if (s == CHRISTMAS && l.part[HAT] == 0) d.hat = &HAT_SANTA;
+  if (s == HALLOWEEN && l.part[HAT] == 0) d.hat = &HAT_WITCH;
+  if (s == SUMMER && shades) d.over = &SUNGLASSES;
+  return d;
 }
 
 // Naming on the device, a letter at a time: the name is MAX_NAME places, blank (space) where unused. A cycles the

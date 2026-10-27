@@ -47,7 +47,8 @@ int main() {
         partsOk = false;
       }
   }
-  check(partsOk && partOk(EYES_CLOSED) && partOk(EYES_DIZZY) && partOk(EYES_GIGGLE), "every part (and the closed, dizzy and giggling eyes): a name of 1-10 characters, 32 rows of 32 '#', 'o' or '.'");
+  check(partsOk && partOk(EYES_CLOSED) && partOk(EYES_DIZZY) && partOk(EYES_GIGGLE) && partOk(HAT_SANTA) && partOk(HAT_WITCH) && partOk(SUNGLASSES),
+        "every part (and the eyes, hats and sunglasses only shown at times): a name of 1-10 characters, 32 rows of 32 '#', 'o' or '.'");
   check(fits, "every layer has 1 to 16 parts, so it fits in 4 bits");
   check(blank(HATS[0]) && blank(EXTRAS[0]), "the first hat and extra are 'None' (nothing drawn)");
   check(strcmp(EYES[HAPPY_EYES].name, "Happy") == 0, "HAPPY_EYES points at the Happy eyes");
@@ -113,6 +114,25 @@ int main() {
   placesFromName("", places);
   nameFromPlaces(places, name);
   check(name[0] == 0 && nameDoneAt(places, 0), "an empty name: B finishes straight away");
+
+  // Seasons
+  check(seasonOf(1, 15) == WINTER && seasonOf(2, 28) == WINTER && seasonOf(12, 1) == WINTER, "winter: December to February");
+  check(seasonOf(6, 1) == SUMMER && seasonOf(8, 31) == SUMMER && seasonOf(9, 1) == NO_SEASON, "summer: June to August");
+  check(seasonOf(10, 31) == HALLOWEEN && seasonOf(10, 30) == NO_SEASON, "Halloween: 31 October only");
+  check(seasonOf(12, 24) == CHRISTMAS && seasonOf(12, 26) == CHRISTMAS && seasonOf(12, 27) == WINTER, "Christmas: 24-26 December");
+  Look bare = DEFAULT_LOOK;
+  bare.part[HAT] = 0, bare.part[EXTRA] = 0;
+  Dressed d = dressFor(bare, WINTER, true);
+  check(d.look.part[EXTRA] == SCARF && !d.hat && !d.over, "winter: a scarf when it has no extra");
+  Look own = bare;
+  own.part[EXTRA] = 3, own.part[HAT] = 2;
+  d = dressFor(own, CHRISTMAS, true);
+  check(d.look.part[EXTRA] == 3 && !d.hat, "what you chose wins: its own extra and hat at Christmas");
+  d = dressFor(bare, CHRISTMAS, true);
+  check(d.hat == &HAT_SANTA && d.look.part[EXTRA] == SCARF, "Christmas: a Santa hat and a scarf");
+  check(dressFor(bare, HALLOWEEN, true).hat == &HAT_WITCH && !dressFor(own, HALLOWEEN, true).hat, "Halloween: a witch's hat, if no hat");
+  check(dressFor(own, SUMMER, true).over == &SUNGLASSES && !dressFor(own, SUMMER, false).over, "summer: sunglasses, not with eyes closed");
+  check(!dressFor(own, NO_SEASON, true).hat && !dressFor(own, NO_SEASON, true).over, "spring and autumn: as it is");
 
   printf(failures ? "\n%d check(s) failed\n" : "\nall checks passed\n", failures);
   return failures ? 1 : 0;

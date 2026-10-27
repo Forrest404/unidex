@@ -107,10 +107,18 @@ static const talk::Talk &todaysTalk() {
   return said;
 }
 
+// The time of year from the clock (none while it isn't set), for what the Pet wears (pet_logic.h dressFor).
+static pet::Season seasonNow() {
+  if (!clockValid()) return pet::NO_SEASON;
+  const struct tm t = clockLocal();
+  return pet::seasonOf(t.tm_mon + 1, t.tm_mday);
+}
+
 void petDraw(uint32_t look, int scale, int16_t x0, int16_t y0, PetMood mood) {
   pet::Look l = pet::unpack(look);
   if (mood == PetMood::Happy) l.part[pet::EYES_LAYER] = pet::HAPPY_EYES;
-  pet::drawLook(l, mood == PetMood::Blink, [&](int x, int y, bool ink) {
+  const pet::Dressed d = pet::dressFor(l, seasonNow(), true);  // dressed for the season in Meet too (shades through blinks)
+  pet::drawLook(d.look, mood == PetMood::Blink ? &EYES_CLOSED : nullptr, d.hat, d.over, [&](int x, int y, bool ink) {
     display.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, ink ? BLACK : WHITE);
   });
 }
@@ -151,9 +159,9 @@ void petDrawHeart(int16_t cx, int16_t cy, int scale) {
 }
 
 // eyes: null for the look's own (EYES_CLOSED for a blink...); x0: INT16_MIN to centre it.
-static void drawAvatar(const pet::Look &look, int scale, int16_t y0, const PetPart *eyes = nullptr, int16_t x0 = INT16_MIN) {
+static void drawAvatar(const pet::Dressed &d, int scale, int16_t y0, const PetPart *eyes = nullptr, int16_t x0 = INT16_MIN) {
   if (x0 == INT16_MIN) x0 = (display.width() - pet::SIZE * scale) / 2;  // centred
-  pet::drawLook(look, eyes, [&](int x, int y, bool ink) {
+  pet::drawLook(d.look, eyes, d.hat, d.over, [&](int x, int y, bool ink) {
     display.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, ink ? BLACK : WHITE);
   });
 }
@@ -174,11 +182,11 @@ struct Outline {
   int8_t last[pet::SIZE];
 };
 
-static Outline outlineOf(const pet::Look &look) {
+static Outline outlineOf(const pet::Dressed &d) {
   Outline o;
   o.first = pet::SIZE - 1;
   memset(o.last, -1, sizeof o.last);
-  pet::drawLook(look, false, [&](int x, int y, bool) { o.first = min(o.first, x), o.last[y] = max<int>(o.last[y], x); });
+  pet::drawLook(d.look, nullptr, d.hat, d.over, [&](int x, int y, bool) { o.first = min(o.first, x), o.last[y] = max<int>(o.last[y], x); });
   if (o.first == pet::SIZE - 1) o.first = 0;
   return o;
 }
@@ -258,14 +266,16 @@ static void drawMain() {
                         : reaction == GIGGLE ? &EYES_GIGGLE
                         : blinking || asleep ? &EYES_CLOSED
                                              : nullptr;
+  // sunglasses stay on through a blink (the eyes behind them can't be seen); asleep or reacting, they come off
+  const pet::Dressed dressed = pet::dressFor(look, seasonNow(), !asleep && !reaction);
   if (*text) {
-    const Outline o = outlineOf(look);
+    const Outline o = outlineOf(dressed);
     const int16_t x0 = -o.first * MAIN_SCALE + max<int8_t>(wobble, 0);  // its drawing from the screen's edge
-    drawAvatar(look, MAIN_SCALE, MAIN_Y, eyes, x0);
+    drawAvatar(dressed, MAIN_SCALE, MAIN_Y, eyes, x0);
     drawTalk(text, o, x0);
     if (heart) petDrawHeart(display.width() - 22, HINTS_TOP - 14, heart);  // under the bubble
   } else {
-    drawAvatar(look, MAIN_SCALE, MAIN_Y, eyes, (display.width() - pet::SIZE * MAIN_SCALE) / 2 + wobble);
+    drawAvatar(dressed, MAIN_SCALE, MAIN_Y, eyes, (display.width() - pet::SIZE * MAIN_SCALE) / 2 + wobble);
     if (heart) petDrawHeart(175, CONTENT_TOP + 16, heart);
   }
   drawHints("hi", "dress up", "meet");
@@ -409,7 +419,7 @@ static Redraw onBack() {
 static void drawEdit() {
   const pet::Look look = pet::unpack(draft);
   drawHeader("Dress up");
-  drawAvatar(look, EDIT_SCALE, EDIT_AVATAR_Y);
+  drawAvatar({look, nullptr, nullptr}, EDIT_SCALE, EDIT_AVATAR_Y);  // just what you chose, no season
   for (int r = 0; r < ROWS; r++) {  // which row of the editor this is: one dot each
     const int16_t x = display.width() / 2 + (r * 2 - (ROWS - 1)) * 5, y = EDIT_AVATAR_Y + pet::SIZE * EDIT_SCALE + 5;
     if (r == row) display.fillCircle(x, y, 3, BLACK);
