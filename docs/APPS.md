@@ -158,6 +158,10 @@ You install from the store page on the website: plug the unidex in, open the pag
 copies the files over USB, and the app is only listed once everything has arrived, so a cable pulled halfway
 leaves nothing broken behind.
 
+Or from a phone, with no cable: in Settings, hold B, scan the code, and open the Apps tab. The device downloads the
+store's files itself over its WiFi and checks each one's size and SHA-256 against the store's `index.json` before
+installing it the same way.
+
 - **Offload** removes the app but keeps its `data/`, so installing it again brings your files back.
 - **Delete** removes the app and its data. The site and the device both warn you first, and say how much data
   would be lost.

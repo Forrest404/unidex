@@ -38,6 +38,8 @@
 //   X NOTES <n>       -> n made-up notes on the card (test-0001 ...), for long lists; X NOTES 0 removes them
 //   X CALSYNC         -> what Settings > Sync does: "OK X CALSYNC clock=<ok|reason> link=<0|1> calendar=<ok|reason>
 //                        events=<n>"
+//   X FETCH [<id>]    -> over WiFi, the store's list to the card, or the app <id> installed from it (as the phone
+//                        portal does): "OK X FETCH <ok|reason>"
 //   X HANG            -> the main loop stops for good: the loop watchdog restarts the device after 30 s
 //   X BATTMV <mv>     -> pretend the battery reads mv, as if on battery (0 = the real reading): low-battery tests
 //   X KEY <name> [<int>|none] -> reads (or sets, or removes) one saved number in NVS:

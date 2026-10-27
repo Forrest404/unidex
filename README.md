@@ -242,7 +242,7 @@ a store game to offload or delete it.
 #### Set up from your phone
 
 No computer needed. In **Settings**, **hold B**: the device starts its own WiFi and shows a QR code. Scan it with
-your phone's camera and join, and a page opens by itself with four tabs:
+your phone's camera and join, and a page opens by itself with five tabs:
 
 - **Notes:** read, search, play, share and copy your notes.
 - **Settings:** sleep, volume, invert, and the time (set from your phone's clock when it's wrong).
@@ -250,6 +250,10 @@ your phone's camera and join, and a page opens by itself with four tabs:
   and Anthropic keys, the tidy-up, GitHub, the calendar link, and Remove everything.
 - **Tools:** the badge maker (choose a photo or take one, adjust it, and it's saved as a new badge that the Badge
   app opens on), your badges with Delete, and the Pet designer (each part of its look, and its name).
+- **Apps:** the app store. Tap Install and the device downloads the app itself (your phone has no internet while
+  it's on the device's WiFi, so the device joins your saved WiFi first, which takes a few seconds before the QR
+  code shows). The apps on the device are listed above the store, with Update and Delete. With no WiFi saved or in
+  range, the store shows the list from last time and Install waits until it can connect.
 
 Press **Done** at the bottom (or hold A on the device) when you're finished. If you changed WiFi or keys, the device
 then joins your WiFi, checks each service and lists how it went. Keys never come back to the page: a saved one

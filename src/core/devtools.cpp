@@ -17,6 +17,8 @@
 #include <LittleFS.h>
 #include "../apps/notes/store.h"
 #include "../apps/timetable/callink.h"
+#include "../apps/scripts/appfetch.h"
+#include "net.h"
 
 static bool dryRun, fakeCloud, netFail, noCard, noPush, noSave, demo, manualFrames, emptyHeard;
 static int failNotes;
@@ -281,6 +283,19 @@ bool devUsb(const char *l) {
     const SyncResult r = calendarSync();
     Serial.printf("OK X CALSYNC clock=%s link=%d calendar=%s events=%d\n", r.clock ? r.clock : "ok", r.link,
                   r.calendar ? r.calendar : "ok", r.events);
+  } else if (!strncmp(c, "FETCH", 5)) {  // X FETCH [<id>]: the store's list, or an app installed from it, over WiFi
+#if UNIDEX_EMU
+    Serial.println("ERR");  // no WiFi in the browser
+#else
+    const char *why = netClaimed() ? "WiFi busy" : netConnect();
+    if (!why && !c[5]) why = appfetchCatalogue();
+    if (!why && c[5] == ' ' && !(why = appfetchStart(String(c + 6)))) {
+      while (appfetchBusy()) appfetchStep(), powerAlive();
+      why = appfetchStatus().ok ? nullptr : appfetchStatus().why.c_str();
+    }
+    if (!netClaimed()) netOff();
+    Serial.printf("OK X FETCH %s\n", why ? why : "ok");
+#endif
   } else if (!strcmp(c, "HANG")) {  // X HANG: the main loop stops; the watchdog should restart the device in 30 s
     Serial.println("OK X HANG");
     Serial.flush();

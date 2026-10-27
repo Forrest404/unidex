@@ -2,8 +2,10 @@
 
 // The whole phone portal page: one reply, everything inline (no internet, no outside files). Its look and
 // layout follow the Pala Note 2.0 portal (warm paper, ink, coral accent, lilac and sand cards, a floating
-// pill navigation, big headlines). Three tabs: Notes, drawn on the phone from /notes.json and /note.json so
-// moving around is instant; Settings and Setup, from /setup.json, saved with POST /settings, /time and /set.
+// pill navigation, big headlines). Five tabs: Notes, drawn on the phone from /notes.json and /note.json so
+// moving around is instant; Settings and Setup, from /setup.json, saved with POST /settings, /time and /set;
+// Tools (badges, the Pet); Apps, the store's list (/apps.json) and what's installed (/installed.json), installed
+// with POST /apps/install and watched until it's done.
 static const char PHONE_PAGE[] = R"PAGE(<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -197,6 +199,22 @@ padding:3px 8px;border-radius:6px;white-space:nowrap}
 .part:last-child{border-bottom:1px solid var(--line)}
 .part b{width:64px;font-size:14px}.part span{flex:1;text-align:center;font-size:15px;font-weight:650}
 .part small{display:block;font-size:12px;color:var(--muted);font-weight:500}
+/* the Apps tab: each app a row, its 40x40 icon as the screen draws it */
+.alist{display:grid;grid-template-columns:minmax(0,1fr)}
+.arow{display:grid;grid-template-columns:52px minmax(0,1fr);gap:14px;padding:14px 0;border-top:1px solid var(--line)}
+.alist>.arow:last-child{border-bottom:1px solid var(--line)}
+.aic{width:52px;height:52px;border-radius:14px;padding:6px;background:#e9e6da;box-shadow:0 0 0 1px var(--line)}
+.aic canvas{display:block;width:40px;height:40px;image-rendering:pixelated;image-rendering:crisp-edges}
+.aic b{display:flex;align-items:center;justify-content:center;width:40px;height:40px;font-size:22px;font-weight:800;color:#22211f}
+.arow h3{margin:0;font-size:16px;font-weight:760;line-height:1.3;overflow-wrap:anywhere}
+.arow small{display:block;font-size:13px;color:var(--muted);margin:2px 0 0}
+.arow p{font-size:14px;line-height:1.45;margin:6px 0 0;color:var(--ink);opacity:.86}
+.arow .tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}.arow .tags:empty{display:none}
+.arow .btns{margin:10px 0 0}.arow .btn{min-width:96px}
+.btn.get{background:var(--soft);border-color:transparent;font-weight:750}
+.arow .tag.warn{background:var(--warnbg);color:var(--warn)}
+.cats .topic[aria-pressed=true]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.cats{margin:0 0 6px}
 @media(prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation:none!important}}
 /* share sheet */
 #scrim{position:fixed;inset:0;background:rgba(20,18,15,.38);opacity:0;pointer-events:none;transition:opacity .3s;z-index:40}
@@ -231,6 +249,7 @@ max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
 <a class="navlink" id="nSettings" href="#settings"><svg viewBox="0 0 24 24"><path d="M4 7h9M19 7h1M4 17h3M13 17h7"/><circle cx="16" cy="7" r="2.5"/><circle cx="10" cy="17" r="2.5"/></svg><span class="navlabel">Settings</span></a>
 <a class="navlink" id="nSetup" href="#setup"><svg viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0119 0M5.5 12.5a9.5 9.5 0 0113 0M8.5 16a5 5 0 017 0"/><circle cx="12" cy="19.5" r=".9"/></svg><span class="navlabel">Setup</span></a>
 <a class="navlink" id="nTools" href="#tools"><svg viewBox="0 0 24 24"><path d="M18.5 3.5a2.1 2.1 0 013 3L11 17l-4-4z"/><path d="M7 13c-2 0-3.5 1.5-3.5 3.5 0 1.5-1 2.5-1 2.5h4c2 0 3.5-1.5 3.5-3.5"/></svg><span class="navlabel">Tools</span></a>
+<a class="navlink" id="nApps" href="#apps"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><path d="M16.75 13.5v6.5M13.5 16.75H20"/></svg><span class="navlabel">Apps</span></a>
 </div></nav>
 <section id="tabNotes">
 <div class="top"><div><div class="sub">Voice notes on your unidex</div><h1>Notes.</h1></div><div class="pill" id="count">&nbsp;</div></div>
@@ -322,6 +341,17 @@ max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
 <p class="say" id="petSay" role="status"></p></div>
 <div class="finish"><button class="btn primary wide" onclick="done(this)">Done</button><p class="hint">Closes this page and your unidex’s WiFi.</p></div>
 </div></section>
+<section id="tabApps" class="hidden">
+<div class="top"><div><div class="sub">App store</div><h1>Apps.</h1></div></div>
+<div class="stack">
+<div class="card hero" id="aHero"><i class="ic" id="aHeroI" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0119 0M5.5 12.5a9.5 9.5 0 0113 0M8.5 16a5 5 0 017 0"/><circle cx="12" cy="19.5" r=".9"/></svg></i><div class="grow"><h2 id="aHeroT">Looking…</h2><p class="hint" id="aHeroH">&nbsp;</p><a class="btn hidden" id="aHeroGo" href="#setup">Set up WiFi</a></div></div>
+<div class="card" id="cMine"><div class="ch"><i class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/></svg></i><div><div class="hrow"><h2>On your unidex</h2><span class="tag" id="mineTag"></span></div><p class="hint">Open them from Apps, or Games for a game, on your unidex. Delete asks first, and takes the app’s saved data with it.</p></div></div>
+<div class="alist" id="aMine"><p class="hint">Loading…</p></div><p class="say" id="mineSay" role="status"></p></div>
+<div class="card" id="cStore"><div class="ch"><i class="ic sand"><svg viewBox="0 0 24 24"><path d="M5 8.5h14l-1.2 11a1.5 1.5 0 01-1.5 1.3H7.7a1.5 1.5 0 01-1.5-1.3z"/><path d="M9 8.5V7a3 3 0 016 0v1.5"/></svg></i><div><div class="hrow"><h2>Store</h2><span class="tag" id="storeTag"></span></div><p class="hint">Free apps from tools.unidex.shop. Your unidex downloads them itself.</p></div></div>
+<div class="near cats" id="aCats" role="group" aria-label="Category"></div>
+<div class="alist" id="aStore"><p class="hint">Loading…</p></div><p class="say" id="storeSay" role="status"></p></div>
+<div class="finish"><button class="btn primary wide" onclick="done(this)">Done</button><p class="hint">Closes this page and your unidex’s WiFi.</p></div>
+</div></section>
 <div id="bye" class="hidden"><div class="byecard"><svg class="tick" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg>
 <h2 class="title">All done.</h2><p class="hint">Your unidex has closed its WiFi, so this phone goes back to its usual one. If you changed WiFi or keys, it’s checking them now: the results are on its screen.</p></div></div>
 <div id="lost" class="hidden" role="alert"><span>Can’t reach your unidex. Is this phone still on its WiFi?</span><button class="btn" onclick="location.reload()">Retry</button></div>
@@ -396,7 +426,7 @@ $('oq').classList.toggle('hidden',!(full&&o.q));$('oq').open=false;if(full)body(
 $('otxt').href='/note.txt?id='+encodeURIComponent(o.id);$('otxt').classList.toggle('hidden',!!o.p);
 var src='/audio?id='+encodeURIComponent(o.id),au=$('au');if(au.getAttribute('src')!=src){au.pause();au.setAttribute('src',src);$('oa').classList.remove('hidden')}
 $('owav').href=src+'&dl=1'}
-function route(){var h=decodeURIComponent(location.hash.slice(1)),t=h=='settings'||h=='setup'||h=='tools'?h:'notes',id=t=='notes'?h:'',box=$('open');
+function route(){var h=decodeURIComponent(location.hash.slice(1)),t=h=='settings'||h=='setup'||h=='tools'||h=='apps'?h:'notes',id=t=='notes'?h:'',box=$('open');
 showTab(t);closeSheet();
 if(!id){document.body.classList.remove('reading');box.classList.add('gone');cur=null;$('au').pause();return}
 var stub=byId[id]||cache[id];if(!stub&&!cache[id]){load(id).then(function(){route()},function(){toast('Couldn’t open that note');history.back()});return}
@@ -415,10 +445,10 @@ $('q').oninput=render;window.onhashchange=route;$('au').onerror=function(){if(th
 // --- Settings and Setup: what /setup.json says, saved with a POST each ---
 var S=null,asked=0,offset=null,editing=-1,SLOTS=5;
 var CHECK='<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
-function showTab(t){[['notes','Notes'],['settings','Settings'],['setup','Setup'],['tools','Tools']].forEach(function(x){var on=x[0]==t,a=$('n'+x[1]);
+function showTab(t){[['notes','Notes'],['settings','Settings'],['setup','Setup'],['tools','Tools'],['apps','Apps']].forEach(function(x){var on=x[0]==t,a=$('n'+x[1]);
 $('tab'+x[1]).classList.toggle('hidden',!on);a.classList.toggle('active',on);if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
-document.title=t=='notes'?'unidex':t=='settings'?'Settings · unidex':t=='tools'?'Tools · unidex':'Setup · unidex';
-if(t!='notes'&&!asked)loadSetup();if(t=='tools'&&!P)pLoad(),bList()}
+document.title=t=='notes'?'unidex':t=='settings'?'Settings · unidex':t=='tools'?'Tools · unidex':t=='apps'?'Apps · unidex':'Setup · unidex';
+if(t!='notes'&&!asked)loadSetup();if(t=='tools'&&!P)pLoad(),bList();if(t=='apps')aLoad()}
 function lost(on){$('lost').classList.toggle('hidden',!on)}
 function post(path,data){var b=Object.keys(data).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(data[k])}).join('&');
 return fetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:b})
@@ -613,6 +643,62 @@ post('/pet',{look:v,name:n}).then(function(){busy(b,false);saved(b);tell('petSay
 function(e){busy(b,false);tell('petSay',e.message,'bad')})};
 if(!location.hash&&TAB!='notes')history.replaceState(null,'','#'+TAB);
 loadSetup();
+// --- Apps: the store's list as the device saved it (/apps.json), what's on the device (/installed.json), and
+// installs the device does itself over its WiFi (it's on that and on this hotspot at once) ---
+var A=null,M=null,aCat='',aWas=null,aTm=0;
+var CATS={time:'Time',tools:'Tools',games:'Games',fun:'Fun',learning:'Learning',badges:'Badges'};
+function vNum(v){var p=String(v||'').split('.');return((+p[0]||0)*1e4+(+p[1]||0))*1e4+(+p[2]||0)}
+function aKB(b){return b<1024?b+' bytes':Math.round(b/1024)+' KB'}
+function aIcon(e,name){var box=el('div','aic');box.setAttribute('aria-hidden','true');
+if(e&&e.icon&&e.icon.length==40){var c=document.createElement('canvas');c.width=c.height=40;var x=c.getContext('2d');x.fillStyle='#22211f';
+e.icon.forEach(function(r,y){for(var i=0;i<40;i++)if(r[i]=='#')x.fillRect(i,y,1,1)});box.appendChild(c)}
+else box.appendChild(el('b','',(name||'?').charAt(0).toUpperCase()));return box}
+function aMineOf(id){for(var i=0;M&&i<M.apps.length;i++)if(M.apps[i].id==id)return M.apps[i];return null}
+function aEntry(id){for(var i=0;A&&i<A.apps.length;i++)if(A.apps[i].id==id)return A.apps[i];return null}
+function aLoad(){if(!A)fetch('/apps.json').then(function(r){return r.json()}).then(function(o){A=o;aDraw()},function(){lost(true)});aPoll()}
+function aPoll(){clearTimeout(aTm);fetch('/installed.json').then(function(r){return r.json()}).then(function(o){lost(false);var j=o.job,w=aWas;M=o;aWas=j.busy?j.id:null;
+if(w&&!j.busy){var e=aEntry(w),n=e?e.name:w;toast(j.ok?'Installed '+n:'Couldn’t install '+n);if(j.ok)tell('storeSay','Installed '+n+'. Open it from '+(e&&(e.type=='game'||e.category=='games')?'Games':'Apps')+' on your unidex.','ok');else tell('storeSay',n+': '+j.why,'bad')}
+aDraw();if(j.busy)aTm=setTimeout(aPoll,900)},function(){lost(true)})}
+// The button for one store app: what it can do now.
+function aButton(e){var mine=aMineOf(e.id),j=M.job,b=el('button','btn');
+if(j.busy&&j.id==e.id){b.textContent=j.total?'Installing… '+Math.min(j.done+1,j.total)+' of '+j.total:'Installing…';b.disabled=true;return b}
+if(e.api>M.api){b.textContent='Needs newer firmware';b.disabled=true;return b}
+if(mine&&!mine.offloaded&&vNum(mine.version)>=vNum(e.version)){b.innerHTML=CHECK.replace('<svg','<svg style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4"')+'Installed';b.className='btn saved';b.disabled=true;return b}
+var up=mine&&!mine.offloaded;b.textContent=up?'Update to '+e.version:'Install';b.className=up?'btn primary':'btn get';
+if(!up&&!mine&&M.apps.length>=M.max){b.textContent='Full: delete one first';b.className='btn';b.disabled=true;return b}
+b.disabled=!M.online||j.busy;b.setAttribute('aria-label',(up?'Update ':'Install ')+e.name);
+b.onclick=function(){busy(b,true,'Starting…');tell('storeSay','');post('/apps/install',{id:e.id}).then(function(){aWas=e.id;aPoll()},
+function(x){busy(b,false);tell('storeSay',x.message,'bad')})};return b}
+function aRow(e,name,meta,desc,tags,btns){var r=el('div','arow'),t=el('div');r.appendChild(aIcon(e,name));t.appendChild(el('h3','',name));
+if(meta)t.appendChild(el('small','',meta));if(desc)t.appendChild(el('p','',desc));var g=el('div','tags');tags.forEach(function(x){g.appendChild(x)});t.appendChild(g);
+var bs=el('div','btns');btns.forEach(function(x){bs.appendChild(x)});t.appendChild(bs);r.appendChild(t);return r}
+function aDraw(){if(!M)return;var on=M.online,n=A?A.apps.length:0;
+$('aHeroT').textContent=on?'Your unidex is online':A&&n?'Your unidex is offline':'No app list yet';
+$('aHeroH').textContent=on?n+' apps in the store. Tap Install and your unidex downloads it.':
+'It joins your WiFi when this page starts, to get apps. '+(S&&S.cred.wifi_ssid&&S.cred.wifi_ssid.set?'It couldn’t this time: check it’s in range, then start again from Settings (hold B).':'Set up WiFi first, then start again from Settings (hold B).')+(n?' The list below is from last time.':'');
+$('aHeroGo').classList.toggle('hidden',on||!!(S&&S.cred.wifi_ssid&&S.cred.wifi_ssid.set));$('aHeroI').className='ic '+(on?'':'warn');$('aHero').style.background=on?'':'var(--surface)';
+// on the device
+var mine=$('aMine');mine.textContent='';tag('mineTag',M.apps.length,M.apps.length+' of '+M.max,'None yet');
+if(!M.card)mine.appendChild(el('p','hint','There’s no SD card in your unidex: apps are kept on it.'));
+else if(!M.apps.length)mine.appendChild(el('p','hint','No apps yet. Pick some from the store below.'));
+M.apps.forEach(function(a){var e=aEntry(a.id),tags=[],bs=[],d=el('button','btn danger','Delete');
+if(a.offloaded)tags.push(el('span','tag','Offloaded: data kept'));if(a.problem)tags.push(el('span','tag warn',a.problem));
+if(e&&!a.offloaded&&vNum(e.version)>vNum(a.version)&&e.api<=M.api)tags.push(el('span','tag ok','Update: '+e.version));
+d.setAttribute('aria-label','Delete '+a.name);d.disabled=M.job.busy&&M.job.id==a.id;
+d.onclick=function(){twoTap(d,'Sure?',function(){busy(d,true,'Deleting…');post('/apps/delete',{id:a.id}).then(function(){
+tell('mineSay','Deleted '+a.name+'.','ok');aPoll()},function(x){busy(d,false);tell('mineSay',x.message,'bad')})})};bs.push(d);
+mine.appendChild(aRow(e,a.name,a.version?'Version '+a.version:'',e?e.description:'',tags,bs))});
+// the store
+var box=$('aStore'),cats=$('aCats');box.textContent='';cats.textContent='';tag('storeTag',on&&n,'Online',A&&n?'Offline':'—');
+if(!A)return box.appendChild(el('p','hint','Loading…'));
+if(!n)return box.appendChild(el('p','hint',on?'The store is empty right now.':'Your unidex hasn’t got the store’s list yet. It gets it when it starts this page on WiFi.'));
+var seen={};A.apps.forEach(function(e){seen[e.category]=1});
+[''].concat(Object.keys(CATS).filter(function(k){return seen[k]})).forEach(function(k){var c=el('button','topic',k?CATS[k]:'All');
+c.setAttribute('aria-pressed',aCat==k?'true':'false');c.onclick=function(){aCat=k;aDraw()};cats.appendChild(c)});
+A.apps.filter(function(e){return!aCat||e.category==aCat}).forEach(function(e){var tags=[];
+if((e.permissions||[]).indexOf('wifi')>=0)tags.push(el('span','tag','Uses WiFi'));if((e.permissions||[]).indexOf('mic')>=0)tags.push(el('span','tag','Uses the mic'));
+if(e.type=='plugin')tags.push(el('span','tag','Adds to '+(e.extends=='badge'?'Badge':e.extends)));
+box.appendChild(aRow(e,e.name,(e.author?'by '+e.author+' · ':'')+aKB(e.bytes),e.description,tags,[aButton(e)]))})}
 function start(d){notes=d;byId={};notes.forEach(function(o){byId[o.id]=o});render();route();setTimeout(prefetch,250)}
 if(NOTES)start(NOTES);
 else fetch('/notes.json').then(function(r){return r.json()}).then(start)

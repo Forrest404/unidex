@@ -14,6 +14,9 @@
 #include "store.h"
 #include "../badge/badge_file.h"
 #include "../pet/pet.h"
+#include "../scripts/appfetch.h"
+#include "../scripts/appstore.h"
+#include "../scripts/scripts.h"
 #include "../../core/audio.h"
 #include "../../core/battery.h"
 #include "../../core/clock.h"
@@ -43,6 +46,7 @@ static bool done;          // Done was pressed (it stops, or has stopped, becaus
 static bool redrawFull;    // the screen needs a full refresh (invert changed)
 static bool redrawSoon;    // or a partial one (a message to show: "Badge saved")
 static PhoneTab tab;
+static bool online;        // on the normal WiFi too (the hotspot on its channel), so the Apps tab can install
 static String nearby = "[]";  // the WiFi names around, strongest first, as a JSON array
 static char ssid[16], password[12], joinCode[64];
 
@@ -53,9 +57,9 @@ static uint32_t joinedAt, addressAt;
 static char reqLog[96];  // the last requests and how long each took
 static char times[200];
 static const char *phoneTimes() {
-  snprintf(times, sizeof times, "ssid=%s pw=%s joined=%lu address=%lu first=%lu%s", ssid, password,
-           joinedAt ? joinedAt - startedAt : 0, addressAt ? addressAt - startedAt : 0,
-           firstAt ? firstAt - startedAt : 0, reqLog);
+  snprintf(times, sizeof times, "ssid=%s pw=%s ch=%d online=%d joined=%lu address=%lu first=%lu%s", ssid, password,
+           (int)WiFi.channel(), online && WiFi.status() == WL_CONNECTED, joinedAt ? joinedAt - startedAt : 0,
+           addressAt ? addressAt - startedAt : 0, firstAt ? firstAt - startedAt : 0, reqLog);
   return times;
 }
 #endif
@@ -354,6 +358,61 @@ static const char *savePet(const String &body) {
   return nullptr;
 }
 
+// --- the Apps tab ---
+
+// The store's catalogue as the device saved it last (fetched again at each start when it's online), sent whole:
+// the phone reads it, the device only checks an entry when it's asked to install that app.
+static void sendCatalogue(WiFiClient &c) {
+  fs::File f = storageOpen(APPFETCH_CATALOGUE);
+  if (!f || f.isDirectory()) return reply(c, 200, "application/json", String("{\"apps\":[]}"));
+  const String head = header(200, "application/json", f.size(), "Cache-Control: no-store\r\n");
+  bool ok = send(c, head.c_str(), head.length());
+  uint8_t buf[2048];
+  for (int n; ok && (n = f.read(buf, sizeof buf)) > 0;) ok = send(c, buf, n);
+  f.close();
+}
+
+// What's installed, whether the device can reach the store now, and how the last install from here went.
+static String installedJson() {
+  const AppfetchStatus &j = appfetchStatus();
+  String out = "{\"online\":" + String(online && WiFi.status() == WL_CONNECTED ? 1 : 0) +
+               ",\"card\":" + String(storageCardMount() ? 1 : 0) + ",\"api\":" + String(apps::API_LEVEL) +
+               ",\"max\":" + String(apps::MAX_APPS) + ",\"job\":{\"id\":\"" + str(json(j.id.c_str())) +
+               "\",\"busy\":" + String(j.busy ? 1 : 0) + ",\"ok\":" + String(j.ok ? 1 : 0) + ",\"done\":" +
+               String(j.done) + ",\"total\":" + String(j.total) + ",\"why\":\"" + str(json(j.why.c_str())) +
+               "\"},\"apps\":[";
+  bool first = true;
+  for (const AppEntry &e : appsList(false)) {
+    out += String(first ? "" : ",") + "{\"id\":\"" + e.id + "\",\"name\":\"" + str(json(e.name.c_str())) +
+           "\",\"version\":\"" + str(json(e.version.c_str())) + "\",\"offloaded\":" + String(e.offloaded ? 1 : 0) +
+           ",\"problem\":\"" + str(json(e.problem.c_str())) + "\"}";
+    first = false;
+  }
+  return out + "]}";
+}
+
+static String formValue(const String &body, const char *name) {
+  for (const auto &p : formPairs(body.c_str()))
+    if (p.first == name) return p.second.c_str();
+  return "";
+}
+
+static const char *installApp(const String &id) {
+  if (!online || WiFi.status() != WL_CONNECTED) return "Your unidex isn't on WiFi. Set it up in Setup, then start again.";
+  return appfetchStart(id);
+}
+
+static const char *deleteApp(const String &id) {
+  if (!apps::idOk(id.c_str()) || !storageExists(appsDir(id).c_str())) return "That app isn't there any more.";
+  if (scriptsRunning(id.c_str())) return "Close it on your unidex first.";
+  if (appfetchBusy() && appfetchStatus().id == id) return "It's installing. Try again in a moment.";
+  if (!appsRemove(id, false)) return "Couldn't delete it.";
+  scriptsListChanged();
+  launcherToast("App deleted");
+  redrawSoon = true;
+  return nullptr;
+}
+
 static void post(WiFiClient &c, const Request &r) {
   const char *error = "Not found.";
   if (r.path == "/set") error = saveCredentials(r.body);
@@ -380,6 +439,10 @@ static void post(WiFiClient &c, const Request &r) {
   } else if (r.path == "/pet") {
     error = savePet(r.body);
     if (!error) launcherToast("Pet saved"), redrawSoon = true;
+  } else if (r.path == "/apps/install") {
+    error = installApp(formValue(r.body, "id"));
+  } else if (r.path == "/apps/delete") {
+    error = deleteApp(formValue(r.body, "id"));
   } else if (r.path == "/done") {
     stopAt = millis() + 500;  // the answer goes out first
     done = true;
@@ -451,6 +514,12 @@ static void handle(Connection &conn, const Request &r) {
   } else if (r.path == "/pet.json") {
     reply(c, 200, "application/json", petPartsJson());
     logRequest("pet", t0);
+  } else if (r.path == "/apps.json") {
+    sendCatalogue(c);
+    logRequest("apps", t0);
+  } else if (r.path == "/installed.json") {
+    reply(c, 200, "application/json", installedJson());
+    logRequest("installed", t0);
   } else if (r.path == "/setup.json") {
     reply(c, 200, "application/json", setupJson());
     logRequest("setup", t0);
@@ -574,6 +643,11 @@ static void serveHttp() {
   }
 }
 
+static void drawConnecting() {
+  drawHeader("Phone");
+  drawEmpty("Connecting to WiFi", "for the app store");
+}
+
 const char *phoneStart(PhoneTab startTab) {
   tab = startTab;
   if (on) return nullptr;
@@ -591,10 +665,21 @@ const char *phoneStart(PhoneTab startTab) {
   setCpuFrequencyMhz(240);  // full speed while the radio is on (as for normal WiFi): phones join faster
   if (tab == PhoneTab::Notes) nearby = "[]";
   else scanNearby();  // for the WiFi name box on Setup
-  WiFi.mode(WIFI_AP);
-  if (!WiFi.softAP(ssid, password)) {
-    WiFi.mode(WIFI_OFF);
-    setCpuFrequencyMhz(80);
+  // The Apps tab installs over the normal WiFi, which the phone on the hotspot can't reach: the device joins it
+  // first and puts the hotspot on its channel (joining after would move the hotspot and drop the phone). Not
+  // from a note ("Open on phone" should open at once), nor with no WiFi saved (netBegin says so at once).
+  online = false;
+  if (tab != PhoneTab::Notes) {
+    displayShow(drawConnecting, false);
+    WiFi.setAutoReconnect(false);  // a drop mustn't send it looking on other channels, taking the hotspot along
+    online = !netConnect();
+    if (online) appfetchCatalogue();  // if it fails, the list saved last time is shown
+    setCpuFrequencyMhz(240);         // (a failed netConnect turned the radio off and slowed the CPU)
+  }
+  WiFi.mode(online ? WIFI_AP_STA : WIFI_AP);
+  if (!WiFi.softAP(ssid, password, online ? WiFi.channel() : 1)) {
+    netOff();
+    WiFi.setAutoReconnect(true);
     return "WiFi didn't start: try again";
   }
   WiFi.setSleep(false);                             // answer at once, no power-save naps
@@ -627,10 +712,12 @@ void phoneStop() {
   for (Connection &conn : connections)
     conn.client.stop(), conn.client = WiFiClient(), conn.head = "", conn.file.close(), conn.remaining = 0;
   http.end();
+  appfetchCancel();
   WiFi.softAPdisconnect(true);
-  WiFi.mode(WIFI_OFF);
+  netOff();  // the normal WiFi too, if the Apps tab had it
+  WiFi.setAutoReconnect(true);
   netClaim(false);
-  setCpuFrequencyMhz(80);
+  online = false;
   powerRelease();
 #if UNIDEX_DEV
   devSetDetail(nullptr);
@@ -644,6 +731,11 @@ Redraw phoneTick() {
   if (!on) return Redraw::None;
   dns.processNextRequest();
   serveHttp();
+  if (appfetchBusy()) {  // an app installing from the Apps tab: a file per tick (a second or two each)
+    appfetchStep();
+    lastUse = millis();
+    if (!appfetchBusy() && appfetchStatus().ok) launcherToast("App installed"), redrawSoon = true;
+  }
   if (millis() - lastUse > IDLE_MS || (stopAt && (int32_t)(millis() - stopAt) >= 0)) {
     phoneStop();
     return Redraw::Partial;

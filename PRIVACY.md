@@ -61,7 +61,9 @@ themselves are kept on the card in `reminders.csv`.
   WiFi networks and keys, straight from the device: nothing goes over the internet. Keys and passwords are never
   sent back to the page (a key shows as its last 4 characters). Anyone who can see the screen can join while it's
   on, so close it when you're done; it also switches off by itself after 5 minutes unused. Before it starts from
-  Settings, the device looks for nearby WiFi names to suggest them; it keeps nothing of that scan.
+  Settings, the device looks for nearby WiFi names to suggest them; it keeps nothing of that scan. If WiFi is saved,
+  it then joins it for the Apps tab: it downloads the app store's list from tools.unidex.shop (saved on the card),
+  and the apps you choose to install. Nothing about you or your device is sent with those downloads.
 
 - **Clock:** the time sync contacts `pool.ntp.org` or `time.google.com`, which see your IP address.
 - **Apps** with the `wifi` permission can see the names of WiFi networks nearby (`unidex.wifi.scan`: name, signal

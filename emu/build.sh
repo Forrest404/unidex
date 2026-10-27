@@ -11,7 +11,7 @@ LIB=.pio/libdeps/dev
 [ -d "$LIB" ] || { echo "run 'pio run -e dev' once first (it fetches the libraries)"; exit 1; }
 GFX="$LIB/Adafruit GFX Library"
 mkdir -p emu/out
-SRC=$(git ls-files 'src/*.cpp' | grep -vE '^src/core/(audio|battery|clock|link|net|power)\.cpp$|^src/apps/notes/(cloud|job|phone|usb)\.cpp$')
+SRC=$(git ls-files 'src/*.cpp' | grep -vE '^src/core/(audio|battery|clock|link|net|power)\.cpp$|^src/apps/notes/(cloud|job|phone|usb)\.cpp$|^src/apps/scripts/appfetch\.cpp$')
 emcc -O2 -c "$LIB/QRCode/src/qrcode.c" -o emu/out/qrcode.o
 LUA=$(ls lib/lua/src/*.c 2>/dev/null || true)  # Lua (for apps) is in v1.7 and newer; emu/build_version.sh builds older ones
 for f in $LUA; do emcc -O2 -DLUAI_MAXCCALLS=120 -c "$f" -o "emu/out/lua-$(basename "$f" .c).o"; done

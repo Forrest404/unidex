@@ -4,9 +4,10 @@
 
 // The phone portal ("Open on phone", and Settings > hold B): the device's own WiFi hotspot and a small website
 // for a phone or a computer nearby, with the notes, the device's settings and its setup (WiFi, keys, GitHub).
-// Nothing goes through the internet. The hotspot has a new password every time it starts; the screen shows it as
-// a QR code the phone's camera joins with. Never at the same time as normal WiFi; it stops itself after a few
-// minutes with nobody using it, or when the page's Done is pressed.
+// Nothing from the phone goes through the internet. The hotspot has a new password every time it starts; the screen
+// shows it as a QR code the phone's camera joins with. Started from Settings, the device first joins the saved WiFi
+// (for the Apps tab, which installs from the store over it) and puts the hotspot on its channel. It stops itself
+// after a few minutes with nobody using it, or when the page's Done is pressed.
 enum class PhoneTab : uint8_t { Notes, Settings, Setup };  // the page it opens on
 
 const char *phoneStart(PhoneTab tab);  // nullptr, or why not ("Sending a note: try soon")
