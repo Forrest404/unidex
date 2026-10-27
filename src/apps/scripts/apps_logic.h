@@ -8,7 +8,7 @@
 
 namespace apps {
 
-const int API_LEVEL = 4;                // what this firmware offers (unidex.api)
+const int API_LEVEL = 5;                // what this firmware offers (unidex.api)
 const size_t MAX_FILE = 64 * 1024;      // one file, code or data
 const size_t MAX_APP = 512 * 1024;      // an app's code and assets
 const size_t MAX_DATA = 512 * 1024;     // an app's data/ folder

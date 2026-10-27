@@ -7,6 +7,7 @@
 #include "apps_logic.h"
 #include "appstore.h"
 #include "../badge/badge_file.h"
+#include "../../core/audio.h"
 #include "../../core/battery.h"
 #include "../../core/clock.h"
 #include "../../core/display.h"
@@ -452,6 +453,22 @@ static int l_scan(lua_State *s) {
   return 1;
 }
 
+// --- unidex.chime (API 5): the device's chime, unless Settings > Alert sound is off; at most one a second ---
+static int l_chime(lua_State *s) {
+  static uint32_t lastAt;
+  static bool chimed;
+  bool played = false;
+  if (!audioAlertsMuted() && (!chimed || millis() - lastAt >= 1000)) {
+    const uint32_t t0 = millis();
+    played = audioChime();  // (silent at volume 0)
+    callStart += millis() - t0;  // its ~0.5 s doesn't count against the app's 2 s
+    lastAt = millis();
+    chimed = true;
+  }
+  lua_pushboolean(s, played);
+  return 1;
+}
+
 // --- unidex.frame (API 3): draw() shown now, mid-call, as an animation frame (a quick partial refresh) ---
 static int frameCount;      // frames in the current call (60 at most, so an endless animation still ends)
 static String frameError;   // an error in draw() during a frame, raised in the caller once the frame is done
@@ -529,7 +546,8 @@ static int setup(lua_State *s) {
                           {"wrap", l_wrap},     {"width", l_width},     {"rect", l_rect},       {"fill", l_fill},
                           {"line", l_line},     {"qr", l_qr},           {"icon", l_icon},       {"bitmap", l_bitmap},
                           {"time", l_time},     {"battery", l_battery}, {"toast", l_toast},     {"wake_in", l_wake_in},
-                          {"random", l_random}, {"frame", l_frame},     {nullptr, nullptr}};
+                          {"random", l_random}, {"frame", l_frame},     {"chime", l_chime},
+                          {nullptr, nullptr}};
   luaL_newlib(s, API);
   lua_pushinteger(s, apps::API_LEVEL);
   lua_setfield(s, -2, "api");
