@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import sys
 
-API_LEVEL = 3  # the newest the firmware offers; an app may ask for any level up to it
+API_LEVEL = 4  # the newest the firmware offers; an app may ask for any level up to it
 MAX_FILE, MAX_APP = 64 * 1024, 512 * 1024
 PERMISSIONS = {"wifi", "mic", "meet"}
 EXTENDABLE = {"badge"}  # the built-in apps plugins can add to (apps_logic.h, extendable())
@@ -63,10 +63,18 @@ def check(folder):
     kind, extends = m.get("type", "app"), m.get("extends", "")
     if kind == "plugin" and extends not in EXTENDABLE:
         problems.append(f"extends: a plugin extends one of {sorted(EXTENDABLE)}")
-    elif kind == "app" and extends:
+    elif kind in ("app", "game") and extends:
         problems.append("extends: only plugins extend an app")
-    elif kind not in ("app", "plugin"):
-        problems.append("type: \"app\" or \"plugin\"")
+    elif kind not in ("app", "plugin", "game"):
+        problems.append("type: \"app\", \"plugin\" or \"game\"")
+    if kind == "game":  # run by the Games app (apps_logic.h, check())
+        if m.get("api", 0) < 4:
+            problems.append("api: a game needs 4")
+        if m.get("category") != "games":
+            problems.append("category: a game's is games")
+        frame_ms = m.get("frame_ms", 100)
+        if not isinstance(frame_ms, int) or not 48 <= frame_ms <= 1000:
+            problems.append("frame_ms: 48 to 1000")
     perms = m.get("permissions", [])
     if not isinstance(perms, list) or any(p not in PERMISSIONS for p in perms):
         problems.append(f"permissions: only {sorted(PERMISSIONS)}")

@@ -154,6 +154,7 @@ jobs:
           mkdir -p site/starters
           cp -R ../unidex-apps/template/my-app site/starters/app
           cp -R ../unidex-apps/template/my-badge site/starters/badge
+          if [ -d ../unidex-apps/template/my-game ]; then cp -R ../unidex-apps/template/my-game site/starters/game; fi
 
       - uses: actions/upload-pages-artifact@v3
         with:

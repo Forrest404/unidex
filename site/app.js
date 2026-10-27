@@ -2,7 +2,7 @@
 import { supported } from './serial.js';
 import { STORE_REPO } from './chrome.js';
 import {
-  el, kb, kindLabel, iconTile, loadCatalogue, device, onDevice, onDeviceChange, reportTo, withDevice,
+  el, kb, kindLabel, isGame, iconTile, loadCatalogue, device, onDevice, onDeviceChange, reportTo, withDevice,
   stateOf, install, offload, remove, CATEGORIES, EXTENDS, PERMISSIONS, PERMISSION_DETAIL,
 } from './store-ui.js';
 
@@ -62,7 +62,7 @@ function say(text, kind = '', fraction) {
 
 function render() {
   const where = app.type === 'plugin' ? `It adds to ${EXTENDS[app.extends] || app.extends} on your unidex. Open ${EXTENDS[app.extends] || app.extends} to find it.`
-                                      : 'It opens from Apps on your unidex.';
+                                      : isGame(app) ? 'It opens from Games on your unidex.' : 'It opens from Apps on your unidex.';
   const perms = app.permissions.length
     ? el('ul', { class: 'perm-list' }, app.permissions.map(p => el('li', {}, el('b', { text: PERMISSIONS[p] || p }), ' ', PERMISSION_DETAIL[p] || '')))
     : el('p', { text: 'No special permissions. It draws on the screen, reads the buttons and keeps its own files, and that\'s all.' });
@@ -83,7 +83,7 @@ function render() {
     el('aside', { class: 'app-side' },
       el('dl', { class: 'facts' },
         fact('Category', el('a', { href: `store.html?cat=${encodeURIComponent(app.category || 'other')}`, text: CATEGORIES[app.category] || 'Other' })),
-        fact('Type', app.type === 'plugin' ? kindLabel(app) : 'App'),
+        fact('Type', kindLabel(app)),
         fact('Version', app.version),
         app.updated ? fact('Updated', new Date(app.updated).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })) : null,
         fact('Size', kb(app.bytes)),
