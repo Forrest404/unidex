@@ -29,6 +29,13 @@ RTC_DATA_ATTR static char places[pet::MAX_NAME + 1];  // the name being edited, 
 RTC_DATA_ATTR static uint8_t place;                    // the place being chosen
 RTC_DATA_ATTR static bool ownerNaming;                 // the name being edited is yours, not the Pet's
 static bool blinking, happy;
+// Tapping A: once says hi; again soon after, it giggles; a third time, it's dizzy (and the run starts again).
+enum Reaction : uint8_t { NO_REACTION, HI, GIGGLE, DIZZY };
+static Reaction reaction;
+static uint8_t taps;          // A presses in a row, each soon after the last reaction ended
+static uint32_t reactedAt;    // when the last reaction ended
+static int8_t wobble;         // dizzy: the Pet sways this many pixels
+static const uint32_t TAP_GAP_MS = 1500;  // a press within this of the last reaction carries the run on
 static uint8_t heart;  // the heart beside it while it's happy: 0 none, else its scale (it pops: 1, then 2)
 static uint32_t nextBlinkAt, openAt, lastPressAt;
 
@@ -143,9 +150,10 @@ void petDrawHeart(int16_t cx, int16_t cy, int scale) {
       if (HEART[y][x] == '#') display.fillRect(left + x * scale, top + y * scale, scale, scale, BLACK);
 }
 
-static void drawAvatar(const pet::Look &look, int scale, int16_t y0, bool eyesClosed = false, int16_t x0 = INT16_MIN) {
+// eyes: null for the look's own (EYES_CLOSED for a blink...); x0: INT16_MIN to centre it.
+static void drawAvatar(const pet::Look &look, int scale, int16_t y0, const PetPart *eyes = nullptr, int16_t x0 = INT16_MIN) {
   if (x0 == INT16_MIN) x0 = (display.width() - pet::SIZE * scale) / 2;  // centred
-  pet::drawLook(look, eyesClosed, [&](int x, int y, bool ink) {
+  pet::drawLook(look, eyes, [&](int x, int y, bool ink) {
     display.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, ink ? BLACK : WHITE);
   });
 }
@@ -237,39 +245,74 @@ static void drawMain() {
   const String name = petName();
   drawHeader("Pet", name.length() ? name.c_str() : nullptr);
   const talk::Talk &said = todaysTalk();
-  const String hi = happy && petOwnerName().length() ? "Hi " + petOwnerName() + "!" : "";  // A: hi, by name
-  const char *text = hi.length() ? hi.c_str() : said.text.c_str();
+  String react;  // what a tap makes it say: hi (by your name), a giggle, dazed
+  if (reaction == HI && petOwnerName().length()) react = "Hi " + petOwnerName() + "!";
+  else if (reaction == GIGGLE) react = "Hehe!";
+  else if (reaction == DIZZY) react = "Whoa...";
+  const char *text = react.length() ? react.c_str() : said.text.c_str();
   talkShown = said.text;
   pet::Look look = pet::unpack(petLookBits());
   if (happy || said.mood == talk::HAPPY) look.part[pet::EYES_LAYER] = pet::HAPPY_EYES;
-  const bool asleep = said.mood == talk::ASLEEP && !happy;
+  const bool asleep = said.mood == talk::ASLEEP && !reaction;
+  const PetPart *eyes = reaction == DIZZY    ? &EYES_DIZZY
+                        : reaction == GIGGLE ? &EYES_GIGGLE
+                        : blinking || asleep ? &EYES_CLOSED
+                                             : nullptr;
   if (*text) {
     const Outline o = outlineOf(look);
-    const int16_t x0 = -o.first * MAIN_SCALE;  // its drawing from the screen's edge
-    drawAvatar(look, MAIN_SCALE, MAIN_Y, blinking || asleep, x0);
+    const int16_t x0 = -o.first * MAIN_SCALE + max<int8_t>(wobble, 0);  // its drawing from the screen's edge
+    drawAvatar(look, MAIN_SCALE, MAIN_Y, eyes, x0);
     drawTalk(text, o, x0);
     if (heart) petDrawHeart(display.width() - 22, HINTS_TOP - 14, heart);  // under the bubble
   } else {
-    drawAvatar(look, MAIN_SCALE, MAIN_Y, blinking);
+    drawAvatar(look, MAIN_SCALE, MAIN_Y, eyes, (display.width() - pet::SIZE * MAIN_SCALE) / 2 + wobble);
     if (heart) petDrawHeart(175, CONTENT_TOP + 16, heart);
   }
   drawHints("hi", "dress up", "meet");
 }
 
-// A: it stays put (moving leaves smears on e-ink) and gets happy eyes while a heart pops up beside it, small then
-// big; then back to normal with a refresh that drives every pixel, so nothing is left behind.
+// A: hi, a giggle or dazed (see Reaction), drawn as a few quick frames, then back to normal with a refresh that
+// drives every pixel, so nothing of the frames is left behind (moving leaves smears on e-ink until then).
+// A pause in an animation; the test build answers X SHOT meanwhile, so a test can see the frame.
+static void pause(uint32_t ms) {
+  for (const uint32_t until = millis() + ms; (int32_t)(millis() - until) < 0;) {
+    delay(5);
+#if UNIDEX_DEV
+    devShotDuringAnimation();
+#endif
+  }
+}
+
 static Redraw sayHi() {
+  taps = millis() - reactedAt < TAP_GAP_MS && taps < 3 ? taps + 1 : 1;
   powerHold();
-  happy = true;
-  heart = 1;
-  displayFrame(drawMain);
-  heart = 2;
-  displayFrame(drawMain);
-  delay(700);
+  if (taps == 1) {  // hi: happy eyes and a heart that pops, small then big
+    reaction = HI;
+    happy = true;
+    heart = 1;
+    displayFrame(drawMain);
+    heart = 2;
+    displayFrame(drawMain);
+    pause(700);
+  } else if (taps == 2) {  // a giggle, eyes squeezed shut
+    reaction = GIGGLE;
+    displayFrame(drawMain);
+    pause(900);
+  } else {  // dazed: it sways side to side
+    reaction = DIZZY;
+    for (const int8_t w : {-4, 4, -4, 4, 0}) {
+      wobble = w;
+      displayFrame(drawMain);
+    }
+    pause(500);
+  }
+  reaction = NO_REACTION;
   happy = false;
   heart = 0;
-  displayClean(drawMain);
+  wobble = 0;
+  displayClean(drawMain);  // drives every pixel, so nothing of the frames is left behind
   powerRelease();
+  reactedAt = millis();
   return Redraw::None;
 }
 

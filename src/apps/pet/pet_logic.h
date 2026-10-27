@@ -68,10 +68,10 @@ template <typename Rand> Look randomLook(Rand rand) {
 }
 
 // Draws the look, layer by layer: pixel(x, y, ink) for every pixel a layer sets ('#' ink, 'o' paper), with x
-// and y from 0 to SIZE - 1. eyesClosed draws EYES_CLOSED instead of the chosen eyes (a blink).
-template <typename Pixel> void drawLook(const Look &l, bool eyesClosed, Pixel pixel) {
+// and y from 0 to SIZE - 1. `eyes` replaces the chosen eyes (EYES_CLOSED for a blink, EYES_DIZZY...); null keeps them.
+template <typename Pixel> void drawLook(const Look &l, const PetPart *eyes, Pixel pixel) {
   for (int layer = 0; layer < LAYERS; layer++) {
-    const PetPart &p = layer == EYES_LAYER && eyesClosed ? EYES_CLOSED : partsOf(layer).parts[l.part[layer]];
+    const PetPart &p = layer == EYES_LAYER && eyes ? *eyes : partsOf(layer).parts[l.part[layer]];
     for (int y = 0; y < SIZE; y++)
       for (int x = 0; x < SIZE; x++) {
         const char c = p.rows[y][x];
@@ -79,6 +79,10 @@ template <typename Pixel> void drawLook(const Look &l, bool eyesClosed, Pixel pi
         else if (c == 'o') pixel(x, y, false);
       }
   }
+}
+
+template <typename Pixel> void drawLook(const Look &l, bool eyesClosed, Pixel pixel) {
+  drawLook(l, eyesClosed ? &EYES_CLOSED : nullptr, pixel);
 }
 
 // Naming on the device, a letter at a time: the name is MAX_NAME places, blank (space) where unused. A cycles the
