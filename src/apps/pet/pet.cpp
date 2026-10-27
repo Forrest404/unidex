@@ -33,8 +33,10 @@ static uint8_t heart;  // the heart beside it while it's happy: 0 none, else its
 static uint32_t nextBlinkAt, openAt, lastPressAt;
 
 static const int16_t MAIN_Y = CONTENT_TOP + (HINTS_TOP - CONTENT_TOP - pet::SIZE * MAIN_SCALE) / 2;  // centred
-// With something to say: a bubble of up to 2 lines across the top, the Pet smaller under it, its head at the tail.
-static const int16_t TALK_TOP = CONTENT_TOP + 2, TALK_LINE = 16, TALK_PET_Y = HINTS_TOP - 1 - pet::SIZE * 3;
+// With something to say: the Pet keeps its size but moves left, its drawing against the screen's edge, and a bubble
+// at the top right, in the room beside its head, points at it.
+static const int16_t TALK_TOP = CONTENT_TOP + 3;
+static const int16_t TALK_AT = MAIN_Y + 10 * MAIN_SCALE + 2;  // where the tail points: about its eyes
 static const uint32_t AWAKE_MS = 60000;  // blinking stops this long after the last press
 
 static const char *const HEART[] = {  // beside its head while it's happy
@@ -141,8 +143,8 @@ void petDrawHeart(int16_t cx, int16_t cy, int scale) {
       if (HEART[y][x] == '#') display.fillRect(left + x * scale, top + y * scale, scale, scale, BLACK);
 }
 
-static void drawAvatar(const pet::Look &look, int scale, int16_t y0, bool eyesClosed = false) {
-  const int16_t x0 = (display.width() - pet::SIZE * scale) / 2;
+static void drawAvatar(const pet::Look &look, int scale, int16_t y0, bool eyesClosed = false, int16_t x0 = INT16_MIN) {
+  if (x0 == INT16_MIN) x0 = (display.width() - pet::SIZE * scale) / 2;  // centred
   pet::drawLook(look, eyesClosed, [&](int x, int y, bool ink) {
     display.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, ink ? BLACK : WHITE);
   });
@@ -152,23 +154,83 @@ static void save() { storagePutInt("pet_look", pet::pack(pet::unpack(draft))); }
 
 static uint32_t randomNumber() { return devSeed() ? (uint32_t)rand() : esp_random(); }  // test build: repeatable
 
-// The bubble: up to 2 lines, each centred, in a rounded box across the top; the tail's tip at the Pet's head.
+// The bubble beside the Pet: the words wrapped to its width (the small font, or the tiny one if a word is too wide
+// or it needs more than 5 lines), each line centred, the box level with its face where it fits, the tail pointing at
+// it.
 static std::string talkShown;  // what it said on the last draw
 
-static void drawTalk(const char *text) {
-  display.setFont(FONT_SMALL);
-  String lines[2];
-  const int n = min(2, wrapText(text, display.width() - 2 * MARGIN - 12, lines, 2));
-  int16_t w = 0;
-  for (int i = 0; i < n; i++) w = max(w, textWidth(lines[i].c_str()));
-  w += 14;
-  const int16_t h = n * TALK_LINE + 3, x = (display.width() - w) / 2, cx = display.width() / 2;
-  display.fillRoundRect(x, TALK_TOP, w, h, 6, WHITE);
-  display.drawRoundRect(x, TALK_TOP, w, h, 6, BLACK);
-  display.fillTriangle(cx - 4, TALK_TOP + h - 1, cx + 4, TALK_TOP + h - 1, cx, TALK_PET_Y, WHITE);
-  display.drawLine(cx - 4, TALK_TOP + h - 1, cx, TALK_PET_Y, BLACK);
-  display.drawLine(cx + 4, TALK_TOP + h - 1, cx, TALK_PET_Y, BLACK);
-  for (int i = 0; i < n; i++) drawCenteredLine(lines[i].c_str(), TALK_TOP + 14 + i * TALK_LINE);
+// Where the look draws: its first column, and each row's last (-1 for an empty row), so the Pet can sit against the
+// edge and the bubble take the room beside it, which is widest by its head (most Pets are wider lower down).
+struct Outline {
+  int first;
+  int8_t last[pet::SIZE];
+};
+
+static Outline outlineOf(const pet::Look &look) {
+  Outline o;
+  o.first = pet::SIZE - 1;
+  memset(o.last, -1, sizeof o.last);
+  pet::drawLook(look, false, [&](int x, int y, bool) { o.first = min(o.first, x), o.last[y] = max<int>(o.last[y], x); });
+  if (o.first == pet::SIZE - 1) o.first = 0;
+  return o;
+}
+
+// The screen x just right of the Pet (drawn from x0) in the rows between screen y0 and y1.
+static int16_t rightOf(const Outline &o, int16_t x0, int16_t y0, int16_t y1) {
+  int last = -1;
+  for (int r = max(0, (y0 - MAIN_Y) / MAIN_SCALE); r <= min(pet::SIZE - 1, (y1 - MAIN_Y) / MAIN_SCALE); r++)
+    last = max<int>(last, o.last[r]);
+  return x0 + (last + 1) * MAIN_SCALE;
+}
+
+// True if no word of the text is wider than w in the current font (wrapText would split it).
+static bool wordsFit(const char *text, int16_t w) {
+  String word;
+  for (const char *c = text;; c++) {
+    if (*c && *c != ' ') {
+      word += *c;
+      continue;
+    }
+    if (word.length() && textWidth(word.c_str()) > w) return false;
+    word = "";
+    if (!*c) return true;
+  }
+}
+
+static void drawTalk(const char *text, const Outline &o, int16_t x0) {
+  static const int MAX_LINES = 8;
+  const int16_t right = display.width() - 1;
+  String lines[MAX_LINES];
+  int n = 0;
+  int16_t lineH = 16, h = 70, left = 0;
+  for (int pass = 0; pass < 2; pass++) {  // the room depends on how tall it is, and that on how wide
+    left = rightOf(o, x0, TALK_TOP, max<int16_t>(TALK_TOP + h, TALK_AT)) + 5;
+    const int16_t inner = right - left - 6;
+    for (const GFXfont *font : {FONT_SMALL, FONT_TINY}) {  // the small font unless a word or the lines don't fit
+      display.setFont(font);
+      lineH = font == FONT_SMALL ? 16 : 12;
+      n = min(MAX_LINES, wrapText(text, inner, lines, font == FONT_SMALL ? 6 : MAX_LINES));
+      if (font == FONT_SMALL && wordsFit(text, inner) && n <= 6) break;
+    }
+    h = n * lineH + 6;
+  }
+  const int16_t top = TALK_TOP, cx = (left + right + 1) / 2, bottom = top + h - 1;
+  const int16_t tip = rightOf(o, x0, TALK_AT, TALK_AT) + 1;  // just right of its face
+  display.fillRoundRect(left, top, right - left + 1, h, 6, WHITE);
+  display.drawRoundRect(left, top, right - left + 1, h, 6, BLACK);
+  if (bottom - 6 >= TALK_AT) {  // a tall bubble: the tail from its side
+    display.fillTriangle(left, TALK_AT - 6, left, TALK_AT + 2, tip, TALK_AT, WHITE);
+    display.drawLine(left, TALK_AT - 6, tip, TALK_AT, BLACK);
+    display.drawLine(left, TALK_AT + 2, tip, TALK_AT, BLACK);
+  } else {  // a short one: down from its bottom left
+    display.fillTriangle(left + 5, bottom, left + 13, bottom, tip, TALK_AT, WHITE);
+    display.drawLine(left + 5, bottom, tip, TALK_AT, BLACK);
+    display.drawLine(left + 13, bottom, tip, TALK_AT, BLACK);
+  }
+  for (int i = 0; i < n; i++) {
+    display.setCursor(cx - textWidth(lines[i].c_str()) / 2, top + lineH - 1 + i * lineH);
+    display.print(lines[i]);
+  }
 }
 
 static void drawMain() {
@@ -182,9 +244,11 @@ static void drawMain() {
   if (happy || said.mood == talk::HAPPY) look.part[pet::EYES_LAYER] = pet::HAPPY_EYES;
   const bool asleep = said.mood == talk::ASLEEP && !happy;
   if (*text) {
-    drawTalk(text);
-    drawAvatar(look, 3, TALK_PET_Y, blinking || asleep);
-    if (heart) petDrawHeart(172, TALK_PET_Y + 20, heart);  // beside the head
+    const Outline o = outlineOf(look);
+    const int16_t x0 = -o.first * MAIN_SCALE;  // its drawing from the screen's edge
+    drawAvatar(look, MAIN_SCALE, MAIN_Y, blinking || asleep, x0);
+    drawTalk(text, o, x0);
+    if (heart) petDrawHeart(display.width() - 22, HINTS_TOP - 14, heart);  // under the bubble
   } else {
     drawAvatar(look, MAIN_SCALE, MAIN_Y, blinking);
     if (heart) petDrawHeart(175, CONTENT_TOP + 16, heart);
@@ -209,9 +273,16 @@ static Redraw sayHi() {
   return Redraw::None;
 }
 
+#if UNIDEX_DEV
+static const char *detail();
+#endif
+
 static void onEnter() {
   screen = MAIN;
   lastPressAt = millis();
+#if UNIDEX_DEV
+  devSetDetail(detail);  // (and in tick, for a wake from sleep, which skips this)
+#endif
 }
 
 static Redraw onButton(Event e) {
