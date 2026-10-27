@@ -562,6 +562,20 @@ static void fail(const char *why) {
 }
 
 // Calls global `fn` (if defined) with no arguments; true with its result on the stack (one value).
+// Runs the function under its `nargs` arguments on the stack, leaving one result. An error closes the app.
+static bool run(int nargs) {
+  callStart = millis();
+  frameCount = 0;
+  if (lua_pcall(L, nargs, 1, 0) != LUA_OK) {
+    const char *m = lua_tostring(L, -1);
+    String why = m ? m : "error";
+    if (why.indexOf("not enough memory") >= 0) why = "used more than its 512 KB of memory";
+    fail(why.c_str());
+    return false;
+  }
+  return true;
+}
+
 static bool call(const char *fn, bool &defined) {
   defined = false;
   if (!L) return false;
@@ -571,15 +585,54 @@ static bool call(const char *fn, bool &defined) {
     return false;
   }
   defined = true;
-  callStart = millis();
-  frameCount = 0;
-  if (lua_pcall(L, 0, 1, 0) != LUA_OK) {
-    const char *m = lua_tostring(L, -1);
-    String why = m ? m : "error";
-    if (why.indexOf("not enough memory") >= 0) why = "used more than its 512 KB of memory";
-    fail(why.c_str());
+  return run(0);
+}
+
+// A game's own function with arguments (games.cpp): they're pushed first, then this puts fn under them. One result
+// is left on the stack. A game without the function fails, saying which.
+static bool callGame(const char *fn, int nargs) {
+  if (!L) return false;
+  lua_getglobal(L, fn);
+  if (!lua_isfunction(L, -1)) {
+    lua_pop(L, nargs + 1);
+    char why[48];
+    snprintf(why, sizeof why, "main.lua has no %s() function", fn);
+    fail(why);
     return false;
   }
+  lua_insert(L, -(nargs + 1));
+  return run(nargs);
+}
+
+bool hostGameStart(uint32_t seed) {
+  if (!L) return false;
+  lua_pushinteger(L, seed);
+  if (!callGame("start", 1)) return false;
+  lua_pop(L, 1);
+  return true;
+}
+
+int hostGameStep(bool tapped, bool held) {
+  if (!L) return -1;
+  lua_pushboolean(L, tapped);
+  lua_pushboolean(L, held);
+  if (!callGame("step", 2)) return -1;
+  const char *r = lua_isstring(L, -1) ? lua_tostring(L, -1) : "";
+  const int out = !strcmp(r, "over") ? 0 : !strcmp(r, "still") ? 2 : 1;  // nothing (or "moved"): redraw
+  lua_pop(L, 1);
+  return out;
+}
+
+bool hostGameScore(int &score) {
+  if (!callGame("score", 0)) return false;
+  int isNumber = 0;
+  const lua_Integer n = lua_tointegerx(L, -1, &isNumber);
+  lua_pop(L, 1);
+  if (!isNumber) {
+    fail("score() should give a whole number");
+    return false;
+  }
+  score = (int)constrain(n, (lua_Integer)-999999, (lua_Integer)999999);
   return true;
 }
 

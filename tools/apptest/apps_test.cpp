@@ -77,6 +77,27 @@ int main() {
   check(check(m, "hello") == nullptr, "an app for api 2 (unidex.wifi) is fine");
   m.api = 3;
   check(check(m, "hello") == nullptr, "an app for api 3 (unidex.frame) is fine");
+  // Games (API 4): run by the Games app, so they need its level and the games category
+  m = good();
+  m.type = "game";
+  m.api = 4;
+  m.category = "games";
+  check(check(m, "hello") == nullptr && inGames(m), "a game is fine, and listed in Games");
+  m.api = 3;
+  check(check(m, "hello") != nullptr, "a game needs api 4");
+  m.api = 4;
+  m.category = "fun";
+  check(check(m, "hello") != nullptr, "a game's category is games");
+  m.category = "games";
+  m.frameMs = 30;
+  check(check(m, "hello") != nullptr, "frame_ms under 48 is refused");
+  m.frameMs = 1001;
+  check(check(m, "hello") != nullptr, "frame_ms over 1000 is refused");
+  m = good();
+  m.category = "games";
+  check(check(m, "hello") == nullptr && inGames(m), "an app in the games category is listed in Games");
+  m.category = "tools";
+  check(!inGames(m), "other apps stay in Apps");
   m = good();
   m.api = API_LEVEL + 1;
   check(strcmp(check(m, "hello"), "needs newer firmware") == 0, "a newer api level is refused");

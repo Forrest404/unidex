@@ -43,6 +43,8 @@ bool appsManifest(const String &id, apps::Manifest &m, String &problem, bool sta
   m.description = (const char *)(doc["description"] | "");
   m.type = (const char *)(doc["type"] | "app");
   m.extends = (const char *)(doc["extends"] | "");
+  m.category = (const char *)(doc["category"] | "");
+  m.frameMs = doc["frame_ms"] | 100;
   m.api = doc["api"] | 0;
   for (JsonVariant p : doc["permissions"].as<JsonArray>()) m.permissions.push_back((const char *)(p | ""));
   for (JsonVariant r : doc["icon"].as<JsonArray>()) m.icon.push_back((const char *)(r | ""));
@@ -67,7 +69,12 @@ std::vector<AppEntry> appsList(bool withSizes) {
     e.id = id;
     apps::Manifest m;
     e.offloaded = !storageExists((appsDir(id) + "/app.json").c_str());
-    if (!e.offloaded && appsManifest(id, m, e.problem)) {
+    const bool ok = !e.offloaded && appsManifest(id, m, e.problem);
+    if (!e.offloaded) {  // (read even when it can't run here: a game says why in Games)
+      e.inGames = apps::inGames(m);
+      e.game = m.type == "game";
+    }
+    if (ok) {
       e.name = m.name.c_str();
       e.version = m.version.c_str();
       e.extends = m.type == "plugin" ? m.extends.c_str() : "";
@@ -94,6 +101,9 @@ bool appsBegin(const String &id) {
   const String stage = String(STAGING) + "/" + id;
   return storageRemoveTree(stage.c_str()) && storageMakeDirs(stage.c_str());
 }
+
+static uint32_t generation;
+uint32_t appsGeneration() { return generation; }
 
 const char *appsCommit(const String &id) {
   if (!apps::idOk(id.c_str())) return "bad id";
@@ -123,6 +133,7 @@ const char *appsCommit(const String &id) {
     if (!storageRename((stage + "/" + n).c_str(), (live + "/" + n).c_str())) return "couldn't move files";
   }
   storageRemoveTree(stage.c_str());
+  generation++;
   return nullptr;
 }
 
@@ -136,6 +147,7 @@ static bool emptyFolder(const char *path) {
 
 bool appsRemove(const String &id, bool keepData) {
   if (!apps::idOk(id.c_str())) return false;
+  generation++;
   const bool ok = storageRemoveTree(appsDir(id).c_str(), keepData ? "data" : nullptr);
   storageRemoveTree((String(STAGING) + "/" + id).c_str());  // an unfinished install of it, too
   // Leave the card as it was before the first app: no empty folders behind.
