@@ -45,6 +45,9 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   home screen's count of apps is right straight after one is added or removed from the website.
 - **Battery:** the % while charging carries on through a restart instead of being worked out again from the
   voltage, which made it jump.
+- **Notes:** an API key saved in the tidy-up's Model box no longer breaks the tidy-up ("OpenAI: error 404" after
+  every note, with no summary). The device ignores it and uses the default model, and the Setup page won't save
+  one. A model name the service doesn't know now says "unknown model".
 - **Website: Release or Beta.** Install and Update each have a Version menu: the newest release (the default) or
   Beta, the newest changes before they're released. Beta is rebuilt whenever it changes. Update back to Release
   the same way.

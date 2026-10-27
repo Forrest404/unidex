@@ -102,6 +102,12 @@ const FAKE = `
   out.five = await list();
   await fill('wifi_ssid', 'NetD'); await click('#saveNet'); await sleep(500);
   out.sixth = await status();
+  // a key in the tidy-up model box is refused; a model name saves
+  const cleanupStatus = () => js(`document.getElementById('cleanupStatus').textContent`);
+  await fill('cleanup_model', 'sk-proj-abc'); await click('[data-save=cleanup]'); await sleep(500);
+  out.modelKey = [await cleanupStatus(), JSON.parse(await dev()).cleanup_model || ''];
+  await fill('cleanup_model', 'gpt-4o-mini'); await click('[data-save=cleanup]'); await sleep(800);
+  out.modelName = [await cleanupStatus(), JSON.parse(await dev()).cleanup_model];
   console.log(JSON.stringify(out, null, 1));
   chrome.kill(); process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });

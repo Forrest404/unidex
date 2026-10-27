@@ -206,7 +206,9 @@ function caBody() {
 function check(group) {
   if (group === 'openai' && $('openai_key').value && !$('openai_key').value.trim().startsWith('sk-'))
     return 'OpenAI keys start with sk-.';
-  if (group === 'github' && $('gh_repo').value && !/^[\w.-]+\/[\w.-]+$/.test($('gh_repo').value.trim()))
+  if (group === 'cleanup' && /^sk-/.test($('cleanup_model').value.trim()))
+    return 'That looks like an API key. The model box takes a model name, like gpt-4o-mini.';
+  if (group === 'github' && $('gh_repo').value &&!/^[\w.-]+\/[\w.-]+$/.test($('gh_repo').value.trim()))
     return 'Repo should look like owner/name.';
   if (group === 'github' && $('gh_on').checked && !$('gh_repo').value.trim()) return 'Type the repo first.';
   return '';

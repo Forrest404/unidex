@@ -216,6 +216,7 @@ const char *cloudCleanup(NoteText &note, const String &nowLocal) {
   const String key = credGet(claude ? "anthropic_key" : "openai_key");
   if (!key.length()) return claude ? "no Anthropic key" : "no OpenAI key";
   String model = credGet("cleanup_model");
+  if (model.startsWith("sk-")) model = "";  // a key saved in the model box would be sent as the model: 404 every time
   if (!model.length()) model = claude ? DEFAULT_ANTHROPIC_MODEL : DEFAULT_OPENAI_MODEL;
 
   const String user = "Current local date/time: " + nowLocal + "\n\nTranscript:\n" +
@@ -247,6 +248,7 @@ const char *cloudCleanup(NoteText &note, const String &nowLocal) {
   const char *service = claude ? "Claude" : "OpenAI";
   const int status = netHttps(claude ? ANTHROPIC : OPENAI, "POST", claude ? "/v1/messages" : "/v1/chat/completions",
                               headers, &part, 1, body);
+  if (status == 404) return claude ? "Claude: unknown model" : "OpenAI: unknown model";  // the model setting
   if (status != 200) return failure(status, service, body);
 
   JsonDocument doc;
