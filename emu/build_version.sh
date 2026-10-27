@@ -15,7 +15,12 @@ trap 'git -C "$here" worktree remove --force "$work/src" >/dev/null 2>&1 || true
 
 git -C "$here" worktree add --detach "$work/src" "$tag" >/dev/null 2>&1
 cd "$work/src"
+# The stand-ins for the firmware's hardware parts (emu/hw/*_emu.cpp) follow its headers as they change (clockSet's
+# return, the portal's PhoneTab...), so a release keeps its own; the rest (the shims, emu_main.cpp's bridge to the
+# page, build.sh) comes from this checkout.
+mkdir -p "$work/stubs" && { cp emu/hw/*_emu.cpp "$work/stubs/" 2>/dev/null || true; }
 rm -rf emu && cp -R "$here/emu" emu && rm -rf emu/out
+cp "$work/stubs/"*_emu.cpp emu/hw/ 2>/dev/null || true
 printf '#pragma once\n#define UNIDEX_VERSION "%s (emulator)"\n' "$name" > emu/shim/unidex_version.h
 command -v pio >/dev/null || PATH="$HOME/.platformio/penv/bin:$PATH"
 pio pkg install -e epaper154 >/dev/null  # the release's own library versions
