@@ -43,10 +43,9 @@ If you'd like to support the project, there's a [Ko-fi](https://ko-fi.com/forres
 | **Reminders** | A to-do list you talk to: hold B and say "call Sam tomorrow at 5". When it's due, it chimes and shows on screen. |
 | **Pet** | A cute creature you dress up and name. Bring two unidex together and the Pets visit, chat, become friends and swap badges. |
 | **Badge** | Full-screen name tags, logos and photos. |
-| **Chooser** | Pick 2–9 squares, spin, get a random winner. |
 | **Games** | Four one-button games: Flappy, Dino, Stack and Jetpack, with best scores. |
 | **Settings** | Date and time, sync, sleep, volume, alert sound, invert, battery and info, reset data, factory reset. |
-| **Apps** | Everything else: apps and plugins from the store (Dex, the WiFi collecting game, is one), or ones you write yourself. |
+| **Apps** | Everything else: apps and plugins from the store (Dex, the WiFi collecting game, and Chooser, the random picker, are two), or ones you write yourself. |
 
 **New in v1.9: set it up from your phone, and Reminders.** In Settings, hold B and scan the QR code: your phone
 sets up WiFi, keys and settings with no computer or cable ([how](#set-up-from-your-phone)). Reminders is a to-do list
@@ -212,11 +211,6 @@ picker with thumbnails. Make badges in the badge maker on the website's
 To delete one, **hold B** on it in the picker (it asks first), or tap **Delete** under it in the phone portal's Tools
 tab.
 
-### Chooser
-
-**A** sets the number of squares (2–9) and **B** spins, landing on a random winner. **Hold B** shows how often each
-number has won.
-
 ### Games
 
 There are four: Flappy, Dino, Stack and Jetpack. **A** picks one and **B** plays. In a game, **B** is the one
@@ -234,8 +228,8 @@ action (tap or hold, depending on the game). Best scores are kept on the device.
 - **Invert:** white on black.
 - **Battery & info:** battery voltage and %, firmware version, storage used, and the device's name (`unidex-1A2B`,
   handy when you ask for help).
-- **Reset data:** clear the Chooser tally, calendar events, the Pet's friends, or everything (settings, tally and
-  calendar; your badges, timetable, notes, apps, keys and Pet stay). Each one asks first.
+- **Reset data:** clear calendar events, the Pet's friends, or everything (settings and calendar; your badges,
+  timetable, notes, apps, keys and Pet stay). Each one asks first.
 - **Factory reset** (at the bottom of Reset data, and it asks twice) is for passing the device on. It wipes the WiFi
   and keys, the Pet and its friends, every setting and the calendar, then starts like new. Notes, badges
   and the timetable on the SD card stay, so format the card on a computer as well.

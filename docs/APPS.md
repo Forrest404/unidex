@@ -116,7 +116,8 @@ Only the app's own `data/` folder. Names use a-z, 0-9, `.`, `_` and `-`.
 | `unidex.toast(text)` | A short message over the screen. |
 | `unidex.wake_in(ms)` | Ask to be redrawn after this long (the device may be asleep until then). |
 | `unidex.random(n)` | A number from 1 to `n`. |
-| `unidex.api` | The API level of this firmware: 2 (1 before `unidex.wifi`). |
+| `unidex.frame(ms)` | API 3: shows `draw()` now, mid-function, as an animation frame, then waits `ms` (up to 1000). At most 60 a call; the screen and the wait don't count against the app's time. |
+| `unidex.api` | The API level of this firmware: 3 (2 before `unidex.frame`, 1 before `unidex.wifi`). |
 
 ### The network (permission `"wifi"`)
 

@@ -25,7 +25,7 @@ comes from git (`tools/version.py`).
 ```
 src/
   main.cpp              setup/loop: input -> launcher -> sleep
-  apps/                 one folder per app (timetable, notes, reminders, pet, badge, chooser, games, settings)
+  apps/                 one folder per app (timetable, notes, reminders, pet, badge, games, settings)
                         + apps.cpp (launcher order)
   apps/notes/           notes.cpp (screens), job (the online steps in the background), store (files on the card),
                         cloud (Whisper or Scribe, tidy-up, GitHub), usb (N commands), phone* (Open on phone), record (hold to
@@ -305,7 +305,6 @@ Everything here was read from the chip, seen working on the device, or taken fro
 |---|---|
 | `badge` | Badge: filename of the last badge shown |
 | `events_crc` | Mac sync: crc32 of the saved `/events.csv`, to skip identical writes |
-| `ch_w1`…`ch_w6` | Chooser: wins per square |
 | `sleep_s` | Settings: seconds awake after the last press (10/20/30/60) |
 | `invert` | Settings: 1 = white on black |
 | `sd_copied` | Storage: the one-time copy from internal flash to the card is done |

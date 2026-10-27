@@ -6,6 +6,12 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 
 ## Next release
 
+- **Chooser moves to the app store**, like Dex: install it from the store (Apps). Your tally is kept: the update
+  moves it into the app's folder, so Apps lists an offloaded "chooser" until you install it. It spins the same; it
+  lives in Apps now (no home screen line), and Settings > Reset data no longer has a tally row (the app clears its
+  own).
+- **Apps: `unidex.frame(ms)`** (API level 3) shows the screen straight away, mid-function, so apps can animate (the
+  Chooser spin uses it). The store says which API level each app needs.
 - **Dex moves to the app store.** The WiFi network collecting game no longer comes built in: install it from the
   store on the website (Apps). Your finds are kept: the update moves them into the app's folder, so Apps lists an
   offloaded "dex" until you install it, and it carries on with them. It plays the same, but it lives in Apps now (no
