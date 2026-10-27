@@ -1,0 +1,12 @@
+{
+  "id": "climate",
+  "name": "Climate",
+  "version": "1.0.1",
+  "author": "candour",
+  "description": "Display humidity and temperature.",
+  "category": "climate",
+  "api": 1,
+  "type": "app",
+  "permissions": [],
+  "license": "MIT"
+}
