@@ -186,6 +186,13 @@ border:2px dashed rgba(34,33,31,.35);color:#22211f;cursor:pointer;text-align:cen
 .ptag{position:absolute;left:50%;top:16px;transform:translateX(-50%);background:#22211f;color:#e9e6da;font-size:12px;font-weight:800;
 padding:3px 8px;border-radius:6px;white-space:nowrap}
 .field input[type=range]{width:100%}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:14px 12px}
+.bt{display:flex;flex-direction:column;gap:6px;min-width:0}
+.bt .th{position:relative;aspect-ratio:1;border-radius:12px;padding:5px;background:#e9e6da;box-shadow:0 0 0 1px var(--line)}
+.bt img{display:block;width:100%;height:100%;border-radius:6px;image-rendering:pixelated;mix-blend-mode:multiply}
+.bt .on{position:absolute;left:6px;bottom:6px}
+.bt small{font-size:13px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bt .btn{width:100%;padding:8px}
 .part{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
 .part:last-child{border-bottom:1px solid var(--line)}
 .part b{width:64px;font-size:14px}.part span{flex:1;text-align:center;font-size:15px;font-weight:650}
@@ -305,6 +312,8 @@ max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
 <label class="field" style="margin-top:16px"><span>Name</span><input class="input" id="bName" maxlength="24" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
 <div class="btns"><button class="btn primary" id="bSend">Send to unidex</button><button class="btn" id="bAgain">Another photo</button></div></div>
 <p class="say" id="badgeSay" role="status"></p></div>
+<div class="card" id="cBadges"><div class="ch"><i class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></i><div><div class="hrow"><h2>Your badges</h2><span class="tag" id="badgesTag"></span></div><p class="hint">The ones on your unidex. Delete asks first.</p></div></div>
+<div class="badges" id="bList"><p class="hint">Loading…</p></div><p class="say" id="badgesSay" role="status"></p></div>
 <div class="card" id="cPet"><div class="ch"><i class="ic lilac"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 14.5a4.5 4.5 0 007 0"/><circle cx="9" cy="10" r=".9"/><circle cx="15" cy="10" r=".9"/></svg></i><div><h2>Pet</h2><p class="hint">Dress up your Pet and name it. It changes on your unidex straight away.</p></div></div>
 <div class="eink pet"><canvas id="pOut" width="32" height="32" role="img" aria-label="Your Pet"></canvas><b class="ptag hidden" id="pTag"></b></div>
 <div id="pParts"><p class="hint">Loading your Pet…</p></div>
@@ -409,7 +418,7 @@ var CHECK='<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 function showTab(t){[['notes','Notes'],['settings','Settings'],['setup','Setup'],['tools','Tools']].forEach(function(x){var on=x[0]==t,a=$('n'+x[1]);
 $('tab'+x[1]).classList.toggle('hidden',!on);a.classList.toggle('active',on);if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
 document.title=t=='notes'?'unidex':t=='settings'?'Settings · unidex':t=='tools'?'Tools · unidex':'Setup · unidex';
-if(t!='notes'&&!asked)loadSetup();if(t=='tools'&&!P)pLoad()}
+if(t!='notes'&&!asked)loadSetup();if(t=='tools'&&!P)pLoad(),bList()}
 function lost(on){$('lost').classList.toggle('hidden',!on)}
 function post(path,data){var b=Object.keys(data).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(data[k])}).join('&');
 return fetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:b})
@@ -568,8 +577,20 @@ document.querySelectorAll('input[name=bFit],input[name=bStyle],#bInv').forEach(f
 $('bLight').oninput=bRender;
 $('bAgain').onclick=function(){$('bFile').click()};
 $('bSend').onclick=function(){var b=this;busy(b,true,'Sending…');post('/badge',{name:$('bName').value.trim()||'badge',bmp:bBmp()})
-.then(function(o){busy(b,false);saved(b);tell('badgeSay','Saved as '+o.name.replace('.bmp','')+'. Open Badge on your unidex to see it.','ok')},
+.then(function(o){busy(b,false);saved(b);bList();tell('badgeSay','Saved as '+o.name.replace('.bmp','')+'. Open Badge on your unidex to see it.','ok')},
 function(e){busy(b,false);tell('badgeSay',e.message,'bad')})};
+// The badges on the device, each with Delete (a second tap within 4 s does it).
+function bName(n){return n.replace(/\.bmp$/,'').replace(/^\d+-/,'').replace(/-/g,' ')||n}
+function bList(){fetch('/badges.json').then(function(r){return r.json()}).then(function(o){var box=$('bList'),n=o.badges.length;box.textContent='';
+tag('badgesTag',n,n+(n==1?' badge':' badges'),'None yet');
+if(!o.card)return box.appendChild(el('p','hint','There’s no SD card in your unidex: badges are kept on it.'));
+if(!n)return box.appendChild(el('p','hint','No badges yet. Make one above.'));
+o.badges.forEach(function(f){var t=el('div','bt'),th=el('div','th'),im=document.createElement('img');im.src='/badge.bmp?name='+encodeURIComponent(f);
+im.alt=bName(f);im.loading='lazy';th.appendChild(im);if(f==o.current)th.appendChild(el('span','tag ok on','Showing'));t.appendChild(th);
+t.appendChild(el('small','',bName(f)));var d=el('button','btn danger','Delete');d.setAttribute('aria-label','Delete '+bName(f));
+d.onclick=function(){twoTap(d,'Sure?',function(){busy(d,true,'Deleting…');post('/badge/delete',{name:f}).then(function(){
+tell('badgesSay','Deleted “'+bName(f)+'”.','ok');bList()},function(e){busy(d,false);tell('badgesSay',e.message,'bad')})})};t.appendChild(d);box.appendChild(t)})},
+function(){lost(true)})}
 // The Pet: its parts come from the device (/pet.json), so they're always the ones it can draw.
 var P=null,look=[];
 function pDraw(){var c=$('pOut'),x=c.getContext('2d');x.fillStyle='#e9e6da';x.fillRect(0,0,32,32);

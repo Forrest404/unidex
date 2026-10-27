@@ -1,5 +1,6 @@
 // Badge: flips through 1-bit BMPs in /badges, full screen. A = next, B = picker (3x3 thumbnails:
-// A = next, B = open, hold A = back), hold B = previous. The hints show as a band for a moment on opening.
+// A = next, B = open, hold B = delete, after asking; hold A = back), hold B = previous. The hints show as a band for a
+// moment on opening.
 // Badge plugins (docs/APPS.md: "extends": "badge") come after the images: their badge() draws the whole badge,
 // each time it's shown, and the plugin is closed again straight after.
 #include "../../core/app.h"
@@ -21,6 +22,7 @@ static int count = -1;  // -1 = not listed yet
 RTC_DATA_ATTR static int current;
 RTC_DATA_ATTR static bool picking;
 RTC_DATA_ATTR static int cursor;  // selected thumbnail in the picker
+RTC_DATA_ATTR static bool confirming;  // the picker's "Delete this badge?"
 static const uint32_t BAND_MS = 2500;
 static uint32_t bandAt;     // when the hints band was shown over the badge
 static bool band;           // it's on screen now
@@ -126,7 +128,30 @@ static void drawPicker() {
       display.drawRect(x - 1, y - 1, THUMB + 2, THUMB + 2, BLACK);
     }
   }
-  drawHints(count > 1 ? "next" : "", "open", "");
+  if (confirming) {
+    drawSheet("Delete this badge?", names[cursor].substring(0, names[cursor].length() - 4).c_str(), "Can't be undone.");
+    drawHints("keep", "delete", "");
+    return;
+  }
+  drawHints(count > 1 ? "next" : "", "open", names[cursor].startsWith(PLUGIN) ? "" : "delete");
+}
+
+// The badge under the picker's cursor goes (asked first). A plugin's badge goes with the plugin, in Apps.
+static void deleteBadge() {
+  if (devDryRun()) {
+    launcherToast("Dry run: not deleted");
+  } else if (!badgeDelete(names[cursor].c_str())) {
+    launcherToast("Couldn't delete it");
+  } else {
+    launcherToast("Deleted");
+    const String shown = names[current];
+    list();
+    current = 0;
+    for (int i = 0; i < count; i++)
+      if (names[i] == shown) current = i;
+    if (cursor >= count) cursor = count > 0 ? count - 1 : 0;
+    if (count <= 0) picking = false;
+  }
 }
 
 static bool lastFailed;  // the badge on screen couldn't be drawn (test tools: X STATE detail)
@@ -145,7 +170,7 @@ static void onEnter() {
 #if UNIDEX_DEV
   devSetDetail(detail);
 #endif
-  picking = false;
+  picking = confirming = false;
   list();
   String last = storageGetString("badge");
   for (int i = 0; i < count; i++)
@@ -156,7 +181,18 @@ static void onEnter() {
 static Redraw onButton(Event e) {
   ensureList();
   if (count == 0) return Redraw::None;
+  if (picking && confirming) {
+    if (e != Event::AShort && e != Event::BShort) return Redraw::None;
+    confirming = false;
+    if (e == Event::BShort) deleteBadge();
+    return Redraw::Partial;
+  }
   if (picking) {
+    if (e == Event::BLong) {
+      if (names[cursor].startsWith(PLUGIN)) launcherToast("A plugin: remove it in Apps");
+      else confirming = true;
+      return Redraw::Partial;
+    }
     if (e == Event::AShort && count > 1) {
       cursor = (cursor + 1) % count;
       return Redraw::Partial;
@@ -183,6 +219,10 @@ static Redraw onButton(Event e) {
 }
 
 static Redraw onBack() {
+  if (confirming) {
+    confirming = false;
+    return Redraw::Partial;
+  }
   if (!picking) return Redraw::Exit;
   picking = false;  // back to the badge you had
   return Redraw::Full;

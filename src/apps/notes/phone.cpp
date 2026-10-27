@@ -12,6 +12,7 @@
 #include "phone_setup.h"
 #include "phone_text.h"
 #include "store.h"
+#include "../badge/badge_file.h"
 #include "../pet/pet.h"
 #include "../../core/audio.h"
 #include "../../core/battery.h"
@@ -309,21 +310,35 @@ static const char *saveBadge(const String &body, String &saved) {
   std::vector<uint8_t> bmp;
   if (!base64Decode(data, bmp) || !badgeBmpOk(bmp)) return "That isn't a badge picture. Try the photo again.";
   if (!storageCardMount()) return "There's no SD card in your unidex: badges are kept on it.";
-  storageMakeDirs("/badges");
+  static String names[64];
+  const int n = badgeList(names, 64);
   std::vector<std::string> existing;
-  fs::File dir = storageOpen("/badges");
-  for (fs::File f = dir ? dir.openNextFile() : fs::File(); f; f = dir.openNextFile()) existing.push_back(f.name());
-  dir.close();
+  for (int i = 0; i < n; i++) existing.push_back(names[i].c_str());
   const std::string file = badgeFileName(existing, name);
-  static const char *TMP = "/badges/phone.tmp";
-  fs::File out = storageOpen(TMP, "w");
-  const size_t wrote = out ? out.write(bmp.data(), bmp.size()) : 0;
-  if (out) out.close();
-  if (wrote != bmp.size() || !storageReplace(TMP, ("/badges/" + file).c_str(), bmp.size()))
-    return "Couldn't save it: the card may be full.";
+  if (!badgeSave(file.c_str(), bmp.data(), bmp.size())) return "Couldn't save it: the card may be full.";
   storagePutString("badge", file.c_str());  // the Badge app opens on it
   saved = file.c_str();
   return nullptr;
+}
+
+// The Tools tab's badges: their file names, and the one the Badge app opens on.
+static String badgesJson() {
+  static String names[64];
+  const int n = storageCardMount() ? badgeList(names, 64) : -1;
+  String out = "{\"card\":" + String(n >= 0 ? 1 : 0) + ",\"current\":\"" + str(json(storageGetString("badge").c_str())) +
+               "\",\"badges\":[";
+  for (int i = 0; i < n; i++) out += String(i ? ",\"" : "\"") + str(json(names[i].c_str())) + "\"";
+  return out + "]}";
+}
+
+// One badge's file, for its thumbnail (phones show BMPs as they are).
+static void sendBadgeFile(WiFiClient &c, const String &name) {
+  fs::File f = badgeNameOk(name.c_str()) ? storageOpen((String(BADGE_DIR) + "/" + name).c_str()) : fs::File();
+  if (!f || f.size() > BADGE_MAX_BYTES) return reply(c, 404, "text/plain", String("Not found"));
+  std::vector<uint8_t> data(f.size());
+  data.resize(f.read(data.data(), data.size()));
+  f.close();
+  reply(c, 200, "image/bmp", (const char *)data.data(), data.size());
 }
 
 // The Tools tab's Pet: look=<the parts, packed as pet_logic.h does>&name=<up to 12 characters>.
@@ -355,6 +370,13 @@ static void post(WiFiClient &c, const Request &r) {
       redrawSoon = true;
       return reply(c, 200, "application/json", "{\"ok\":1,\"name\":\"" + str(json(file.c_str())) + "\"}");
     }
+  } else if (r.path == "/badge/delete") {
+    std::string name;
+    for (const auto &p : formPairs(r.body.c_str()))
+      if (p.first == "name") name = p.second;
+    if (!storageCardMount()) error = "There's no SD card in your unidex.";
+    else if (!badgeDelete(name.c_str())) error = "That badge isn't there any more.";
+    else launcherToast("Badge deleted"), redrawSoon = true, error = nullptr;
   } else if (r.path == "/pet") {
     error = savePet(r.body);
     if (!error) launcherToast("Pet saved"), redrawSoon = true;
@@ -420,6 +442,12 @@ static void handle(Connection &conn, const Request &r) {
     if (r.origin.length() && r.origin != "http://" + self) reply(c, 400, "application/json", answer("Not from this page."));
     else post(c, r);
     logRequest("save", t0);
+  } else if (r.path == "/badges.json") {
+    reply(c, 200, "application/json", badgesJson());
+    logRequest("badges", t0);
+  } else if (r.path == "/badge.bmp") {
+    sendBadgeFile(c, r.arg("name"));
+    logRequest("bmp", t0);
   } else if (r.path == "/pet.json") {
     reply(c, 200, "application/json", petPartsJson());
     logRequest("pet", t0);

@@ -28,3 +28,6 @@ void badgeDraw(const Bmp &b);                              // the whole 200x200 
 void badgeDrawFit(const Bmp &b, int16_t x, int16_t y, int16_t size);  // shrunk to size x size, with a thin frame
 String badgeFreeName(const char *name);  // `name`, or "name-2.bmp", "name-3.bmp"... if it's taken
 bool badgeSave(const char *name, const uint8_t *data, size_t size);  // written to a temp file, then renamed
+// Deletes a badge (and an old copy a power cut left, which badgeList would otherwise put back). If it was the one the
+// Badge app opens on, it opens on the first instead. False for a name that isn't a badge's, or one that isn't there.
+bool badgeDelete(const char *name);

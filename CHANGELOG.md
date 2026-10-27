@@ -6,6 +6,8 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 
 ## Next release
 
+- **Badge:** delete a badge. In the picker, hold B on it and press B to confirm, or tap Delete under it in the phone
+  portal's Tools tab (it asks first there too). A plugin's badge goes with the plugin, in Apps.
 - **Phone portal: Tools** (new): a fourth tab with the badge maker and the Pet designer. Choose a photo (or take
   one), pick Fit or Fill, Photo or Line art, the lightness and invert, and send it: it's saved on the card as the next
   badge and the Badge app opens on it. The Pet designer loads your Pet as it is, lets you change each part and its

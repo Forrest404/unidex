@@ -210,6 +210,8 @@ Badge flips through full-screen badges: **A** for the next one, **hold B** for t
 picker with thumbnails. Make badges in the badge maker on the website's
 [Tools](https://tools.unidex.shop/tools.html) page: drop in any image, adjust it, and **Send to device**
 (it opens straight away) or download it for the card's `badges` folder. They're shown in file name order, up to 32.
+To delete one, **hold B** on it in the picker (it asks first), or tap **Delete** under it in the phone portal's Tools
+tab.
 
 ### Dex
 
@@ -256,7 +258,7 @@ your phone's camera and join, and a page opens by itself with four tabs:
 - **Setup:** what the website's Setup page does: WiFi networks (it lists the ones nearby), the OpenAI, ElevenLabs
   and Anthropic keys, the tidy-up, GitHub, the calendar link, and Remove everything.
 - **Tools:** the badge maker (choose a photo or take one, adjust it, and it's saved as a new badge that the Badge
-  app opens on) and the Pet designer (each part of its look, and its name).
+  app opens on), your badges with Delete, and the Pet designer (each part of its look, and its name).
 
 Press **Done** at the bottom (or hold A on the device) when you're finished. If you changed WiFi or keys, the device
 then joins your WiFi, checks each service and lists how it went. Keys never come back to the page: a saved one
