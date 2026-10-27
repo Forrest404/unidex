@@ -1,0 +1,10 @@
+2026-10-26,09:00,10:00,After the clocks change,,
+2026-10-26,16:30,17:30,Cafe resume  Big meeting  with Zoe & ystein finance 12 day... a,Strae 12 Koln,Line one / line two with commas and spaces here / Third line which is folded over two lines and keeps on going for quite a while so that it is longer than one h
+2026-10-27,,,Inset day,,
+2026-10-27,09:00,09:30,No UID one,,
+2026-10-27,09:00,09:30,No UID two,,
+2026-10-28,08:15,09:00,Breakfast club,,
+2026-10-29,12:00,12:00,Lunch reminder,,
+2026-10-29,15:00,16:00,Duplicate second copy,,
+2026-10-30,23:30,23:59,Last night of the window,,
+2026-10-31,00:30,01:30,Just outside,,
