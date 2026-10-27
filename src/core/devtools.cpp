@@ -240,6 +240,9 @@ bool devUsb(const char *l) {
     launcherShowWelcome();
     Serial.println("OK X WELCOME");
   } else if (!strncmp(c, "FLASHFILE ", 10)) {  // X FLASHFILE <path> <bytes>: a file in internal flash (0: removed)
+#if UNIDEX_EMU
+    Serial.println("ERR");  // no internal flash in the browser
+#else
     char path[48] = "";
     long bytes = 0;
     bool ok = sscanf(c + 10, "%47s %ld", path, &bytes) == 2 && path[0] == '/' && LittleFS.begin(true);
@@ -254,6 +257,14 @@ bool devUsb(const char *l) {
     }
     if (ok) LittleFS.end();
     Serial.println(ok ? "OK X FLASHFILE" : "ERR");
+#endif
+  } else if (!strncmp(c, "ADDLINE /", 9)) {  // X ADDLINE <path> <text>: adds a line to a card file (test data)
+    const char *path = c + 8, *space = strchr(path, ' ');
+    String p = space ? String(path).substring(0, space - path) : String(path);
+    fs::File f = space ? storageOpen(p.c_str(), "a") : fs::File();
+    const bool ok = f && f.print(String(space + 1) + "\n") == strlen(space + 1) + 1;
+    if (f) f.close();
+    Serial.println(ok ? "OK X ADDLINE" : "ERR");
   } else if (!strncmp(c, "RMFILE /", 8)) {  // X RMFILE <path>: removes one file from the card (test leftovers)
     Serial.println(storageRemove(c + 7) ? "OK X RMFILE" : "ERR");
   } else if (!strncmp(c, "NOTES ", 6)) {  // X NOTES <n>: n made-up notes (test-0001 ...) for long lists; 0 removes them
