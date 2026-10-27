@@ -69,8 +69,10 @@ If unidex is useful to you, a star on GitHub helps other people find it.
 **Then:**
 
 1. **Install.** Open **https://tools.unidex.shop/**, plug the board in, press one of its buttons so it's
-   awake, and click **Install**. There's nothing to download. The first time it starts, it shows the buttons and a
-   QR code for the website.
+   awake, and click **Install**. There's nothing to download. The first time it starts, it shows the buttons, then
+   **Set it up**: a QR code for your phone's camera, which joins the device's own WiFi and opens its setup page
+   (see [Set up from your phone](#set-up-from-your-phone)), with the website's address underneath if you'd rather
+   use a computer.
 2. **Set up the SD card.** Copy the contents of the [`starter`](starter) folder to the card (a few badges and an
    empty timetable) and put it in the board's slot.
 3. **Add your timetable.** Send your calendar from the website's
