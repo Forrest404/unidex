@@ -56,6 +56,11 @@ font-weight:760;display:flex;align-items:center;justify-content:flex-end;gap:7px
 .swipe.moving .sdel,.swipe.open .sdel{opacity:1}
 .swipe .note{position:relative;transition:transform .25s var(--ease)}.swipe.moving .note{transition:none}
 .swipe.gone{opacity:0;transform:translateX(-30%)}
+.swipe.far .sdel{background:#a52a17}
+/* the first time the list shows on a phone, the top note peeks left once, so the slide can be found */
+@keyframes peek{0%,100%{transform:none}30%,62%{transform:translateX(-72px)}}
+@keyframes peekbg{0%,100%{opacity:0}18%,74%{opacity:1}}
+.swipe.peek .note{animation:peek 1.15s var(--ease) .7s both}.swipe.peek .sdel{animation:peekbg 1.15s .7s both}
 .delnote{width:100%;min-height:52px;margin:22px 0 0;border-radius:18px;font-size:15px}
 .num{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin-bottom:9px;font-weight:700}
 .title{font-size:23px;line-height:1.14;letter-spacing:-.025em;font-weight:780;margin:0 0 12px}
@@ -162,7 +167,7 @@ input[type=range]{flex:1;min-width:0;display:block;height:44px;margin:0;accent-c
 .mini{flex:none;width:84px;padding:8px 8px 10px;border-radius:18px;background:var(--surface);box-shadow:0 6px 16px var(--shadow)}
 .scr{aspect-ratio:1;border-radius:7px;background:#e9e6da;color:#22211f;display:flex;flex-direction:column;align-items:center;justify-content:center;
 gap:2px;border:1px solid rgba(0,0,0,.12);transition:background .3s,color .3s}
-.scr b{font-size:13px;font-weight:900;letter-spacing:-.05em}.scr span{font-size:10px;font-weight:700;font-variant-numeric:tabular-nums}
+.scr b{font-size:13px;font-weight:900;letter-spacing:-.05em;max-width:100%;padding:0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.scr span{font-size:10px;font-weight:700;font-variant-numeric:tabular-nums}
 .mini.inv .scr{background:#22211f;color:#e9e6da}
 .mbtn{display:flex;gap:6px;margin-top:7px}.mbtn i{flex:1;height:7px;border-radius:4px;background:var(--line)}
 .bat{height:8px;border-radius:4px;background:var(--track);overflow:hidden;max-width:220px}
@@ -210,16 +215,19 @@ padding:3px 8px;border-radius:6px;white-space:nowrap}
 .part small{display:block;font-size:12px;color:var(--muted);font-weight:500}
 /* the Apps tab: each app a row, its 40x40 icon as the screen draws it */
 .alist{display:grid;grid-template-columns:minmax(0,1fr)}
-.arow{display:grid;grid-template-columns:52px minmax(0,1fr);gap:14px;padding:14px 0;border-top:1px solid var(--line)}
+.arow{display:grid;grid-template-columns:52px minmax(0,1fr) auto;column-gap:14px;align-items:center;padding:16px 0;border-top:1px solid var(--line)}
+.arow>.aic{align-self:start}.arow>.adesc,.arow>.tags{grid-column:2/4}
 .alist>.arow:last-child{border-bottom:1px solid var(--line)}
 .aic{width:52px;height:52px;border-radius:14px;padding:6px;background:#e9e6da;box-shadow:0 0 0 1px var(--line)}
 .aic canvas{display:block;width:40px;height:40px;image-rendering:pixelated;image-rendering:crisp-edges}
 .aic b{display:flex;align-items:center;justify-content:center;width:40px;height:40px;font-size:22px;font-weight:800;color:#22211f}
 .arow h3{margin:0;font-size:16px;font-weight:760;line-height:1.3;overflow-wrap:anywhere}
 .arow small{display:block;font-size:13px;color:var(--muted);margin:2px 0 0}
-.arow p{font-size:14px;line-height:1.45;margin:6px 0 0;color:var(--ink);opacity:.86}
-.arow .tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}.arow .tags:empty{display:none}
-.arow .btns{margin:10px 0 0}.arow .btn{min-width:96px}
+.arow p{font-size:14px;line-height:1.45;margin:8px 0 0;color:var(--ink);opacity:.86}
+.arow .tags{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}.arow .tags:empty{display:none}
+.arow .btn{min-width:84px;padding:10px 16px}
+/* installing: the button fills up as the files arrive */
+.btn.prog{background:linear-gradient(90deg,var(--okbg) var(--p,0%),var(--soft) var(--p,0%));color:var(--ok);border-color:transparent;opacity:1;font-variant-numeric:tabular-nums}
 .btn.more{width:100%;justify-content:space-between;min-height:48px;padding:10px 16px;font-size:14px;border-radius:16px}
 .btn.more svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s var(--ease)}
 .btn.more[aria-expanded=true] svg{transform:rotate(180deg)}
@@ -275,7 +283,7 @@ max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
 <section id="tabSettings" class="hidden">
 <div class="top"><div><div class="sub">How your unidex behaves</div><h1>Settings.</h1></div></div>
 <div class="stack">
-<div class="card hero"><div class="mini" id="mini" aria-hidden="true"><div class="scr"><b>unidex</b><span id="miniT">--:--</span></div><div class="mbtn"><i></i><i></i></div></div>
+<div class="card hero"><div class="mini" id="mini" aria-hidden="true"><div class="scr"><b id="miniN">unidex</b><span id="miniT">--:--</span></div><div class="mbtn"><i></i><i></i></div></div>
 <div class="grow"><h2 id="devName">Your unidex</h2><p class="hint" id="devInfo">&nbsp;</p>
 <div class="bat" role="img" id="batBox"><i id="batI"></i></div></div></div>
 <div class="card" id="cName"><div class="ch"><i class="ic sand"><svg viewBox="0 0 24 24"><path d="M3.5 12.6V4.5a1 1 0 011-1h8.1a1 1 0 01.7.3l7.4 7.4a1 1 0 010 1.4l-8.1 8.1a1 1 0 01-1.4 0l-7.4-7.4a1 1 0 01-.3-.7z"/><circle cx="8" cy="8" r="1.4"/></svg></i><div><h2>Name</h2><p class="hint">What your unidex is called. Its WiFi takes the name the next time it starts.</p></div></div>
@@ -494,7 +502,7 @@ function(){lost(true)})}
 // Settings: each change is saved as it's made.
 function drawSettings(){setRadio('sleep',S.sleep);$('vol').max=S.volumeMax;$('vol').value=S.volume;$('volv').textContent=S.volume?S.volume:'Off';
 $('inv').checked=!!S.invert;$('chime').checked=!S.mute;$('mini').classList.toggle('inv',!!S.invert);$('devName').textContent=S.devname||S.name||'Your unidex';
-$('dname').value=S.devname||'';$('dname').placeholder=S.defname||'unidex';$('cName').classList.remove('dirty');
+$('dname').value=S.devname||'';$('miniN').textContent=S.devname||'unidex';$('dname').placeholder=S.defname||'unidex';$('cName').classList.remove('dirty');
 $('devInfo').textContent=(S.battery>=0?(S.charging?'Charging, ':'Battery ')+S.battery+'%':'On USB')+' · '+S.version.replace(/-g[0-9a-f]+/,'').replace('-dirty','');
 $('batI').style.width=(S.battery>=0?S.battery:100)+'%';$('batBox').setAttribute('aria-label',S.battery>=0?'Battery '+S.battery+'%':'No battery');clock()}
 function saveSetting(k,v,say){post('/settings',obj(k,v)).then(function(){S[k]=+v;tell(say,'');drawSettings();toast('Saved')},function(e){tell(say,e.message,'bad');drawSettings()})}
@@ -683,18 +691,21 @@ function aPoll(){clearTimeout(aTm);fetch('/installed.json').then(function(r){ret
 if(w&&!j.busy){var e=aEntry(w),n=e?e.name:w;toast(j.ok?'Installed '+n:'Couldn’t install '+n);if(j.ok)tell('storeSay','Installed '+n+'. Open it from '+(e&&(e.type=='game'||e.category=='games')?'Games':'Apps')+' on your unidex.','ok');else tell('storeSay',n+': '+j.why,'bad')}
 aDraw();if(j.busy)aTm=setTimeout(aPoll,900)},function(){lost(true)})}
 // The button for one store app: what it can do now.
-function aButton(e){var mine=aMineOf(e.id),j=M.job,b=el('button','btn');
-if(j.busy&&j.id==e.id){b.textContent=j.total?'Installing… '+Math.min(j.done+1,j.total)+' of '+j.total:'Installing…';b.disabled=true;return b}
-if(e.api>M.api){b.textContent='Needs newer firmware';b.disabled=true;return b}
+function aButton(e,tags){var mine=aMineOf(e.id),j=M.job,b=el('button','btn');
+if(j.busy&&j.id==e.id){b.className='btn prog';b.style.setProperty('--p',(j.total?Math.round(100*(j.done+.5)/(j.total+1)):10)+'%');
+b.textContent=j.total?Math.min(j.done+1,j.total)+' of '+j.total:'…';b.setAttribute('aria-label','Installing '+e.name);b.disabled=true;return b}
+if(e.api>M.api){tags.push(el('span','tag warn','Needs newer firmware'));b.textContent='Install';b.className='btn get';b.disabled=true;return b}
 if(mine&&!mine.offloaded&&vNum(mine.version)>=vNum(e.version)){b.innerHTML=CHECK.replace('<svg','<svg style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4"')+'Installed';b.className='btn saved';b.disabled=true;return b}
-var up=mine&&!mine.offloaded;b.textContent=up?'Update to '+e.version:'Install';b.className=up?'btn primary':'btn get';
-if(!up&&!mine&&M.apps.length>=M.max){b.textContent='Full: delete one first';b.className='btn';b.disabled=true;return b}
+var up=mine&&!mine.offloaded;b.textContent=up?'Update':'Install';b.className=up?'btn primary':'btn get';
+if(up)tags.push(el('span','tag ok','Version '+e.version+' is out'));
+if(!up&&!mine&&M.apps.length>=M.max){tags.push(el('span','tag warn','Full: delete an app first'));b.disabled=true;return b}
 b.disabled=!M.online||j.busy;b.setAttribute('aria-label',(up?'Update ':'Install ')+e.name);
 b.onclick=function(){busy(b,true,'Starting…');tell('storeSay','');post('/apps/install',{id:e.id}).then(function(){aWas=e.id;aPoll()},
 function(x){busy(b,false);tell('storeSay',x.message,'bad')})};return b}
-function aRow(e,name,meta,desc,tags,btns){var r=el('div','arow'),t=el('div');r.appendChild(aIcon(e,name));t.appendChild(el('h3','',name));
-if(meta)t.appendChild(el('small','',meta));if(desc)t.appendChild(el('p','',desc));var g=el('div','tags');tags.forEach(function(x){g.appendChild(x)});t.appendChild(g);
-var bs=el('div','btns');btns.forEach(function(x){bs.appendChild(x)});t.appendChild(bs);r.appendChild(t);return r}
+// A row: the icon, the name and a line under it, the button on the right; what it does and its tags below.
+function aRow(e,name,meta,desc,tags,btn){var r=el('div','arow'),t=el('div');r.appendChild(aIcon(e,name));t.appendChild(el('h3','',name));
+if(meta)t.appendChild(el('small','',meta));r.appendChild(t);r.appendChild(btn);if(desc)r.appendChild(el('p','adesc',desc));
+var g=el('div','tags');tags.forEach(function(x){g.appendChild(x)});r.appendChild(g);return r}
 function aDraw(){if(!M)return;var on=M.online,n=A?A.apps.length:0;
 $('aHeroT').textContent=on?'Your unidex is online':A&&n?'Your unidex is offline':'No app list yet';
 $('aHeroH').textContent=on?n+' apps in the store. Tap Install and your unidex downloads it.':
@@ -709,13 +720,13 @@ $('aMineT').textContent=aOpen?'Hide the list':'Show '+k+(k==1?' app':' apps')+(u
 mb.onclick=function(){aOpen=!aOpen;aDraw()};
 if(!M.card)mine.appendChild(el('p','hint','There’s no SD card in your unidex: apps are kept on it.'));
 else if(!M.apps.length)mine.appendChild(el('p','hint','No apps yet. Pick some from the store below.'));
-if(aOpen)M.apps.forEach(function(a){var e=aEntry(a.id),tags=[],bs=[],d=el('button','btn danger','Delete');
+if(aOpen)M.apps.forEach(function(a){var e=aEntry(a.id),tags=[],d=el('button','btn danger','Delete');
 if(a.offloaded)tags.push(el('span','tag','Offloaded: data kept'));if(a.problem)tags.push(el('span','tag warn',a.problem));
 if(e&&!a.offloaded&&vNum(e.version)>vNum(a.version)&&e.api<=M.api)tags.push(el('span','tag ok','Update: '+e.version));
 d.setAttribute('aria-label','Delete '+a.name);d.disabled=M.job.busy&&M.job.id==a.id;
 d.onclick=function(){twoTap(d,'Sure?',function(){busy(d,true,'Deleting…');post('/apps/delete',{id:a.id}).then(function(){
-tell('mineSay','Deleted '+a.name+'.','ok');aPoll()},function(x){busy(d,false);tell('mineSay',x.message,'bad')})})};bs.push(d);
-mine.appendChild(aRow(e,a.name,a.version?'Version '+a.version:'',e?e.description:'',tags,bs))});
+tell('mineSay','Deleted '+a.name+'.','ok');aPoll()},function(x){busy(d,false);tell('mineSay',x.message,'bad')})})};
+mine.appendChild(aRow(e,a.name,a.version?'Version '+a.version:'',e?e.description:'',tags,d))});
 // the store
 var box=$('aStore'),cats=$('aCats');box.textContent='';cats.textContent='';tag('storeTag',on&&n,'Online',A&&n?'Offline':'—');
 if(!A)return box.appendChild(el('p','hint','Loading…'));
@@ -730,7 +741,7 @@ if(!shown.length){box.appendChild(el('p','hint',q?'No apps match “'+$('aq').va
 shown.forEach(function(e){var tags=[];
 if((e.permissions||[]).indexOf('wifi')>=0)tags.push(el('span','tag','Uses WiFi'));if((e.permissions||[]).indexOf('mic')>=0)tags.push(el('span','tag','Uses the mic'));
 if(e.type=='plugin')tags.push(el('span','tag','Adds to '+(e.extends=='badge'?'Badge':e.extends)));
-box.appendChild(aRow(e,e.name,(e.author?'by '+e.author+' · ':'')+aKB(e.bytes),e.description,tags,[aButton(e)]))})}
+var b=aButton(e,tags);box.appendChild(aRow(e,e.name,(e.author?'by '+e.author+' · ':'')+aKB(e.bytes),e.description,tags,b))})}
 $('aq').oninput=function(){if(this.value.trim())aCat='';$('aqc').classList.toggle('hidden',!this.value);aDraw()};
 $('aqc').onclick=function(){$('aq').value='';this.classList.add('hidden');aDraw();$('aq').focus()};
 // --- deleting a note: Delete in the open note (two taps), or slide it left in the list ---
@@ -739,28 +750,35 @@ function delNote(id){return post('/note/delete',{id:id}).then(function(){notes=n
 delete byId[id];delete cache[id];toast('Note deleted')})}
 function swClose(){if(swOpen){swOpen.classList.remove('open');swOpen.lastChild.style.transform='';swOpen=null}}
 function swipe(c,o){var w=el('div','swipe'),d=el('button','sdel'),x0,y0,dx=0,mode=0,pid=null;
-d.innerHTML='<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/></svg>Delete';d.setAttribute('aria-label','Delete '+o.t);d.tabIndex=-1;
+d.innerHTML='<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/></svg><span>Delete</span>';d.setAttribute('aria-label','Delete '+o.t);d.tabIndex=-1;
 var go=function(){w.classList.remove('open');w.classList.add('gone');c.style.transform='translateX(-100%)';swOpen=null;
 delNote(o.id).then(function(){setTimeout(render,200)},function(e){w.classList.remove('gone');c.style.transform='';toast(e.message)})};
 d.onclick=go;w.appendChild(d);w.appendChild(c);
 c.addEventListener('pointerdown',function(e){if(e.button)return;if(swOpen&&swOpen!=w)swClose();x0=e.clientX;y0=e.clientY;dx=0;mode=0;pid=e.pointerId});
 c.addEventListener('pointermove',function(e){if(e.pointerId!==pid)return;var mx=e.clientX-x0,my=e.clientY-y0;
 if(!mode){if(Math.abs(mx)>10&&Math.abs(mx)>Math.abs(my)*1.4){mode=1;w.classList.add('moving');try{c.setPointerCapture(pid)}catch(x){}}else if(Math.abs(my)>10)mode=2}
-if(mode==1){dx=Math.min(0,mx-(w.classList.contains('open')?SW:0));c.style.transform='translateX('+dx+'px)'}});
-var end=function(e){if(e.pointerId!==pid)return;pid=null;if(mode!=1)return;c.dragged=1;setTimeout(function(){c.dragged=0},350);w.classList.remove('moving');
+if(mode==1){dx=Math.min(0,mx-(w.classList.contains('open')?SW:0));c.style.transform='translateX('+dx+'px)';
+var far=dx<-w.offsetWidth*.6;if(far!=w.classList.contains('far')){w.classList.toggle('far',far);d.lastChild.textContent=far?'Release to delete':'Delete';
+if(far&&navigator.vibrate)navigator.vibrate(10)}}});
+var end=function(e){if(e.pointerId!==pid)return;pid=null;if(mode!=1)return;c.dragged=1;setTimeout(function(){c.dragged=0},350);w.classList.remove('moving','far');
+d.lastChild.textContent='Delete';
 if(dx<-w.offsetWidth*.6)return go();if(dx<-60){w.classList.add('open');c.style.transform='translateX(-'+SW+'px)';swOpen=w}
 else{w.classList.remove('open');c.style.transform='';if(swOpen==w)swOpen=null}};
 c.addEventListener('pointerup',end);c.addEventListener('pointercancel',end);return w}
 $('odel').onclick=function(){var b=this,id=shownId;twoTap(b,'Tap again to delete',function(){busy(b,true,'Deleting…');
 delNote(id).then(function(){busy(b,false);history.back();render()},function(e){busy(b,false);toast(e.message)})})};
 // The name: the characters a WiFi QR code would have to escape, and anything the screen can't draw, never go in.
-$('dname').oninput=function(){var v=this.value.replace(/[^\x20-\x7e]|[\;,:"]/g,'');if(v!=this.value)this.value=v};
+$('dname').oninput=function(){var v=this.value.replace(/[^\x20-\x7e]|[\\;,:"]/g,'');if(v!=this.value)this.value=v;$('miniN').textContent=v.trim()||'unidex'};
 $('dname').onkeydown=function(e){if(e.key=='Enter')$('nameSave').click()};
 $('nameSave').onclick=function(){var b=this,v=$('dname').value.trim();$('dname').value=v;busy(b,true);tell('nameSay','');
 post('/name',{name:v}).then(function(){busy(b,false);saved(b);$('cName').classList.remove('dirty');S.devname=v;$('devName').textContent=v||S.name;
 var now=v||S.defname;tell('nameSay',now==S.name?'Saved.':'Saved. Its WiFi is called “'+now+'” from the next time it starts.','ok')},
 function(e){busy(b,false);tell('nameSay',e.message,'bad')})};
-function start(d){notes=d;byId={};notes.forEach(function(o){byId[o.id]=o});render();route();setTimeout(prefetch,250)}
+function start(d){notes=d;byId={};notes.forEach(function(o){byId[o.id]=o});render();route();setTimeout(prefetch,250);peekOnce()}
+// Once per visit, on a touch screen: the top note slides left a little and back, showing Delete underneath.
+function peekOnce(){var w=document.querySelector('#grid .swipe');if(!w||!matchMedia('(pointer:coarse)').matches)return;
+try{if(sessionStorage.getItem('peeked'))return;sessionStorage.setItem('peeked','1')}catch(e){}
+w.classList.add('peek');setTimeout(function(){w.classList.remove('peek')},2100)}
 if(NOTES)start(NOTES);
 else fetch('/notes.json').then(function(r){return r.json()}).then(start)
 .catch(function(){$('empty').classList.remove('hidden');$('empty').textContent='Couldn’t load the notes. Reload the page to try again.'});
