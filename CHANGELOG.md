@@ -6,6 +6,11 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 
 ## Next release
 
+- **Games from the store** (new): games anyone can make now play in Games, after the four built in, with their
+  best scores, the game-over screen and the home line, like the built-in ones. A game is four Lua functions
+  (start, step, draw, score; API level 4): see GAMES.md in the app store's repo, the "A game" starter in the App
+  editor, and Hop, the first one in the store. Store apps in the games category (Dex, Dice, Coin & RPS) are listed
+  in Games too, not Apps. Hold B on one from the store there to offload or delete it.
 - **Chooser moves to the app store**, like Dex: install it from the store (Apps). Your tally is kept: the update
   moves it into the app's folder, so Apps lists an offloaded "chooser" until you install it. It spins the same; it
   lives in Apps now (no home screen line), and Settings > Reset data no longer has a tally row (the app clears its

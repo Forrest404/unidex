@@ -43,9 +43,9 @@ If you'd like to support the project, there's a [Ko-fi](https://ko-fi.com/forres
 | **Reminders** | A to-do list you talk to: hold B and say "call Sam tomorrow at 5". When it's due, it chimes and shows on screen. |
 | **Pet** | A cute creature you dress up and name. Bring two unidex together and the Pets visit, chat, become friends and swap badges. |
 | **Badge** | Full-screen name tags, logos and photos. |
-| **Games** | Four one-button games: Flappy, Dino, Stack and Jetpack, with best scores. |
+| **Games** | Four one-button games, Flappy, Dino, Stack and Jetpack, with best scores, and the games you add from the store. |
 | **Settings** | Date and time, sync, sleep, volume, alert sound, invert, battery and info, reset data, factory reset. |
-| **Apps** | Everything else: apps and plugins from the store (Dex, the WiFi collecting game, and Chooser, the random picker, are two), or ones you write yourself. |
+| **Apps** | Everything else: apps and plugins from the store (Chooser, the random picker, is one), or ones you write yourself. |
 
 **New in v1.9: set it up from your phone, and Reminders.** In Settings, hold B and scan the QR code: your phone
 sets up WiFi, keys and settings with no computer or cable ([how](#set-up-from-your-phone)). Reminders is a to-do list
@@ -213,8 +213,12 @@ tab.
 
 ### Games
 
-There are four: Flappy, Dino, Stack and Jetpack. **A** picks one and **B** plays. In a game, **B** is the one
-action (tap or hold, depending on the game). Best scores are kept on the device.
+There are four built in: Flappy, Dino, Stack and Jetpack. **A** picks one and **B** plays. In a game, **B** is the
+one action (tap or hold, depending on the game). Best scores are kept on the device.
+
+Games from the store show up here too, after the four, with their best scores. So do the store's other apps in its
+games category, such as Dex (the WiFi collecting game), Dice and Coin & RPS, which open as normal apps. **Hold B** on
+a store game to offload or delete it.
 
 ### Settings
 
@@ -253,7 +257,7 @@ shows as its last 4 characters.
 
 ## Apps and plugins: make your own
 
-unidex is built to be taken apart. Beyond the apps above, it runs **apps and plugins written by anyone**, and
+unidex is built to be taken apart. Beyond the apps above, it runs **apps, games and plugins written by anyone**, and
 writing one is meant to be easy: an app is a folder with two small files, written in [Lua](https://www.lua.org/), in
 any text editor. There's nothing to compile and no toolchain to install.
 
@@ -281,13 +285,18 @@ Games, trackers, timers, quizzes, flash cards, a page of today's weather, a habi
 **Plugins** add to the built-in apps instead. The first kind adds badges to Badge that are drawn by code each time
 they're shown, like **Today**, which always shows the date. More built-in apps will take plugins.
 
+**Games** are played in Games, next to the built-in four, with B as the one button. You write four functions (start
+a round, step one frame, draw it, and the score), and the Games app runs the frames, the game-over screen and the
+best score. [Making games](https://github.com/Forrest404/unidex-apps/blob/main/GAMES.md) explains how, with a
+template to start from. Games need firmware newer than v1.9.
+
 **Safe to try anything.** Each app runs in a sandbox: its own memory, its own folder, a time limit on every step,
 and no way to reach your WiFi password, your keys, your notes or other apps' files. If an app breaks, the device
 says "App error" with the line it broke on, and goes back to the list. It never takes the device down with it.
 
 **Getting started:**
 
-1. Read [Writing apps for unidex](docs/APPS.md): the whole API, the limits, plugins, and examples.
+1. Read [Writing apps for unidex](docs/APPS.md): the whole API, the limits, games, plugins, and examples.
 2. Copy an example from [`apps/examples`](apps/examples), or the template in the
    [store's repository](https://github.com/Forrest404/unidex-apps).
 3. Try it: in the [browser emulator](https://tools.unidex.shop/try.html) without a device, or
