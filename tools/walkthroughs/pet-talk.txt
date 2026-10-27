@@ -1,0 +1,87 @@
+# Pet: what it says about your day, on its screen and its home line, through a made-up day. The sample timetable and
+# reminders (demo 1: nothing on the card changes), a known Pet (keep pet), and the clock moved (put back at the end).
+# The sample classes are worked out, around the time, when the Timetable opens. The sample reminders are due at
+# 08:00 (ticked off, but late at first the last time) and 17:00 (Call Sam: never reached, so it doesn't go off).
+# Afterwards, open the Timetable and Reminders once so their home lines are yours again.
+keep pet
+pet 00000
+manual 1
+clock unset
+select Pet
+press b
+expect detail=main:00000:
+shot pk-no-clock
+press A
+# Opened at 07:20: Maths 07:35-08:35 in B12, Physics 08:50-09:50 in Lab 3, English 10:05-10:55
+demo 1
+clock today 07:20:00
+select Timetable
+press b
+press A
+select Reminders
+press b
+press b
+press A
+select Pet
+shot pk-home-soon
+press b
+expect detail=main:00000:Maths in 15 min, B12
+shot pk-soon
+press a
+shot pk-soon-hi
+clock today 07:40:00
+sleep 1500
+expect detail=main:00000:In Maths till 8:35
+shot pk-now
+clock today 08:40:00
+sleep 1500
+expect detail=main:00000:Physics in 10 min, Lab 3
+shot pk-next
+press A
+# Opened at 23:00: today's are too late to fit, so the next is tomorrow's Chemistry at 9:00
+clock today 23:00:00
+select Timetable
+press b
+press A
+clock today 15:30:00
+select Reminders
+press b
+press b
+press A
+select Pet
+press b
+expect detail=main:00000:Call Sam at 5pm
+shot pk-reminder
+press A
+shot pk-home-reminder
+clock today 10:58:00
+select Reminders
+press b
+press A
+select Pet
+shot pk-home-late
+press b
+expect detail=main:00000:Don't forget: Hand in the art project
+shot pk-late
+press A
+select Reminders
+press b
+press b
+press A
+select Pet
+press b
+expect detail=main:00000:Morning!
+shot pk-morning
+clock today 14:00:00
+sleep 1500
+expect detail=main:00000:Free till tomorrow 9:00
+shot pk-free
+clock today 06:30:00
+sleep 1500
+expect detail=main:00000:Zzz
+shot pk-asleep
+press a
+shot pk-asleep-hi
+press A
+shot pk-home-asleep
+expect screen=Home
