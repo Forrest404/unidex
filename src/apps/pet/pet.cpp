@@ -15,14 +15,15 @@
 
 static const int MAIN_SCALE = 4, EDIT_SCALE = 3;  // 128 px on the main screen, 96 px while editing
 static const int16_t EDIT_AVATAR_Y = CONTENT_TOP + 4, ROW_Y = HINTS_TOP - 14;
-static const int NAME_ROW = pet::LAYERS, RANDOM_ROW = pet::LAYERS + 1, DONE_ROW = pet::LAYERS + 2;
-static const int ROWS = pet::LAYERS + 3;
+static const int NAME_ROW = pet::LAYERS, OWNER_ROW = pet::LAYERS + 1, RANDOM_ROW = pet::LAYERS + 2;
+static const int DONE_ROW = pet::LAYERS + 3, ROWS = pet::LAYERS + 4;
 
 enum Screen : uint8_t { MAIN, EDIT, MEET, NAME };
 RTC_DATA_ATTR static uint8_t screen, row;
 RTC_DATA_ATTR static uint32_t draft;  // the look being edited (kept through sleep)
 RTC_DATA_ATTR static char places[pet::MAX_NAME + 1];  // the name being edited, a letter a place (pet_logic.h)
 RTC_DATA_ATTR static uint8_t place;                    // the place being chosen
+RTC_DATA_ATTR static bool ownerNaming;                 // the name being edited is yours, not the Pet's
 static bool blinking, happy;
 static uint8_t heart;  // the heart beside it while it's happy: 0 none, else its scale (it pops: 1, then 2)
 static uint32_t nextBlinkAt, openAt, lastPressAt;
@@ -44,6 +45,8 @@ static const char *const HEART[] = {  // beside its head while it's happy
 uint32_t petLookBits() { return storageGetInt("pet_look", pet::pack(pet::DEFAULT_LOOK)); }
 
 String petName() { return storageGetString("pet_name"); }
+
+String petOwnerName() { return storageGetString("owner_name"); }
 
 static uint32_t changes;  // counts saves from the website; the screen and the home line each notice a new one
 
@@ -157,8 +160,9 @@ static Redraw onButton(Event e) {
     } else if (e == Event::BShort && pet::nameDoneAt(places, place)) {
       char name[pet::MAX_NAME + 1];
       pet::nameFromPlaces(places, name);
-      if (*name) storagePutString("pet_name", name);
-      else storageRemoveKey("pet_name");
+      const char *key = ownerNaming ? "owner_name" : "pet_name";
+      if (*name) storagePutString(key, name);
+      else storageRemoveKey(key);
       petChanged();
       screen = EDIT;
     } else if (e == Event::BShort) {
@@ -169,8 +173,9 @@ static Redraw onButton(Event e) {
     return Redraw::Partial;
   }
   pet::Look look = pet::unpack(draft);
-  if (e == Event::BShort && row == NAME_ROW) {
-    pet::placesFromName(petName().c_str(), places);
+  if (e == Event::BShort && (row == NAME_ROW || row == OWNER_ROW)) {
+    ownerNaming = row == OWNER_ROW;
+    pet::placesFromName((ownerNaming ? petOwnerName() : petName()).c_str(), places);
     place = 0;
     screen = NAME;
     return Redraw::Partial;
@@ -229,10 +234,10 @@ static void drawEdit() {
     snprintf(right, sizeof right, "%s  %d/%d", lp.parts[look.part[row]].name, look.part[row] + 1, lp.count);
     drawRight(right, ROW_Y);
     drawHints("next", "change", "previous");
-  } else if (row == NAME_ROW) {
+  } else if (row == NAME_ROW || row == OWNER_ROW) {
     display.setCursor(MARGIN, ROW_Y);
-    display.print("Name");
-    const String name = petName();
+    display.print(row == OWNER_ROW ? "Your name" : "Name");
+    const String name = row == OWNER_ROW ? petOwnerName() : petName();
     drawRight(name.length() ? name.c_str() : "none", ROW_Y);
     drawHints("next", "change", "");
   } else if (row == RANDOM_ROW) {
@@ -248,7 +253,7 @@ static void drawEdit() {
 
 // The name a letter at a time: the place being chosen in a black box (a blank place shows as a short line).
 static void drawName() {
-  drawHeader("Name");
+  drawHeader(ownerNaming ? "Your name" : "Name");
   display.setFont(FONT_MEDIUM);
   int len = pet::MAX_NAME;
   while (len > 0 && places[len - 1] == ' ') len--;
@@ -299,7 +304,7 @@ static const char *detail() {
   if (screen == NAME) {
     char name[pet::MAX_NAME + 1];
     pet::nameFromPlaces(places, name);
-    snprintf(buf, sizeof buf, "name:%d:%s", place, name);
+    snprintf(buf, sizeof buf, "%s:%d:%s", ownerNaming ? "owner" : "name", place, name);
     return buf;
   }
   if (screen == EDIT) snprintf(buf, sizeof buf, "edit:%d:%05lx", row, (unsigned long)pet::pack(pet::unpack(draft)));

@@ -24,17 +24,47 @@ static bool nameFromHex(const char *hex, String &out) {
   return true;
 }
 
-bool petSave(uint32_t look, const String &raw) {
-  String name = raw;
+// A name the screen can show: trimmed, at most MAX_NAME printable characters.
+static bool nameOk(const String &raw, String &name) {
+  name = raw;
   name.trim();
   if (name.length() > MAX_NAME) return false;
   for (const char c : name)
     if (c < 0x20 || c > 0x7E) return false;
+  return true;
+}
+
+bool petNameOk(const String &raw) {
+  String name;
+  return nameOk(raw, name);
+}
+
+static void putName(const char *key, const String &name) {
+  if (name.length()) storagePutString(key, name.c_str());
+  else storageRemoveKey(key);
+}
+
+bool petSave(uint32_t look, const String &raw) {
+  String name;
+  if (!nameOk(raw, name)) return false;
   storagePutInt("pet_look", pet::pack(pet::unpack(look)));  // parts that don't exist fall back to the default
-  if (name.length()) storagePutString("pet_name", name.c_str());
-  else storageRemoveKey("pet_name");
+  putName("pet_name", name);
   petChanged();
   return true;
+}
+
+bool petSaveOwner(const String &raw) {
+  String name;
+  if (!nameOk(raw, name)) return false;
+  putName("owner_name", name);
+  petChanged();
+  return true;
+}
+
+static String jsonText(const String &s) {
+  String out;
+  for (const char c : s) out += c == '"' || c == '\\' ? String("\\") + c : String(c);
+  return out;
 }
 
 String petPartsJson() {
@@ -51,9 +81,8 @@ String petPartsJson() {
     }
     out += "]}";
   }
-  out += "],\"look\":" + String(petLookBits()) + ",\"name\":\"";
-  for (const char c : petName()) out += c == '"' || c == '\\' ? String("\\") + c : String(c);
-  return out + "\"}";
+  out += "],\"look\":" + String(petLookBits()) + ",\"name\":\"" + jsonText(petName());
+  return out + "\",\"owner\":\"" + jsonText(petOwnerName()) + "\"}";
 }
 
 bool petUsb(const char *line) {
@@ -74,6 +103,18 @@ bool petUsb(const char *line) {
       return true;
     }
     Serial.println("OK P SET");
+  } else if (strcmp(cmd, "OWNER") == 0) {
+    Serial.print("OK P OWNER ");
+    for (const char c : petOwnerName()) Serial.printf("%02x", (uint8_t)c);
+    Serial.print('\n');
+  } else if (strncmp(cmd, "OWNER ", 6) == 0) {
+    String name;
+    const char *hex = cmd + 6;
+    if (!nameFromHex(strcmp(hex, "-") == 0 ? "" : hex, name) || !petSaveOwner(name)) {
+      Serial.println("ERR");
+      return true;
+    }
+    Serial.println("OK P OWNER");
   } else {
     Serial.println("ERR");
   }

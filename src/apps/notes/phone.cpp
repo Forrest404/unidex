@@ -383,13 +383,17 @@ static void sendBadgeFile(WiFiClient &c, const String &name) {
 // The Tools tab's Pet: look=<the parts, packed as pet_logic.h does>&name=<up to 12 characters>.
 static const char *savePet(const String &body) {
   long long look = -1;
-  String name;
+  String name, owner;
+  bool hasOwner = false;  // an older page sends no owner: yours is left as it is
   for (const auto &p : formPairs(body.c_str())) {
     if (p.first == "look") look = atoll(p.second.c_str());
     else if (p.first == "name") name = p.second.c_str();
+    else if (p.first == "owner") owner = p.second.c_str(), hasOwner = true;
   }
   if (look < 0 || look > 0xFFFFF) return "That look isn't one the device knows.";
+  if (hasOwner && !petNameOk(owner)) return "Your name can be up to 12 letters, numbers or symbols.";
   if (!petSave((uint32_t)look, name)) return "The name can be up to 12 letters, numbers or symbols.";
+  if (hasOwner && !petSaveOwner(owner)) return "Your name can be up to 12 letters, numbers or symbols.";
   return nullptr;
 }
 

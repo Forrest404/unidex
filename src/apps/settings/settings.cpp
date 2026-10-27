@@ -378,10 +378,10 @@ static void clear(uint8_t what) {
     launcherToast(any ? "Friends forgotten" : "No friends to forget");
     return;
   }
-  // Everything: but the Pet stays (its look, name, number and friends), like the WiFi and keys, so friends' devices
-  // still know it. Read before NVS is cleared, written back after.
+  // Everything: but the Pet stays (its look, name, number and friends, and your name), like the WiFi and keys, so
+  // friends' devices still know it. Read before NVS is cleared, written back after.
   const int32_t petId = storageGetInt("pet_id", 0), look = storageGetInt("pet_look", INT32_MIN);
-  const String petName = storageGetString("pet_name");
+  const String petName = storageGetString("pet_name"), ownerName = storageGetString("owner_name");
   static uint8_t friendsBlock[1024];
   const size_t friendsLen = storageGetBytes("pet_friends", friendsBlock, sizeof friendsBlock);
   storageRemove("/events.csv");
@@ -389,6 +389,7 @@ static void clear(uint8_t what) {
   if (petId) storagePutInt("pet_id", petId);
   if (look != INT32_MIN) storagePutInt("pet_look", look);
   if (petName.length()) storagePutString("pet_name", petName.c_str());
+  if (ownerName.length()) storagePutString("owner_name", ownerName.c_str());
   if (friendsLen) storagePutBytes("pet_friends", friendsBlock, friendsLen);
   systemRestart("Starting fresh");
 }

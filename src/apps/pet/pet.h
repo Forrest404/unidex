@@ -4,12 +4,17 @@
 // Shared by the Pet screen (pet.cpp) and its USB commands (usb.cpp).
 uint32_t petLookBits();  // the saved look, as pet_logic.h packs it
 String petName();        // "" if none is set
+String petOwnerName();   // your name, "" if none is set
 void petChanged();       // the website saved a new look or name: the Pet screen redraws
 // Saves a look and a name (up to 12 printable characters, trimmed; empty = no name), as the website's Tools page or
 // the phone portal sends them. False (and nothing saved) for a name that can't be shown.
 bool petSave(uint32_t look, const String &name);
+// Saves your name (Dress up's "Your name", the phone portal), with the same rules. False (and nothing saved) if
+// it can't be shown.
+bool petSaveOwner(const String &name);
+bool petNameOk(const String &name);  // up to 12 printable characters once trimmed
 // Every layer's parts for the phone portal's Pet designer, as JSON: {"layers":[{"name","parts":[{"n","r"}]}],
-// "look","name"}, where r is a part's 32 rows run together ('#' ink, 'o' paper, '.' see-through).
+// "look","name","owner"}, where r is a part's 32 rows run together ('#' ink, 'o' paper, '.' see-through).
 String petPartsJson();
 enum class PetMood : uint8_t { Normal, Happy, Blink };
 // A Pet's look, scale x 32 px, its top left at x0, y0 (parts off the screen are skipped); Happy and Blink swap in
@@ -27,4 +32,6 @@ void petDrawBubble(const char *text, int16_t cx, int16_t bottom);
 // with "P "; returns false if it isn't one of them.
 //   P GET                        -> "OK P <look, hex> <name, hex>"
 //   P SET <look hex> <name hex>  -> "OK P SET" or "ERR"  (name: up to 12 printable characters; empty = no name)
+//   P OWNER                      -> "OK P OWNER <your name, hex>"
+//   P OWNER <name hex>           -> "OK P OWNER" or "ERR"  (the same rules; "-" = no name)
 bool petUsb(const char *line);

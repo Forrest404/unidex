@@ -363,6 +363,7 @@ max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
 <div class="eink pet"><canvas id="pOut" width="32" height="32" role="img" aria-label="Your Pet"></canvas><b class="ptag hidden" id="pTag"></b></div>
 <div id="pParts"><p class="hint">Loading your Pet…</p></div>
 <label class="field" style="margin-top:16px"><span>Name <i>(optional, up to 12)</i></span><input class="input" id="pName" maxlength="12" placeholder="No name" autocomplete="off" autocorrect="off" spellcheck="false"></label>
+<label class="field"><span>Your name <i>(optional: it says hi to you)</i></span><input class="input" id="pOwner" maxlength="12" placeholder="No name" autocomplete="given-name" autocorrect="off" spellcheck="false"></label>
 <div class="btns"><button class="btn primary" id="pSend" disabled>Send to unidex</button><button class="btn" id="pRandom" disabled>Surprise me</button></div>
 <p class="say" id="petSay" role="status"></p></div>
 <div class="finish"><button class="btn primary wide" onclick="done(this)">Done</button><p class="hint">Closes this page and your unidex’s WiFi.</p></div>
@@ -667,11 +668,12 @@ var prev=el('button','btn round','‹'),next=el('button','btn round','›'),name
 name.appendChild(el('small'));name.setAttribute('aria-live','polite');prev.setAttribute('aria-label','Previous '+l.name.toLowerCase());
 next.setAttribute('aria-label','Next '+l.name.toLowerCase());prev.onclick=step(-1);next.onclick=step(1);
 row.appendChild(el('b','',l.name));row.appendChild(prev);row.appendChild(name);row.appendChild(next);box.appendChild(row)});
-$('pName').value=o.name;$('pSend').disabled=$('pRandom').disabled=false;pDraw()},function(){lost(true)})}
+$('pName').value=o.name;$('pOwner').value=o.owner||'';$('pSend').disabled=$('pRandom').disabled=false;pDraw()},function(){lost(true)})}
 $('pName').oninput=function(){var v=this.value.replace(/[^\x20-\x7e]/g,'');if(v!=this.value)this.value=v;if(P)pDraw()};
+$('pOwner').oninput=function(){var v=this.value.replace(/[^\x20-\x7e]/g,'');if(v!=this.value)this.value=v};
 $('pRandom').onclick=function(){look=P.layers.map(function(l){return Math.floor(Math.random()*l.parts.length)});pDraw()};
 $('pSend').onclick=function(){var b=this,v=look.reduce(function(a,p,i){return a+p*Math.pow(16,i)},0),n=$('pName').value.trim();busy(b,true,'Sending…');
-post('/pet',{look:v,name:n}).then(function(){busy(b,false);saved(b);tell('petSay',n?'Sent. Say hi to '+n+'!':'Sent. Open Pet on your unidex to see it.','ok')},
+post('/pet',{look:v,name:n,owner:$('pOwner').value.trim()}).then(function(){busy(b,false);saved(b);tell('petSay',n?'Sent. Say hi to '+n+'!':'Sent. Open Pet on your unidex to see it.','ok')},
 function(e){busy(b,false);tell('petSay',e.message,'bad')})};
 if(!location.hash&&TAB!='notes')history.replaceState(null,'','#'+TAB);
 loadSetup();
