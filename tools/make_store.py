@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import sys
 
-API_LEVEL = 4  # the newest the firmware offers; an app may ask for any level up to it
+API_LEVEL = 5  # the newest the firmware offers; an app may ask for any level up to it
 MAX_FILE, MAX_APP = 64 * 1024, 512 * 1024
 PERMISSIONS = {"wifi", "mic", "meet"}
 EXTENDABLE = {"badge"}  # the built-in apps plugins can add to (apps_logic.h, extendable())
