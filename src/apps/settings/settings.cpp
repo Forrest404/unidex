@@ -166,6 +166,7 @@ static const char *checkWhat[CHECKS_MAX];
 static String checkResult[CHECKS_MAX];
 static int checks, checked;
 static bool checkShown;  // the row being checked shows "..." before the (blocking) check starts
+static bool checksThenExit;  // opened for the checks alone (the first start): when they're read, leave
 
 static const char *checkLabel(const char *what) {
   return !strcmp(what, "wifi") ? "WiFi" : !strcmp(what, "openai") ? "OpenAI" : !strcmp(what, "elevenlabs") ? "ElevenLabs"
@@ -174,7 +175,7 @@ static const char *checkLabel(const char *what) {
 
 static void planChecks() {
   checks = checked = 0;
-  checkShown = false;
+  checkShown = checksThenExit = false;
   auto add = [](const char *what) { checkWhat[checks] = what, checkResult[checks++] = ""; };
   add("wifi");
   const bool eleven = credGet("transcribe") == "elevenlabs";
@@ -480,6 +481,7 @@ static Redraw onButton(Event e) {
     case CHECK:
       if (checked < checks) return Redraw::None;
       screen = LIST;
+      if (checksThenExit) return checksThenExit = false, Redraw::Exit;
       return Redraw::Partial;
     case DATETIME:
       if (e == Event::AShort) field = (field + 1) % FIELDS;
@@ -546,6 +548,7 @@ static Redraw onBack() {
     case CHECK:
       if (checked < checks) return Redraw::None;
       screen = LIST;
+      if (checksThenExit) return checksThenExit = false, Redraw::Exit;
       break;
     default: screen = LIST; break;
   }
@@ -587,6 +590,12 @@ static Redraw tick() {
 }
 
 static void onExit() { phoneStop(); }
+
+void settingsShowChecks() {
+  planChecks();
+  screen = CHECK;
+  checksThenExit = true;
+}
 
 static void status(char *out, size_t len) {
   if (!clockValid()) snprintf(out, len, "Clock not set");

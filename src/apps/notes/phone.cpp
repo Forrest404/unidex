@@ -90,6 +90,16 @@ static const uint32_t REQUEST_WAIT_MS = 4000;  // an empty connection is dropped
 static const size_t HEAD_MAX = 4096, BODY_MAX = 8192;  // a form with an eduroam certificate is ~4 KB
 static Connection connections[CONNECTIONS];
 
+// Writes all of it, or gives up on a phone that stopped taking it (it left the hotspot, say for its usual WiFi): the
+// WiFi library waits ~10 s on a write that can't go, so a page sent in several writes would otherwise hold the loop
+// up past the watchdog. After the first that fails, the rest return at once.
+static bool send(WiFiClient &c, const void *data, size_t len) {
+  if (!len) return true;
+  if (c.connected() && c.write((const uint8_t *)data, len) == len) return true;
+  c.stop();
+  return false;
+}
+
 static String header(int code, const char *type, size_t len, const String &headers = "") {
   const char *status = code == 200   ? "OK"
                        : code == 204 ? "No Content"
@@ -105,8 +115,7 @@ static String header(int code, const char *type, size_t len, const String &heade
 static void reply(WiFiClient &c, int code, const char *type, const char *body, size_t len,
                   const String &headers = "") {
   const String head = header(code, type, len, headers);
-  c.write((const uint8_t *)head.c_str(), head.length());
-  if (len) c.write((const uint8_t *)body, len);
+  if (send(c, head.c_str(), head.length())) send(c, body, len);
 }
 
 static void reply(WiFiClient &c, int code, const char *type, const String &body, const String &headers = "") {
@@ -186,12 +195,9 @@ static void sendPage(WiFiClient &c) {
   const char *end = PHONE_PAGE + sizeof PHONE_PAGE - 1;
   const String head = header(200, "text/html; charset=utf-8", (notesAt - PHONE_PAGE) + listJson.length() +
                                                                  (tabAt - afterNotes) + strlen(tabName) + (end - afterTab));
-  c.write((const uint8_t *)head.c_str(), head.length());
-  c.write((const uint8_t *)PHONE_PAGE, notesAt - PHONE_PAGE);
-  c.write((const uint8_t *)listJson.c_str(), listJson.length());
-  c.write((const uint8_t *)afterNotes, tabAt - afterNotes);
-  c.write((const uint8_t *)tabName, strlen(tabName));
-  c.write((const uint8_t *)afterTab, end - afterTab);
+  send(c, head.c_str(), head.length()) && send(c, PHONE_PAGE, notesAt - PHONE_PAGE) &&
+      send(c, listJson.c_str(), listJson.length()) && send(c, afterNotes, tabAt - afterNotes) &&
+      send(c, tabName, strlen(tabName)) && send(c, afterTab, end - afterTab);
 }
 
 // --- setup and settings ---
@@ -209,7 +215,7 @@ static String setupJson() {
   credStatus(lines);
   return "{\"cred\":" + str(statusJson(lines.c_str())) + ",\"sleep\":" + String(powerSleepSeconds()) +
          ",\"volume\":" + String(audioVolume()) + ",\"volumeMax\":" + String(AUDIO_VOLUME_MAX) +
-         ",\"invert\":" + String(display.inverted ? 1 : 0) +
+         ",\"invert\":" + String(display.inverted ? 1 : 0) + ",\"mute\":" + String(audioAlertsMuted() ? 1 : 0) +
          ",\"time\":" + String(clockValid() ? (long long)time(nullptr) : 0LL) +
          ",\"battery\":" + String(batteryPercent()) + ",\"charging\":" + String(batteryCharging() ? 1 : 0) +
          ",\"name\":\"" + String(ssid) + "\",\"version\":\"" + str(json(UNIDEX_VERSION)) +
@@ -233,17 +239,19 @@ static const char *saveCredentials(const String &body) {
   return nullptr;
 }
 
-// Sleep after, volume and invert, each only if sent.
+// Sleep after, volume, the reminder chime (mute) and invert, each only if sent.
 static const char *saveSettings(const String &body) {
-  int sleepS = -1, volume = -1, invert = -1;
+  int sleepS = -1, volume = -1, invert = -1, mute = -1;
   for (const auto &p : formPairs(body.c_str())) {
     const int v = p.second.empty() ? -1 : atoi(p.second.c_str());
     if (p.first == "sleep") sleepS = v == 10 || v == 20 || v == 30 || v == 60 ? v : -2;
     else if (p.first == "volume") volume = v >= 0 && v <= AUDIO_VOLUME_MAX ? v : -2;
     else if (p.first == "invert") invert = p.second == "0" || p.second == "1" ? v : -2;
+    else if (p.first == "mute") mute = p.second == "0" || p.second == "1" ? v : -2;
     else return "The device doesn't know that setting. Update it first.";
   }
-  if (sleepS == -2 || volume == -2 || invert == -2) return "That value isn't one the device takes.";
+  if (sleepS == -2 || volume == -2 || invert == -2 || mute == -2) return "That value isn't one the device takes.";
+  if (mute >= 0) audioSetAlertsMuted(mute == 1);
   if (sleepS > 0) powerSetSleepSeconds(sleepS);
   if (volume >= 0 && volume != audioVolume()) {
     audioSetVolume(volume);
@@ -332,7 +340,7 @@ static void startAudio(Connection &conn, const Request &r) {
   if (ranged) headers += "Content-Range: bytes " + String(first) + "-" + String(last) + "/" + String(total) + "\r\n";
   if (r.arg("dl") == "1") headers += "Content-Disposition: attachment; filename=\"unidex " + id + ".wav\"\r\n";
   const String head = header(ranged ? 206 : 200, "audio/wav", last - first + 1, headers);
-  conn.client.write((const uint8_t *)head.c_str(), head.length());
+  if (!send(conn.client, head.c_str(), head.length())) return conn.file.close();
   conn.file.seek(first);
   conn.remaining = last - first + 1;
 }
@@ -507,11 +515,13 @@ const char *phoneStart(PhoneTab startTab) {
   esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT20);  // a 20 MHz channel: phones join it more reliably
   http.begin();
   dns.start(53, "*", WiFi.softAPIP());
-  powerHold();  // no light or deep sleep while the phone may be reading
+  powerHold();     // no light or deep sleep while the phone may be reading
+  netClaim(true);  // the radio is the hotspot's: the background sends (Notes, Reminders) wait until it's off
   on = true, served = 0, firstAt = 0, shown = 0, stopAt = 0, changed = false, done = false, redrawFull = false;
   startedAt = lastUse = millis();
 #if UNIDEX_DEV
   joinedAt = addressAt = 0;
+  reqLog[0] = 0;
   static bool watching;
   if (!watching) {
     WiFi.onEvent([](arduino_event_id_t, arduino_event_info_t) { if (!joinedAt) joinedAt = millis(); },
@@ -533,6 +543,7 @@ void phoneStop() {
   http.end();
   WiFi.softAPdisconnect(true);
   WiFi.mode(WIFI_OFF);
+  netClaim(false);
   setCpuFrequencyMhz(80);
   powerRelease();
 #if UNIDEX_DEV
@@ -584,11 +595,11 @@ void phoneDraw(const char *title, const char *computer) {
     return;
   }
   display.setFont(FONT_SMALL);
-  drawCenteredLine(shown ? "Phone connected" : "Scan with your camera", 164);
+  drawCenteredLine(shown ? "Phone connected" : "Scan with your camera", 162);
   display.setFont(FONT_TINY);
   snprintf(line, sizeof line, "%s   %s", ssid, password);
-  drawCenteredLine(line, 181);
-  drawCenteredLine("Hold A to stop", 196);
+  drawCenteredLine(line, 179);
+  drawCenteredLine("Hold A to stop", 194);  // descenders clear of the 2 px margin
 }
 
 void phoneActivity() { lastUse = millis(); }

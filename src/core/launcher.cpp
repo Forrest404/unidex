@@ -170,11 +170,15 @@ static void welcomeSetUp() {
 
 static void goHome();
 
-// The first screens are done (B, hold A, or Done on the phone).
+// The first screens are done (B, hold A, or Done on the phone). WiFi or keys set up on a phone: Settings checks
+// them first, over the home screen.
 static void welcomeDone() {
   phoneStop();
   storagePutInt("welcomed", 1);
-  goHome();
+  if (!phoneChanged()) return goHome();
+  current = HOME;  // where the checks' Exit goes back to
+  settingsShowChecks();
+  launcherInterrupt(&settingsApp);
 }
 
 static bool firstStart() {

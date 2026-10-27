@@ -53,7 +53,7 @@ void drawHints(const char *a, const char *b, const char *bHold) {
   display.setFont(FONT_TINY);
   if (*bHold) {
     snprintf(text, sizeof text, "hold B: %s", bHold);
-    drawRight(text, 195);
+    drawRight(text, 194);  // a p, q, g or y below the line stays out of the screen's 2 px margin
   }
 }
 

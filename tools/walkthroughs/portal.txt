@@ -1,0 +1,15 @@
+# Phone setup from Settings: hold B in the list starts the hotspot (Setup first without WiFi, else Settings), the
+# QR screen, a press keeps it up, hold A stops it and, with nothing changed on a phone, goes back to the list. Leaves
+# the hotspot off. The page itself needs a phone (or a computer joined to the hotspot: X STATE gives its password).
+select Settings
+press b
+expect screen=Settings
+shot pt-list
+press B
+shot pt-qr
+press a
+shot pt-qr-press-a
+press A
+shot pt-stopped
+press A
+expect screen=Home

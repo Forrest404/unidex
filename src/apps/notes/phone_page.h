@@ -123,7 +123,7 @@ font-size:14px;font-weight:700;color:var(--muted);transition:background .2s var(
 .seg input:focus-visible+span{outline:2px solid var(--accent)}
 .row{display:flex;align-items:center;justify-content:space-between;gap:14px}
 .toggle{cursor:pointer;align-items:center;margin:0}.toggle b{display:block;font-size:20px;letter-spacing:-.02em;font-weight:780}.toggle .hint{margin:2px 0 0}
-#cGithub .toggle{margin:0 0 16px}
+#cGithub .toggle{margin:0 0 16px}.sub2{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}.sub2 b{font-size:16px}
 .switch{appearance:none;-webkit-appearance:none;flex:none;width:52px;height:32px;margin:0;border-radius:999px;background:var(--line);
 position:relative;cursor:pointer;transition:background .2s}
 .switch::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;
@@ -223,6 +223,7 @@ max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
 <p class="say" id="sleepSay" role="status"></p></div>
 <div class="card"><div class="ch"><i class="ic sand"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M15.5 9a4.5 4.5 0 010 6M18 6.5a8 8 0 010 11"/></svg></i><div><div class="hrow"><h2>Volume</h2><b class="big" id="volv"></b></div><p class="hint">For playing notes and the reminder chime. It chimes at the new level.</p></div></div>
 <div class="stepper"><button class="btn round" id="volDown" aria-label="Quieter">&minus;</button><input type="range" id="vol" min="0" max="10" step="1" aria-label="Volume"><button class="btn round" id="volUp" aria-label="Louder">+</button></div>
+<label class="row toggle sub2"><span class="grow"><b>Chime for reminders</b><span class="hint">Off: a reminder shows on the screen without a sound.</span></span><input type="checkbox" class="switch" id="chime"></label>
 <p class="say" id="volSay" role="status"></p></div>
 <div class="card"><label class="ch toggle"><i class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 010 17z" fill="currentColor"/></svg></i><span class="grow"><b>Invert the screen</b><span class="hint">White on black.</span></span><input type="checkbox" class="switch" id="inv"></label>
 <p class="say" id="invSay" role="status"></p></div>
@@ -388,7 +389,7 @@ function loadSetup(){asked=1;return fetch('/setup.json').then(function(r){return
 function(){lost(true)})}
 // Settings: each change is saved as it's made.
 function drawSettings(){setRadio('sleep',S.sleep);$('vol').max=S.volumeMax;$('vol').value=S.volume;$('volv').textContent=S.volume?S.volume:'Off';
-$('inv').checked=!!S.invert;$('mini').classList.toggle('inv',!!S.invert);$('devName').textContent=S.name||'Your unidex';
+$('inv').checked=!!S.invert;$('chime').checked=!S.mute;$('mini').classList.toggle('inv',!!S.invert);$('devName').textContent=S.name||'Your unidex';
 $('devInfo').textContent=(S.battery>=0?(S.charging?'Charging, ':'Battery ')+S.battery+'%':'On USB')+' · '+S.version.replace(/-g[0-9a-f]+/,'').replace('-dirty','');
 $('batI').style.width=(S.battery>=0?S.battery:100)+'%';$('batBox').setAttribute('aria-label',S.battery>=0?'Battery '+S.battery+'%':'No battery');clock()}
 function saveSetting(k,v,say){post('/settings',obj(k,v)).then(function(){S[k]=+v;tell(say,'');drawSettings();toast('Saved')},function(e){tell(say,e.message,'bad');drawSettings()})}
@@ -396,6 +397,7 @@ document.querySelectorAll('input[name=sleep]').forEach(function(r){r.onchange=fu
 function vol(v){v=Math.max(0,Math.min(+$('vol').max,v));$('vol').value=v;$('volv').textContent=v?v:'Off';if(v!=S.volume)saveSetting('volume',v,'volSay')}
 $('vol').oninput=function(){$('volv').textContent=+this.value?this.value:'Off'};$('vol').onchange=function(){vol(+this.value)};
 $('volDown').onclick=function(){vol(+$('vol').value-1)};$('volUp').onclick=function(){vol(+$('vol').value+1)};
+$('chime').onchange=function(){saveSetting('mute',this.checked?0:1,'volSay')};
 $('inv').onchange=function(){$('mini').classList.toggle('inv',this.checked);saveSetting('invert',this.checked?1:0,'invSay')};
 // The device's clock: set from this phone's when it's unset or more than a minute out.
 function clock(){var t=new Date(Date.now()+(offset||0)*1000);$('clock').textContent=offset==null?'Not set yet':t.toLocaleString(undefined,
