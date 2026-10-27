@@ -3,6 +3,7 @@
 #include <lua.hpp>
 #include <qrcode.h>
 #include <esp_random.h>
+#include <WiFi.h>
 #include "apps_logic.h"
 #include "appstore.h"
 #include "../badge/badge_file.h"
@@ -395,6 +396,62 @@ static int l_get(lua_State *s) {
   return 2;
 }
 
+// --- unidex.wifi (permission "wifi"): the networks nearby, by name; never their addresses ---
+static const char *securityName(wifi_auth_mode_t a) {
+  switch (a) {
+    case WIFI_AUTH_OPEN: return "open";
+    case WIFI_AUTH_WEP: return "WEP";
+    case WIFI_AUTH_WPA_PSK: return "WPA";
+    case WIFI_AUTH_WPA2_ENTERPRISE: return "WPA2-E";
+    case WIFI_AUTH_WPA3_PSK:
+    case WIFI_AUTH_WPA2_WPA3_PSK: return "WPA3";
+    default: return "WPA2";
+  }
+}
+
+static int l_scan(lua_State *s) {
+  if (!(perms & apps::PERM_WIFI)) return luaL_error(s, "wifi: the app needs the \"wifi\" permission");
+  const char *why = batteryTooLow();
+  if (!why && netClaimed()) why = "WiFi busy (a note is sending)";
+  if (why) {
+    lua_pushnil(s);
+    lua_pushstring(s, why);
+    return 2;
+  }
+  // 160 MHz while the radio is on: a scan takes the same time as at 240 (about 2.2 s) but 3.3 s at 80. Connected
+  // already (an http.get before)? Then it stays connected.
+  const bool wasOn = WiFi.getMode() != WIFI_OFF;
+  if (!wasOn) {
+    setCpuFrequencyMhz(160);
+    WiFi.mode(WIFI_STA);
+  }
+  const int found = WiFi.scanNetworks(false, false /*no hidden networks*/, false, 120 /*ms per channel*/);
+  lua_createtable(s, found > 0 ? min(found, 64) : 0, 0);
+  int n = 0;
+  for (int i = 0; i < found && n < 64; i++) {
+    const String ssid = WiFi.SSID(i);
+    if (!ssid.length()) continue;
+    lua_createtable(s, 0, 3);
+    lua_pushlstring(s, ssid.c_str(), ssid.length());
+    lua_setfield(s, -2, "ssid");
+    lua_pushinteger(s, WiFi.RSSI(i));
+    lua_setfield(s, -2, "rssi");
+    lua_pushstring(s, securityName(WiFi.encryptionType(i)));
+    lua_setfield(s, -2, "security");
+    lua_rawseti(s, -2, ++n);
+  }
+  WiFi.scanDelete();
+  if (!wasOn) netOff();
+  callStart = millis();  // the scan doesn't count against the app's 2 s
+  if (found < 0) {
+    lua_pop(s, 1);
+    lua_pushnil(s);
+    lua_pushstring(s, "scan failed");
+    return 2;
+  }
+  return 1;
+}
+
 // --- require: only .lua files inside the app's folder, loaded once ---
 static int l_require(lua_State *s) {
   const char *name = luaL_checkstring(s, 1);
@@ -453,6 +510,9 @@ static int setup(lua_State *s) {
   const luaL_Reg HTTP[] = {{"get", l_get}, {nullptr, nullptr}};
   luaL_newlib(s, HTTP);
   lua_setfield(s, -2, "http");
+  const luaL_Reg WIFI[] = {{"scan", l_scan}, {nullptr, nullptr}};
+  luaL_newlib(s, WIFI);
+  lua_setfield(s, -2, "wifi");
   lua_setglobal(s, "unidex");
 
   std::vector<char> code;

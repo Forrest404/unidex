@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import sys
 
-API_LEVEL = 1
+API_LEVEL = 2  # the newest the firmware offers; an app may ask for any level up to it
 MAX_FILE, MAX_APP = 64 * 1024, 512 * 1024
 PERMISSIONS = {"wifi", "mic", "meet"}
 EXTENDABLE = {"badge"}  # the built-in apps plugins can add to (apps_logic.h, extendable())
@@ -58,8 +58,8 @@ def check(folder):
     desc = text("description", 140)
     if not VERSION.match(str(m.get("version", ""))):
         problems.append("version: major.minor.patch")
-    if m.get("api") != API_LEVEL:
-        problems.append(f"api: must be {API_LEVEL}")
+    if not isinstance(m.get("api"), int) or not 1 <= m["api"] <= API_LEVEL:
+        problems.append(f"api: 1 to {API_LEVEL}")
     kind, extends = m.get("type", "app"), m.get("extends", "")
     if kind == "plugin" and extends not in EXTENDABLE:
         problems.append(f"extends: a plugin extends one of {sorted(EXTENDABLE)}")

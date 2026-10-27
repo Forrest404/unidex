@@ -9,7 +9,7 @@ export { compareAppVersions, el, icon };
 export const EXTENDS = { badge: 'Badge' };  // the built-in apps plugins add to
 export const PERMISSIONS = { wifi: 'Uses WiFi', mic: 'Uses the microphone', meet: 'Uses the Pet radio' };
 export const PERMISSION_DETAIL = {
-  wifi: 'It can connect to the internet over your saved WiFi, to the addresses its README names. It never sees your WiFi password or keys.',
+  wifi: 'It can connect to the internet over your saved WiFi, to the addresses its README names, and see the names of WiFi networks nearby. It never sees your WiFi password or keys.',
   mic: 'It can record from the microphone.',
   meet: 'It can use the radio the Pet uses to meet other unidex.',
 };
