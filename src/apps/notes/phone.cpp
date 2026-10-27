@@ -1,15 +1,27 @@
 #include "phone.h"
 #include <DNSServer.h>
+#include <StreamString.h>
 #include <WiFi.h>
+#include <algorithm>
 #include <esp_mac.h>
 #include <esp_wifi.h>
+#include <qrcode.h>
+#include <unidex_version.h>
+#include "job.h"
 #include "phone_page.h"
+#include "phone_setup.h"
 #include "phone_text.h"
 #include "store.h"
+#include "../../core/audio.h"
+#include "../../core/battery.h"
+#include "../../core/clock.h"
+#include "../../core/credentials.h"
 #include "../../core/storage.h"
 #include "../../core/devtools.h"
+#include "../../core/display.h"
 #include "../../core/net.h"
 #include "../../core/power.h"
+#include "../../core/theme.h"
 
 #if UNIDEX_DEV
 static const uint32_t IDLE_MS = 60000;  // test build: a minute, so the auto-stop can be tested
@@ -21,16 +33,24 @@ static WiFiServer http(80, 8);
 static DNSServer dns;  // every name the phone looks up points here, so its internet check finds this page
 static bool on;
 static uint32_t lastUse, served, startedAt, firstAt;  // firstAt: the first request from a phone
+static uint32_t shown;     // requests answered when the screen was last drawn ("Phone connected" once there are some)
+static uint32_t stopAt;    // Done was pressed: stop at this time (after its answer has gone out)
+static bool changed;       // setup was saved since the start
+static bool redrawFull;    // the screen needs a full refresh (invert changed)
+static PhoneTab tab;
+static String nearby = "[]";  // the WiFi names around, strongest first, as a JSON array
 static char ssid[16], password[12], joinCode[64];
 
 #if UNIDEX_DEV
-// Test build: when a phone got through each step of joining, in ms after the start (X STATE detail).
+// Test build: the hotspot, so a computer can join it, and when a phone got through each step of joining, in ms
+// after the start (X STATE detail).
 static uint32_t joinedAt, addressAt;
 static char reqLog[96];  // the last requests and how long each took
-static char times[160];
+static char times[200];
 static const char *phoneTimes() {
-  snprintf(times, sizeof times, "joined=%lu address=%lu first=%lu%s", joinedAt ? joinedAt - startedAt : 0,
-           addressAt ? addressAt - startedAt : 0, firstAt ? firstAt - startedAt : 0, reqLog);
+  snprintf(times, sizeof times, "ssid=%s pw=%s joined=%lu address=%lu first=%lu%s", ssid, password,
+           joinedAt ? joinedAt - startedAt : 0, addressAt ? addressAt - startedAt : 0,
+           firstAt ? firstAt - startedAt : 0, reqLog);
   return times;
 }
 #endif
@@ -41,7 +61,8 @@ static const char *phoneTimes() {
 // real request queues behind it. Each request is answered and closed straight away.
 
 struct Request {
-  String path, query, host, range;  // range: the Range header's value ("bytes=0-1"), if any
+  String method, path, query, host, range;  // range: the Range header's value ("bytes=0-1"), if any
+  String origin, body;                      // origin: the Origin header (the page that sent it), if any
   String arg(const char *name) const {  // a query value, %XX-decoded
     const String all = "&" + query, key = String("&") + name + "=";
     const int at = all.indexOf(key);
@@ -65,6 +86,7 @@ struct Connection {
 };
 static const int CONNECTIONS = 6;
 static const uint32_t REQUEST_WAIT_MS = 4000;  // an empty connection is dropped after this
+static const size_t HEAD_MAX = 4096, BODY_MAX = 8192;  // a form with an eduroam certificate is ~4 KB
 static Connection connections[CONNECTIONS];
 
 static String header(int code, const char *type, size_t len, const String &headers = "") {
@@ -72,6 +94,7 @@ static String header(int code, const char *type, size_t len, const String &heade
                        : code == 204 ? "No Content"
                        : code == 206 ? "Partial Content"
                        : code == 302 ? "Found"
+                       : code == 400 ? "Bad Request"
                        : code == 416 ? "Range Not Satisfiable"
                                      : "Not Found";
   return "HTTP/1.1 " + String(code) + " " + status + "\r\nContent-Type: " + type + "\r\nContent-Length: " + String(len) +
@@ -152,16 +175,129 @@ static void sendText(WiFiClient &c, const String &id) {
         "Content-Disposition: attachment; filename=\"" + (name.length() ? name : id) + ".txt\"\r\n");
 }
 
-// The page with the note list already inside it (in place of "/*NOTES*/null"), so the list draws with the page.
+// The page with the note list already inside it (in place of "/*NOTES*/null"), so the list draws with the page,
+// and the tab to open on (in place of "/*TAB*/'notes'").
 static void sendPage(WiFiClient &c) {
-  static const char MARK[] = "/*NOTES*/null";
-  const char *at = strstr(PHONE_PAGE, MARK);
-  const size_t before = at - PHONE_PAGE, after = sizeof PHONE_PAGE - 1 - before - (sizeof MARK - 1);
-  const String head = header(200, "text/html; charset=utf-8", before + listJson.length() + after);
+  static const char NOTES_MARK[] = "/*NOTES*/null", TAB_MARK[] = "/*TAB*/'notes'";
+  const char *notesAt = strstr(PHONE_PAGE, NOTES_MARK), *tabAt = strstr(PHONE_PAGE, TAB_MARK);
+  const char *afterNotes = notesAt + sizeof NOTES_MARK - 1, *afterTab = tabAt + sizeof TAB_MARK - 1;
+  const char *tabName = tab == PhoneTab::Setup ? "'setup'" : tab == PhoneTab::Settings ? "'settings'" : "'notes'";
+  const char *end = PHONE_PAGE + sizeof PHONE_PAGE - 1;
+  const String head = header(200, "text/html; charset=utf-8", (notesAt - PHONE_PAGE) + listJson.length() +
+                                                                 (tabAt - afterNotes) + strlen(tabName) + (end - afterTab));
   c.write((const uint8_t *)head.c_str(), head.length());
-  c.write((const uint8_t *)PHONE_PAGE, before);
+  c.write((const uint8_t *)PHONE_PAGE, notesAt - PHONE_PAGE);
   c.write((const uint8_t *)listJson.c_str(), listJson.length());
-  c.write((const uint8_t *)at + sizeof MARK - 1, after);
+  c.write((const uint8_t *)afterNotes, tabAt - afterNotes);
+  c.write((const uint8_t *)tabName, strlen(tabName));
+  c.write((const uint8_t *)afterTab, end - afterTab);
+}
+
+// --- setup and settings ---
+
+using namespace phonesetup;
+
+static String answer(const char *error) {  // what a save sends back: {"ok":1} or {"error":"..."}
+  return error ? "{\"error\":\"" + str(json(error)) + "\"}" : String("{\"ok\":1}");
+}
+
+// Everything the Settings and Setup tabs show. Keys only as their last 4 characters, WiFi passwords not at all
+// (credStatus's rules).
+static String setupJson() {
+  StreamString lines;
+  credStatus(lines);
+  return "{\"cred\":" + str(statusJson(lines.c_str())) + ",\"sleep\":" + String(powerSleepSeconds()) +
+         ",\"volume\":" + String(audioVolume()) + ",\"volumeMax\":" + String(AUDIO_VOLUME_MAX) +
+         ",\"invert\":" + String(display.inverted ? 1 : 0) +
+         ",\"time\":" + String(clockValid() ? (long long)time(nullptr) : 0LL) +
+         ",\"battery\":" + String(batteryPercent()) + ",\"version\":\"" + str(json(UNIDEX_VERSION)) +
+         "\",\"nearby\":" + nearby + ",\"busy\":" + String(jobBusy() ? 1 : 0) + "}";
+}
+
+// WiFi, keys, GitHub: name=value pairs with the names of the Setup page's N SET. Every value is checked before
+// any is saved, so a form is saved whole or not at all (unless the device's memory fills up mid-way).
+static const char *saveCredentials(const String &body) {
+  const auto pairs = formPairs(body.c_str());
+  if (pairs.empty()) return "Nothing to save.";
+  if (jobBusy()) return "A note is sending. Try again in a moment.";  // it still needs its keys
+  for (const auto &p : pairs) {
+    if (!credKnown(p.first.c_str())) return "The device doesn't know that setting. Update it first.";
+    if (const char *why = checkValue(p.first, p.second)) return why;
+  }
+  for (const auto &p : pairs)
+    if (!credSet(p.first.c_str(), String(p.second.c_str())))
+      return "Couldn't save that: it's too long or has characters the device can't keep.";
+  changed = true;
+  return nullptr;
+}
+
+// Sleep after, volume and invert, each only if sent.
+static const char *saveSettings(const String &body) {
+  int sleepS = -1, volume = -1, invert = -1;
+  for (const auto &p : formPairs(body.c_str())) {
+    const int v = p.second.empty() ? -1 : atoi(p.second.c_str());
+    if (p.first == "sleep") sleepS = v == 10 || v == 20 || v == 30 || v == 60 ? v : -2;
+    else if (p.first == "volume") volume = v >= 0 && v <= AUDIO_VOLUME_MAX ? v : -2;
+    else if (p.first == "invert") invert = p.second == "0" || p.second == "1" ? v : -2;
+    else return "The device doesn't know that setting. Update it first.";
+  }
+  if (sleepS == -2 || volume == -2 || invert == -2) return "That value isn't one the device takes.";
+  if (sleepS > 0) powerSetSleepSeconds(sleepS);
+  if (volume >= 0 && volume != audioVolume()) {
+    audioSetVolume(volume);
+    audioChime();  // how loud it is now (silent at 0), as in Settings > Volume
+  }
+  if (invert >= 0 && (invert == 1) != display.inverted) {
+    displaySetInverted(invert == 1);
+    redrawFull = true;
+  }
+  return nullptr;
+}
+
+// The phone's clock, in seconds since 1970 (UTC). Anything before 2024 is a phone that doesn't know the time.
+static const char *saveTime(const String &body) {
+  for (const auto &p : formPairs(body.c_str()))
+    if (p.first == "t") {
+      const long long t = atoll(p.second.c_str());
+      if (t < 1704067200LL || t > 4102444800LL) return "That time doesn't look right.";
+      clockSet((time_t)t);
+      return nullptr;
+    }
+  return "No time sent.";
+}
+
+// The WiFi names around, strongest first, once before the hotspot starts (it can't look while phones are on it).
+static void scanNearby() {
+  WiFi.mode(WIFI_STA);
+  const int n = WiFi.scanNetworks();  // ~2 s
+  std::vector<int> order;
+  for (int i = 0; i < n; i++) order.push_back(i);
+  std::sort(order.begin(), order.end(), [](int a, int b) { return WiFi.RSSI(a) > WiFi.RSSI(b); });
+  std::vector<String> names;
+  for (int i : order) {
+    const String name = WiFi.SSID(i);
+    if (name.length() && std::find(names.begin(), names.end(), name) == names.end() && names.size() < 15)
+      names.push_back(name);
+  }
+  WiFi.scanDelete();
+  nearby = "[";
+  for (const String &name : names) nearby += (nearby.length() > 1 ? ",\"" : "\"") + str(json(name.c_str())) + "\"";
+  nearby += "]";
+}
+
+static void post(WiFiClient &c, const Request &r) {
+  const char *error = "Not found.";
+  if (r.path == "/set") error = saveCredentials(r.body);
+  else if (r.path == "/settings") error = saveSettings(r.body);
+  else if (r.path == "/time") error = saveTime(r.body);
+  else if (r.path == "/clear") {  // Remove everything: WiFi, keys, GitHub, the calendar link
+    if (jobBusy()) error = "A note is sending. Try again in a moment.";
+    else credClearAll(), changed = false, error = nullptr;
+  } else if (r.path == "/done") {
+    stopAt = millis() + 500;  // the answer goes out first
+    error = nullptr;
+  }
+  reply(c, error ? 400 : 200, "application/json", answer(error));
 }
 
 // "Export": every note as one .txt, newest first.
@@ -213,7 +349,15 @@ static void handle(Connection &conn, const Request &r) {
     reply(c, 302, "text/plain", "", 0, "Location: http://" + self + "/\r\n");
     return logRequest("probe", t0);
   }
-  if (r.path == "/notes.json") {
+  if (r.method == "POST") {
+    // Saves come only from the page itself: another page (one open from before joining) can't send them here.
+    if (r.origin.length() && r.origin != "http://" + self) reply(c, 400, "application/json", answer("Not from this page."));
+    else post(c, r);
+    logRequest("save", t0);
+  } else if (r.path == "/setup.json") {
+    reply(c, 200, "application/json", setupJson());
+    logRequest("setup", t0);
+  } else if (r.path == "/notes.json") {
     reply(c, 200, "application/json", listJson);
     logRequest("list", t0);
   } else if (r.path == "/note.json") {
@@ -236,29 +380,44 @@ static void handle(Connection &conn, const Request &r) {
   }
 }
 
-static Request parseRequest(const String &head) {  // "GET /path?query HTTP/1.1" and the Host header
+// A header's value ("" if it isn't there). `lower` is the headers in lower case, `name` like "\nhost:".
+static String headerValue(const String &head, const String &lower, const char *name) {
+  const int at = lower.indexOf(name);
+  if (at < 0) return "";
+  const int from = at + strlen(name);
+  String v = head.substring(from, head.indexOf('\r', from));
+  v.trim();
+  return v;
+}
+
+// "GET /path?query HTTP/1.1", the headers that matter, and the body after the blank line at `end`.
+static Request parseRequest(const String &head, int end) {
   Request r;
   const int sp1 = head.indexOf(' '), sp2 = head.indexOf(' ', sp1 + 1);
+  r.method = sp1 < 0 ? "GET" : head.substring(0, sp1);
   String target = sp1 < 0 || sp2 < 0 ? "/" : head.substring(sp1 + 1, sp2);
   const int q = target.indexOf('?');
   r.path = q < 0 ? target : target.substring(0, q);
   r.query = q < 0 ? "" : target.substring(q + 1);
-  String lower = head;
+  String lower = head.substring(0, end + 2);
   lower.toLowerCase();
-  const int range = lower.indexOf("\nrange:");
-  if (range >= 0) {
-    r.range = head.substring(range + 7, head.indexOf('\r', range + 7));
-    r.range.trim();
-    r.range.replace(" ", "");
-  }
-  const int h = lower.indexOf("\nhost:");
-  if (h >= 0) {
-    r.host = head.substring(h + 6, head.indexOf('\r', h + 6));
-    r.host.trim();
-    const int colon = r.host.indexOf(':');
-    if (colon >= 0) r.host = r.host.substring(0, colon);
-  }
+  r.range = headerValue(head, lower, "\nrange:");
+  r.range.replace(" ", "");
+  r.host = headerValue(head, lower, "\nhost:");
+  const int colon = r.host.indexOf(':');
+  if (colon >= 0) r.host = r.host.substring(0, colon);
+  r.origin = headerValue(head, lower, "\norigin:");
+  r.body = head.substring(end + 4);
   return r;
+}
+
+// How long the body after the headers is (Content-Length), or -1 if it's more than a save could need.
+static long bodyLength(const String &head, int end) {
+  String lower = head.substring(0, end + 2);
+  lower.toLowerCase();
+  const String v = headerValue(head, lower, "\ncontent-length:");
+  const long n = v.length() ? v.toInt() : 0;
+  return n < 0 || n > (long)BODY_MAX ? -1 : n;
 }
 
 static void serveHttp() {
@@ -292,15 +451,24 @@ static void serveHttp() {
       continue;
     }
     uint8_t buf[256];
-    while (conn.client.available() && conn.head.length() < 4096) {
+    while (conn.client.available() && conn.head.length() < HEAD_MAX + BODY_MAX) {
       const int n = conn.client.read(buf, sizeof buf);
       if (n <= 0) break;
       conn.head.concat((const char *)buf, n);
     }
-    if (conn.head.indexOf("\r\n\r\n") >= 0) {
-      handle(conn, parseRequest(conn.head));
-      if (conn.remaining) continue;  // a recording: it goes out over the next loop turns
-    } else if (conn.client.connected() && millis() - conn.since < REQUEST_WAIT_MS && conn.head.length() < 4096) {
+    const int end = conn.head.indexOf("\r\n\r\n");
+    const bool waiting = conn.client.connected() && millis() - conn.since < REQUEST_WAIT_MS;
+    if (end >= 0) {
+      const long body = bodyLength(conn.head, end);
+      if (body < 0) {
+        reply(conn.client, 400, "application/json", answer("That's too much to save at once."));
+      } else if (conn.head.length() >= (size_t)end + 4 + body) {
+        handle(conn, parseRequest(conn.head.substring(0, end + 4 + body), end));
+        if (conn.remaining) continue;  // a recording: it goes out over the next loop turns
+      } else if (waiting) {
+        continue;  // the rest of a save's form is on its way
+      }
+    } else if (waiting && conn.head.length() < HEAD_MAX) {
       continue;  // still waiting for the request
     }
     conn.client.stop();
@@ -309,9 +477,10 @@ static void serveHttp() {
   }
 }
 
-bool phoneStart() {
-  if (on) return true;
-  if (netClaimed()) return false;  // a note is sending over the normal WiFi
+const char *phoneStart(PhoneTab startTab) {
+  tab = startTab;
+  if (on) return nullptr;
+  if (netClaimed()) return "Sending a note: try soon";  // over the normal WiFi
   uint8_t mac[6];
   esp_read_mac(mac, ESP_MAC_WIFI_SOFTAP);
   snprintf(ssid, sizeof ssid, "unidex-%02X%02X", mac[4], mac[5]);
@@ -323,18 +492,20 @@ bool phoneStart() {
   buildList();  // reads the card once, before the radio starts
   netOff();
   setCpuFrequencyMhz(240);  // full speed while the radio is on (as for normal WiFi): phones join faster
+  if (tab == PhoneTab::Notes) nearby = "[]";
+  else scanNearby();  // for the WiFi name box on Setup
   WiFi.mode(WIFI_AP);
   if (!WiFi.softAP(ssid, password)) {
     WiFi.mode(WIFI_OFF);
     setCpuFrequencyMhz(80);
-    return false;
+    return "WiFi didn't start: try again";
   }
   WiFi.setSleep(false);                             // answer at once, no power-save naps
   esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT20);  // a 20 MHz channel: phones join it more reliably
   http.begin();
   dns.start(53, "*", WiFi.softAPIP());
   powerHold();  // no light or deep sleep while the phone may be reading
-  on = true, served = 0, firstAt = 0;
+  on = true, served = 0, firstAt = 0, shown = 0, stopAt = 0, changed = false, redrawFull = false;
   startedAt = lastUse = millis();
 #if UNIDEX_DEV
   joinedAt = addressAt = 0;
@@ -348,7 +519,7 @@ bool phoneStart() {
   }
   devSetDetail(phoneTimes);
 #endif
-  return true;
+  return nullptr;
 }
 
 void phoneStop() {
@@ -369,16 +540,46 @@ void phoneStop() {
 
 bool phoneOn() { return on; }
 
-void phonePoll() {
-  if (!on) return;
+Redraw phoneTick() {
+  if (!on) return Redraw::None;
   dns.processNextRequest();
   serveHttp();
-  if (millis() - lastUse > IDLE_MS) phoneStop();
+  if (millis() - lastUse > IDLE_MS || (stopAt && (int32_t)(millis() - stopAt) >= 0)) {
+    phoneStop();
+    return Redraw::Partial;
+  }
+  if (redrawFull) {
+    redrawFull = false;
+    return Redraw::Full;
+  }
+  // "Phone connected", once its first few requests are answered: a screen refresh holds everything up for
+  // ~0.5 s, and the phone is waiting on those answers to open the page.
+  return !shown && firstAt && millis() - firstAt > 3000 ? Redraw::Partial : Redraw::None;
+}
+
+// The QR code the camera joins with, then the name and password to type.
+void phoneDraw(const char *title) {
+  shown = served;
+  drawHeader(title);
+  QRCode qr;
+  uint8_t modules[qrcode_getBufferSize(3)];
+  if (qrcode_initText(&qr, modules, 3, ECC_LOW, joinCode) == 0) {  // version 3: 29x29, 4 px each
+    const int scale = 4, x0 = (display.width() - qr.size * scale) / 2, y0 = CONTENT_TOP + 4;
+    for (uint8_t y = 0; y < qr.size; y++)
+      for (uint8_t x = 0; x < qr.size; x++)
+        if (qrcode_getModule(&qr, x, y)) display.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, BLACK);
+  }
+  display.setFont(FONT_SMALL);
+  drawCenteredLine(shown ? "Phone connected" : "Scan with your camera", 164);
+  display.setFont(FONT_TINY);
+  char line[40];
+  snprintf(line, sizeof line, "%s   %s", ssid, password);
+  drawCenteredLine(line, 181);
+  drawCenteredLine("Hold A to stop", 196);
 }
 
 void phoneActivity() { lastUse = millis(); }
+bool phoneChanged() { return changed; }
 const char *phoneSsid() { return ssid; }
 const char *phonePassword() { return password; }
 const char *phoneJoinCode() { return joinCode; }
-uint32_t phoneServed() { return served; }
-uint32_t phoneConnectedMs() { return firstAt ? millis() - firstAt : 0; }

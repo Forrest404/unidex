@@ -6,6 +6,11 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 
 ## Next release
 
+- **Set up from your phone** (new): in Settings, hold B. The device shows a QR code; your phone joins its WiFi and
+  a page opens with Notes, Settings (sleep, volume, invert, the time) and Setup (WiFi networks, with the ones nearby
+  to pick from, keys, the tidy-up, GitHub, the calendar link). No computer or cable needed, and nothing goes over
+  the internet. Press Done when you're finished: if you changed WiFi or keys, the device checks each one and lists
+  how it went. Open on phone (hold B in a note) opens the same page on its Notes tab.
 - **Reminders** (new): a to-do list you talk to. Hold B and say one ("call Sam tomorrow at 5pm", "take the cake out
   in 20 minutes", "dentist on the 3rd of November"). It's written down by the same service as your notes, with the
   key you already set up, and the device works out the to-do and its time by itself, with no AI. B ticks one off,

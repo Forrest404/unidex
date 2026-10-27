@@ -1,6 +1,7 @@
 // Settings: date and time, sleep, volume, invert, battery and info, reset data (one thing, or the whole device).
 // A = next row or field, B = change, open or clear, hold A = back (in the date editor: leave without saving).
 // Volume: B = louder, hold B = quieter, each with a chime at the new level.
+// Hold B in the list: set up from a phone (the phone portal, src/apps/notes/phone.cpp), then check what changed.
 #include "../../core/app.h"
 #include "../../core/audio.h"
 #include "../../core/battery.h"
@@ -11,7 +12,10 @@
 #include "../../core/power.h"
 #include "../../core/storage.h"
 #include "../../core/theme.h"
+#include "../notes/cloud.h"
+#include "../notes/phone.h"
 #include "../pet/meet.h"
+#include "../../core/credentials.h"
 #include <LittleFS.h>
 #include <esp_mac.h>
 #include "../../core/usbsync.h"
@@ -21,7 +25,7 @@ static const char *VERSION = UNIDEX_VERSION;  // from git, tools/version.py
 static const int SLEEP_CHOICES[] = {10, 20, 30, 60};
 static const int ROW_H = 22;  // six rows fit above the hints
 
-enum Screen : uint8_t { LIST, DATETIME, INFO, RESET, CONFIRM, CONFIRM_AGAIN, VOLUME };
+enum Screen : uint8_t { LIST, DATETIME, INFO, RESET, CONFIRM, CONFIRM_AGAIN, VOLUME, PHONE, CHECK };
 enum Row : uint8_t { DATE, SLEEP, VOLUME_ROW, INVERT, INFO_ROW, RESET_ROW, ROWS };
 enum Reset : uint8_t { TALLY, DEX, CALENDAR, PET_FRIENDS, EVERYTHING, FACTORY, RESETS };
 static const char *RESET_NAMES[] = {"Chooser tally", "Dex", "Calendar", "Pet friends", "Everything", "Factory reset"};
@@ -79,7 +83,65 @@ static void drawList() {
   drawRow(INVERT, cursor == INVERT, "Invert", display.inverted ? "on" : "off");
   drawRow(INFO_ROW, cursor == INFO_ROW, "Battery & info", ">");
   drawRow(RESET_ROW, cursor == RESET_ROW, "Reset data", ">");
-  drawHints("next", cursor == SLEEP || cursor == INVERT ? "change" : "open", "");
+  drawHints("next", cursor == SLEEP || cursor == INVERT ? "change" : "open", "phone");
+}
+
+// After phone setup changed WiFi or keys: each service with something saved, checked over the internet one per
+// tick, so the screen shows how far it's got. Not kept over a sleep (it's back to the list then).
+static const int CHECKS_MAX = 6;
+static const char *checkWhat[CHECKS_MAX];
+static String checkResult[CHECKS_MAX];
+static int checks, checked;
+static bool checkShown;  // the row being checked shows "..." before the (blocking) check starts
+
+static const char *checkLabel(const char *what) {
+  return !strcmp(what, "wifi") ? "WiFi" : !strcmp(what, "openai") ? "OpenAI" : !strcmp(what, "elevenlabs") ? "ElevenLabs"
+         : !strcmp(what, "anthropic") ? "Claude" : !strcmp(what, "github") ? "GitHub" : "Calendar";
+}
+
+static void planChecks() {
+  checks = checked = 0;
+  checkShown = false;
+  auto add = [](const char *what) { checkWhat[checks] = what, checkResult[checks++] = ""; };
+  add("wifi");
+  const bool eleven = credGet("transcribe") == "elevenlabs";
+  if (credHas(eleven ? "elevenlabs_key" : "openai_key")) add(eleven ? "elevenlabs" : "openai");
+  const String tidy = credGet("cleanup");
+  if (tidy == "anthropic" && credHas("anthropic_key")) add("anthropic");
+  else if (tidy == "openai" && eleven && credHas("openai_key")) add("openai");
+  if (credGet("gh_on") == "1") add("github");
+  if (credHas("cal_url")) add("calendar");
+}
+
+// The next check. A failure reads without the service's name, which is on the row already ("OpenAI: bad key").
+static void runCheck() {
+  const char *what = checkWhat[checked], *label = checkLabel(what);
+  String detail, result;
+  if (checked > 0 && checkResult[0] != "ok") {
+    result = "needs WiFi";
+  } else if (const char *err = cloudTest(what, detail)) {
+    result = err;
+    if (result.startsWith(label)) result = result.substring(strlen(label));
+    if (result.startsWith(":")) result = result.substring(1);
+    result.trim();
+  } else {
+    result = "ok";
+  }
+  checkResult[checked++] = result;
+  checkShown = false;
+  powerActivity();  // still in use: no sleep between checks
+}
+
+static void drawCheck() {
+  drawHeader(checked < checks ? "Checking" : "Checked");
+  display.setFont(FONT_SMALL);
+  for (int i = 0; i < checks; i++) {
+    String v = i < checked ? checkResult[i] : i == checked ? "..." : "";
+    const int16_t room = display.width() - 2 * MARGIN - textWidth(checkLabel(checkWhat[i])) - 10;
+    while (v.length() > 3 && textWidth(v.c_str()) > room) v = v.substring(0, v.length() - 4) + "..";
+    drawRow(i, false, checkLabel(checkWhat[i]), v.c_str());
+  }
+  drawHints("", checked < checks ? "" : "done", "");
 }
 
 static void drawVolume() {
@@ -329,9 +391,20 @@ static Redraw onButton(Event e) {
           screen = cursor == INFO_ROW ? INFO : RESET;
           resetCursor = 0;
         }
+      } else if (e == Event::BLong) {  // set up from a phone: Setup first if there's no WiFi yet
+        if (const char *low = batteryTooLow()) launcherToast(low);  // the hotspot draws as much as normal WiFi
+        else if (const char *err = phoneStart(credWifiAny() ? PhoneTab::Settings : PhoneTab::Setup)) launcherToast(err);
+        else screen = PHONE;
       } else {
         return Redraw::None;
       }
+      return Redraw::Partial;
+    case PHONE:
+      phoneActivity();  // any press keeps the hotspot up
+      return Redraw::None;
+    case CHECK:
+      if (checked < checks) return Redraw::None;
+      screen = LIST;
       return Redraw::Partial;
     case DATETIME:
       if (e == Event::AShort) field = (field + 1) % FIELDS;
@@ -381,13 +454,25 @@ static Redraw onBack() {
     case DATETIME: launcherToast("Not saved"); screen = LIST; break;
     case CONFIRM:
     case CONFIRM_AGAIN: screen = RESET; break;
+    case PHONE:
+      phoneStop();
+      if (phoneChanged()) planChecks(), screen = CHECK;
+      else screen = LIST;
+      break;
+    case CHECK:
+      if (checked < checks) return Redraw::None;
+      screen = LIST;
+      break;
     default: screen = LIST; break;
   }
   return Redraw::Partial;
 }
 
 static void draw() {
+  if ((screen == PHONE && !phoneOn()) || (screen == CHECK && !checks)) screen = LIST;  // e.g. after a sleep
   switch (screen) {
+    case PHONE: phoneDraw("Set up on phone"); break;
+    case CHECK: drawCheck(); break;
     case DATETIME: drawDateTime(); break;
     case INFO: drawInfo(); break;
     case VOLUME: drawVolume(); break;
@@ -398,11 +483,29 @@ static void draw() {
   }
 }
 
-static void onExit() {}
+static Redraw tick() {
+  if (screen == PHONE) {
+    const Redraw r = phoneTick();
+    if (phoneOn()) return r;
+    // Done on the page, or nobody used it for a while: check what changed.
+    if (phoneChanged()) planChecks(), screen = CHECK;
+    else screen = LIST;
+    return Redraw::Partial;
+  }
+  if (screen != CHECK || checked >= checks) return Redraw::None;
+  if (!checkShown) {
+    checkShown = true;  // show "..." on the row first: the check holds everything up for a few seconds
+    return Redraw::Partial;
+  }
+  runCheck();
+  return Redraw::Partial;
+}
+
+static void onExit() { phoneStop(); }
 
 static void status(char *out, size_t len) {
   if (!clockValid()) snprintf(out, len, "Clock not set");
   else snprintf(out, len, "Sleep after %d s", powerSleepSeconds());
 }
 
-extern const App settingsApp = {"Settings", ICON_SETTINGS, onEnter, onButton, draw, onExit, onBack, status};
+extern const App settingsApp = {"Settings", ICON_SETTINGS, onEnter, onButton, draw, onExit, onBack, status, tick};

@@ -55,10 +55,13 @@ themselves are kept on the card in `reminders.csv`.
 
 ## Other features
 
-- **Open on phone** (hold B in an open note) turns on the device's own WiFi network (named `unidex-` and 4 characters, with a new
-  random password each time, shown on the screen and in its QR code). A phone that joins can read, search, play and
-  copy your notes and recordings, straight from the device: nothing goes over the internet. Anyone who can see the
-  screen can join while it's on, so close it when you're done; it also switches off by itself after 5 minutes unused.
+- **Open on phone** (hold B in an open note) and **phone setup** (hold B in Settings) turn on the device's own WiFi
+  network (named `unidex-` and 4 characters, with a new random password each time, shown on the screen and in its
+  QR code). A phone that joins can read, search, play and copy your notes and recordings, change settings, and save
+  WiFi networks and keys, straight from the device: nothing goes over the internet. Keys and passwords are never
+  sent back to the page (a key shows as its last 4 characters). Anyone who can see the screen can join while it's
+  on, so close it when you're done; it also switches off by itself after 5 minutes unused. Before it starts from
+  Settings, the device looks for nearby WiFi names to suggest them; it keeps nothing of that scan.
 
 - **Clock:** the time sync contacts `pool.ntp.org` or `time.google.com`, which see your IP address.
 - **Dex** scans for nearby WiFi networks and keeps network names and salted, hashed router IDs on the SD card.

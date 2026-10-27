@@ -1,9 +1,9 @@
 #pragma once
 
-// The whole "Open on phone" page: one reply, everything inline (no internet, no outside files). Its look and
+// The whole phone portal page: one reply, everything inline (no internet, no outside files). Its look and
 // layout follow the Pala Note 2.0 portal (warm paper, ink, coral accent, lilac and sand cards, a floating
-// pill navigation, big headlines); the notes are drawn on the phone from /notes.json and /note.json, so
-// moving around is instant.
+// pill navigation, big headlines). Three tabs: Notes, drawn on the phone from /notes.json and /note.json so
+// moving around is instant; Settings and Setup, from /setup.json, saved with POST /settings, /time and /set.
 static const char PHONE_PAGE[] = R"PAGE(<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -11,15 +11,15 @@ static const char PHONE_PAGE[] = R"PAGE(<!doctype html>
 <style>
 :root{--ink:#22211f;--muted:#6b675f;--line:#d9d4c9;--paper:#f6f4ef;--surface:#fffdfa;--accent:#c9402a;
 --lilac:#ddd7e9;--sand:#f1e7cc;--soft:#ebe9e3;--navbg:rgba(232,230,223,.94);--shadow:rgba(49,44,36,.045);
---ease:cubic-bezier(.32,.72,0,1)}
+--ok:#2d6a39;--segon:#fffdfa;--warn:#c9402a;--ease:cubic-bezier(.32,.72,0,1)}
 @media(prefers-color-scheme:dark){:root{--ink:#f2efe8;--muted:#9c978e;--line:#3b3833;--paper:#151412;
---surface:#211f1c;--lilac:#36324a;--sand:#3d3524;--soft:#2a2825;--navbg:rgba(38,36,33,.94);--shadow:rgba(0,0,0,.3)}}
+--surface:#211f1c;--ok:#8fcf9b;--segon:#45413a;--warn:#ff8f78;--lilac:#36324a;--sand:#3d3524;--soft:#2a2825;--navbg:rgba(38,36,33,.94);--shadow:rgba(0,0,0,.3)}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{background:var(--paper);touch-action:manipulation;-webkit-text-size-adjust:100%}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 body{margin:0;padding:0 24px 64px;background:var(--paper);color:var(--ink);
 font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,Helvetica,sans-serif;font-synthesis:none;-webkit-font-smoothing:antialiased}
-button,input{font-family:inherit}
+button,input,textarea{font-family:inherit}
 .wrap{max-width:1080px;margin:0 auto}
 .nav{position:sticky;top:12px;z-index:20;min-height:68px;display:flex;align-items:center;justify-content:space-between;
 margin:12px 0 52px;padding:8px 10px 8px 20px;border:1px solid rgba(31,31,28,.06);border-radius:28px;background:var(--navbg);
@@ -86,6 +86,47 @@ details .body p{font-size:15px;color:var(--muted)}
 .rec{display:flex;align-items:center;gap:12px}
 .rec audio{flex:1;min-width:0;height:44px}
 .rec .btn{flex:none}
+/* Settings and Setup */
+.stack{display:grid;gap:14px;max-width:640px}
+.card h2{font-size:20px;line-height:1.2;letter-spacing:-.02em;font-weight:780;margin:0 0 6px}
+.card h3{font-size:16px;font-weight:760;margin:18px 0 12px}
+.hint{display:block;font-size:14px;line-height:1.45;color:var(--muted);margin:0 0 14px;font-weight:400}
+.field{display:block;margin:0 0 14px}
+.field>span,.field>label>span{display:block;font-size:13px;font-weight:720;margin:0 0 6px}.field i{font-style:normal;font-weight:500;color:var(--muted)}
+.input{display:block;width:100%;font:inherit;font-size:16px;color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:12px 14px;
+background:var(--paper);min-height:48px;outline:0;-webkit-appearance:none}
+.input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,64,42,.14)}
+textarea.input{min-height:110px;font:12px/1.4 ui-monospace,Menlo,monospace;resize:vertical}
+.pw{position:relative}.pw .input{padding-right:72px}
+.peek{position:absolute;right:4px;top:4px;min-height:40px;border:0;background:none;color:var(--warn);font:inherit;font-size:14px;font-weight:700;padding:0 12px;cursor:pointer}
+.seg{display:flex;gap:4px;padding:4px;border-radius:16px;background:var(--soft);margin:0 0 14px}
+.seg label{flex:1;position:relative;display:flex}
+.seg input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.seg span{flex:1;display:flex;align-items:center;justify-content:center;text-align:center;min-height:44px;padding:4px 6px;border-radius:12px;
+font-size:14px;font-weight:700;color:var(--muted)}
+.seg input:checked+span{background:var(--segon);color:var(--ink);box-shadow:0 2px 8px var(--shadow)}
+.seg input:focus-visible+span{outline:2px solid var(--accent)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.toggle{cursor:pointer;min-height:48px}.toggle b{display:block;font-size:20px;letter-spacing:-.02em;font-weight:780}.toggle .hint{margin:4px 0 0}
+.card .toggle b{font-size:16px}.card>.toggle:first-child b{font-size:20px}
+.switch{appearance:none;-webkit-appearance:none;flex:none;width:52px;height:32px;margin:0;border-radius:999px;background:var(--line);
+position:relative;cursor:pointer;transition:background .2s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;
+box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s var(--ease)}
+.switch:checked{background:var(--accent)}.switch:checked::after{transform:translateX(20px)}
+input[type=range]{display:block;width:100%;height:44px;margin:0;accent-color:var(--accent);cursor:pointer}
+.big{font-size:22px;font-weight:760;letter-spacing:-.02em;margin:0 0 14px}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.say{font-size:14px;font-weight:650;margin:10px 0 0}.say:empty{display:none}.say.ok{color:var(--ok)}.say.bad{color:var(--warn)}
+.net{display:flex;align-items:center;gap:8px;padding:12px 0;border-top:1px solid var(--line)}
+.net:last-child{margin-bottom:14px;border-bottom:1px solid var(--line)}
+.net div{flex:1;min-width:0}.net b{display:block;overflow-wrap:anywhere}.net small{color:var(--muted);font-size:13px}
+.near{display:flex;flex-wrap:wrap;gap:6px;margin:-6px 0 14px}
+.btn.danger{color:var(--warn);border-color:var(--warn)}
+.btn.wide{width:100%;min-height:54px;font-size:16px;border-radius:18px}
+.finish{margin:8px 0 0}.finish .hint{text-align:center;margin:10px 0 0}
+#bye{position:fixed;inset:0;z-index:60;background:var(--paper);display:flex;align-items:center;justify-content:center;padding:24px}
+#bye .card{max-width:440px}
 @media(prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation:none!important}}
 /* share sheet */
 #scrim{position:fixed;inset:0;background:rgba(20,18,15,.38);opacity:0;pointer-events:none;transition:opacity .3s;z-index:40}
@@ -108,20 +149,80 @@ color:var(--paper);font-size:14px;font-weight:700;padding:11px 18px;border-radiu
 @media(max-width:760px){body{padding:0 14px 108px}
 .nav{position:fixed;top:auto;bottom:calc(14px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:calc(100% - 28px);
 max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
-.brand{font-size:20px}.navlinks{flex:1;justify-content:flex-end}.navlink{padding:10px 12px}.navlabel{display:none}
+.brand{display:none}.nav{padding:6px}.navlinks{flex:1;justify-content:space-around;gap:4px}
+.navlink{flex:1;flex-direction:column;justify-content:center;gap:3px;padding:8px 4px;font-size:12px;border-radius:20px}
 .top{display:block;margin-top:34px;padding-top:0}.top>.pill{margin-top:18px}
 .grid{grid-template-columns:1fr}.card{border-radius:22px}.title{font-size:21px}
 #open{padding:0 14px 120px}}
 </style></head><body>
 <div class="wrap">
 <nav class="nav"><div class="brand">unidex</div><div class="navlinks">
-<a class="navlink active" href="#" aria-label="Notes" aria-current="page"><svg viewBox="0 0 24 24"><path d="M6 6h14M6 12h14M6 18h14"/><circle cx="3" cy="6" r=".5"/><circle cx="3" cy="12" r=".5"/><circle cx="3" cy="18" r=".5"/></svg><span class="navlabel">Notes</span></a>
+<a class="navlink" id="nNotes" href="#"><svg viewBox="0 0 24 24"><path d="M6 6h14M6 12h14M6 18h14"/><circle cx="3" cy="6" r=".5"/><circle cx="3" cy="12" r=".5"/><circle cx="3" cy="18" r=".5"/></svg><span class="navlabel">Notes</span></a>
+<a class="navlink" id="nSettings" href="#settings"><svg viewBox="0 0 24 24"><path d="M4 7h9M19 7h1M4 17h3M13 17h7"/><circle cx="16" cy="7" r="2.5"/><circle cx="10" cy="17" r="2.5"/></svg><span class="navlabel">Settings</span></a>
+<a class="navlink" id="nSetup" href="#setup"><svg viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0119 0M5.5 12.5a9.5 9.5 0 0113 0M8.5 16a5 5 0 017 0"/><circle cx="12" cy="19.5" r=".9"/></svg><span class="navlabel">Setup</span></a>
 </div></nav>
+<section id="tabNotes">
 <div class="top"><div><div class="sub">Voice notes on your unidex</div><h1>Notes.</h1></div><div class="pill" id="count">&nbsp;</div></div>
 <div class="toolbar"><div class="find"><input id="q" class="search" type="search" placeholder="Search notes…" aria-label="Search notes" autocomplete="off" autocorrect="off" enterkeyhint="search">
 <button id="qc" class="clear hidden" aria-label="Clear search" onclick="setQuery('')">&times;</button></div>
 <a class="btn" href="/export.txt" download><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Export</a></div>
 <div id="grid" class="grid"></div><div id="empty" class="empty hidden"></div>
+</section>
+<section id="tabSettings" class="hidden">
+<div class="top"><div><div class="sub">How your unidex behaves</div><h1>Settings.</h1></div><div class="pill" id="spill">&nbsp;</div></div>
+<div class="stack">
+<div class="card"><h2>Sleep after</h2><p class="hint">How long it stays on after the last button press.</p>
+<div class="seg" role="radiogroup" aria-label="Sleep after" style="margin:0"><label><input type="radio" name="sleep" value="10"><span>10 s</span></label><label><input type="radio" name="sleep" value="20"><span>20 s</span></label><label><input type="radio" name="sleep" value="30"><span>30 s</span></label><label><input type="radio" name="sleep" value="60"><span>1 min</span></label></div>
+<p class="say" id="sleepSay" role="status"></p></div>
+<div class="card"><div class="row"><h2>Volume</h2><b id="volv"></b></div><p class="hint">It chimes at the new level.</p>
+<input type="range" id="vol" min="0" max="10" step="1" aria-label="Volume"><p class="say" id="volSay" role="status"></p></div>
+<div class="card"><label class="row toggle"><span><b>Invert the screen</b><span class="hint">White on black.</span></span><input type="checkbox" class="switch" id="inv"></label>
+<p class="say" id="invSay" role="status"></p></div>
+<div class="card"><h2>Date and time</h2><p class="big" id="clock">&nbsp;</p><button class="btn" id="setTime">Use this phone’s time</button>
+<p class="say" id="timeSay" role="status"></p></div>
+<div class="finish"><button class="btn primary wide" onclick="done(this)">Done</button><p class="hint">Closes this page and your unidex’s WiFi.</p></div>
+</div></section>
+<section id="tabSetup" class="hidden">
+<div class="top"><div><div class="sub">WiFi, keys and GitHub</div><h1>Setup.</h1></div></div>
+<div class="stack">
+<div class="card"><h2>WiFi</h2><p class="hint">For the time, notes and reminders. Save up to 5 (home, a hotspot, eduroam): it joins whichever is in range.</p>
+<div id="nets"></div><button class="btn" id="addNet">+ Add a network</button>
+<div id="netForm" class="hidden"><h3 id="netTitle">Add a network</h3>
+<div class="seg" role="radiogroup" aria-label="Kind of network"><label><input type="radio" name="kind" value="home"><span>Home or hotspot</span></label><label><input type="radio" name="kind" value="ent"><span>eduroam or work</span></label></div>
+<label class="field"><span>Network name</span><input class="input" id="ssid" maxlength="32" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+<div class="near" id="near"></div>
+<label class="field" id="userBox"><span>Username</span><input class="input" id="wuser" maxlength="128" placeholder="you@uni.ac.uk" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+<div class="field"><label for="wpass"><span>Password</span></label><div class="pw"><input class="input" id="wpass" type="password" maxlength="128" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"><button type="button" class="peek" id="peek">Show</button></div></div>
+<label class="field" id="caBox"><span>Certificate <i>(optional, from your IT pages)</i></span><textarea class="input" id="wca" spellcheck="false" placeholder="-----BEGIN CERTIFICATE-----"></textarea></label>
+<div class="btns"><button class="btn" id="saveNet">Save network</button><button class="btn" id="cancelNet">Cancel</button></div></div>
+<p class="say" id="wifiSay" role="status"></p></div>
+<div class="card"><h2>OpenAI key</h2><p class="hint">For OpenAI Whisper, which writes down what you say, and the tidy-up. From platform.openai.com.</p>
+<label class="field"><span>Key</span><input class="input" id="openai_key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+<button class="btn" data-save="openai">Save</button><p class="say" id="openaiSay" role="status"></p></div>
+<div class="card"><h2>Transcription</h2><p class="hint">Who writes down what you say.</p>
+<div class="seg" role="radiogroup" aria-label="Transcription"><label><input type="radio" name="transcribe" value="openai"><span>OpenAI Whisper</span></label><label><input type="radio" name="transcribe" value="elevenlabs"><span>ElevenLabs</span></label></div>
+<label class="field" id="elBox"><span>ElevenLabs key</span><input class="input" id="elevenlabs_key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+<button class="btn" data-save="transcribe">Save</button><p class="say" id="transcribeSay" role="status"></p></div>
+<div class="card"><h2>Tidy-up</h2><p class="hint">Gives each note a title, a summary and topics.</p>
+<div class="seg" role="radiogroup" aria-label="Tidy-up"><label><input type="radio" name="cleanup" value="openai"><span>OpenAI</span></label><label><input type="radio" name="cleanup" value="anthropic"><span>Claude</span></label><label><input type="radio" name="cleanup" value="off"><span>Off</span></label></div>
+<label class="field" id="anBox"><span>Anthropic key</span><input class="input" id="anthropic_key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+<label class="field" id="modelBox"><span>Model <i>(optional)</i></span><input class="input" id="cleanup_model" maxlength="64" placeholder="The default" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+<button class="btn" data-save="cleanup">Save</button><p class="say" id="cleanupSay" role="status"></p></div>
+<div class="card"><label class="row toggle"><span><b>Send notes to GitHub</b><span class="hint">Each note as a Markdown file in your repo, for Obsidian.</span></span><input type="checkbox" class="switch" id="gh_on"></label>
+<div id="ghBox">
+<label class="field"><span>Repo</span><input class="input" id="gh_repo" maxlength="100" placeholder="owner/name" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+<label class="field"><span>Branch</span><input class="input" id="gh_branch" maxlength="64" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+<label class="field"><span>Folder</span><input class="input" id="gh_dir" maxlength="64" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+<label class="field"><span>Token <i>(fine-grained, Contents: read and write)</i></span><input class="input" id="gh_token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label></div>
+<button class="btn" data-save="github">Save</button><p class="say" id="githubSay" role="status"></p></div>
+<div class="card hidden" id="calCard"><h2>Calendar link</h2><p class="hint">Your calendar’s private address (iCal, .ics or webcal://), so your unidex can fetch your timetable itself.</p>
+<label class="field"><span>Link</span><input class="input" id="cal_url" type="password" maxlength="256" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+<button class="btn" data-save="calendar">Save</button><p class="say" id="calendarSay" role="status"></p></div>
+<div class="card"><h2>Remove everything</h2><p class="hint">Forgets every WiFi network, key and link on this unidex. Your notes stay.</p>
+<button class="btn danger" id="clearAll">Remove everything</button><p class="say" id="clearSay" role="status"></p></div>
+<div class="finish"><button class="btn primary wide" onclick="done(this)">Done</button><p class="hint">Closes this page. If you changed WiFi or keys, your unidex then checks they work and shows how it went.</p></div>
+</div></section>
+<div id="bye" class="hidden"><div class="card"><h2 class="title">All done.</h2><p class="hint">Your unidex has closed its WiFi, so this phone goes back to its usual one. If you changed WiFi or keys, it’s checking them now: the results are on its screen.</p></div></div>
 <div class="foot">Straight from your unidex. Nothing goes to the internet.</div>
 </div>
 <div id="open" class="gone" role="dialog" aria-modal="true" aria-labelledby="ot"><div class="reader">
@@ -151,9 +252,9 @@ max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
 <a id="sWav" download><i><svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg></i>Recording</a>
 <button id="sMore" class="hidden" onclick="nativeShare()"><i><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></i>More</button>
 </div></div><button class="btn cancel" onclick="closeSheet()">Cancel</button></div>
-<div id="toast" role="status" aria-live="polite"></div><textarea id="clip" readonly></textarea>
+<div id="toast" role="status" aria-live="polite"></div><textarea id="clip" readonly aria-hidden="true" tabindex="-1"></textarea>
 <script>
-var NOTES=/*NOTES*/null;
+var NOTES=/*NOTES*/null,TAB=/*TAB*/'notes';
 var $=function(s){return document.getElementById(s)},notes=NOTES||[],byId={},cur=null,cache={},loading={};
 function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
 function toast(t){var e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(e.t);e.t=setTimeout(function(){e.classList.remove('on')},2200)}
@@ -193,7 +294,8 @@ $('oq').classList.toggle('hidden',!(full&&o.q));$('oq').open=false;if(full)body(
 $('otxt').href='/note.txt?id='+encodeURIComponent(o.id);$('otxt').classList.toggle('hidden',!!o.p);
 var src='/audio?id='+encodeURIComponent(o.id),au=$('au');if(au.getAttribute('src')!=src){au.pause();au.setAttribute('src',src);$('oa').classList.remove('hidden')}
 $('owav').href=src+'&dl=1'}
-function route(){var id=decodeURIComponent(location.hash.slice(1)),box=$('open');closeSheet();
+function route(){var h=decodeURIComponent(location.hash.slice(1)),t=h=='settings'||h=='setup'?h:'notes',id=t=='notes'?h:'',box=$('open');
+showTab(t);closeSheet();
 if(!id){document.body.classList.remove('reading');box.classList.add('gone');cur=null;$('au').pause();return}
 var stub=byId[id]||cache[id];if(!stub&&!cache[id]){load(id).then(function(){route()},function(){toast('Couldn’t open that note');history.back()});return}
 show(cache[id]||stub,!!cache[id]);box.scrollTop=0;box.classList.remove('gone');document.body.classList.add('reading');
@@ -206,8 +308,105 @@ $('sMail').href='mailto:?subject='+e(cur.t)+'&body='+e(cur.c);$('sWa').href='wha
 $('sFile').href='/note.txt?id='+e(cur.id);$('sWav').href='/audio?id='+e(cur.id)+'&dl=1';$('sMore').classList.toggle('hidden',!navigator.share);document.body.classList.add('sharing')}
 function closeSheet(){document.body.classList.remove('sharing')}
 function nativeShare(){navigator.share({title:cur.t,text:cur.c}).catch(function(){});closeSheet()}
-document.onkeydown=function(e){if(e.key!='Escape')return;if(document.body.classList.contains('sharing'))closeSheet();else if(location.hash)history.back()};
+document.onkeydown=function(e){if(e.key!='Escape')return;if(document.body.classList.contains('sharing'))closeSheet();else if(document.body.classList.contains('reading'))history.back()};
 $('q').oninput=render;window.onhashchange=route;$('au').onerror=function(){if(this.getAttribute('src'))$('oa').classList.add('hidden')};
+// --- Settings and Setup: what /setup.json says, saved with a POST each ---
+var S=null,asked=0,offset=null,editing=-1,SLOTS=5;
+function showTab(t){[['notes','Notes'],['settings','Settings'],['setup','Setup']].forEach(function(x){var on=x[0]==t,a=$('n'+x[1]);
+$('tab'+x[1]).classList.toggle('hidden',!on);a.classList.toggle('active',on);if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+document.title=t=='notes'?'unidex':t=='settings'?'Settings · unidex':'Setup · unidex';if(t!='notes'&&!asked)loadSetup()}
+function post(path,data){var b=Object.keys(data).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(data[k])}).join('&');
+return fetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:b})
+.catch(function(){throw new Error('Can’t reach your unidex. Is this phone still on its WiFi?')})
+.then(function(r){return r.json().catch(function(){return{}}).then(function(o){if(!r.ok||o.error)throw new Error(o.error||'That didn’t work. Try again.');return o})})}
+function tell(id,text,kind){var e=$(id);e.textContent=text||'';e.className='say'+(kind?' '+kind:'')}
+function busy(b,on,text){if(on){b.dataset.t=b.textContent;b.textContent=text||'Saving…'}else if(b.dataset.t)b.textContent=b.dataset.t;b.disabled=on}
+function obj(k,v){var o={};o[k]=v;return o}
+function C(n){return S&&S.cred[n]||{set:0,v:''}}
+function radio(n){var r=document.querySelector('input[name='+n+']:checked');return r?r.value:''}
+function setRadio(n,v){var r=document.querySelectorAll('input[name='+n+']');for(var i=0;i<r.length;i++)r[i].checked=r[i].value==String(v)}
+// Remove buttons: the first tap asks, a second within 4 s does it.
+function twoTap(b,ask,go){if(b.dataset.armed){delete b.dataset.armed;clearTimeout(b.tm);return go()}
+b.dataset.armed=1;b.dataset.t0=b.textContent;b.textContent=ask;b.tm=setTimeout(function(){delete b.dataset.armed;b.textContent=b.dataset.t0},4000)}
+function loadSetup(){asked=1;return fetch('/setup.json').then(function(r){return r.json()}).then(function(o){var first=!S;S=o;drawSettings();drawSetup();if(first)fixTime()},
+function(){tell('timeSay','Couldn’t load the settings. Reload the page to try again.','bad')})}
+function drawSettings(){setRadio('sleep',S.sleep);$('vol').max=S.volumeMax;$('vol').value=S.volume;$('volv').textContent=S.volume?S.volume:'Off';
+$('inv').checked=!!S.invert;$('spill').textContent=(S.battery>=0?S.battery+'% · ':'')+S.version;clock()}
+function saveSetting(k,v,say){post('/settings',obj(k,v)).then(function(){S[k]=+v;tell(say,'Saved.','ok')},function(e){tell(say,e.message,'bad');drawSettings()})}
+document.querySelectorAll('input[name=sleep]').forEach(function(r){r.onchange=function(){saveSetting('sleep',r.value,'sleepSay')}});
+$('vol').oninput=function(){$('volv').textContent=+this.value?this.value:'Off'};$('vol').onchange=function(){saveSetting('volume',this.value,'volSay')};
+$('inv').onchange=function(){saveSetting('invert',this.checked?1:0,'invSay')};
+// The device's clock: set from this phone's when it's unset or more than a minute out.
+function clock(){$('clock').textContent=offset==null?'Not set':new Date(Date.now()+offset*1000).toLocaleString(undefined,
+{weekday:'short',day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'})}
+function setTime(auto){var b=$('setTime');busy(b,true,'Setting…');post('/time',{t:Math.round(Date.now()/1000)}).then(function(){offset=0;clock();
+tell('timeSay',auto?'Set from this phone’s clock.':'Set to this phone’s time.','ok')},function(e){tell('timeSay',e.message,'bad')}).then(function(){busy(b,false)})}
+function fixTime(){offset=S.time?S.time-Date.now()/1000:null;clock();if(offset==null||Math.abs(offset)>60)setTime(true)}
+$('setTime').onclick=function(){setTime(false)};setInterval(function(){if(S)clock()},15000);
+// WiFi: network n is wifi_* (the first) or wifi<n+1>_*; a name saved means a network.
+function key(n,part){return n?'wifi'+(n+1)+'_'+part:'wifi_'+part}
+function nets(){var a=[];for(var i=0;i<SLOTS;i++)if(C(key(i,'ssid')).set)a.push({slot:i,ssid:C(key(i,'ssid')).v,user:C(key(i,'user')).v,ca:C(key(i,'ca')).set});return a}
+function drawSetup(){var box=$('nets'),a=nets();box.textContent='';
+if(!a.length&&editing==-1)editNet(-1,1);
+a.forEach(function(n){var r=el('div','net'),t=el('div');t.appendChild(el('b','',n.ssid));t.appendChild(el('small','',n.user?'eduroam · '+n.user:'Home or hotspot'));r.appendChild(t);
+var e=el('button','btn','Edit');e.onclick=function(){editNet(n.slot)};var x=el('button','btn','Remove');x.onclick=function(){twoTap(x,'Sure?',function(){removeNet(n,x)})};
+r.appendChild(e);r.appendChild(x);box.appendChild(r)});
+$('addNet').classList.toggle('hidden',a.length>=SLOTS||editing!=-1);
+['openai_key','elevenlabs_key','anthropic_key','gh_token','cal_url'].forEach(function(n){var c=C(n);$(n).value='';
+$(n).placeholder=c.set?'Saved, ends in '+c.v+'. Blank keeps it':''});
+setRadio('transcribe',C('transcribe').v||'openai');setRadio('cleanup',C('cleanup').v||'openai');$('cleanup_model').value=C('cleanup_model').v;
+$('gh_on').checked=C('gh_on').v=='1';$('gh_repo').value=C('gh_repo').v;$('gh_branch').value=C('gh_branch').v||'main';$('gh_dir').value=C('gh_dir').v||'VoiceNotes';
+$('calCard').classList.toggle('hidden',!('cal_url' in S.cred));choices();
+var near=$('near');near.textContent='';(S.nearby||[]).slice(0,8).forEach(function(n){var b=el('button','topic',n);b.type='button';
+b.onclick=function(){$('ssid').value=n;$('wpass').focus()};near.appendChild(b)})}
+function choices(){var t=radio('transcribe'),c=radio('cleanup');$('elBox').classList.toggle('hidden',t!='elevenlabs');
+$('anBox').classList.toggle('hidden',c!='anthropic');$('modelBox').classList.toggle('hidden',c=='off');$('ghBox').classList.toggle('hidden',!$('gh_on').checked)}
+document.querySelectorAll('input[name=transcribe],input[name=cleanup],#gh_on').forEach(function(r){r.addEventListener('change',choices)});
+function kind(){var e=radio('kind')=='ent';$('userBox').classList.toggle('hidden',!e);$('caBox').classList.toggle('hidden',!e)}
+document.querySelectorAll('input[name=kind]').forEach(function(r){r.onchange=kind});
+function editNet(slot,quiet){var n=nets().filter(function(x){return x.slot==slot})[0];editing=n?slot:-2;
+setRadio('kind',n&&n.user?'ent':'home');$('ssid').value=n?n.ssid:'';$('wuser').value=n?n.user:'';$('wpass').value='';$('wca').value='';
+$('wpass').placeholder=n?'Saved. Blank keeps it':'';$('wca').placeholder=n&&n.ca?'One is saved. Paste another to replace it':'-----BEGIN CERTIFICATE-----';
+$('netTitle').textContent=n?'Edit “'+n.ssid+'”':'Add a network';$('near').classList.toggle('hidden',!!n);kind();
+$('netForm').classList.remove('hidden');$('addNet').classList.add('hidden');tell('wifiSay','');$('cancelNet').classList.toggle('hidden',!nets().length);if(!quiet)$(n?'wpass':'ssid').focus()}
+function closeNet(){editing=-1;$('netForm').classList.add('hidden');drawSetup()}
+$('addNet').onclick=function(){editNet(-1)};$('cancelNet').onclick=function(){closeNet();tell('wifiSay','')};
+$('peek').onclick=function(){var p=$('wpass'),show=p.type=='password';p.type=show?'text':'password';this.textContent=show?'Hide':'Show'};
+function caBody(){var m=$('wca').value.match(/-----BEGIN CERTIFICATE-----([\s\S]*?)-----END CERTIFICATE-----/),b=m&&m[1].replace(/\s+/g,'');
+return b&&/^[A-Za-z0-9+\/]+=*$/.test(b)&&b.length<=3000?b:null}
+$('saveNet').onclick=function(){var b=this,ent=radio('kind')=='ent',ssid=$('ssid').value.trim(),a=nets(),slot=editing,v={};
+if(ent&&$('wca').value.trim()&&!caBody())return tell('wifiSay','The certificate should be the text from -----BEGIN CERTIFICATE----- to -----END CERTIFICATE-----.','bad');
+if(!ssid)return tell('wifiSay','Type the network’s name.','bad');
+if(ent&&!$('wuser').value.trim())return tell('wifiSay','Type your username.','bad');
+if(a.some(function(n){return n.ssid==ssid&&n.slot!=editing}))return tell('wifiSay','“'+ssid+'” is saved already. Edit that one instead.','bad');
+if(slot<0){for(slot=0;slot<SLOTS&&a.some(function(n){return n.slot==slot});slot++);if(slot>=SLOTS)return tell('wifiSay',SLOTS+' networks are saved already. Remove one first.','bad')}
+v[key(slot,'ssid')]=ssid;v[key(slot,'user')]=ent?$('wuser').value.trim():'';
+if($('wpass').value)v[key(slot,'pass')]=$('wpass').value;else if(editing<0)v[key(slot,'pass')]='';
+if(ent&&caBody())v[key(slot,'ca')]=caBody();if(!ent)v[key(slot,'ca')]='';
+busy(b,true);post('/set',v).then(function(){editing=-1;$('netForm').classList.add('hidden');return loadSetup()})
+.then(function(){tell('wifiSay','Saved. Your unidex tries it when you press Done.','ok')},function(e){tell('wifiSay',e.message,'bad')}).then(function(){busy(b,false)})};
+function removeNet(n,b){var v={};['ssid','pass','user','ca'].forEach(function(p){v[key(n.slot,p)]=''});busy(b,true,'Removing…');
+post('/set',v).then(loadSetup).then(function(){tell('wifiSay','Removed “'+n.ssid+'”.','ok')},function(e){busy(b,false);tell('wifiSay',e.message,'bad')})}
+// Keys and GitHub: which fields each Save sends. Keys only when typed (blank keeps the saved one).
+var GROUPS={openai:{secret:['openai_key']},transcribe:{secret:['elevenlabs_key'],extra:function(){return{transcribe:radio('transcribe')}}},
+cleanup:{plain:['cleanup_model'],secret:['anthropic_key'],extra:function(){return{cleanup:radio('cleanup')}}},
+github:{plain:['gh_repo','gh_branch','gh_dir'],secret:['gh_token'],extra:function(){return{gh_on:$('gh_on').checked?'1':'0'}}},
+calendar:{secret:['cal_url']}};
+function check(g){var f=function(id){return $(id).value.trim()};
+if(g=='openai'&&f('openai_key')&&f('openai_key').indexOf('sk-'))return'OpenAI keys start with sk-.';
+if(g=='cleanup'&&/^sk-/.test(f('cleanup_model')))return'That looks like a key. This box takes a model name, like gpt-4o-mini.';
+if(g=='github'&&f('gh_repo')&&!/^[\w.-]+\/[\w.-]+$/.test(f('gh_repo')))return'The repo should look like owner/name.';
+if(g=='github'&&$('gh_on').checked&&!f('gh_repo'))return'Type the repo first.';
+if(g=='calendar'&&f('cal_url')&&!/^(webcals?|https?):\/\/\S+$/i.test(f('cal_url')))return'The link should start with https:// or webcal://.';return''}
+document.querySelectorAll('[data-save]').forEach(function(b){b.onclick=function(){var g=b.dataset.save,G=GROUPS[g],say=g+'Say',p=check(g),v=G.extra?G.extra():{};
+if(p)return tell(say,p,'bad');(G.plain||[]).forEach(function(n){v[n]=$(n).value.trim()});(G.secret||[]).forEach(function(n){if($(n).value.trim())v[n]=$(n).value.trim()});
+if(!Object.keys(v).length)return tell(say,'Nothing to save yet. Type it in first.','bad');
+busy(b,true);post('/set',v).then(loadSetup).then(function(){tell(say,'Saved on your unidex.','ok')},function(e){tell(say,e.message,'bad')}).then(function(){busy(b,false)})}});
+$('clearAll').onclick=function(){var b=this;twoTap(b,'Tap again to remove it all',function(){busy(b,true,'Removing…');
+post('/clear',{}).then(loadSetup).then(function(){tell('clearSay','Removed. WiFi and keys are gone from this unidex.','ok')},function(e){tell('clearSay',e.message,'bad')}).then(function(){busy(b,false)})})};
+function done(b){busy(b,true,'Closing…');post('/done',{}).then(function(){$('bye').classList.remove('hidden')},function(e){busy(b,false);toast(e.message)})}
+if(!location.hash&&TAB!='notes')history.replaceState(null,'','#'+TAB);
+loadSetup();
 function start(d){notes=d;byId={};notes.forEach(function(o){byId[o.id]=o});render();route();setTimeout(prefetch,250)}
 if(NOTES)start(NOTES);
 else fetch('/notes.json').then(function(r){return r.json()}).then(start)

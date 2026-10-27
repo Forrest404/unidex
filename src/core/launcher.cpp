@@ -139,8 +139,8 @@ static void drawWelcomeSite() {
         if (qrcode_getModule(&qr, x, y)) display.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, BLACK);
   }
   display.setFont(FONT_TINY);
-  drawCentered("WiFi, notes, badges, updates:", 135);
-  drawCentered(SITE, 151);
+  drawCentered(SITE, 135);  // over USB from a computer
+  drawCentered("or on a phone: Settings, hold B", 151);
   drawHints("previous", "start", "");
 }
 

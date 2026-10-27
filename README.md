@@ -77,7 +77,8 @@ If unidex is useful to you, a star on GitHub helps other people find it.
    [Tools](https://tools.unidex.shop/tools.html) page, or edit `timetable.csv` on the card (see
    [Timetable](#timetable)).
 4. **Voice notes, if you want them.** Set up WiFi and your API keys on the
-   [Setup](https://tools.unidex.shop/setup.html) page (see [Notes](#notes)).
+   [Setup](https://tools.unidex.shop/setup.html) page, or from your phone: in **Settings**, **hold B** (see
+   [Set up from your phone](#set-up-from-your-phone) and [Notes](#notes)).
 
 ## The buttons
 
@@ -140,7 +141,7 @@ the list (**B** opens a note and **hold B** deletes it). Inside an open note, **
 speaker, sent or not (any button stops it), and **hold B** is **Open on phone**. It shows a QR code: join the
 device's own WiFi and you can browse, search, share and copy your notes on your phone. Hold A to stop it.
 
-Set it up on the [Setup page](https://tools.unidex.shop/setup.html). You can save up to five WiFi networks
+Set it up on the [Setup page](https://tools.unidex.shop/setup.html), or [from your phone](#set-up-from-your-phone). You can save up to five WiFi networks
 (home, eduroam and work networks, a phone hotspot: the device joins whichever is in range), which service
 transcribes (OpenAI, or ElevenLabs with its own key), your OpenAI key, which model tidies up (and an Anthropic key
 if you pick Claude), and GitHub (a repo and a
@@ -228,6 +229,21 @@ action (tap or hold, depending on the game). Best scores are kept on the device.
 - **Factory reset** (at the bottom of Reset data, and it asks twice) is for passing the device on. It wipes the WiFi
   and keys, the Pet and its friends, every setting, the calendar and the Dex, then starts like new. Notes, badges
   and the timetable on the SD card stay, so format the card on a computer as well.
+- **Hold B** in the list sets it up from your phone (below).
+
+#### Set up from your phone
+
+No computer needed. In **Settings**, **hold B**: the device starts its own WiFi and shows a QR code. Scan it with
+your phone's camera and join, and a page opens by itself with three tabs:
+
+- **Notes:** read, search, play, share and copy your notes.
+- **Settings:** sleep, volume, invert, and the time (set from your phone's clock when it's wrong).
+- **Setup:** what the website's Setup page does: WiFi networks (it lists the ones nearby), the OpenAI, ElevenLabs
+  and Anthropic keys, the tidy-up, GitHub, the calendar link, and Remove everything.
+
+Press **Done** at the bottom (or hold A on the device) when you're finished. If you changed WiFi or keys, the device
+then joins your WiFi, checks each service and lists how it went. Keys never come back to the page: a saved one
+shows as its last 4 characters.
 
 ## Apps and plugins: make your own
 
@@ -284,7 +300,7 @@ Everything runs in Chrome or Edge on a computer and talks to the device over USB
   clock, your calendar file, and notes waiting to send, in one click, and optionally every time you plug in), the
   badge maker, the Pet designer, the clock and calendar, and the automatic Mac calendar sync.
 - **[Setup](https://tools.unidex.shop/setup.html)** is where you set up WiFi, API keys and GitHub, run the
-  tests, and download notes.
+  tests, and download notes. On a phone, set up from the device instead: [Settings, hold B](#set-up-from-your-phone).
 - **[Apps](https://tools.unidex.shop/store.html)** shows what's on your unidex and the store's apps and
   plugins: install, update, offload (the app goes, its data stays) or delete (it warns you how much data goes with
   it).
