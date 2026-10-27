@@ -31,6 +31,7 @@
 //   X EMPTY <0|1>     -> with FAKE on, the canned transcription hears nothing (the "Heard nothing" note)
 //   X AUTOSYNC <s>    -> Notes tries sending waiting recordings by itself every s seconds (0 = the usual 10 min)
 //   X WELCOME         -> the first-start welcome screens (finishing them saves "welcomed" = 1)
+//   X NOTES <n>       -> n made-up notes on the card (test-0001 ...), for long lists; X NOTES 0 removes them
 //   X CALSYNC         -> what Settings > Sync does: "OK X CALSYNC clock=<ok|reason> link=<0|1> calendar=<ok|reason>
 //                        events=<n>"
 //   X HANG            -> the main loop stops for good: the loop watchdog restarts the device after 30 s

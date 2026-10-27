@@ -27,7 +27,8 @@ static const uint32_t MAX_SECONDS = 180, AUTO_SYNC_S = 600;  // waiting notes: t
 static const int ROWS = 5, ROW_H = 26, LINES = 7, LINE_H = 19;
 
 enum Screen : uint8_t { MAIN, LIST, VIEW, CONFIRM, PHONE };
-RTC_DATA_ATTR static uint8_t screen, cursor, page;
+RTC_DATA_ATTR static uint8_t screen;
+RTC_DATA_ATTR static uint16_t cursor, page;  // (a byte wrapped at 256 notes: later ones couldn't be reached)
 RTC_DATA_ATTR static char openId[24];  // the note on screen in VIEW / CONFIRM
 RTC_DATA_ATTR static int16_t noteCount = -1, waitingCount;  // for the home screen (it can't read the card)
 RTC_DATA_ATTR static time_t lastAutoSync;  // clock time of the last try by itself (millis start again after sleep)

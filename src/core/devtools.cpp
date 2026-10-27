@@ -14,6 +14,7 @@
 #include "launcher.h"
 #include "power.h"
 #include "storage.h"
+#include "../apps/notes/store.h"
 #include "../apps/timetable/callink.h"
 
 static bool dryRun, fakeCloud, netFail, noCard, noPush, noSave, demo, manualFrames, emptyHeard;
@@ -237,6 +238,16 @@ bool devUsb(const char *l) {
   } else if (!strncmp(c, "WELCOME", 7)) {  // X WELCOME: the first-start screens, without wiping anything
     launcherShowWelcome();
     Serial.println("OK X WELCOME");
+  } else if (!strncmp(c, "NOTES ", 6)) {  // X NOTES <n>: n made-up notes (test-0001 ...) for long lists; 0 removes them
+    const int n = atoi(c + 6);
+    for (int i = 1; i <= 999; i++) {
+      char id[16];
+      snprintf(id, sizeof id, "test-%04d", i);
+      if (i <= n) storeSaveNote(id, String("---\ntitle: \"Test ") + i + "\"\n---\n\nA made-up note.\n");
+      else if (storeReadNote(id).length()) storeDelete(id);
+      powerAlive();  // hundreds of files take longer than the watchdog's 30 s
+    }
+    Serial.printf("OK X NOTES %d\n", n);
   } else if (!strcmp(c, "CALSYNC")) {  // X CALSYNC: what Settings > Sync does (clock, then the calendar link)
     const SyncResult r = calendarSync();
     Serial.printf("OK X CALSYNC clock=%s link=%d calendar=%s events=%d\n", r.clock ? r.clock : "ok", r.link,

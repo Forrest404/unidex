@@ -22,6 +22,7 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 
 - **Notes:** without the clock set, a new note could overwrite an older one after a reset (the numbering started
   again at 1 while the notes stayed on the card). Taken numbers are now skipped.
+- **Notes:** with more than 255 notes, the later ones couldn't be reached in the list (it went back to the top).
 ## v1.9 (27 October 2026)
 
 - **Set up from your phone** (new): in Settings, hold B. The device shows a QR code; your phone joins its WiFi and
