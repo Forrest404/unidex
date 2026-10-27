@@ -32,6 +32,8 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   room: 128 classes, 64 events); a class ending at midnight (00:00, 24:00, or after it) shows, cut at midnight; a
   name or room in quotes can hold a comma (`"Maths, advanced"`); and a time that isn't one (`ab:cd`) is skipped
   instead of read as 00:00.
+- **Clock:** a time sent over USB that isn't a number, or is outside 2024 to 2099, is refused (it used to set the
+  clock to 1970 and a nonsense year on the clock chip).
 ## v1.9 (27 October 2026)
 
 - **Set up from your phone** (new): in Settings, hold B. The device shows a QR code; your phone joins its WiFi and

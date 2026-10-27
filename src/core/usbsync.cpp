@@ -190,8 +190,10 @@ static void handle(const char *l) {
     badgeExpected = crc32;
     Serial.println("OK B");
   } else if (l[0] == 'T' && l[1] == ' ') {
-    clockSet((time_t)strtoll(l + 2, nullptr, 10));
-    Serial.println("OK T");
+    char *end;
+    const long long t = strtoll(l + 2, &end, 10);
+    // A number and a time from 2024 to 2099 only: "T abc" or "T 0" used to set 1970 and a nonsense year on the chip.
+    Serial.println(end != l + 2 && !*end && clockSet((time_t)t) ? "OK T" : "ERR");
   } else if (l[0] == 'E' && l[1] == ' ') {
     char *end;
     remaining = strtol(l + 2, &end, 10);

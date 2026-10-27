@@ -96,7 +96,7 @@ static void writeChip(const struct tm &t) {
   Wire.write(toBcd(t.tm_mday));
   Wire.write(t.tm_wday);
   Wire.write(toBcd(t.tm_mon + 1));
-  Wire.write(toBcd(t.tm_year - 100));
+  Wire.write(toBcd(constrain(t.tm_year - 100, 0, 99)));  // the chip holds 2000-2099
   Wire.endTransmission();
   writeControl1(0x00);
 }
@@ -105,8 +105,7 @@ static void writeChip(const struct tm &t) {
 static void writeChipNow() {
   time_t now = time(nullptr);
   struct tm t;
-  gmtime_r(&now, &t);
-  writeChip(t);
+  if (gmtime_r(&now, &t)) writeChip(t);
 }
 
 
@@ -167,11 +166,13 @@ const char *clockSync() {
   return err;
 }
 
-void clockSet(time_t utc) {
+bool clockSet(time_t utc) {
+  if (utc < 1704067200 || utc >= 4102444800LL) return false;  // 2024-01-01 to 2099: anything else is a mistake
   start();
   struct timeval tv = {utc, 0};
   settimeofday(&tv, nullptr);
   writeChipNow();
+  return true;
 }
 
 void clockStatus(char *out, size_t len) {
