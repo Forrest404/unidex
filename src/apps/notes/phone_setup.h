@@ -1,5 +1,8 @@
 #pragma once
+#include <algorithm>
 #include <cctype>
+#include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <utility>
@@ -124,6 +127,52 @@ inline std::string statusJson(const std::string &lines) {
            phonetext::json(value) + "\"}";
   }
   return out + "}";
+}
+
+// --- the Tools tab ---
+
+// Base64, standard or URL-safe ("-" and "_", which a form sends without escaping), padding optional.
+inline bool base64Decode(const std::string &in, std::vector<uint8_t> &out) {
+  out.clear();
+  uint32_t acc = 0;
+  int bits = 0;
+  for (char c : in) {
+    int v = c >= 'A' && c <= 'Z' ? c - 'A' : c >= 'a' && c <= 'z' ? c - 'a' + 26 : c >= '0' && c <= '9' ? c - '0' + 52
+            : c == '+' || c == '-' ? 62 : c == '/' || c == '_' ? 63 : c == '=' ? -2 : -1;
+    if (v == -2) break;
+    if (v < 0) return false;
+    acc = acc << 6 | v, bits += 6;
+    if (bits >= 8) bits -= 8, out.push_back((uint8_t)(acc >> bits));
+  }
+  return !out.empty();
+}
+
+static const size_t BADGE_BYTES = 62 + 28 * 200;  // a 200x200 1-bit BMP (rows padded to 4 bytes), as the badge maker makes it
+
+// A badge as the Badge app reads it: "BM", 200x200, 1 bit per pixel, uncompressed, and the size that makes.
+inline bool badgeBmpOk(const std::vector<uint8_t> &b) {
+  auto u16 = [&](size_t i) { return (uint32_t)b[i] | (uint32_t)b[i + 1] << 8; };
+  auto u32 = [&](size_t i) { return u16(i) | u16(i + 2) << 16; };
+  return b.size() == BADGE_BYTES && b[0] == 'B' && b[1] == 'M' && u32(18) == 200 && u32(22) == 200 &&
+         u16(26) == 1 && u16(28) == 1 && u32(30) == 0 && u32(10) == 62;
+}
+
+// The new badge's file: the next number after the highest one on the card, then the name made safe for a file
+// ("My cat!" -> "05-my-cat.bmp"). The badges are listed in that order, so a new one comes last.
+inline std::string badgeFileName(const std::vector<std::string> &existing, const std::string &name) {
+  int top = 0;
+  for (const std::string &f : existing) top = std::max(top, atoi(f.c_str()));
+  std::string slug;
+  for (char c : name) {
+    const char l = (char)tolower((unsigned char)c);
+    if (isalnum((unsigned char)l)) slug += l;
+    else if (!slug.empty() && slug.back() != '-') slug += '-';
+    if (slug.size() >= 24) break;
+  }
+  while (!slug.empty() && slug.back() == '-') slug.pop_back();
+  char num[8];
+  snprintf(num, sizeof num, "%02d", std::min(top + 1, 99));
+  return std::string(num) + "-" + (slug.empty() ? "badge" : slug) + ".bmp";
 }
 
 }  // namespace phonesetup

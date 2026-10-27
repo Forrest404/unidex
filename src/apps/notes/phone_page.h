@@ -171,6 +171,25 @@ animation:fade .3s ease-out}
 align-items:center;gap:12px;padding:12px 12px 12px 18px;border-radius:20px;background:var(--ink);color:var(--paper);font-size:14px;font-weight:650;
 box-shadow:0 14px 34px rgba(0,0,0,.25);animation:rise .3s var(--ease)}
 #lost span{flex:1}#lost .btn{flex:none;background:var(--paper);color:var(--ink);border:0}
+/* Tools: the badge maker and the Pet, each on a little e-ink screen */
+.eink{position:relative;width:100%;max-width:300px;aspect-ratio:1;margin:0 auto 16px;border-radius:16px;padding:10px;background:var(--surface);
+box-shadow:0 0 0 1px var(--line),0 8px 22px var(--shadow)}
+.eink canvas{display:block;width:100%;height:100%;border-radius:8px;background:#e9e6da;image-rendering:pixelated;image-rendering:crisp-edges}
+.eink.pet{max-width:220px}
+.pick{position:absolute;inset:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border-radius:8px;
+border:2px dashed rgba(34,33,31,.35);color:#22211f;cursor:pointer;text-align:center;transition:background .15s}
+.pick:active{background:rgba(0,0,0,.05)}
+.pick input{position:absolute;width:1px;height:1px;opacity:0}
+.pick svg{width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round;margin-bottom:4px}
+.pick b{font-size:16px}.pick small{font-size:13px;opacity:.7}
+.pick:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.ptag{position:absolute;left:50%;top:16px;transform:translateX(-50%);background:#22211f;color:#e9e6da;font-size:12px;font-weight:800;
+padding:3px 8px;border-radius:6px;white-space:nowrap}
+.field input[type=range]{width:100%}
+.part{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.part:last-child{border-bottom:1px solid var(--line)}
+.part b{width:64px;font-size:14px}.part span{flex:1;text-align:center;font-size:15px;font-weight:650}
+.part small{display:block;font-size:12px;color:var(--muted);font-weight:500}
 @media(prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation:none!important}}
 /* share sheet */
 #scrim{position:fixed;inset:0;background:rgba(20,18,15,.38);opacity:0;pointer-events:none;transition:opacity .3s;z-index:40}
@@ -204,6 +223,7 @@ max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
 <a class="navlink" id="nNotes" href="#"><svg viewBox="0 0 24 24"><path d="M6 6h14M6 12h14M6 18h14"/><circle cx="3" cy="6" r=".5"/><circle cx="3" cy="12" r=".5"/><circle cx="3" cy="18" r=".5"/></svg><span class="navlabel">Notes</span></a>
 <a class="navlink" id="nSettings" href="#settings"><svg viewBox="0 0 24 24"><path d="M4 7h9M19 7h1M4 17h3M13 17h7"/><circle cx="16" cy="7" r="2.5"/><circle cx="10" cy="17" r="2.5"/></svg><span class="navlabel">Settings</span></a>
 <a class="navlink" id="nSetup" href="#setup"><svg viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0119 0M5.5 12.5a9.5 9.5 0 0113 0M8.5 16a5 5 0 017 0"/><circle cx="12" cy="19.5" r=".9"/></svg><span class="navlabel">Setup</span></a>
+<a class="navlink" id="nTools" href="#tools"><svg viewBox="0 0 24 24"><path d="M18.5 3.5a2.1 2.1 0 013 3L11 17l-4-4z"/><path d="M7 13c-2 0-3.5 1.5-3.5 3.5 0 1.5-1 2.5-1 2.5h4c2 0 3.5-1.5 3.5-3.5"/></svg><span class="navlabel">Tools</span></a>
 </div></nav>
 <section id="tabNotes">
 <div class="top"><div><div class="sub">Voice notes on your unidex</div><h1>Notes.</h1></div><div class="pill" id="count">&nbsp;</div></div>
@@ -270,6 +290,28 @@ max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
 <div class="card"><div class="ch"><i class="ic warn"><svg viewBox="0 0 24 24"><path d="M4 7h16M9.5 7V4.5h5V7M6 7l1 12.5h10L18 7"/></svg></i><div><h2>Remove everything</h2><p class="hint">Forgets every WiFi network, key and link on this unidex. Your notes stay.</p></div></div>
 <button class="btn danger" id="clearAll">Remove everything</button><p class="say" id="clearSay" role="status"></p></div>
 <div class="finish"><button class="btn primary wide" onclick="done(this)">Done</button><p class="hint">Closes this page. If you changed WiFi or keys, your unidex then checks they work and shows how it went.</p></div>
+</div></section>
+<section id="tabTools" class="hidden">
+<div class="top"><div><div class="sub">Make it yours</div><h1>Tools.</h1></div></div>
+<div class="stack">
+<div class="card" id="cBadge"><div class="ch"><i class="ic sand"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-5-5-9 9"/></svg></i><div><h2>Badge maker</h2><p class="hint">Turn a photo into a badge. It’s saved on your unidex and the Badge app opens on it.</p></div></div>
+<div class="eink" id="bFrame"><canvas id="bOut" width="200" height="200" role="img" aria-label="The badge, as the screen will show it"></canvas>
+<label class="pick" id="bPick"><input type="file" id="bFile" accept="image/*"><svg viewBox="0 0 24 24"><path d="M4 8.5h3l1.5-2.5h7L17 8.5h3v10H4z"/><circle cx="12" cy="13" r="3.2"/></svg><b>Choose a photo</b><small>or take one</small></label></div>
+<div id="bOpts" class="hidden">
+<div class="seg" role="radiogroup" aria-label="Fit"><label><input type="radio" name="bFit" value="contain" checked><span>Fit inside</span></label><label><input type="radio" name="bFit" value="cover"><span>Fill</span></label></div>
+<div class="seg" role="radiogroup" aria-label="Style"><label><input type="radio" name="bStyle" value="auto" checked><span>Auto</span></label><label><input type="radio" name="bStyle" value="photo"><span>Photo</span></label><label><input type="radio" name="bStyle" value="line"><span>Line art</span></label></div>
+<label class="field"><span>Lightness</span><input type="range" id="bLight" min="-100" max="100" value="0"></label>
+<label class="row toggle sub2"><span class="grow"><b>Invert</b><span class="hint">Swap black and white.</span></span><input type="checkbox" class="switch" id="bInv"></label>
+<label class="field" style="margin-top:16px"><span>Name</span><input class="input" id="bName" maxlength="24" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+<div class="btns"><button class="btn primary" id="bSend">Send to unidex</button><button class="btn" id="bAgain">Another photo</button></div></div>
+<p class="say" id="badgeSay" role="status"></p></div>
+<div class="card" id="cPet"><div class="ch"><i class="ic lilac"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 14.5a4.5 4.5 0 007 0"/><circle cx="9" cy="10" r=".9"/><circle cx="15" cy="10" r=".9"/></svg></i><div><h2>Pet</h2><p class="hint">Dress up your Pet and name it. It changes on your unidex straight away.</p></div></div>
+<div class="eink pet"><canvas id="pOut" width="32" height="32" role="img" aria-label="Your Pet"></canvas><b class="ptag hidden" id="pTag"></b></div>
+<div id="pParts"><p class="hint">Loading your Pet…</p></div>
+<label class="field" style="margin-top:16px"><span>Name <i>(optional, up to 12)</i></span><input class="input" id="pName" maxlength="12" placeholder="No name" autocomplete="off" autocorrect="off" spellcheck="false"></label>
+<div class="btns"><button class="btn primary" id="pSend" disabled>Send to unidex</button><button class="btn" id="pRandom" disabled>Surprise me</button></div>
+<p class="say" id="petSay" role="status"></p></div>
+<div class="finish"><button class="btn primary wide" onclick="done(this)">Done</button><p class="hint">Closes this page and your unidex’s WiFi.</p></div>
 </div></section>
 <div id="bye" class="hidden"><div class="byecard"><svg class="tick" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg>
 <h2 class="title">All done.</h2><p class="hint">Your unidex has closed its WiFi, so this phone goes back to its usual one. If you changed WiFi or keys, it’s checking them now: the results are on its screen.</p></div></div>
@@ -345,7 +387,7 @@ $('oq').classList.toggle('hidden',!(full&&o.q));$('oq').open=false;if(full)body(
 $('otxt').href='/note.txt?id='+encodeURIComponent(o.id);$('otxt').classList.toggle('hidden',!!o.p);
 var src='/audio?id='+encodeURIComponent(o.id),au=$('au');if(au.getAttribute('src')!=src){au.pause();au.setAttribute('src',src);$('oa').classList.remove('hidden')}
 $('owav').href=src+'&dl=1'}
-function route(){var h=decodeURIComponent(location.hash.slice(1)),t=h=='settings'||h=='setup'?h:'notes',id=t=='notes'?h:'',box=$('open');
+function route(){var h=decodeURIComponent(location.hash.slice(1)),t=h=='settings'||h=='setup'||h=='tools'?h:'notes',id=t=='notes'?h:'',box=$('open');
 showTab(t);closeSheet();
 if(!id){document.body.classList.remove('reading');box.classList.add('gone');cur=null;$('au').pause();return}
 var stub=byId[id]||cache[id];if(!stub&&!cache[id]){load(id).then(function(){route()},function(){toast('Couldn’t open that note');history.back()});return}
@@ -364,9 +406,10 @@ $('q').oninput=render;window.onhashchange=route;$('au').onerror=function(){if(th
 // --- Settings and Setup: what /setup.json says, saved with a POST each ---
 var S=null,asked=0,offset=null,editing=-1,SLOTS=5;
 var CHECK='<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
-function showTab(t){[['notes','Notes'],['settings','Settings'],['setup','Setup']].forEach(function(x){var on=x[0]==t,a=$('n'+x[1]);
+function showTab(t){[['notes','Notes'],['settings','Settings'],['setup','Setup'],['tools','Tools']].forEach(function(x){var on=x[0]==t,a=$('n'+x[1]);
 $('tab'+x[1]).classList.toggle('hidden',!on);a.classList.toggle('active',on);if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
-document.title=t=='notes'?'unidex':t=='settings'?'Settings · unidex':'Setup · unidex';if(t!='notes'&&!asked)loadSetup()}
+document.title=t=='notes'?'unidex':t=='settings'?'Settings · unidex':t=='tools'?'Tools · unidex':'Setup · unidex';
+if(t!='notes'&&!asked)loadSetup();if(t=='tools'&&!P)pLoad()}
 function lost(on){$('lost').classList.toggle('hidden',!on)}
 function post(path,data){var b=Object.keys(data).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(data[k])}).join('&');
 return fetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:b})
@@ -490,6 +533,63 @@ busy(b,true);post('/set',v).then(loadSetup).then(function(){tell(say,'');saved(b
 $('clearAll').onclick=function(){var b=this;twoTap(b,'Tap again to remove it all',function(){busy(b,true,'Removing…');
 post('/clear',{}).then(loadSetup).then(function(){busy(b,false);tell('clearSay','Removed. WiFi and keys are gone from this unidex.','ok')},function(e){busy(b,false);tell('clearSay',e.message,'bad')})})};
 function done(b){busy(b,true,'Closing…');post('/done',{}).then(function(){$('bye').classList.remove('hidden')},function(e){busy(b,false);toast(e.message)})}
+// --- Tools: the badge maker and the Pet, made on the phone and sent with a POST ---
+// The badge: a photo -> 200x200 grey -> black and white (dithered if it's a photo) -> a 1-bit BMP, as the website's
+// badge maker does it (site/tools.html).
+var B=200,bImg=null,bBits=null;
+function bRadio(n){return document.querySelector('input[name='+n+']:checked').value}
+function bPhoto(g){var m=0;for(var i=0;i<g.length;i++)if(g[i]>=32&&g[i]<224)m++;return m>.15*g.length}
+function bStretch(g){var h=new Array(256).fill(0),i;for(i=0;i<g.length;i++)h[g[i]|0]++;var cut=g.length*.01,lo=0,hi=255,a=0;
+for(;lo<255;lo++){a+=h[lo];if(a>cut)break}a=0;for(;hi>0;hi--){a+=h[hi];if(a>cut)break}if(hi<=lo)return g;
+return g.map(function(v){return Math.max(0,Math.min(255,(v-lo)*255/(hi-lo)))})}
+function bBinarize(gray,dither){var bits=new Uint8Array(gray.length),i,x,y;if(!dither){for(i=0;i<gray.length;i++)bits[i]=gray[i]>=128?1:0;return bits}
+var g=Float32Array.from(bStretch(gray));for(y=0;y<B;y++)for(x=0;x<B;x++){i=y*B+x;var o=g[i],n=o>=128?255:0,e=o-n;bits[i]=n?1:0;
+if(x+1<B)g[i+1]+=e*7/16;if(y+1<B){if(x>0)g[i+B-1]+=e*3/16;g[i+B]+=e*5/16;if(x+1<B)g[i+B+1]+=e/16}}return bits}
+function bRender(){if(!bImg)return;var c=$('bOut'),x=c.getContext('2d',{willReadFrequently:true}),iw=bImg.naturalWidth,ih=bImg.naturalHeight;
+x.fillStyle='#fff';x.fillRect(0,0,B,B);var s=bRadio('bFit')=='cover'?Math.max(B/iw,B/ih):Math.min(B/iw,B/ih),dw=Math.round(iw*s),dh=Math.round(ih*s),
+dx=Math.round((B-dw)/2),dy=Math.round((B-dh)/2);x.imageSmoothingQuality='high';x.drawImage(bImg,dx,dy,dw,dh);
+var px=x.getImageData(0,0,B,B).data,light=+$('bLight').value,inv=$('bInv').checked,gray=new Float32Array(B*B),i,st=bRadio('bStyle');
+for(i=0;i<gray.length;i++){var v=Math.max(0,Math.min(255,.299*px[i*4]+.587*px[i*4+1]+.114*px[i*4+2]+light));gray[i]=inv?255-v:v}
+bBits=bBinarize(gray,st=='photo'||(st=='auto'&&bPhoto(gray)));
+for(var yy=0;yy<B;yy++)for(var xx=0;xx<B;xx++)if(xx<dx||xx>=dx+dw||yy<dy||yy>=dy+dh)bBits[yy*B+xx]=inv?0:1;  // the edges plain
+var out=x.createImageData(B,B);for(i=0;i<bBits.length;i++){var w=bBits[i]?233:34;out.data.set([w,bBits[i]?230:33,bBits[i]?218:31,255],i*4)}
+x.putImageData(out,0,0)}
+function bBmp(){var stride=28,off=62,b=new Uint8Array(off+stride*B),d=new DataView(b.buffer);b[0]=66;b[1]=77;d.setUint32(2,b.length,true);
+d.setUint32(10,off,true);d.setUint32(14,40,true);d.setInt32(18,B,true);d.setInt32(22,B,true);d.setUint16(26,1,true);d.setUint16(28,1,true);
+d.setUint32(34,stride*B,true);d.setUint32(38,3780,true);d.setUint32(42,3780,true);d.setUint32(46,2,true);d.setUint32(50,2,true);b.set([255,255,255,0],58);
+for(var y=0;y<B;y++)for(var x=0;x<B;x++)if(bBits[y*B+x])b[off+(B-1-y)*stride+(x>>3)]|=128>>(x&7);
+var s='';for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+$('bFile').onchange=function(){var f=this.files[0];if(!f)return;tell('badgeSay','');var im=new Image();
+im.onload=function(){bImg=im;$('bName').value=(f.name.replace(/\.[^.]+$/,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'badge').slice(0,24);
+if(/^(img|image|photo|dsc|pxl)-?\d/.test($('bName').value))$('bName').value='badge';
+$('bPick').classList.add('hidden');$('bOpts').classList.remove('hidden');bRender()};
+im.onerror=function(){tell('badgeSay','That picture can’t be read here. Try another one.','bad')};im.src=URL.createObjectURL(f);this.value=''};
+document.querySelectorAll('input[name=bFit],input[name=bStyle],#bInv').forEach(function(e){e.addEventListener('change',bRender)});
+$('bLight').oninput=bRender;
+$('bAgain').onclick=function(){$('bFile').click()};
+$('bSend').onclick=function(){var b=this;busy(b,true,'Sending…');post('/badge',{name:$('bName').value.trim()||'badge',bmp:bBmp()})
+.then(function(o){busy(b,false);saved(b);tell('badgeSay','Saved as '+o.name.replace('.bmp','')+'. Open Badge on your unidex to see it.','ok')},
+function(e){busy(b,false);tell('badgeSay',e.message,'bad')})};
+// The Pet: its parts come from the device (/pet.json), so they're always the ones it can draw.
+var P=null,look=[];
+function pDraw(){var c=$('pOut'),x=c.getContext('2d');x.fillStyle='#e9e6da';x.fillRect(0,0,32,32);
+P.layers.forEach(function(l,i){var r=l.parts[look[i]].r;for(var p=0;p<1024;p++){var ch=r[p];if(ch=='.')continue;
+x.fillStyle=ch=='#'?'#22211f':'#e9e6da';x.fillRect(p%32,p>>5,1,1)}});
+var n=$('pName').value.trim();$('pTag').textContent=n;$('pTag').classList.toggle('hidden',!n);
+P.layers.forEach(function(l,i){var s=$('pPart'+i);s.firstChild.textContent=l.parts[look[i]].n;s.lastChild.textContent=(look[i]+1)+' of '+l.parts.length})}
+function pLoad(){fetch('/pet.json').then(function(r){return r.json()}).then(function(o){P=o;var box=$('pParts');box.textContent='';
+look=o.layers.map(function(l,i){var p=Math.floor(o.look/Math.pow(16,i))%16;return p<l.parts.length?p:0});
+o.layers.forEach(function(l,i){var row=el('div','part'),step=function(d){return function(){look[i]=(look[i]+d+l.parts.length)%l.parts.length;pDraw()}};
+var prev=el('button','btn round','‹'),next=el('button','btn round','›'),name=el('span');name.id='pPart'+i;name.appendChild(document.createTextNode(''));
+name.appendChild(el('small'));name.setAttribute('aria-live','polite');prev.setAttribute('aria-label','Previous '+l.name.toLowerCase());
+next.setAttribute('aria-label','Next '+l.name.toLowerCase());prev.onclick=step(-1);next.onclick=step(1);
+row.appendChild(el('b','',l.name));row.appendChild(prev);row.appendChild(name);row.appendChild(next);box.appendChild(row)});
+$('pName').value=o.name;$('pSend').disabled=$('pRandom').disabled=false;pDraw()},function(){lost(true)})}
+$('pName').oninput=function(){var v=this.value.replace(/[^\x20-\x7e]/g,'');if(v!=this.value)this.value=v;if(P)pDraw()};
+$('pRandom').onclick=function(){look=P.layers.map(function(l){return Math.floor(Math.random()*l.parts.length)});pDraw()};
+$('pSend').onclick=function(){var b=this,v=look.reduce(function(a,p,i){return a+p*Math.pow(16,i)},0),n=$('pName').value.trim();busy(b,true,'Sending…');
+post('/pet',{look:v,name:n}).then(function(){busy(b,false);saved(b);tell('petSay',n?'Sent. Say hi to '+n+'!':'Sent. Open Pet on your unidex to see it.','ok')},
+function(e){busy(b,false);tell('petSay',e.message,'bad')})};
 if(!location.hash&&TAB!='notes')history.replaceState(null,'','#'+TAB);
 loadSetup();
 function start(d){notes=d;byId={};notes.forEach(function(o){byId[o.id]=o});render();route();setTimeout(prefetch,250)}

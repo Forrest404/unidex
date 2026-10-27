@@ -12,6 +12,7 @@
 #include "phone_setup.h"
 #include "phone_text.h"
 #include "store.h"
+#include "../pet/pet.h"
 #include "../../core/audio.h"
 #include "../../core/battery.h"
 #include "../../core/clock.h"
@@ -19,6 +20,7 @@
 #include "../../core/storage.h"
 #include "../../core/devtools.h"
 #include "../../core/display.h"
+#include "../../core/launcher.h"
 #include "../../core/net.h"
 #include "../../core/power.h"
 #include "../../core/theme.h"
@@ -38,6 +40,7 @@ static uint32_t stopAt;    // Done was pressed: stop at this time (after its ans
 static bool changed;       // setup was saved since the start
 static bool done;          // Done was pressed (it stops, or has stopped, because of that)
 static bool redrawFull;    // the screen needs a full refresh (invert changed)
+static bool redrawSoon;    // or a partial one (a message to show: "Badge saved")
 static PhoneTab tab;
 static String nearby = "[]";  // the WiFi names around, strongest first, as a JSON array
 static char ssid[16], password[12], joinCode[64];
@@ -87,7 +90,7 @@ struct Connection {
 };
 static const int CONNECTIONS = 6;
 static const uint32_t REQUEST_WAIT_MS = 4000;  // an empty connection is dropped after this
-static const size_t HEAD_MAX = 4096, BODY_MAX = 8192;  // a form with an eduroam certificate is ~4 KB
+static const size_t HEAD_MAX = 4096, BODY_MAX = 10240;  // a badge is ~7 KB as a form, an eduroam certificate ~4 KB
 static Connection connections[CONNECTIONS];
 
 // Writes all of it, or gives up on a phone that stopped taking it (it left the hotspot, say for its usual WiFi): the
@@ -295,6 +298,47 @@ static void scanNearby() {
   nearby += "]";
 }
 
+// The Tools tab's badge: name=<what it's called>&bmp=<the 200x200 1-bit BMP, base64>. Saved on the card as the next
+// badge, and made the one the Badge app opens on. `saved` gets its file name.
+static const char *saveBadge(const String &body, String &saved) {
+  std::string name, data;
+  for (const auto &p : formPairs(body.c_str())) {
+    if (p.first == "name") name = p.second;
+    else if (p.first == "bmp") data = p.second;
+  }
+  std::vector<uint8_t> bmp;
+  if (!base64Decode(data, bmp) || !badgeBmpOk(bmp)) return "That isn't a badge picture. Try the photo again.";
+  if (!storageCardMount()) return "There's no SD card in your unidex: badges are kept on it.";
+  storageMakeDirs("/badges");
+  std::vector<std::string> existing;
+  fs::File dir = storageOpen("/badges");
+  for (fs::File f = dir ? dir.openNextFile() : fs::File(); f; f = dir.openNextFile()) existing.push_back(f.name());
+  dir.close();
+  const std::string file = badgeFileName(existing, name);
+  static const char *TMP = "/badges/phone.tmp";
+  fs::File out = storageOpen(TMP, "w");
+  const size_t wrote = out ? out.write(bmp.data(), bmp.size()) : 0;
+  if (out) out.close();
+  if (wrote != bmp.size() || !storageReplace(TMP, ("/badges/" + file).c_str(), bmp.size()))
+    return "Couldn't save it: the card may be full.";
+  storagePutString("badge", file.c_str());  // the Badge app opens on it
+  saved = file.c_str();
+  return nullptr;
+}
+
+// The Tools tab's Pet: look=<the parts, packed as pet_logic.h does>&name=<up to 12 characters>.
+static const char *savePet(const String &body) {
+  long long look = -1;
+  String name;
+  for (const auto &p : formPairs(body.c_str())) {
+    if (p.first == "look") look = atoll(p.second.c_str());
+    else if (p.first == "name") name = p.second.c_str();
+  }
+  if (look < 0 || look > 0xFFFFF) return "That look isn't one the device knows.";
+  if (!petSave((uint32_t)look, name)) return "The name can be up to 12 letters, numbers or symbols.";
+  return nullptr;
+}
+
 static void post(WiFiClient &c, const Request &r) {
   const char *error = "Not found.";
   if (r.path == "/set") error = saveCredentials(r.body);
@@ -303,6 +347,17 @@ static void post(WiFiClient &c, const Request &r) {
   else if (r.path == "/clear") {  // Remove everything: WiFi, keys, GitHub, the calendar link
     if (jobBusy()) error = "A note is sending. Try again in a moment.";
     else credClearAll(), changed = false, error = nullptr;
+  } else if (r.path == "/badge") {
+    String file;
+    error = saveBadge(r.body, file);
+    if (!error) {
+      launcherToast("Badge saved");
+      redrawSoon = true;
+      return reply(c, 200, "application/json", "{\"ok\":1,\"name\":\"" + str(json(file.c_str())) + "\"}");
+    }
+  } else if (r.path == "/pet") {
+    error = savePet(r.body);
+    if (!error) launcherToast("Pet saved"), redrawSoon = true;
   } else if (r.path == "/done") {
     stopAt = millis() + 500;  // the answer goes out first
     done = true;
@@ -365,6 +420,9 @@ static void handle(Connection &conn, const Request &r) {
     if (r.origin.length() && r.origin != "http://" + self) reply(c, 400, "application/json", answer("Not from this page."));
     else post(c, r);
     logRequest("save", t0);
+  } else if (r.path == "/pet.json") {
+    reply(c, 200, "application/json", petPartsJson());
+    logRequest("pet", t0);
   } else if (r.path == "/setup.json") {
     reply(c, 200, "application/json", setupJson());
     logRequest("setup", t0);
@@ -517,7 +575,7 @@ const char *phoneStart(PhoneTab startTab) {
   dns.start(53, "*", WiFi.softAPIP());
   powerHold();     // no light or deep sleep while the phone may be reading
   netClaim(true);  // the radio is the hotspot's: the background sends (Notes, Reminders) wait until it's off
-  on = true, served = 0, firstAt = 0, shown = 0, stopAt = 0, changed = false, done = false, redrawFull = false;
+  on = true, served = 0, firstAt = 0, shown = 0, stopAt = 0, changed = false, done = false, redrawFull = false, redrawSoon = false;
   startedAt = lastUse = millis();
 #if UNIDEX_DEV
   joinedAt = addressAt = 0;
@@ -563,8 +621,12 @@ Redraw phoneTick() {
     return Redraw::Partial;
   }
   if (redrawFull) {
-    redrawFull = false;
+    redrawFull = redrawSoon = false;
     return Redraw::Full;
+  }
+  if (redrawSoon) {
+    redrawSoon = false;
+    return Redraw::Partial;
   }
   // "Phone connected", once its first few requests are answered: a screen refresh holds everything up for
   // ~0.5 s, and the phone is waiting on those answers to open the page.

@@ -1,6 +1,8 @@
 // Checks the setup side of the phone portal on a computer (no board needed):
 //   c++ -std=c++17 -O2 -I src/apps/notes tools/notetest/phone_setup_test.cpp -o /tmp/phone_setup_test && /tmp/phone_setup_test
 #include <cstdio>
+#include <fstream>
+#include <iterator>
 #include "phone_setup.h"
 
 using namespace phonesetup;
@@ -52,6 +54,25 @@ int main() {
               "\"cleanup\":{\"set\":1,\"v\":\"off\"},\"cleanup_model\":{\"set\":1,\"v\":\"\\\"\\u003c/\"}}",
         "status as JSON: only what the status lines hold, escaped");
   check(statusJson("") == "{}" && statusJson("junk\n") == "{}", "nothing to report gives {}");
+
+  std::vector<uint8_t> b;
+  check(base64Decode("aGk=", b) && b == std::vector<uint8_t>{'h', 'i'} && base64Decode("-_8", b) && b.size() == 2 &&
+            b[0] == 0xfb && b[1] == 0xff && !base64Decode("a*b", b),
+        "base64, standard and URL-safe; anything else is refused");
+  std::vector<uint8_t> bmp(BADGE_BYTES, 0);
+  auto put = [&](size_t at, uint32_t v, int n) { for (int i = 0; i < n; i++) bmp[at + i] = v >> (8 * i); };
+  bmp[0] = 'B', bmp[1] = 'M', put(10, 62, 4), put(18, 200, 4), put(22, 200, 4), put(26, 1, 2), put(28, 1, 2);
+  check(badgeBmpOk(bmp), "a 200x200 1-bit BMP is a badge");
+  std::ifstream starter("starter/badges/01-hello.bmp", std::ios::binary);  // (run from the repo folder)
+  const std::vector<uint8_t> real((std::istreambuf_iterator<char>(starter)), std::istreambuf_iterator<char>());
+  check(badgeBmpOk(real), "a starter badge passes (5662 bytes: rows padded to 28 bytes)");
+  auto wrong = bmp;
+  wrong[28] = 8;  // 8 bits per pixel
+  check(!badgeBmpOk(std::vector<uint8_t>(bmp.begin(), bmp.end() - 1)) && !badgeBmpOk(wrong), "anything else isn't");
+  check(badgeFileName({"01-ada.bmp", "04-cat.bmp", "notes.txt"}, "My cat!") == "05-my-cat.bmp" &&
+            badgeFileName({}, "  ") == "01-badge.bmp" && badgeFileName({"99-x.bmp"}, "a") == "99-a.bmp" &&
+            badgeFileName({}, "Ünï code/..\\x") == "01-n-code-x.bmp",
+        "badge file names: the next number, a safe name");
 
   printf(failures ? "\n%d failed\n" : "\nall passed\n", failures);
   return failures ? 1 : 0;

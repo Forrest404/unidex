@@ -249,12 +249,14 @@ action (tap or hold, depending on the game). Best scores are kept on the device.
 #### Set up from your phone
 
 No computer needed. In **Settings**, **hold B**: the device starts its own WiFi and shows a QR code. Scan it with
-your phone's camera and join, and a page opens by itself with three tabs:
+your phone's camera and join, and a page opens by itself with four tabs:
 
 - **Notes:** read, search, play, share and copy your notes.
 - **Settings:** sleep, volume, invert, and the time (set from your phone's clock when it's wrong).
 - **Setup:** what the website's Setup page does: WiFi networks (it lists the ones nearby), the OpenAI, ElevenLabs
   and Anthropic keys, the tidy-up, GitHub, the calendar link, and Remove everything.
+- **Tools:** the badge maker (choose a photo or take one, adjust it, and it's saved as a new badge that the Badge
+  app opens on) and the Pet designer (each part of its look, and its name).
 
 Press **Done** at the bottom (or hold A on the device) when you're finished. If you changed WiFi or keys, the device
 then joins your WiFi, checks each service and lists how it went. Keys never come back to the page: a saved one

@@ -4,6 +4,13 @@ What changed in each release, in short. The full notes are on the
 [releases page](https://github.com/Forrest404/unidex/releases). To update, use
 https://tools.unidex.shop/ (Update keeps your settings and files).
 
+## Next release
+
+- **Phone portal: Tools** (new): a fourth tab with the badge maker and the Pet designer. Choose a photo (or take
+  one), pick Fit or Fill, Photo or Line art, the lightness and invert, and send it: it's saved on the card as the next
+  badge and the Badge app opens on it. The Pet designer loads your Pet as it is, lets you change each part and its
+  name (or Surprise me), and sends it.
+
 ## v1.9 (27 October 2026)
 
 - **Set up from your phone** (new): in Settings, hold B. The device shows a QR code; your phone joins its WiFi and

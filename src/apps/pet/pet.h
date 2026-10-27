@@ -5,6 +5,12 @@
 uint32_t petLookBits();  // the saved look, as pet_logic.h packs it
 String petName();        // "" if none is set
 void petChanged();       // the website saved a new look or name: the Pet screen redraws
+// Saves a look and a name (up to 12 printable characters, trimmed; empty = no name), as the website's Tools page or
+// the phone portal sends them. False (and nothing saved) for a name that can't be shown.
+bool petSave(uint32_t look, const String &name);
+// Every layer's parts for the phone portal's Pet designer, as JSON: {"layers":[{"name","parts":[{"n","r"}]}],
+// "look","name"}, where r is a part's 32 rows run together ('#' ink, 'o' paper, '.' see-through).
+String petPartsJson();
 enum class PetMood : uint8_t { Normal, Happy, Blink };
 // A Pet's look, scale x 32 px, its top left at x0, y0 (parts off the screen are skipped); Happy and Blink swap in
 // the happy or closed eyes.
