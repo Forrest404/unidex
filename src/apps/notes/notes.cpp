@@ -145,7 +145,12 @@ static String readable(const String &md) {
   body.replace("**", "");
   body.replace("- ", "* ");
   body.trim();
-  return ascii(body);
+  // Mostly in a script the fonts don't have (Greek, Arabic, Chinese...): rows of "?" would say nothing.
+  int missing = 0, letters = 0;
+  const String text = asciiText(body, &missing);
+  for (size_t i = 0; i < text.length(); i++) letters += isalnum((unsigned char)text[i]);
+  if (missing > letters) return "This note is in a script the screen can't show. Hold B to read it on your phone.";
+  return text;
 }
 
 static void ensureLines() {
@@ -165,7 +170,14 @@ static void ensureLines() {
 
 // A note's title, or for one not transcribed yet, when it was recorded ("2 Oct, 21:50", from its id).
 static String titleOf(const NoteInfo &n) {
-  if (n.text) return n.title.length() ? ascii(n.title) : n.id;
+  if (n.text && n.title.length()) {
+    int missing = 0, letters = 0;
+    const String t = asciiText(n.title, &missing);
+    for (size_t i = 0; i < t.length(); i++) letters += isalnum((unsigned char)t[i]);
+    if (missing <= letters) return t;  // (a title the fonts can't show: its time instead, below)
+  } else if (n.text) {
+    return n.id;
+  }
   static const char *MONTHS[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
   const int month = n.id.substring(4, 6).toInt();
   if (n.id.length() < 13 || !isdigit((unsigned char)n.id[0]) || month < 1 || month > 12) return n.id;

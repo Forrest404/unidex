@@ -89,8 +89,12 @@ const char *recordWhileHeld(uint32_t seconds, int16_t *&samples, size_t &count) 
   return nullptr;
 }
 
-String asciiText(const String &s) {
+String asciiText(const String &s, int *missing) {
+  // U+0100-U+017F without their marks (Polish, Czech, Turkish...); ł, đ, ı and the like become their plain letter
+  static const char EXTENDED_A[] =
+    "AaAaAaCcCcCcCcDdDdEeEeEeEeEeGgGgGgGgHhHhIiIiIiIiIiIiJjKkkLlLlLlLlLlNnNnNnnNnOoOoOoOoRrRrRrSsSsSsSsTtTtTtUuUuUuUuUuUuWwYyYZzZzZzs";
   String out;
+  if (missing) *missing = 0;
   for (size_t i = 0; i < s.length(); i++) {
     const uint8_t c = s[i];
     if (c < 0x80) {
@@ -113,8 +117,17 @@ String asciiText(const String &s) {
       i += 1;
       continue;
     }
+    if ((c == 0xC4 || c == 0xC5) && i + 1 < s.length()) {  // Latin Extended-A
+      const int cp = ((c & 0x1F) << 6) | (s[i + 1] & 0x3F);
+      if (cp >= 0x100 && cp < 0x180) {
+        out += EXTENDED_A[cp - 0x100];
+        i += 1;
+        continue;
+      }
+    }
     while (i + 1 < s.length() && (s[i + 1] & 0xC0) == 0x80) i++;  // skip the rest of anything else
     out += '?';
+    if (missing) (*missing)++;
   }
   return out;
 }

@@ -269,6 +269,16 @@ bool devUsb(const char *l) {
     Serial.println(ok ? "OK X ADDLINE" : "ERR");
   } else if (!strncmp(c, "RMFILE /", 8)) {  // X RMFILE <path>: removes one file from the card (test leftovers)
     Serial.println(storageRemove(c + 7) ? "OK X RMFILE" : "ERR");
+  } else if (!strncmp(c, "NOTE ", 5)) {  // X NOTE <id> <markdown as hex>: one note with this text (test data)
+    char id[25] = "";
+    const char *hex = strchr(c + 5, ' ');
+    String md;
+    if (hex && hex - (c + 5) < (int)sizeof id) strlcpy(id, c + 5, hex - (c + 5) + 1);
+    for (const char *h = hex ? hex + 1 : ""; h[0] && h[1]; h += 2) {
+      char pair[3] = {h[0], h[1], 0};
+      md += (char)strtol(pair, nullptr, 16);
+    }
+    Serial.println(storeValidId(id) && md.length() && storeSaveNote(id, md) ? "OK X NOTE" : "ERR");
   } else if (!strncmp(c, "NOTES ", 6)) {  // X NOTES <n>: n made-up notes (test-0001 ...) for long lists; 0 removes them
     const int n = atoi(c + 6);
     for (int i = 1; i <= 999; i++) {
