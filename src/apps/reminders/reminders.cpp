@@ -336,7 +336,7 @@ static void showAlert(const Reminder &r, bool chime) {
 static void checkDue() {
   const long now = nowMinutes();
   if (now < 0) {
-    powerWakeAt(0);
+    powerWakeAt(WakeFor::Reminders, 0);
     return;
   }
   static bool looked;  // after a restart, read the card once (the list's times are needed to wake for them)
@@ -359,8 +359,8 @@ static void checkDue() {
       if (!shown && !r.done && reminders::dueMinutes(r.due) == alertMin) showAlert(r, true), shown = true;
     if (!shown) alertedUpTo = alertMin, remember();  // gone from the card since: don't look for it again
   }
-  if (alertMin < 0) powerWakeAt(0);
-  else powerWakeAt(time(nullptr) + (alertMin - now) * 60 - clockLocal().tm_sec);
+  if (alertMin < 0) powerWakeAt(WakeFor::Reminders, 0);
+  else powerWakeAt(WakeFor::Reminders, time(nullptr) + (alertMin - now) * 60 - clockLocal().tm_sec);
 }
 
 // Done (B), later (A) or left (hold A); then the next one due the same minute, if any, or back.

@@ -13,9 +13,11 @@ void powerRelease();
 #if UNIDEX_DEV
 void powerSleepFor(uint32_t ms);  // test build: real deep sleep now, woken by the timer (RAM is lost, as in use)
 #endif
-// Deep sleep ends by `utc` (a reminder falling due); 0 = nothing to wake for. A long wait wakes early, as the sleep
-// timer drifts: the launcher then finds nothing due yet and sleeps again at once, without touching the screen.
-void powerWakeAt(time_t utc);
+// Deep sleep ends by `utc` (a reminder falling due, an alarm); 0 = nothing to wake for. Each app that wakes the
+// device has its own time, and sleep ends at the soonest. A long wait wakes early, as the sleep timer drifts: the
+// launcher then finds nothing due yet and sleeps again at once, without touching the screen.
+enum class WakeFor : uint8_t { Reminders, Clock, Count };
+void powerWakeAt(WakeFor who, time_t utc);
 bool powerTimerWake();  // this start is a wake by that timer, not by a button
 void powerSleepSoon();  // nothing to do on this wake: sleep at the next idle check, without the usual wait
 void powerWakeWithin(uint32_t ms);  // the next light sleep ends within ms (an app's timed redraw, e.g. a blink)

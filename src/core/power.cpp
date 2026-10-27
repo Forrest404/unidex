@@ -22,7 +22,7 @@ static const gpio_num_t PIN_EPD_CS = GPIO_NUM_11;
 static const uint64_t WAKE_MASK = (1ULL << GPIO_NUM_0) | (1ULL << GPIO_NUM_18);
 
 static uint32_t lastActivity;
-static time_t wakeAt;  // powerWakeAt: 0 = nothing to wake for
+static time_t wakeAt[(int)WakeFor::Count];  // powerWakeAt, one an app: 0 = nothing to wake for
 static void deepSleep(uint64_t timerUs);
 static uint64_t untilWake();
 static volatile int holds;  // powerHold() calls not yet released (from either core)
@@ -70,7 +70,7 @@ void powerActivity() {
   lastActivity = millis();
 }
 
-void powerWakeAt(time_t utc) { wakeAt = utc; }
+void powerWakeAt(WakeFor who, time_t utc) { wakeAt[(int)who] = utc; }
 
 bool powerTimerWake() { return powerWokeFromSleep() && esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_TIMER; }
 
@@ -79,8 +79,11 @@ void powerSleepSoon() { lastActivity = millis() - idleMs; }
 // Microseconds of sleep until powerWakeAt's time (0: none). The sleep timer runs on the chip's own rough oscillator,
 // a few percent out, so a long wait stops at 90% of the way: the clock chip, which is accurate, sets the rest.
 static uint64_t untilWake() {
-  if (!wakeAt) return 0;
-  int64_t s = wakeAt - time(nullptr);
+  time_t soonest = 0;
+  for (const time_t t : wakeAt)
+    if (t && (!soonest || t < soonest)) soonest = t;
+  if (!soonest) return 0;
+  int64_t s = soonest - time(nullptr);
   if (s < 1) s = 1;
   if (s > 120) s = s * 9 / 10;
   return (uint64_t)s * 1000000;
@@ -123,7 +126,7 @@ static void deepSleep(uint64_t timerUs) {
 }
 
 #if UNIDEX_DEV
-void powerSleepFor(uint32_t ms) {  // a reminder due sooner wakes it sooner, as in use
+void powerSleepFor(uint32_t ms) {  // a reminder or alarm due sooner wakes it sooner, as in use
   const uint64_t us = (uint64_t)ms * 1000, reminder = untilWake();
   deepSleep(reminder && reminder < us ? reminder : us);
 }

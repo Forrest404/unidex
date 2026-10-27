@@ -14,7 +14,7 @@ void powerRelease() {}
 #if UNIDEX_DEV
 void powerSleepFor(uint32_t) {}
 #endif
-void powerWakeAt(time_t) {}
+void powerWakeAt(WakeFor, time_t) {}
 bool powerTimerWake() { return false; }
 void powerSleepSoon() {}
 void powerWakeWithin(uint32_t) {}
