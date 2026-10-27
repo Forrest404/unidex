@@ -184,6 +184,24 @@ No WiFi? The recording waits on the card and is added when WiFi is back. It trie
 on its "waiting for WiFi" row. Times count from when you spoke, so "in 20 minutes" means 20 minutes after you said
 it, not after it was sent.
 
+### Clock
+
+A timer, alarms, a stopwatch and the time in other cities. **A** moves down the list and **B** opens one.
+
+- **Timer:** **B** steps through 1, 2, 3, 5, 10, 15, 20, 25, 30 and 45 minutes, 1, 1.5 and 2 hours (**hold B** goes
+  back one), and **A** starts it. While it runs, **A** pauses and **hold B** resets.
+- **Alarms:** up to three. Each has a time (**B** +1, **hold B** -1, **A** next, as when setting the date), on or
+  off, and a repeat: once, every day, weekdays or weekends. A "once" alarm turns itself off after it rings.
+- **Stopwatch:** **B** starts and stops it, **A** takes a lap (the last three are shown), **hold B** resets. It keeps
+  counting while the device sleeps.
+- **World:** up to four cities, each with its time, how far ahead or behind London it is, and "tomorrow" or
+  "yesterday". **B** picks the next city (24 to choose from), **hold B** the one before.
+
+When a timer ends or an alarm is due, the device wakes up and rings over whatever's on screen, chiming every few
+seconds for up to two minutes. **B** stops it; **A** snoozes an alarm for 9 minutes or gives a timer a minute more.
+Alarms and timers ring even with Settings > Alert sound off (Volume still applies, and 0 is silent). The home
+screen shows what's going on ("Timer: 5 min left", "Alarm 7:00 tomorrow").
+
 ### Pet
 
 The Pet is a creature built from a body (blob, cat, bear, bunny, frog or robot), eyes, a mouth, a hat and an extra.
@@ -239,7 +257,8 @@ a store game to offload or delete it.
 - **Sleep:** stay awake for 10, 20, 30 or 60 seconds after the last press.
 - **Volume:** the speaker, for playing notes and the reminder chime. **B** is louder, **hold B** quieter, with a
   chime at each step; 0 turns it off.
-- **Alert sound:** off, and a reminder falling due still shows on screen but doesn't chime (nor do apps).
+- **Alert sound:** off, and a reminder falling due still shows on screen but doesn't chime (nor do apps). The
+  Clock's alarms and timer still ring.
 - **Note language:** **B** steps through Auto, English, Spanish, French ... Korean: the language your notes are
   in (see [Notes](#notes)).
 - **Invert:** white on black.
