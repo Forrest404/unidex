@@ -26,6 +26,8 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 - **Saving:** a power cut can't lose a file when something is later added to it (the backup copy is put back first,
   whatever the file is opened for), and the one-time copy from internal memory to the card (boards updated from
   before the SD card) is checked before it counts, and tried again if it didn't work.
+- **Notes:** a recording made just as the previous one finished sending could wait until the next sync (up to 10
+  minutes) before it was sent. It now goes straight away.
 ## v1.9 (27 October 2026)
 
 - **Set up from your phone** (new): in Settings, hold B. The device shows a QR code; your phone joins its WiFi and
