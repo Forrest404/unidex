@@ -345,6 +345,17 @@ static void onEnter() {
   message = "";
 }
 
+// Back from the phone portal: to the note it was opened on, or to the list if notes were deleted from the page
+// (that one may be gone).
+static void leavePhone() {
+  screen = VIEW;
+  if (!phoneNotesChanged()) return;
+  listed = false;
+  linesFor = "";
+  ensureList();
+  screen = hasCard() ? LIST : MAIN;
+}
+
 static Redraw onButton(Event e) {
   ensureList();
   switch (screen) {
@@ -437,14 +448,14 @@ static Redraw onBack() {
     case CONFIRM: screen = LIST; break;
     case PHONE:
       phoneStop();
-      screen = VIEW;
+      leavePhone();
       break;
   }
   return Redraw::Partial;
 }
 
 static void draw() {
-  if (screen == PHONE && !phoneOn()) screen = VIEW;  // e.g. after a restart
+  if (screen == PHONE && !phoneOn()) leavePhone();  // e.g. after a restart
   if (screen == PHONE) phoneDraw("Open on phone");
   else if (screen == LIST) drawList();
   else if (screen == VIEW) drawView();
@@ -457,7 +468,7 @@ static Redraw tick() {
   if (screen == PHONE) {
     const Redraw r = phoneTick();
     if (!phoneOn()) {  // stopped itself: nobody used it for a while, or Done on the page
-      screen = VIEW;
+      leavePhone();
       return Redraw::Partial;
     }
     return r;

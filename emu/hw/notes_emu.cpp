@@ -29,6 +29,7 @@ Redraw phoneTick() { return Redraw::None; }
 void phoneDraw(const char *, const char *) {}
 void phoneActivity() {}
 bool phoneChanged() { return false; }
+bool phoneNotesChanged() { return false; }
 bool phoneDone() { return false; }
 const char *phoneSsid() { return "unidex-demo"; }
 const char *phonePassword() { return ""; }

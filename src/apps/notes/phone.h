@@ -19,6 +19,7 @@ Redraw phoneTick();          // call often while on: answers the phone; stops af
 void phoneDraw(const char *title, const char *computer = nullptr);
 void phoneActivity();        // a button press counts as use (restarts the idle time)
 bool phoneChanged();         // setup (WiFi, keys) was saved since it started: worth checking once it's off
+bool phoneNotesChanged();    // a note was deleted from the page since it started: read the list again
 bool phoneDone();            // it stopped because Done was pressed on the page (not after the idle time)
 const char *phoneSsid();     // "unidex-1A2B" (the same for this device every time)
 const char *phonePassword();

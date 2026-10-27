@@ -47,7 +47,16 @@ background:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer}
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .card{background:var(--surface);border-radius:26px;padding:22px;box-shadow:0 10px 32px var(--shadow)}
 .card.lilac{background:var(--lilac)}.card.sand{background:var(--sand)}
-.note{cursor:pointer;transition:transform .15s ease-out}.note:active{transform:scale(.985)}
+.note{cursor:pointer;transition:transform .15s ease-out;touch-action:pan-y}.note:active{transform:scale(.985)}
+/* a note in the list slides left to show Delete; far enough, and it's deleted */
+.swipe{position:relative;min-width:0;transition:opacity .2s,transform .2s var(--ease)}
+.swipe .sdel{position:absolute;inset:0;border:0;border-radius:22px;background:var(--warn);color:#fff;font:inherit;font-size:15px;
+font-weight:760;display:flex;align-items:center;justify-content:flex-end;gap:7px;padding:0 26px;cursor:pointer;opacity:0;transition:opacity .15s}
+.swipe .sdel svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.swipe.moving .sdel,.swipe.open .sdel{opacity:1}
+.swipe .note{position:relative;transition:transform .25s var(--ease)}.swipe.moving .note{transition:none}
+.swipe.gone{opacity:0;transform:translateX(-30%)}
+.delnote{width:100%;min-height:52px;margin:22px 0 0;border-radius:18px;font-size:15px}
 .num{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin-bottom:9px;font-weight:700}
 .title{font-size:23px;line-height:1.14;letter-spacing:-.025em;font-weight:780;margin:0 0 12px}
 .text{font-size:15px;line-height:1.5;color:var(--ink);opacity:.86;margin:0 0 14px}
@@ -381,6 +390,7 @@ max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
 <div class="card"><div class="body" id="ob"></div></div>
 <details class="card" id="oq"><summary>Original transcript</summary><div class="body"></div></details>
 <div class="topics" id="ok"></div>
+<button class="btn danger delnote" id="odel">Delete note</button>
 </div></div>
 <div id="scrim" onclick="closeSheet()"></div>
 <div id="sheet"><div class="card"><div class="title" id="st"></div><div class="apps">
@@ -416,18 +426,19 @@ function setQuery(v){$('q').value=v;render();if(!v)$('q').blur();window.scrollTo
 function render(){var raw=$('q').value.trim(),q=raw.toLowerCase(),g=$('grid'),n=0,f=document.createDocumentFragment();
 notes.forEach(function(o){if(q&&(o.t+' '+o.s+' '+o.x+' '+o.k).toLowerCase().indexOf(q)<0)return;n++;
 var c=el('article','card note');c.tabIndex=0;c.setAttribute('role','button');
-c.onclick=function(){location.hash=o.id};c.onkeydown=function(e){if(e.key=='Enter')location.hash=o.id};
+c.onclick=function(){if(c.dragged){c.dragged=0;return}location.hash=o.id};c.onkeydown=function(e){if(e.key=='Enter')location.hash=o.id};
 c.onpointerdown=function(){load(o.id).catch(function(){})};
 if(o.p)c.appendChild(el('span','topic state','Waiting'));
 c.appendChild(el('div','num',when(o.id)));c.appendChild(el('h2','title',o.t));
-if(o.s)c.appendChild(el('p','text',o.s));var k=el('div','topics');topics(k,o.k,true);c.appendChild(k);f.appendChild(c)});
+if(o.s)c.appendChild(el('p','text',o.s));var k=el('div','topics');topics(k,o.k,true);c.appendChild(k);f.appendChild(swipe(c,o))});
 g.textContent='';g.appendChild(f);g.classList.toggle('hidden',!n);$('empty').classList.toggle('hidden',!!n);$('qc').classList.toggle('hidden',!raw);
 $('empty').textContent=notes.length?'No notes match “'+raw+'”.':'No notes yet. Hold B on the Notes screen to record one.';
 var all=notes.length+(notes.length==1?' note':' notes');$('count').textContent=q?n+' of '+all:all}
 function body(box,text){box.textContent='';(text||'').split('\n').forEach(function(l){l=l.trim().replace(/\*\*/g,'');if(!l)return;var c='';
 if(/^[-*] /.test(l)){l='• '+l.slice(2);c='li'}else if(/^#/.test(l)){l=l.replace(/^#+\s*/,'');c='h'}box.appendChild(el('p',c,l))})}
 // Opens at once with what the list already knows (title, date, summary); the text follows when it's in.
-function show(o,full){cur=full?o:null;$('od').textContent=when(o.id);$('ot').textContent=o.t;$('os').classList.toggle('hidden',!o.s);$('ost').textContent=o.s||'';
+var shownId='';
+function show(o,full){cur=full?o:null;if(shownId!=o.id){var b=$('odel');clearTimeout(b.tm);delete b.dataset.armed;b.textContent='Delete note'}shownId=o.id;$('od').textContent=when(o.id);$('ot').textContent=o.t;$('os').classList.toggle('hidden',!o.s);$('ost').textContent=o.s||'';
 if(full)body($('ob'),o.b||(o.p?'This note is transcribed the next time the device has WiFi.':''));
 else $('ob').innerHTML='<div class="sk"></div><div class="sk"></div><div class="sk"></div>';
 $('oq').classList.toggle('hidden',!(full&&o.q));$('oq').open=false;if(full)body($('oq').lastChild,o.q);topics($('ok'),o.k);
@@ -718,6 +729,26 @@ if(e.type=='plugin')tags.push(el('span','tag','Adds to '+(e.extends=='badge'?'Ba
 box.appendChild(aRow(e,e.name,(e.author?'by '+e.author+' · ':'')+aKB(e.bytes),e.description,tags,[aButton(e)]))})}
 $('aq').oninput=function(){if(this.value.trim())aCat='';$('aqc').classList.toggle('hidden',!this.value);aDraw()};
 $('aqc').onclick=function(){$('aq').value='';this.classList.add('hidden');aDraw();$('aq').focus()};
+// --- deleting a note: Delete in the open note (two taps), or slide it left in the list ---
+var SW=110,swOpen=null;
+function delNote(id){return post('/note/delete',{id:id}).then(function(){notes=notes.filter(function(o){return o.id!=id});
+delete byId[id];delete cache[id];toast('Note deleted')})}
+function swClose(){if(swOpen){swOpen.classList.remove('open');swOpen.lastChild.style.transform='';swOpen=null}}
+function swipe(c,o){var w=el('div','swipe'),d=el('button','sdel'),x0,y0,dx=0,mode=0,pid=null;
+d.innerHTML='<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/></svg>Delete';d.setAttribute('aria-label','Delete '+o.t);d.tabIndex=-1;
+var go=function(){w.classList.remove('open');w.classList.add('gone');c.style.transform='translateX(-100%)';swOpen=null;
+delNote(o.id).then(function(){setTimeout(render,200)},function(e){w.classList.remove('gone');c.style.transform='';toast(e.message)})};
+d.onclick=go;w.appendChild(d);w.appendChild(c);
+c.addEventListener('pointerdown',function(e){if(e.button)return;if(swOpen&&swOpen!=w)swClose();x0=e.clientX;y0=e.clientY;dx=0;mode=0;pid=e.pointerId});
+c.addEventListener('pointermove',function(e){if(e.pointerId!==pid)return;var mx=e.clientX-x0,my=e.clientY-y0;
+if(!mode){if(Math.abs(mx)>10&&Math.abs(mx)>Math.abs(my)*1.4){mode=1;w.classList.add('moving');try{c.setPointerCapture(pid)}catch(x){}}else if(Math.abs(my)>10)mode=2}
+if(mode==1){dx=Math.min(0,mx-(w.classList.contains('open')?SW:0));c.style.transform='translateX('+dx+'px)'}});
+var end=function(e){if(e.pointerId!==pid)return;pid=null;if(mode!=1)return;c.dragged=1;setTimeout(function(){c.dragged=0},350);w.classList.remove('moving');
+if(dx<-w.offsetWidth*.6)return go();if(dx<-60){w.classList.add('open');c.style.transform='translateX(-'+SW+'px)';swOpen=w}
+else{w.classList.remove('open');c.style.transform='';if(swOpen==w)swOpen=null}};
+c.addEventListener('pointerup',end);c.addEventListener('pointercancel',end);return w}
+$('odel').onclick=function(){var b=this,id=shownId;twoTap(b,'Tap again to delete',function(){busy(b,true,'Deleting…');
+delNote(id).then(function(){busy(b,false);history.back();render()},function(e){busy(b,false);toast(e.message)})})};
 function start(d){notes=d;byId={};notes.forEach(function(o){byId[o.id]=o});render();route();setTimeout(prefetch,250)}
 if(NOTES)start(NOTES);
 else fetch('/notes.json').then(function(r){return r.json()}).then(start)

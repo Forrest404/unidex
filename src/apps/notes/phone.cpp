@@ -42,6 +42,7 @@ static uint32_t lastUse, served, startedAt, firstAt;  // firstAt: the first requ
 static uint32_t shown;     // requests answered when the screen was last drawn ("Phone connected" once there are some)
 static uint32_t stopAt;    // Done was pressed: stop at this time (after its answer has gone out)
 static bool changed;       // setup was saved since the start
+static bool notesChanged;  // a note was deleted from the page (the Notes app reads its list again)
 static bool done;          // Done was pressed (it stops, or has stopped, because of that)
 static bool redrawFull;    // the screen needs a full refresh (invert changed)
 static bool redrawSoon;    // or a partial one (a message to show: "Badge saved")
@@ -439,6 +440,20 @@ static void post(WiFiClient &c, const Request &r) {
   } else if (r.path == "/pet") {
     error = savePet(r.body);
     if (!error) launcherToast("Pet saved"), redrawSoon = true;
+  } else if (r.path == "/note/delete") {
+    const String id = formValue(r.body, "id");
+    if (!storeValidId(id) || (!storageExists(storeWavPath(id).c_str()) && !storeReadNote(id).length()))
+      error = "That note isn't there any more.";
+    else if (jobBusy() && id == jobStatus().noteId) error = "It's sending right now. Try again in a moment.";
+    else if (devDryRun()) error = "Test build, dry run: not deleted.";
+    else {
+      storeDelete(id);
+      buildList();  // so a reload doesn't show it
+      notesChanged = true;
+      launcherToast("Note deleted");
+      redrawSoon = true;
+      error = nullptr;
+    }
   } else if (r.path == "/apps/install") {
     error = installApp(formValue(r.body, "id"));
   } else if (r.path == "/apps/delete") {
@@ -688,7 +703,7 @@ const char *phoneStart(PhoneTab startTab) {
   dns.start(53, "*", WiFi.softAPIP());
   powerHold();     // no light or deep sleep while the phone may be reading
   netClaim(true);  // the radio is the hotspot's: the background sends (Notes, Reminders) wait until it's off
-  on = true, served = 0, firstAt = 0, shown = 0, stopAt = 0, changed = false, done = false, redrawFull = false, redrawSoon = false;
+  on = true, served = 0, firstAt = 0, shown = 0, stopAt = 0, changed = false, notesChanged = false, done = false, redrawFull = false, redrawSoon = false;
   startedAt = lastUse = millis();
 #if UNIDEX_DEV
   joinedAt = addressAt = 0;
@@ -786,6 +801,7 @@ void phoneDraw(const char *title, const char *computer) {
 
 void phoneActivity() { lastUse = millis(); }
 bool phoneChanged() { return changed; }
+bool phoneNotesChanged() { return notesChanged; }
 bool phoneDone() { return done; }
 const char *phoneSsid() { return ssid; }
 const char *phonePassword() { return password; }
