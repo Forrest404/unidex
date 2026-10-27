@@ -240,6 +240,55 @@ static void copyFromFlashOnce() {
   storagePutInt("sd_copied", 1);
 }
 
+// Dex left the device for the app store: its finds (/dex.csv: hash,ssid,rssi,enc,rarity,first_seen) move into the
+// store app's own folder in the app's format (finds-1.csv ... with 500 rows each: name,rssi,security,rarity,date), so
+// installing Dex carries on with them; until then Apps lists an offloaded "dex". The old file goes only once every
+// new one is written, and is left alone if the app already has finds.
+static void moveDexFinds() {
+  static const char *OLD = "/dex.csv", *DIR = "/apps/dex/data";
+  static const int PER_FILE = 500, MAX = 2000;
+  if (!SD_MMC.exists(OLD) || SD_MMC.exists("/apps/dex/data/finds-1.csv") || !storageMakeDirs(DIR)) return;
+  fs::File in = SD_MMC.open(OLD, "r");
+  String rows;
+  int count = 0, file = 0;
+  bool ok = (bool)in;
+  auto flush = [&]() {
+    if (!rows.length()) return;
+    const String path = String(DIR) + "/finds-" + (++file) + ".csv", tmp = String(DIR) + "/.move.tmp";
+    fs::File out = storageOpen(tmp.c_str(), "w");
+    const size_t wrote = out ? out.print(rows) : 0;
+    if (out) out.close();
+    ok = ok && wrote == rows.length() && storageReplace(tmp.c_str(), path.c_str(), wrote);
+    rows = "";
+  };
+  for (String line; ok && count < MAX && storageReadLine(in, line);) {
+    String f[6];
+    int n = 0, from = 0;
+    for (; n < 6; n++) {
+      const int comma = line.indexOf(',', from);
+      f[n] = line.substring(from, comma < 0 ? line.length() : comma);
+      if (comma < 0) break;
+      from = comma + 1;
+    }
+    if (n < 5 || f[0].length() != 16 || !f[1].length()) continue;  // the header, or a broken row
+    char date[12] = "";
+    const time_t seen = (time_t)f[5].toInt();
+    if (seen > 1704067200) {  // after 2024-01-01: the clock was set
+      struct tm t;
+      localtime_r(&seen, &t);
+      strftime(date, sizeof date, "%Y-%m-%d", &t);
+    }
+    rows += f[1] + "," + f[2] + "," + f[3] + "," + f[4] + "," + date + "\n";
+    if (++count % PER_FILE == 0) flush();
+  }
+  if (in) in.close();
+  flush();
+  if (ok) {
+    SD_MMC.remove(OLD);
+    storageRemoveKey("dex_salt");  // only the built-in Dex hashed with it
+  }
+}
+
 bool storageCardMount() {
   if (devNoCard()) return false;  // test build switch (X NOCARD 1)
   if (cardMounted) return true;
@@ -250,6 +299,7 @@ bool storageCardMount() {
     return false;
   }
   copyFromFlashOnce();
+  moveDexFinds();
   return true;
 }
 

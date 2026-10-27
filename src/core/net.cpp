@@ -59,7 +59,7 @@ const char *netBegin() {
   beganAt = millis();
   tryAt = 0;
   sawMissing = false;
-  setCpuFrequencyMhz(240);  // full speed only while the radio is on (as in the Dex scan)
+  setCpuFrequencyMhz(240);  // full speed only while the radio is on
   WiFi.mode(WIFI_STA);
   joinSlot(tryOrder[0]);
   return nullptr;

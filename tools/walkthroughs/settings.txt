@@ -51,7 +51,6 @@ press b
 shot s-dry-toast
 press a
 press a
-press a
 press b
 shot s-confirm-friends
 press A

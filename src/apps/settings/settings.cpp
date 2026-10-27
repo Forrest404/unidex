@@ -29,8 +29,8 @@ static const int ROW_H = 22, PAGE_ROWS = 6;  // six rows fit above the hints
 
 enum Screen : uint8_t { LIST, DATETIME, INFO, RESET, CONFIRM, CONFIRM_AGAIN, VOLUME, PHONE, CHECK, SYNC };
 enum Row : uint8_t { DATE, SYNC_ROW, SLEEP, VOLUME_ROW, ALERTS, INVERT, INFO_ROW, RESET_ROW, ROWS };
-enum Reset : uint8_t { TALLY, DEX, CALENDAR, PET_FRIENDS, EVERYTHING, FACTORY, RESETS };
-static const char *RESET_NAMES[] = {"Chooser tally", "Dex", "Calendar", "Pet friends", "Everything", "Factory reset"};
+enum Reset : uint8_t { TALLY, CALENDAR, PET_FRIENDS, EVERYTHING, FACTORY, RESETS };
+static const char *RESET_NAMES[] = {"Chooser tally", "Calendar", "Pet friends", "Everything", "Factory reset"};
 static const int RESET_ROW_H = 22;  // six rows fit above the hints
 enum Field : uint8_t { YEAR, MONTH, DAY, HOUR, MINUTE, SAVE, FIELDS };
 
@@ -321,14 +321,14 @@ static void drawReset() {
 }
 
 static void drawConfirm() {
-  static const char *TITLES[] = {"Clear the tally?", "Clear the Dex?", "Clear the calendar?", "Forget friends?",
-                                 "Reset everything?", "Factory reset?"};
+  static const char *TITLES[] = {"Clear the tally?", "Clear the calendar?", "Forget friends?", "Reset everything?",
+                                 "Factory reset?"};
   // Each line has to fit the box: about 164 px in the small font.
-  static const char *WHAT[] = {"Wins go back to 0.", "Forget all networks.", "Synced events go.",
-                               "Your Pet forgets all.", "Settings, Dex, tally", "Wipes WiFi, keys,"};
-  static const char *MORE[] = {"Can't be undone.", "Can't be undone.", "Can't be undone.", "Can't be undone.",
-                               "and calendar go.", "the Pet, all settings."};
-  static const char *LAST[] = {"", "", "", "", "Pet and keys stay.", "Card files stay."};
+  static const char *WHAT[] = {"Wins go back to 0.", "Synced events go.", "Your Pet forgets all.", "Settings, tally",
+                               "Wipes WiFi, keys,"};
+  static const char *MORE[] = {"Can't be undone.", "Can't be undone.", "Can't be undone.", "and calendar go.",
+                               "the Pet, all settings."};
+  static const char *LAST[] = {"", "", "", "Pet and keys stay.", "Card files stay."};
   drawResetRows();
   if (screen == CONFIRM_AGAIN) {  // the factory reset asks twice
     drawSheet("Wipe the device?", "Back to as new.", "Can't be undone.");
@@ -340,7 +340,7 @@ static void drawConfirm() {
 }
 
 // The whole device back to as new, for passing it on: every setting, the WiFi and keys (also the copy the WiFi
-// keeps for itself), the Pet, its friends (and their copy on the card), the calendar and Dex, and anything left in
+// keeps for itself), the Pet, its friends (and their copy on the card), the calendar, and anything left in
 // the internal flash from older versions. Notes, badges and the timetable on the card stay: the card can be taken
 // out and wiped on a computer.
 static void factoryReset() {
@@ -348,7 +348,7 @@ static void factoryReset() {
     launcherToast("Dry run: not wiped");
     return;
   }
-  for (const char *path : {"/pet/friends.bin", "/pet/friends.bin.old", "/dex.csv", "/events.csv"}) storageRemove(path);
+  for (const char *path : {"/pet/friends.bin", "/pet/friends.bin.old", "/events.csv"}) storageRemove(path);
   LittleFS.begin(false);  // format() needs the partition begin() names (without it, it stops the device)
   LittleFS.format();
   LittleFS.end();
@@ -373,12 +373,11 @@ static void clear(uint8_t what) {
     launcherToast(any ? "Tally cleared" : "Nothing to clear");
     return;
   }
-  if (what == DEX || what == CALENDAR) {
-    const char *path = what == DEX ? "/dex.csv" : "/events.csv";
+  if (what == CALENDAR) {
     if (!storageCardMount()) launcherToast("No SD card");
-    else if (!storageExists(path)) launcherToast("Nothing to clear");
-    else launcherToast(storageRemove(path) ? (what == DEX ? "Dex cleared" : "Calendar cleared") : "Couldn't clear it");
-    if (what == CALENDAR) storageRemoveKey("events_crc");  // so the next Mac sync writes the events again
+    else if (!storageExists("/events.csv")) launcherToast("Nothing to clear");
+    else launcherToast(storageRemove("/events.csv") ? "Calendar cleared" : "Couldn't clear it");
+    storageRemoveKey("events_crc");  // so the next Mac sync writes the events again
     return;
   }
   if (what == PET_FRIENDS) {
@@ -393,9 +392,8 @@ static void clear(uint8_t what) {
   const String petName = storageGetString("pet_name");
   static uint8_t friendsBlock[1024];
   const size_t friendsLen = storageGetBytes("pet_friends", friendsBlock, sizeof friendsBlock);
-  storageRemove("/dex.csv");
   storageRemove("/events.csv");
-  storageClearKeys();  // settings, badge choice, tally, Dex salt (not the WiFi and keys: they're separate)
+  storageClearKeys();  // settings, badge choice, tally (not the WiFi and keys: they're separate)
   if (petId) storagePutInt("pet_id", petId);
   if (look != INT32_MIN) storagePutInt("pet_look", look);
   if (petName.length()) storagePutString("pet_name", petName.c_str());
