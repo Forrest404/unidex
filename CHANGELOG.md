@@ -4,7 +4,7 @@ What changed in each release, in short. The full notes are on the
 [releases page](https://github.com/Forrest404/unidex/releases). To update, use
 https://tools.unidex.shop/ (Update keeps your settings and files).
 
-## Next release
+## v1.9 (27 October 2026)
 
 - **Set up from your phone** (new): in Settings, hold B. The device shows a QR code; your phone joins its WiFi and
   a page opens with Notes, Settings (sleep, volume, invert, the time) and Setup (WiFi networks, with the ones nearby

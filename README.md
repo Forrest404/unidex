@@ -49,10 +49,12 @@ If you'd like to support the project, there's a [Ko-fi](https://ko-fi.com/forres
 | **Settings** | Date and time, sync, sleep, volume, alert sound, invert, battery and info, reset data, factory reset. |
 | **Apps** | Everything else: apps and plugins from the store, or ones you write yourself. |
 
-**Coming in v1.9: Reminders, and Notes you can listen to.** Reminders is a to-do list you talk to, and it chimes
-when something's due. Notes plays your recordings back on the speaker, and a note recorded without WiFi now sends
-itself once WiFi is back. You can also pick ElevenLabs instead of OpenAI to transcribe (its free plan needs no card),
-and set the speaker's volume. Every change is in [CHANGELOG.md](CHANGELOG.md).
+**New in v1.9: set it up from your phone, and Reminders.** In Settings, hold B and scan the QR code: your phone
+sets up WiFi, keys and settings with no computer or cable ([how](#set-up-from-your-phone)). Reminders is a to-do list
+you talk to, and it chimes when something's due. Notes plays your recordings back on the speaker, and a note recorded
+without WiFi sends itself once WiFi is back. You can also pick ElevenLabs instead of OpenAI to transcribe (its free
+plan needs no card), set the speaker's volume, and fetch your calendar over WiFi (Settings > Sync). Every change is
+in [CHANGELOG.md](CHANGELOG.md).
 
 If unidex is useful to you, a star on GitHub helps other people find it.
 
