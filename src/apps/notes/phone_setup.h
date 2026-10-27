@@ -8,6 +8,7 @@
 #include <string>
 #include <utility>
 #include <vector>
+#include "languages.h"
 #include "phone_text.h"
 
 // The setup side of the phone portal: the form a phone sends, the rules a value must pass before it's saved
@@ -91,6 +92,7 @@ inline const char *checkValue(const std::string &name, const std::string &value)
     return value == "openai" || value == "elevenlabs" ? nullptr : "Choose OpenAI or ElevenLabs.";
   if (name == "cleanup")
     return value == "openai" || value == "anthropic" || value == "off" ? nullptr : "Choose OpenAI, Claude or off.";
+  if (name == "note_lang") return languages::find(value.c_str()) >= 0 ? nullptr : "Choose a language from the list.";
   if (value.empty()) return nullptr;
   if (name == "gh_on") return value == "0" || value == "1" ? nullptr : "On or off.";
   if (name == "openai_key") return phonetext::startsWith(value, "sk-") ? nullptr : "OpenAI keys start with sk-.";

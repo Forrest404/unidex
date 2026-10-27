@@ -321,6 +321,7 @@ max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
 <div class="seg" role="radiogroup" aria-label="Transcription"><label><input type="radio" name="transcribe" value="openai"><span>OpenAI Whisper</span></label><label><input type="radio" name="transcribe" value="elevenlabs"><span>ElevenLabs</span></label></div>
 <label class="field" id="oaBox"><span>OpenAI key <i>(platform.openai.com)</i></span><input class="input" id="openai_key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
 <label class="field" id="elBox"><span>ElevenLabs key <i>(free plan: about 30 min a month)</i></span><input class="input" id="elevenlabs_key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+<label class="field"><span>Language <i>(what your notes are in)</i></span><select class="input" id="note_lang"><option value="">Auto (it works it out)</option><option value="en">English</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="it">Italian</option><option value="pt">Portuguese</option><option value="nl">Dutch</option><option value="pl">Polish</option><option value="tr">Turkish</option><option value="ru">Russian</option><option value="uk">Ukrainian</option><option value="ar">Arabic</option><option value="hi">Hindi</option><option value="zh">Chinese</option><option value="ja">Japanese</option><option value="ko">Korean</option></select></label>
 <button class="btn" data-save="transcribe">Save</button><p class="say" id="transcribeSay" role="status"></p></div>
 <div class="card" id="cCleanup"><div class="ch"><i class="ic lilac"><svg viewBox="0 0 24 24"><path d="M11 3.5l1.7 4.3 4.3 1.7-4.3 1.7L11 15.5l-1.7-4.3L5 9.5l4.3-1.7z"/><path d="M18 14.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z"/></svg></i><div><div class="hrow"><h2>Tidy-up</h2><span class="tag" id="cleanupTag"></span></div><p class="hint">Gives each note a title, a summary and topics.</p></div></div>
 <div class="seg" role="radiogroup" aria-label="Tidy-up"><label><input type="radio" name="cleanup" value="openai"><span>OpenAI</span></label><label><input type="radio" name="cleanup" value="anthropic"><span>Claude</span></label><label><input type="radio" name="cleanup" value="off"><span>Off</span></label></div>
@@ -536,7 +537,7 @@ if(!a.length&&editing==-1)editNet(-1,1);
 $('addNet').classList.toggle('hidden',a.length>=SLOTS||editing!=-1);
 ['openai_key','openai_key2','elevenlabs_key','anthropic_key','gh_token','cal_url'].forEach(function(n){var c=C(n.replace('2',''));$(n).value='';
 $(n).placeholder=c.set?'Saved, ends in '+c.v+'. Blank keeps it':'Paste it here'});
-setRadio('transcribe',C('transcribe').v||'openai');setRadio('cleanup',C('cleanup').v||'openai');$('cleanup_model').value=C('cleanup_model').v;
+setRadio('transcribe',C('transcribe').v||'openai');$('note_lang').value=C('note_lang').v||'';setRadio('cleanup',C('cleanup').v||'openai');$('cleanup_model').value=C('cleanup_model').v;
 $('gh_on').checked=C('gh_on').v=='1';$('gh_repo').value=C('gh_repo').v;$('gh_branch').value=C('gh_branch').v||'main';$('gh_dir').value=C('gh_dir').v||'VoiceNotes';
 $('calCard').classList.toggle('hidden',!('cal_url' in S.cred));
 var near=$('near');near.textContent='';(S.nearby||[]).filter(function(n){return!a.some(function(x){return x.ssid==n})}).slice(0,8).forEach(function(n){
@@ -585,7 +586,7 @@ function removeNet(n,b){var v={};['ssid','pass','user','ca'].forEach(function(p)
 post('/set',v).then(loadSetup).then(function(){tell('wifiSay','Removed “'+n.ssid+'”.','ok')},function(e){busy(b,false);tell('wifiSay',e.message,'bad')})}
 // Keys and GitHub: which fields each Save sends. Keys only when typed (blank keeps the saved one).
 function typed(id){return $(id).value.trim()}
-var GROUPS={transcribe:function(){var t=radio('transcribe'),v={transcribe:t},k=t=='openai'?'openai_key':'elevenlabs_key';if(typed(k))v[k]=typed(k);return v},
+var GROUPS={transcribe:function(){var t=radio('transcribe'),v={transcribe:t,note_lang:$('note_lang').value},k=t=='openai'?'openai_key':'elevenlabs_key';if(typed(k))v[k]=typed(k);return v},
 cleanup:function(){var c=radio('cleanup'),v={cleanup:c};if(c!='off')v.cleanup_model=typed('cleanup_model');
 if(c=='anthropic'&&typed('anthropic_key'))v.anthropic_key=typed('anthropic_key');if(c=='openai'&&typed('openai_key2'))v.openai_key=typed('openai_key2');return v},
 github:function(){var v={gh_on:$('gh_on').checked?'1':'0',gh_repo:typed('gh_repo'),gh_branch:typed('gh_branch'),gh_dir:typed('gh_dir')};

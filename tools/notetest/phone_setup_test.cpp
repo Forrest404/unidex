@@ -29,6 +29,9 @@ int main() {
         "cleanup: openai, anthropic or off");
   check(!checkValue("openai_key", "sk-abc") && checkValue("openai_key", "abc") && !checkValue("openai_key", ""),
         "an OpenAI key starts with sk- (empty clears it)");
+  check(!checkValue("note_lang", "") && !checkValue("note_lang", "fr") && !checkValue("note_lang", "zh") &&
+          checkValue("note_lang", "xx") && checkValue("note_lang", "FR") && checkValue("note_lang", "french"),
+        "a note language: Auto (empty) or a code from the list");
   check(checkValue("cleanup_model", "sk-abc") && !checkValue("cleanup_model", "gpt-4o-mini"),
         "a key in the model box is refused");
   check(!checkValue("gh_repo", "Forrest404/Notes") && !checkValue("gh_repo", "a.b/c_d-e") &&
