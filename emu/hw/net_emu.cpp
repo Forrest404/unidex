@@ -27,3 +27,6 @@ void audioPlayEnd(bool) {}
 static int volume = 8;
 int audioVolume() { return volume; }
 void audioSetVolume(int v) { volume = v; }
+static bool alertsMuted;
+bool audioAlertsMuted() { return alertsMuted; }
+void audioSetAlertsMuted(bool muted) { alertsMuted = muted; }

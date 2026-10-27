@@ -88,32 +88,19 @@ const char *calendarCheck(int &events) {
   return err;
 }
 
-const char *calendarSync(char *result, size_t len) {
-  snprintf(result, len, "%s", "");
-  if (netClaimed()) return "WiFi busy: a note is sending";
-  if (const char *low = batteryTooLow()) return low;
-  const char *err = netConnect();
-  if (!err) err = clockSyncOnline();
-  if (err) {
-    netOff();
-    return err;
+SyncResult calendarSync() {
+  SyncResult r = {nullptr, credHas("cal_url"), nullptr, 0};
+  if (netClaimed()) r.clock = "WiFi busy: a note is sending";
+  else r.clock = batteryTooLow();
+  if (r.clock) return r;
+  r.clock = netConnect();
+  if (!r.clock) r.clock = clockSyncOnline();
+  if (!r.clock && r.link) {
+    std::vector<std::string> lines;
+    r.calendar = fetch(lines);
+    if (!r.calendar && !usbSyncSaveEvents(lines)) r.calendar = "Couldn't save the calendar";
+    r.events = lines.size();
   }
-  if (!credHas("cal_url")) {
-    netOff();
-    snprintf(result, len, "Clock set");
-    return nullptr;
-  }
-  std::vector<std::string> lines;
-  err = fetch(lines);
   netOff();
-  if (err) {
-    snprintf(result, len, "Clock set. %s", err);
-    return err;
-  }
-  if (!usbSyncSaveEvents(lines)) {
-    snprintf(result, len, "Clock set. Couldn't save the calendar");
-    return "Couldn't save";
-  }
-  snprintf(result, len, lines.size() == 1 ? "Clock set, 1 event" : "Clock set, %u events", (unsigned)lines.size());
-  return nullptr;
+  return r;
 }

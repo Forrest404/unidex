@@ -191,7 +191,7 @@ void storagePutBytes(const char *key, const void *data, size_t len) {
 void storageRemoveKey(const char *key) {
   Preferences prefs;
   prefs.begin(NVS_NAMESPACE, false);
-  prefs.remove(key);
+  if (prefs.isKey(key)) prefs.remove(key);  // removing a missing key logs an error on USB
   prefs.end();
 }
 

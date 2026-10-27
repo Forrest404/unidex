@@ -318,7 +318,7 @@ static void showAlert(const Reminder &r, bool chime) {
   screen = ALERT;
   alertedUpTo = max(alertedUpTo, (int32_t)reminders::dueMinutes(r.due));
   remember();
-  if (chime) audioChime();
+  if (chime && !audioAlertsMuted()) audioChime();  // Settings > Mute alerts: on screen only
   powerActivity();  // on screen for the whole idle time, even after a timer wake
   launcherInterrupt(&remindersApp);
 }

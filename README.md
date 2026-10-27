@@ -46,7 +46,7 @@ If you'd like to support the project, there's a [Ko-fi](https://ko-fi.com/forres
 | **Dex** | A WiFi collection game: every new network name nearby is logged with a rarity. |
 | **Chooser** | Pick 2–9 squares, spin, get a random winner. |
 | **Games** | Four one-button games: Flappy, Dino, Stack and Jetpack, with best scores. |
-| **Settings** | Date and time, sleep, volume, invert, battery and info, reset data, factory reset. |
+| **Settings** | Date and time, sync, sleep, volume, alert sound, invert, battery and info, reset data, factory reset. |
 | **Apps** | Everything else: apps and plugins from the store, or ones you write yourself. |
 
 **Coming in v1.9: Reminders, and Notes you can listen to.** Reminders is a to-do list you talk to, and it chimes
@@ -121,9 +121,17 @@ Mon,09:00,10:00,Maths,B12
 Wed,18:00,19:30,Robotics Club,Lab 1
 ```
 
-Calendar events (Apple, Google, Outlook...) come from the website's Tools page. Export a `.ics` file from your
-calendar and send it, or let **Sync everything** send it each time you plug in. On a Mac, the automatic calendar
-sync on the Tools page sends your calendar whenever the board is plugged in and awake. The time zone is London.
+Calendar events (Apple, Google, Outlook...) can come three ways:
+
+- **Over WiFi, no computer:** save your calendar's private link on the
+  [Setup](https://tools.unidex.shop/setup.html) page (the Calendar card says where Google, Outlook and iCloud keep
+  it), then use **Settings > Sync** on the device. It sets the clock and fetches this week's events.
+- **From the Tools page:** export a `.ics` file from your calendar and send it, or let **Sync everything** send it
+  each time you plug in.
+- **On a Mac,** the automatic calendar sync on the Tools page sends your calendar whenever the board is plugged in
+  and awake.
+
+The time zone is London.
 
 ### Notes
 
@@ -220,9 +228,12 @@ action (tap or hold, depending on the game). Best scores are kept on the device.
 ### Settings
 
 - **Date & time:** set the clock by hand (the website, the Mac sync and WiFi can also set it).
+- **Sync:** **B** sets the clock from the internet and, if you've saved a calendar link, fetches this week's events
+  for the Timetable. The row shows when it last synced.
 - **Sleep:** stay awake for 10, 20, 30 or 60 seconds after the last press.
 - **Volume:** the speaker, for playing notes and the reminder chime. **B** is louder, **hold B** quieter, with a
   chime at each step; 0 turns it off.
+- **Alert sound:** off, and a reminder falling due still shows on screen but doesn't chime.
 - **Invert:** white on black.
 - **Battery & info:** battery voltage and %, firmware version, storage used, and the device's name (`unidex-1A2B`,
   handy when you ask for help).
@@ -330,7 +341,8 @@ off so the battery isn't drained further. Plug in USB to charge it, then press P
   and Apps need it.
 - **"App error".** The app hit a bug or one of its limits; the message says where. Tell its author (open an issue
   on [unidex-apps](https://github.com/Forrest404/unidex-apps)), or offload or delete it with **hold B** in Apps.
-- **"Time not set".** Set it in Settings, or use Set the clock or Sync everything on the Tools page.
+- **"Time not set".** Use **Settings > Sync** (over WiFi), set it by hand in Settings, or use Set the clock or
+  Sync everything on the Tools page.
 - **It froze.** It restarts by itself after 30 seconds, or you can hold **A + B** for a second to restart it now.
 - **Still stuck, or found a bug?** [Open an issue](https://github.com/Forrest404/unidex/issues/new/choose) with the
   firmware version and what happened. For security problems, see [SECURITY.md](SECURITY.md).

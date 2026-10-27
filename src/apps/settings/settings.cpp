@@ -1,4 +1,5 @@
-// Settings: date and time, sleep, volume, invert, battery and info, reset data (one thing, or the whole device).
+// Settings: date and time, sync (the clock and the calendar link over WiFi), sleep, volume, alert sound, invert,
+// battery and info, reset data (one thing, or the whole device). Six rows a page.
 // A = next row or field, B = change, open or clear, hold A = back (in the date editor: leave without saving).
 // Volume: B = louder, hold B = quieter, each with a chime at the new level.
 // Hold B in the list: set up from a phone (the phone portal, src/apps/notes/phone.cpp), then check what changed.
@@ -15,6 +16,7 @@
 #include "../notes/cloud.h"
 #include "../notes/phone.h"
 #include "../pet/meet.h"
+#include "../timetable/callink.h"
 #include "../../core/credentials.h"
 #include <LittleFS.h>
 #include <esp_mac.h>
@@ -23,10 +25,10 @@
 
 static const char *VERSION = UNIDEX_VERSION;  // from git, tools/version.py
 static const int SLEEP_CHOICES[] = {10, 20, 30, 60};
-static const int ROW_H = 22;  // six rows fit above the hints
+static const int ROW_H = 22, PAGE_ROWS = 6;  // six rows fit above the hints
 
-enum Screen : uint8_t { LIST, DATETIME, INFO, RESET, CONFIRM, CONFIRM_AGAIN, VOLUME, PHONE, CHECK };
-enum Row : uint8_t { DATE, SLEEP, VOLUME_ROW, INVERT, INFO_ROW, RESET_ROW, ROWS };
+enum Screen : uint8_t { LIST, DATETIME, INFO, RESET, CONFIRM, CONFIRM_AGAIN, VOLUME, PHONE, CHECK, SYNC };
+enum Row : uint8_t { DATE, SYNC_ROW, SLEEP, VOLUME_ROW, ALERTS, INVERT, INFO_ROW, RESET_ROW, ROWS };
 enum Reset : uint8_t { TALLY, DEX, CALENDAR, PET_FRIENDS, EVERYTHING, FACTORY, RESETS };
 static const char *RESET_NAMES[] = {"Chooser tally", "Dex", "Calendar", "Pet friends", "Everything", "Factory reset"};
 static const int RESET_ROW_H = 22;  // six rows fit above the hints
@@ -62,28 +64,99 @@ static void drawSlider(int16_t cy) {
   }
 }
 
+// When the clock and calendar last came (the Mac, the Tools page or Sync): "10:42" today, else "27 Oct"; "" if not
+// since power-up.
+static void lastSync(char *out, size_t len) {
+  *out = 0;
+  if (time_t t = usbSyncLastTime()) {
+    struct tm s, now = clockLocal();
+    localtime_r(&t, &s);
+    strftime(out, len, s.tm_yday == now.tm_yday && s.tm_year == now.tm_year ? "%H:%M" : "%d %b", &s);
+  }
+}
+
 static void drawList() {
-  drawHeader("Settings");
+  const int page = cursor / PAGE_ROWS, first = page * PAGE_ROWS;
+  char pages[8];
+  snprintf(pages, sizeof pages, "%d/%d", page + 1, (ROWS + PAGE_ROWS - 1) / PAGE_ROWS);
+  drawHeader("Settings", pages);
   display.setFont(FONT_SMALL);
-  char time[8] = "not set", sleep[8];
+  char time[8] = "not set", sleep[8], synced[12];
   if (clockValid()) {
     struct tm now = clockLocal();
     snprintf(time, sizeof time, "%02d:%02d", now.tm_hour, now.tm_min);
   }
   snprintf(sleep, sizeof sleep, "%d s", powerSleepSeconds());
-  drawRow(DATE, cursor == DATE, "Date & time", time);
-  drawRow(SLEEP, cursor == SLEEP, "Sleep after", sleep);
-  drawRow(VOLUME_ROW, cursor == VOLUME_ROW, "Volume", "");
-  {  // a small bar, filled as far as the volume
-    const int16_t w = 50, x = display.width() - MARGIN - w, y = CONTENT_TOP + 4 + VOLUME_ROW * ROW_H + 5;
-    const uint16_t ink = cursor == VOLUME_ROW ? WHITE : BLACK;
-    display.drawRect(x, y, w, 10, ink);
-    display.fillRect(x + 2, y + 2, (w - 4) * audioVolume() / AUDIO_VOLUME_MAX, 6, ink);
+  lastSync(synced, sizeof synced);
+  for (int row = first; row < first + PAGE_ROWS && row < ROWS; row++) {
+    const int i = row - first;
+    const bool sel = cursor == row;
+    switch (row) {
+      case DATE: drawRow(i, sel, "Date & time", time); break;
+      case SYNC_ROW: drawRow(i, sel, "Sync", synced); break;
+      case SLEEP: drawRow(i, sel, "Sleep after", sleep); break;
+      case VOLUME_ROW: {
+        drawRow(i, sel, "Volume", "");
+        // a small bar, filled as far as the volume
+        const int16_t w = 50, x = display.width() - MARGIN - w, y = CONTENT_TOP + 4 + i * ROW_H + 5;
+        const uint16_t ink = sel ? WHITE : BLACK;
+        display.drawRect(x, y, w, 10, ink);
+        display.fillRect(x + 2, y + 2, (w - 4) * audioVolume() / AUDIO_VOLUME_MAX, 6, ink);
+        break;
+      }
+      case ALERTS: drawRow(i, sel, "Alert sound", audioAlertsMuted() ? "off" : "on"); break;
+      case INVERT: drawRow(i, sel, "Invert", display.inverted ? "on" : "off"); break;
+      case INFO_ROW: drawRow(i, sel, "Battery & info", ">"); break;
+      case RESET_ROW: drawRow(i, sel, "Reset data", ">"); break;
+    }
   }
-  drawRow(INVERT, cursor == INVERT, "Invert", display.inverted ? "on" : "off");
-  drawRow(INFO_ROW, cursor == INFO_ROW, "Battery & info", ">");
-  drawRow(RESET_ROW, cursor == RESET_ROW, "Reset data", ">");
-  drawHints("next", cursor == SLEEP || cursor == INVERT ? "change" : "open", "phone");
+  drawHints("next", cursor == SLEEP || cursor == INVERT || cursor == ALERTS ? "change" : "open", "phone");
+}
+
+// Sync: the clock from the internet, then this week's events from the calendar link (src/apps/timetable/callink.h).
+static SyncResult synced;
+static bool hasSynced, syncing;
+
+static void drawSync() {
+  drawHeader("Sync");
+  display.setFont(FONT_SMALL);
+  if (syncing) {
+    drawCentered("Syncing...", 88);
+    drawHints("", "", "");
+    return;
+  }
+  if (!hasSynced) {
+    const bool link = credHas("cal_url");
+    drawCentered("Sets the clock from", 56);
+    drawCentered(link ? "the internet, and gets" : "the internet.", 76);
+    drawCentered(link ? "this week's events" : "Add a calendar link", link ? 96 : 108);
+    drawCentered(link ? "from your calendar." : "on the Setup page too.", link ? 116 : 128);
+    drawHints("", "sync", "");
+    return;
+  }
+  // What each part did, and below, why one didn't ("Link not found"), as the service said it.
+  char clock[12] = "set", events[16];
+  if (!synced.clock && clockValid()) {
+    struct tm now = clockLocal();
+    snprintf(clock, sizeof clock, "set %02d:%02d", now.tm_hour, now.tm_min);
+  }
+  drawRow(0, false, "Clock", synced.clock ? "not synced" : clock);
+  if (!synced.link) snprintf(events, sizeof events, "no link");
+  else if (synced.clock || synced.calendar) snprintf(events, sizeof events, "not synced");
+  else snprintf(events, sizeof events, synced.events == 1 ? "1 event" : "%d events", synced.events);
+  drawRow(1, false, "Calendar", events);
+  String why = synced.clock ? synced.clock : synced.calendar ? synced.calendar : "";
+  if (why.startsWith("Calendar: ")) why = why.substring(10);
+  if (why.length()) {
+    char line[48];
+    snprintf(line, sizeof line, "%s", why.c_str());
+    line[0] = toupper(line[0]);
+    drawCentered(fitText(line, display.width() - 2 * MARGIN).c_str(), 108);
+  } else if (!synced.link) {
+    drawCentered("Add a calendar link", 100);
+    drawCentered("on the Setup page.", 120);
+  }
+  drawHints("", "again", "");
 }
 
 // After phone setup changed WiFi or keys: each service with something saved, checked over the internet one per
@@ -211,7 +284,7 @@ static const char *deviceId() {
 static void drawInfo() {
   drawHeader("Battery & info");
   display.setFont(FONT_SMALL);
-  char battery[24], storage[24], sync[12] = "not yet";
+  char battery[24], storage[24], sync[12];
   const int mv = batteryMillivolts(), pct = batteryPercent();
   if (pct < 0) snprintf(battery, sizeof battery, "none");
   else snprintf(battery, sizeof battery, "%d.%02d V %d%%", mv / 1000, mv % 1000 / 10, pct);
@@ -220,12 +293,8 @@ static void drawInfo() {
     snprintf(storage, sizeof storage, "%llu / %llu MB", used >> 20, total >> 20);
   else
     snprintf(storage, sizeof storage, "no card");
-  if (time_t t = usbSyncLastTime()) {
-    struct tm s, now = clockLocal();
-    localtime_r(&t, &s);
-    if (s.tm_yday == now.tm_yday && s.tm_year == now.tm_year) strftime(sync, sizeof sync, "%H:%M", &s);
-    else strftime(sync, sizeof sync, "%d %b", &s);
-  }
+  lastSync(sync, sizeof sync);
+  if (!*sync) snprintf(sync, sizeof sync, "not yet");
   drawRow(0, false, pct >= 0 && batteryCharging() ? "On USB" : "Battery", battery);
   // A build between releases, "v1.4-3-g13bf907": shown as "v1.4-3", which fits. A test build's "-dirty" (uncommitted
   // changes) is left out here to fit too; USB's V command reports it.
@@ -234,7 +303,7 @@ static void drawInfo() {
   version.replace("-dirty", "");
   drawRow(1, false, "Firmware", version.c_str());
   drawRow(2, false, "Storage", storage);
-  drawRow(3, false, "Mac sync", sync);
+  drawRow(3, false, "Calendar sync", sync);
   drawRow(4, false, "Device", deviceId());
   drawHints("", "refresh", "");
 }
@@ -382,8 +451,14 @@ static Redraw onButton(Event e) {
           for (int i = 0; i < 3; i++)
             if (SLEEP_CHOICES[i] == now) next = SLEEP_CHOICES[i + 1];
           powerSetSleepSeconds(next);
+        } else if (cursor == SYNC_ROW) {
+          screen = SYNC;
+          hasSynced = false;
         } else if (cursor == VOLUME_ROW) {
           screen = VOLUME;
+        } else if (cursor == ALERTS) {
+          audioSetAlertsMuted(!audioAlertsMuted());
+          if (!audioAlertsMuted()) audioChime();  // what an alert sounds like now
         } else if (cursor == INVERT) {
           displaySetInverted(!display.inverted);
           return Redraw::Full;  // every pixel changes
@@ -418,6 +493,15 @@ static Redraw onButton(Event e) {
       return Redraw::Partial;
     case INFO:
       return e == Event::BShort ? Redraw::Partial : Redraw::None;  // refresh the readings
+    case SYNC:
+      if (e != Event::BShort) return Redraw::None;
+      syncing = true;
+      displayShow(drawSync, false);  // the sync holds everything up for a few seconds (more for a big calendar)
+      synced = calendarSync();
+      syncing = false;
+      hasSynced = true;
+      powerActivity();  // it took a while: don't sleep straight away
+      return Redraw::Partial;
     case VOLUME: {
       const int v = audioVolume() + (e == Event::BShort ? 1 : e == Event::BLong ? -1 : 0);
       if (v == audioVolume() || v < 0 || v > AUDIO_VOLUME_MAX) return Redraw::None;
@@ -475,6 +559,7 @@ static void draw() {
     case CHECK: drawCheck(); break;
     case DATETIME: drawDateTime(); break;
     case INFO: drawInfo(); break;
+    case SYNC: drawSync(); break;
     case VOLUME: drawVolume(); break;
     case RESET: drawReset(); break;
     case CONFIRM:

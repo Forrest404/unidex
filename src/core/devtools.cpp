@@ -238,9 +238,9 @@ bool devUsb(const char *l) {
     launcherShowWelcome();
     Serial.println("OK X WELCOME");
   } else if (!strcmp(c, "CALSYNC")) {  // X CALSYNC: what Settings > Sync does (clock, then the calendar link)
-    char result[64];
-    const char *err = calendarSync(result, sizeof result);
-    Serial.printf("OK X CALSYNC %s|%s\n", err ? err : "ok", result);
+    const SyncResult r = calendarSync();
+    Serial.printf("OK X CALSYNC clock=%s link=%d calendar=%s events=%d\n", r.clock ? r.clock : "ok", r.link,
+                  r.calendar ? r.calendar : "ok", r.events);
   } else if (!strcmp(c, "HANG")) {  // X HANG: the main loop stops; the watchdog should restart the device in 30 s
     Serial.println("OK X HANG");
     Serial.flush();

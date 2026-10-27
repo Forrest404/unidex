@@ -12,6 +12,12 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   the internet. Press Done when you're finished: if you changed WiFi or keys, the device checks each one and lists
   how it went. Open on phone (hold B in a note) opens the same page on its Notes tab. A new device's first screens
   offer it too: Set it up shows the QR code for your phone, with the website's address underneath for a computer.
+- **Settings > Sync** (new): sets the clock from the internet and fetches this week's events from your calendar's
+  private link over WiFi, with no computer. Save the link on the Setup page's new Calendar card (it says where
+  Google, Outlook and iCloud keep it); its Test button says how many events it found. Repeating, moved and
+  cancelled events and other time zones come out as they do on the Tools page. The clock also sets on networks that
+  block the usual time servers.
+- **Settings > Alert sound:** turn it off and a reminder falling due still pops up, without the chime.
 - **Reminders** (new): a to-do list you talk to. Hold B and say one ("call Sam tomorrow at 5pm", "take the cake out
   in 20 minutes", "dentist on the 3rd of November"). It's written down by the same service as your notes, with the
   key you already set up, and the device works out the to-do and its time by itself, with no AI. B ticks one off,

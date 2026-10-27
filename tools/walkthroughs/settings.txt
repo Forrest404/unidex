@@ -1,12 +1,18 @@
 # Settings. Every setting changed here is changed back (and checked: same); the date editor is always cancelled;
-# clearing is a dry run. Volume has its own walkthrough (volume.txt).
+# clearing is a dry run; Sync is only looked at (it needs WiFi). Volume has its own walkthrough (volume.txt).
 same sleep_s
 same volume
 same invert
+same mute_alerts
 select Settings
 shot s-home-status
 press b
 shot s-list
+press a
+shot s-list-sync-row
+press b
+shot s-sync
+press A
 press a
 shot s-list-sleep-row
 press b
@@ -18,11 +24,14 @@ shot s-sleep-back-to-10
 press a
 shot s-list-volume-row
 press a
+shot s-list-alerts-row
+press a
 press b
 shot s-inverted
 press b
 shot s-invert-off
 press a
+shot s-list-page-2
 press b
 shot s-info
 press b

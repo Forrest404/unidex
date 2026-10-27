@@ -157,6 +157,18 @@ int audioVolume() {
   return volume;
 }
 
+static int alertsMuted = -1;  // not read yet
+
+bool audioAlertsMuted() {
+  if (alertsMuted < 0) alertsMuted = storageGetInt("mute_alerts", 0) != 0;
+  return alertsMuted;
+}
+
+void audioSetAlertsMuted(bool muted) {
+  alertsMuted = muted;
+  storagePutInt("mute_alerts", muted);
+}
+
 void audioSetVolume(int v) {
   volume = constrain(v, 0, AUDIO_VOLUME_MAX);
   storagePutInt("volume", volume);
