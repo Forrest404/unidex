@@ -167,6 +167,12 @@
           <p class="note"><b>Free setup:</b> ElevenLabs here and the tidy-up off below. Notes then keep the plain
             transcript with a short title, and no OpenAI account is needed.</p>
         </div>
+        <div id="langBox" hidden>
+          <label for="note_lang">Language <span class="hint">(what your notes are in)</span></label>
+          <select id="note_lang"><option value="">Auto (it works it out)</option><option value="en">English</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="it">Italian</option><option value="pt">Portuguese</option><option value="nl">Dutch</option><option value="pl">Polish</option><option value="tr">Turkish</option><option value="ru">Russian</option><option value="uk">Ukrainian</option><option value="ar">Arabic</option><option value="hi">Hindi</option><option value="zh">Chinese</option><option value="ja">Japanese</option><option value="ko">Korean</option></select>
+          <p class="note">Auto works it out each time. Choosing one helps short notes and strong accents, and the title
+            and summary are written in it.</p>
+        </div>
         <div class="buttons">
           <button data-save="transcribe">Save</button>
           <button class="secondary" data-test="elevenlabs" id="testElevenLabs">Test ElevenLabs</button>

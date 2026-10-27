@@ -9,7 +9,9 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const FAKE = `
 (() => {
-  const names = ['wifi_ssid','wifi_pass','wifi_user','openai_key','anthropic_key','cleanup','cleanup_model','gh_on','gh_repo','gh_branch','gh_dir','gh_token','wifi_ca','cal_url'];
+  const names = ['wifi_ssid','wifi_pass','wifi_user','openai_key','anthropic_key','cleanup','cleanup_model','gh_on','gh_repo','gh_branch','gh_dir','gh_token','wifi_ca','cal_url',
+                 'transcribe','elevenlabs_key','note_lang'];
+  if (localStorage.getItem('oldFirmware')) names.splice(names.indexOf('note_lang'), 1);  // before the note language
   for (let i = 2; i <= 5; i++) for (const p of ['ssid','pass','user','ca']) names.push('wifi' + i + '_' + p);
   const secret = n => /_pass$|_key$|_token$|_ca$|^cal_url$/.test(n);
   const hex = s => [...new TextEncoder().encode(s)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -118,6 +120,21 @@ const FAKE = `
   out.calTest = await calendarStatus();
   await click('[data-test=openai]'); await sleep(800);
   out.openaiTest = await js(`document.getElementById('openaiStatus').textContent`);
+  // the note language: saved with the transcription choice, and Auto clears it
+  const lang = (v) => js(`(() => { const e = document.getElementById('note_lang'); e.value = '${v}'; e.dispatchEvent(new Event('change')); })()`);
+  out.langShown = await js(`!document.getElementById('langBox').hidden`);
+  await lang('fr'); await click('[data-save=transcribe]'); await sleep(800);
+  out.langFrench = [JSON.parse(await dev()).note_lang, JSON.parse(await dev()).transcribe, await js(`document.getElementById('transcribeSaved').textContent`)];
+  await lang(''); await click('[data-save=transcribe]'); await sleep(800);
+  out.langAuto = [JSON.parse(await dev()).note_lang || '(unset)', await js(`document.getElementById('transcribeSaved').textContent`)];
+  // firmware from before it: no language box, and the transcription choice still saves
+  await js(`localStorage.setItem('oldFirmware', '1')`); await send('Page.navigate', { url: URL_ }); await sleep(1500);
+  await click('#connect'); await sleep(800);
+  out.oldShown = await js(`!document.getElementById('langBox').hidden`);
+  await js(`(() => { const r = document.querySelector('input[name=transcribe][value=elevenlabs]'); r.checked = true; r.dispatchEvent(new Event('change')); })()`);
+  await click('[data-save=transcribe]'); await sleep(800);
+  out.oldSave = [await js(`document.getElementById('transcribeStatus').textContent`), JSON.parse(await dev()).transcribe];
+  await js(`localStorage.removeItem('oldFirmware')`);
   console.log(JSON.stringify(out, null, 1));
   chrome.kill(); process.exit(0);
 })().catch((e) => { console.error(e); process.exit(1); });
