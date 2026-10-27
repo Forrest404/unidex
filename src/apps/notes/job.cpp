@@ -2,6 +2,7 @@
 #include "cloud.h"
 #include "store.h"
 #include <esp_heap_caps.h>
+#include "../pet/notice.h"
 #include "../reminders/waiting.h"
 #include "../../core/audio.h"
 #include "../../core/clock.h"
@@ -251,7 +252,10 @@ static void runNote(Item &it) {
   else if (err == NO_SPEECH) {  // like a press too short to be a note: nothing is kept
     if (saved) storeDelete(it.id);
     snprintf(result, sizeof result, "Heard nothing: not kept");
-  } else if (!err) snprintf(result, sizeof result, "Saved: %s", title.c_str());
+  } else if (!err) {
+    snprintf(result, sizeof result, "Saved: %s", title.c_str());
+    petNotice(PetNotice::NoteSaved);
+  }
   else if (err == FULL_PUSHED || err == FULL_SHOWN) snprintf(result, sizeof result, "%s", err);
   else if (saved && offline) snprintf(result, sizeof result, "Saved: sends on WiFi");
   else if (saved) snprintf(result, sizeof result, "%s (kept)", err);

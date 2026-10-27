@@ -9,6 +9,7 @@
 #include "reminders.h"
 #include "reminders_logic.h"
 #include "waiting.h"
+#include "../pet/notice.h"
 #include "../notes/cloud.h"
 #include "../notes/job.h"
 #include "../notes/record.h"
@@ -184,6 +185,7 @@ static void clearDone() {
 static void toggleDone() {
   Reminder &r = list[cursor - firstItem()];
   r.done = !r.done;
+  if (r.done) petNotice(PetNotice::ReminderDone);
   if (!save()) {
     listed = false;
     launcherToast("Couldn't save");
@@ -369,7 +371,7 @@ static Redraw leaveAlert(Event e) {
   const long now = nowMinutes();
   for (Reminder &r : list) {
     if (r.done || r.due != alertDue || r.title != alertTitle) continue;
-    if (e == Event::BShort) r.done = true;
+    if (e == Event::BShort) r.done = true, petNotice(PetNotice::ReminderDone);
     else if (e == Event::AShort && now >= 0) r.due = reminders::formatDue((now + SNOOZE_MIN) / 1440, (now + SNOOZE_MIN) % 1440);
     if (e != Event::ALong && !save()) listed = false, launcherToast("Couldn't save");
     else if (e == Event::BShort) launcherToast("Done");

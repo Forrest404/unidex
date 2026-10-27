@@ -13,6 +13,7 @@
 #include "../../core/power.h"
 #include "../../core/storage.h"
 #include "../../core/theme.h"
+#include "../pet/notice.h"
 #include "../scripts/appstore.h"
 #include "../scripts/luahost.h"
 #include "../scripts/scripts.h"
@@ -218,6 +219,7 @@ static void finish() {
   if (newBest) {
     const bool saved = storeGame() ? saveStoreBest(playId, score) : (storagePutInt(builtIn()->bestKey, score), true);
     if (!saved || bestNow() != score) launcherToast("Couldn't save the best");  // storage full
+    else petNotice(PetNotice::NewBest, score);
     listed = false;  // the list shows the new best
   }
   strlcpy(lastName, playName, sizeof lastName);

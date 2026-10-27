@@ -119,6 +119,20 @@ int main() {
   says(a, "Digital Cultures and Society - in 10 min, Room 414 Marshgate", HAPPY, true,
        "a long title is said in full (the screen wraps or cuts it)");
 
+  // Something that just happened in another app
+  a = at(14, 0);
+  a.notice = "New best: 42!";
+  a.noticePose = CHEER;
+  a.reminderIn = 30;
+  a.reminderTitle = "Call Sam";
+  says(a, "New best: 42!", HAPPY, false, "a notice comes before a reminder within 2 hours, and not on the home line");
+  check(say(a).pose == CHEER, "with its pose");
+  add(a, "Maths", "", 10, 60);
+  says(a, "Maths in 10 min", HAPPY, true, "a class within the hour comes first");
+  a = at(23, 0);
+  a.notice = "Got it!";
+  says(a, "Got it!", HAPPY, false, "at night it wakes up for it");
+
   // Poses
   a = at(9, 0);
   add(a, "Maths", "B12", 10, 60);

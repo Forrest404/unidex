@@ -1,0 +1,20 @@
+# Pet: what it says about other apps. A sample reminder ticked off (demo 1: nothing on the card changes) and the Pet
+# says "Nice one!" on the next visit, then forgets it. Your Pet is put back at the end (keep pet), and the clock.
+keep pet
+pet 00000
+manual 1
+clock today 14:00:00
+demo 1
+select Reminders
+press b
+press b
+press A
+select Pet
+press b
+expect detail=main:00000:Nice one!
+shot pr-nice-one
+press A
+press b
+shot pr-forgotten
+press A
+expect screen=Home

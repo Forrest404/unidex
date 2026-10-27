@@ -1,7 +1,7 @@
 #pragma once
 // What the Pet says about your day, from your timetable, calendar and reminders: one thing at a time, the first
-// that applies of: a late reminder, a class on now, one within the hour, a reminder within 2 hours, the day's
-// classes just over, asleep at night, good morning, then when you're free. Some come with a little picture beside
+// that applies of: a late reminder, a class on now, one within the hour, something that just happened in another
+// app, a reminder within 2 hours, the day's classes just over, asleep at night, good morning, then when you're free. Some come with a little picture beside
 // it (a pose): its backpack just before a class, a wave during one, confetti when they're over. No Arduino code, so
 // it can be checked on a computer (tools/pettest).
 #include <stdio.h>
@@ -29,6 +29,8 @@ struct Agenda {
   long reminderIn = -1;       // minutes from now to the next reminder with a time (-1: none)
   std::string reminderTitle;
   long dayDoneAgo = -1;  // minutes since today's last class or event ended (-1: none today, or not yet)
+  std::string notice;    // something that just happened in another app ("Nice one!"), "" for none
+  Pose noticePose = NO_POSE;
   std::string owner;  // your name ("" if not set)
 };
 
@@ -75,6 +77,13 @@ inline Talk say(const Agenda &a) {
     t.text = next->title + " in " + std::to_string(next->start) + " min";
     if (!next->room.empty()) t.text += ", " + next->room;
     if (next->start <= VERY_SOON) t.mood = HAPPY, t.pose = BACKPACK;  // ready to go
+    return t;
+  }
+  if (!a.notice.empty()) {  // for when it's opened, so not on the home line
+    t.text = a.notice;
+    t.mood = HAPPY;
+    t.pose = a.noticePose;
+    t.home = false;
     return t;
   }
   if (a.reminderIn >= 0 && a.reminderIn <= REMINDER_SOON) {

@@ -5,6 +5,7 @@
 #include <esp_random.h>
 #include "meet.h"
 #include "pet.h"
+#include "notice.h"
 #include "pet_logic.h"
 #include "talk_logic.h"
 #include "../reminders/reminders.h"
@@ -109,6 +110,31 @@ String petOwnerName() { return storageGetString("owner_name"); }
 
 static uint32_t changes;  // counts saves from the website; the screen and the home line each notice a new one
 
+// The latest thing another app told it (notice.h), kept through sleep; said on the next visit within 2 hours.
+RTC_DATA_ATTR static volatile uint8_t noticeKind;
+RTC_DATA_ATTR static volatile int32_t noticeValue;
+RTC_DATA_ATTR static volatile time_t noticeAt;
+static bool noticeShown;  // said on this visit: forgotten when it ends
+static bool petOpen;      // the Pet's screen is open (a notice is only for then, not the home line)
+static const time_t NOTICE_FOR = 2 * 3600;
+
+void petNotice(PetNotice what, int32_t value) {
+  noticeValue = value;
+  noticeAt = time(nullptr);
+  noticeKind = (uint8_t)what;
+}
+
+static std::string noticeText(talk::Pose &pose) {
+  pose = talk::NO_POSE;
+  if (!noticeKind || time(nullptr) - noticeAt > NOTICE_FOR) return "";
+  switch ((PetNotice)noticeKind) {
+    case PetNotice::ReminderDone: return "Nice one!";
+    case PetNotice::NewBest: pose = talk::CHEER; return "New best: " + std::to_string((long)noticeValue) + "!";
+    case PetNotice::NoteSaved: return "Got it!";
+    default: return "";
+  }
+}
+
 void petChanged() { changes++; }
 
 // What it says about your day (talk_logic.h), from what the Timetable and Reminders keep for the home screen.
@@ -126,6 +152,7 @@ static const talk::Talk &todaysTalk() {
   const time_t now = time(nullptr);
   talk::Agenda a;
   a.owner = owner.c_str();
+  if (petOpen && screen == MAIN) a.notice = noticeText(a.noticePose);  // on the Pet's own screen only
   a.clock = clockValid();
   if (a.clock) {
     const struct tm t = clockLocal();
@@ -150,6 +177,7 @@ static const talk::Talk &todaysTalk() {
     }
   }
   said = talk::say(a);
+  if (!a.notice.empty() && said.text == a.notice) noticeShown = true;
   return said;
 }
 
@@ -389,6 +417,7 @@ static const char *detail();
 #endif
 
 static void onEnter() {
+  petOpen = true;
   screen = MAIN;
   lastPressAt = millis();
 #if UNIDEX_DEV
@@ -614,6 +643,8 @@ static Redraw tick() {
 }
 
 static void onExit() {
+  petOpen = false;
+  if (noticeShown) noticeKind = 0, noticeShown = false;  // said: forgotten
   if (screen == MEET) {  // leaving the app (e.g. a new badge opened the Badge app): radio off
     meetLeave();
     screen = MAIN;
