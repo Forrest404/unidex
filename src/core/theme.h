@@ -40,5 +40,5 @@ void drawToast(const char *text);          // a short message in a black pill ju
 const int16_t ICON_SIZE = 40;
 extern const char *const ICON_TIMETABLE[], *const ICON_BADGE[],
     *const ICON_NOTES[], *const ICON_SETTINGS[], *const ICON_GAMES[], *const ICON_PET[], *const ICON_APPS[],
-    *const ICON_REMINDERS[];
+    *const ICON_REMINDERS[], *const ICON_CLOCK[];
 void drawIcon(const char *const *icon, int16_t x, int16_t y, uint16_t color, int scale = 1);  // scale 2 = 80x80

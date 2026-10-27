@@ -6,6 +6,8 @@ shot home-notes
 press a
 shot home-reminders
 press a
+shot home-clock
+press a
 shot home-pet
 press a
 shot home-badge

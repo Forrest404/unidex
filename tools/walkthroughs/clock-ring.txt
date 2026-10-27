@@ -1,0 +1,72 @@
+# Clock ringing (device only: it chimes): a 1-minute timer going off and A for a minute more; then alarm 1 set to
+# 10:00 every day, ringing over the Timetable at 10:00, snoozed (A), ringing again 9 minutes later, and stopped (B).
+# Your alarms, timer and the clock are put back at the end.
+keep clk_al1
+keep clk_al2
+keep clk_al3
+keep clk_cities
+keep clk_timer
+clock today 09:50:00
+select Clock
+press b
+expect detail=menu:0
+press b
+expect detail=timer:set:1500
+press B
+press B
+press B
+press B
+press B
+press B
+press B
+expect detail=timer:set:60
+press a
+shot r-timer-started
+sleep 62000
+expect detail=ring:timer
+shot r-timer-ringing
+press a
+shot r-timer-more
+press B
+expect detail=timer:set:60
+press A
+press a
+press b
+press b
+press a
+press b
+press b
+press b
+press b
+press a
+press a
+press b
+expect detail=edit:0:1:29312
+press a
+press b
+press b
+press b
+expect detail=edit:0:2:27264
+press A
+press A
+press A
+expect screen=Home
+select Timetable
+press b
+clock today 09:59:56
+sleep 8000
+expect screen=Clock
+expect detail=ring:alarm
+shot r-alarm-over-timetable
+press a
+expect screen=Timetable
+shot r-snoozed-back
+clock today 10:08:57
+sleep 8000
+expect detail=ring:alarm
+shot r-snooze-rings
+press b
+expect screen=Timetable
+press A
+select Clock
+shot r-home-after
