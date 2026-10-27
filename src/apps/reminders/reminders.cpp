@@ -6,6 +6,7 @@
 // rules in reminders_logic.h, from when it was said. When one falls due it chimes
 // and shows over whatever is on screen, waking the device for it: B = done, A = in 10 minutes, hold A = leave it.
 #include <vector>
+#include "reminders.h"
 #include "reminders_logic.h"
 #include "waiting.h"
 #include "../notes/cloud.h"
@@ -46,6 +47,7 @@ RTC_DATA_ATTR static int16_t openCount = -1, lateCount;
 RTC_DATA_ATTR static int32_t nextMin = -1;  // the next one due, in local minutes from 1970 (-1: none)
 RTC_DATA_ATTR static bool nextHasTime;
 RTC_DATA_ATTR static char nextTitle[32];
+RTC_DATA_ATTR static char lateTitle[32];  // the late one that came due last
 RTC_DATA_ATTR static int16_t waitingCount;  // recordings on the card still to be sent
 RTC_DATA_ATTR static time_t lastTry;        // when they were last tried (0: not yet)
 
@@ -84,9 +86,16 @@ static bool onClearRow() { return cursor == firstItem() + list.size(); }
 static void remember() {
   const long now = nowMinutes();
   openCount = lateCount = 0;
+  long lateMin = -1;
+  lateTitle[0] = 0;
   for (const Reminder &r : list) {
     openCount += !r.done;
-    lateCount += reminders::isLate(r, now);
+    if (!reminders::isLate(r, now)) continue;
+    lateCount++;
+    if (reminders::dueMinutes(r.due) > lateMin) {
+      lateMin = reminders::dueMinutes(r.due);
+      snprintf(lateTitle, sizeof lateTitle, "%s", r.title.c_str());
+    }
   }
   const int next = reminders::nextDue(list, now);
   nextMin = next < 0 ? -1 : reminders::dueMinutes(list[next].due);
@@ -561,13 +570,31 @@ static bool background() {
 
 static void onExit() { isOpen = false; }
 
-// "1 late", "5pm: Call Sam" (the next one today), "3 to do", from what the last visit saw.
-static void status(char *out, size_t len) {
-  static bool looked;  // after a restart, read the card once so the line is there before the first visit
+// After a restart, reads the card once so the home screen's line (and the Pet) have the list before the first visit.
+static void ensureRemembered() {
+  static bool looked;
   if (openCount < 0 && !looked) {
     looked = true;
     if (storageCardMount()) ensureList();
   }
+}
+
+bool remindersNext(RemindersNext *out) {
+  ensureRemembered();
+  if (openCount < 0) return false;
+  const long now = nowMinutes();
+  const bool nextDue = nextMin >= 0 && now >= nextMin;  // the next one may have come due since
+  out->late = lateCount + nextDue;
+  snprintf(out->lateTitle, sizeof out->lateTitle, "%s", nextDue ? nextTitle : lateTitle);
+  out->nextMin = nextDue ? -1 : nextMin;
+  out->nextHasTime = nextHasTime;
+  snprintf(out->nextTitle, sizeof out->nextTitle, "%s", nextDue ? "" : nextTitle);
+  return true;
+}
+
+// "1 late", "5pm: Call Sam" (the next one today), "3 to do", from what the last visit saw.
+static void status(char *out, size_t len) {
+  ensureRemembered();
   const long now = nowMinutes();
   if (openCount < 0) snprintf(out, len, "Your to-do list");
   else if (lateCount + (nextMin >= 0 && now >= nextMin) > 0)  // the next one may have come due since

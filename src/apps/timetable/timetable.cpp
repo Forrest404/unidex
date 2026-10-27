@@ -10,6 +10,7 @@
 #include "../../core/storage.h"
 #include "../../core/theme.h"
 #include "../../core/usbsync.h"
+#include "timetable.h"
 #include "timetable_logic.h"
 
 struct Class {
@@ -41,17 +42,16 @@ RTC_DATA_ATTR static uint8_t view, peek, scroll, page, row, detailFrom;
 RTC_DATA_ATTR static int16_t detailClass;   // the event the details screen shows
 RTC_DATA_ATTR static int32_t detailDelta;   // minutes from now to its start, when it was opened
 
-// The next few events, kept through sleep for the home screen's line (it can't read the card).
-struct Soon {
-  char title[32];
-  time_t start, end;
-};
+// The next few events, kept through sleep for the home screen's line and the Pet (they can't read the card).
+using Soon = TimetableSoon;
 RTC_DATA_ATTR static Soon soon[3];
 RTC_DATA_ATTR static int8_t soonCount = -1;  // -1 = not worked out since power-up
+RTC_DATA_ATTR static time_t staleLookAt;     // when the card was last read because they had all ended
 
 // Rows as timetable_logic.h reads them; ones that don't parse (a header, a bad day, date or time) are skipped. Each
 // file has its own room, so a long timetable can't push this week's events out (or the other way round).
 static void loadFile(const char *path, bool dated) {
+  if (!storageExists(path)) return;  // none yet (opening it anyway logs an error)
   fs::File f = storageOpen(path);
   const int limit = count + (dated ? MAX_DATED : MAX_WEEKLY);
   timetable::Row r;
@@ -222,6 +222,7 @@ static void rememberSoon(const Upcoming *up, int n) {
   for (int i = 0; i < soonCount; i++) {
     const Class &c = classes[up[i].index];
     strlcpy(soon[i].title, c.module, sizeof soon[i].title);
+    strlcpy(soon[i].room, c.room, sizeof soon[i].room);
     soon[i].start = now - now % 60 + (time_t)up[i].delta * 60;
     soon[i].end = soon[i].start + (time_t)(c.end - c.start) * 60;
   }
@@ -509,6 +510,38 @@ static Redraw tick() {
 
 static void onExit() {}
 
+// Reads the card for the next events: once after a restart, so they're there before the first visit, and when every
+// remembered one has ended (at most every 15 minutes), so the line doesn't stay on "Nothing coming up" until a visit.
+static void ensureSoon() {
+  static bool looked;
+  if (soonCount < 0) {
+    if (looked) return;
+    looked = true;
+  } else {
+    const time_t now = time(nullptr);
+    for (int i = 0; i < soonCount; i++)
+      if (now < soon[i].end) return;
+    if (now - staleLookAt < 15 * 60) return;
+    staleLookAt = now;
+  }
+  if (storageCardMount()) {
+    count = -1;
+    ensureReady();
+    Upcoming up[MAX_UPCOMING];
+    rememberSoon(up, findUpcoming(up, clockLocal()));
+  }
+}
+
+int timetableSoon(TimetableSoon out[3]) {
+  if (!clockValid()) return 0;
+  ensureSoon();
+  const time_t now = time(nullptr);
+  int n = 0;
+  for (int i = 0; i < soonCount; i++)
+    if (now < soon[i].end) out[n++] = soon[i];
+  return n;
+}
+
 // "In 12 min: Maths", "Now: Maths", "Tue 09:00: Maths", from the events remembered on the last visit. The time
 // goes first so a long title is what gets cut.
 static void status(char *out, size_t len) {
@@ -516,16 +549,7 @@ static void status(char *out, size_t len) {
     snprintf(out, len, "Time not set");
     return;
   }
-  static bool looked;  // after a restart, read the card once so the line is there before the first visit
-  if (soonCount < 0 && !looked) {
-    looked = true;
-    if (storageCardMount()) {
-      count = -1;
-      ensureReady();
-      Upcoming up[MAX_UPCOMING];
-      rememberSoon(up, findUpcoming(up, clockLocal()));
-    }
-  }
+  ensureSoon();
   const time_t now = time(nullptr);
   for (int i = 0; i < soonCount; i++) {
     const Soon &s = soon[i];
