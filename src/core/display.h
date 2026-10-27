@@ -37,7 +37,7 @@ void displayShow(void (*draw)(), bool full);
 // no trace, without the black flash of a full refresh. Then the panel sleeps. Counts toward the rule above.
 void displayClean(void (*draw)());
 
-// Animation frame (the Chooser spin and the games): partial refresh, not counted toward the rule above and
+// Animation frame (the games, and apps' unidex.frame): partial refresh, not counted toward the rule above and
 // no sleep. Always finish an animation with a full displayShow() to clear the ghosting.
 void displayFrame(void (*draw)());
 

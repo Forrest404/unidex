@@ -43,13 +43,12 @@ press b
 shot s-reset
 dry 1
 press b
-shot s-confirm-tally
+shot s-confirm-calendar
 press a
 shot s-confirm-keep
 press b
 press b
 shot s-dry-toast
-press a
 press a
 press b
 shot s-confirm-friends

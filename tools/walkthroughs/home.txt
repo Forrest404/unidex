@@ -10,8 +10,6 @@ shot home-pet
 press a
 shot home-badge
 press a
-shot home-chooser
-press a
 shot home-games
 press a
 shot home-apps

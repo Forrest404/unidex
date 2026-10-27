@@ -1,6 +1,6 @@
 # Home tiles are shot after visiting the app, so their lines come from the sample data too.
 # Screens for the README strip (docs/screens.png) and the link preview (site/og.png): tools/readme_images.py. Timetable and Notes show the
-# test build's sample classes and notes (demo 1), so no one's real timetable or notes appear; no badges (photos). Chooser's spin adds one win to its tally (normal use); Dino's score isn't
+# test build's sample classes and notes (demo 1), so no one's real timetable or notes appear; no badges (photos). Dino's score isn't
 # saved (dry run). The welcome is shown with X WELCOME ("welcomed" put back after); the factory reset is a dry run.
 dry 1
 keep welcomed
@@ -21,7 +21,6 @@ press a
 press a
 press a
 press b
-press a
 press a
 press a
 press a
@@ -64,13 +63,6 @@ shot r-pet
 press A
 expect screen=Home
 manual 0
-select Chooser
-press b
-press b
-shot r-chooser-result
-press A
-press A
-expect screen=Home
 seed 11
 manual 1
 select Games

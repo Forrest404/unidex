@@ -301,6 +301,44 @@ static void moveDexFinds() {
   }
 }
 
+// Chooser left the device for the app store too: its tally (wins per square, NVS keys ch_w1 ... ch_w9) goes into the
+// store app's own folder (/apps/chooser/data/tally: "w1,w2,...,w9"), added to whatever is there, so installing
+// Chooser carries on with it. The keys go only once the file is written.
+static void moveChooserTally() {
+  static const int SQUARES = 9;
+  int32_t old[SQUARES];
+  bool any = false;
+  char key[8];
+  for (int i = 0; i < SQUARES; i++) {
+    snprintf(key, sizeof key, "ch_w%d", i + 1);
+    old[i] = storageGetInt(key, 0);
+    any |= old[i] != 0;
+  }
+  if (!any || !storageMakeDirs("/apps/chooser/data")) return;
+  static const char *PATH = "/apps/chooser/data/tally", *TMP = "/apps/chooser/data/.move.tmp";
+  String had;
+  if (storageExists(PATH)) {
+    fs::File f = storageOpen(PATH);
+    storageReadLine(f, had, 200);
+    f.close();
+  }
+  String text;
+  for (int i = 0, from = 0; i < SQUARES; i++) {
+    const int comma = had.indexOf(',', from);
+    const long was = from < (int)had.length() ? had.substring(from, comma < 0 ? had.length() : comma).toInt() : 0;
+    from = comma < 0 ? had.length() : comma + 1;
+    text += String(was + old[i]) + (i + 1 < SQUARES ? "," : "");
+  }
+  fs::File out = storageOpen(TMP, "w");
+  const size_t wrote = out ? out.print(text) : 0;
+  if (out) out.close();
+  if (wrote != text.length() || !storageReplace(TMP, PATH, wrote)) return;
+  for (int i = 0; i < SQUARES; i++) {
+    snprintf(key, sizeof key, "ch_w%d", i + 1);
+    storageRemoveKey(key);
+  }
+}
+
 bool storageCardMount() {
   if (devNoCard()) return false;  // test build switch (X NOCARD 1)
   if (cardMounted) return true;
@@ -312,6 +350,7 @@ bool storageCardMount() {
   }
   copyFromFlashOnce();
   moveDexFinds();
+  moveChooserTally();
   return true;
 }
 

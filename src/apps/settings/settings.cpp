@@ -29,8 +29,8 @@ static const int ROW_H = 22, PAGE_ROWS = 6;  // six rows fit above the hints
 
 enum Screen : uint8_t { LIST, DATETIME, INFO, RESET, CONFIRM, CONFIRM_AGAIN, VOLUME, PHONE, CHECK, SYNC };
 enum Row : uint8_t { DATE, SYNC_ROW, SLEEP, VOLUME_ROW, ALERTS, INVERT, INFO_ROW, RESET_ROW, ROWS };
-enum Reset : uint8_t { TALLY, CALENDAR, PET_FRIENDS, EVERYTHING, FACTORY, RESETS };
-static const char *RESET_NAMES[] = {"Chooser tally", "Calendar", "Pet friends", "Everything", "Factory reset"};
+enum Reset : uint8_t { CALENDAR, PET_FRIENDS, EVERYTHING, FACTORY, RESETS };
+static const char *RESET_NAMES[] = {"Calendar", "Pet friends", "Everything", "Factory reset"};
 static const int RESET_ROW_H = 22;  // six rows fit above the hints
 enum Field : uint8_t { YEAR, MONTH, DAY, HOUR, MINUTE, SAVE, FIELDS };
 
@@ -321,14 +321,11 @@ static void drawReset() {
 }
 
 static void drawConfirm() {
-  static const char *TITLES[] = {"Clear the tally?", "Clear the calendar?", "Forget friends?", "Reset everything?",
-                                 "Factory reset?"};
+  static const char *TITLES[] = {"Clear the calendar?", "Forget friends?", "Reset everything?", "Factory reset?"};
   // Each line has to fit the box: about 164 px in the small font.
-  static const char *WHAT[] = {"Wins go back to 0.", "Synced events go.", "Your Pet forgets all.", "Settings, tally",
-                               "Wipes WiFi, keys,"};
-  static const char *MORE[] = {"Can't be undone.", "Can't be undone.", "Can't be undone.", "and calendar go.",
-                               "the Pet, all settings."};
-  static const char *LAST[] = {"", "", "", "Pet and keys stay.", "Card files stay."};
+  static const char *WHAT[] = {"Synced events go.", "Your Pet forgets all.", "Settings and the", "Wipes WiFi, keys,"};
+  static const char *MORE[] = {"Can't be undone.", "Can't be undone.", "calendar go.", "the Pet, all settings."};
+  static const char *LAST[] = {"", "", "Pet and keys stay.", "Card files stay."};
   drawResetRows();
   if (screen == CONFIRM_AGAIN) {  // the factory reset asks twice
     drawSheet("Wipe the device?", "Back to as new.", "Can't be undone.");
@@ -362,17 +359,6 @@ static void clear(uint8_t what) {
     launcherToast("Dry run: not cleared");
     return;
   }
-  if (what == TALLY) {
-    bool any = false;
-    char key[8];
-    for (int i = 1; i <= 6; i++) {
-      snprintf(key, sizeof key, "ch_w%d", i);
-      any |= storageGetInt(key, 0) != 0;
-      storageRemoveKey(key);
-    }
-    launcherToast(any ? "Tally cleared" : "Nothing to clear");
-    return;
-  }
   if (what == CALENDAR) {
     if (!storageCardMount()) launcherToast("No SD card");
     else if (!storageExists("/events.csv")) launcherToast("Nothing to clear");
@@ -393,7 +379,7 @@ static void clear(uint8_t what) {
   static uint8_t friendsBlock[1024];
   const size_t friendsLen = storageGetBytes("pet_friends", friendsBlock, sizeof friendsBlock);
   storageRemove("/events.csv");
-  storageClearKeys();  // settings, badge choice, tally (not the WiFi and keys: they're separate)
+  storageClearKeys();  // settings and the badge choice (not the WiFi and keys: they're separate)
   if (petId) storagePutInt("pet_id", petId);
   if (look != INT32_MIN) storagePutInt("pet_look", look);
   if (petName.length()) storagePutString("pet_name", petName.c_str());
