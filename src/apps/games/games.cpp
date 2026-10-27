@@ -296,14 +296,16 @@ static void stepFrames(int n, const char *pattern) {
   if (!showFrame()) displayShow(drawFailed, true);
 }
 
-// Test build: "list:Dino" (the highlighted game), "play:Dino", "over:Dino" or "failed:Dino", for X STATE.
+// Test build: "list:Dino" (the highlighted game), "play:Dino", "over:Dino" or "failed:Hop:<the error>", for X STATE.
 static const char *detail() {
-  static char text[40];
+  static char text[128];
   if (screen == LIST) {
     ensureList();
     snprintf(text, sizeof text, "list:%s", entries[cursor].name.c_str());
+  } else if (screen == FAILED) {
+    snprintf(text, sizeof text, "failed:%s:%s", playName, failMsg.c_str());
   } else {
-    snprintf(text, sizeof text, "%s:%s", screen == PLAY ? "play" : screen == OVER ? "over" : "failed", playName);
+    snprintf(text, sizeof text, "%s:%s", screen == PLAY ? "play" : "over", playName);
   }
   return text;
 }
