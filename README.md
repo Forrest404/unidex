@@ -189,8 +189,13 @@ it, not after it was sent.
 The Pet is a creature built from a body (blob, cat, bear, bunny, frog or robot), eyes, a mouth, a hat and an extra.
 It blinks every few seconds, and **A** says hi. **B** opens Dress up: **A** moves between rows, **B** changes the
 part, and **hold B** goes back one. The **Name** row names it a letter at a time, and the name shows as a tag over
-its head. You can also dress it up and name it with a mouse on the website's
-[Tools](https://tools.unidex.shop/tools.html) page.
+its head. **Your name** (the next row, or the Pet card on your phone) is what it calls you. You can also dress it
+up and name it with a mouse on the website's [Tools](https://tools.unidex.shop/tools.html) page.
+
+It also keeps an eye on your day, from your timetable, calendar and reminders, and says the next thing in a speech
+bubble: "Maths in 15 min, B12" (excited when it's close), "In Maths till 8:35", "Call Sam at 5pm", "Don't forget:
+Hand in the art project", "Morning Sam!" or "Free till tomorrow 9:00". From 22:00 to 07:00 it's asleep. The first
+four show on its line on the home screen too, so you see them without opening it.
 
 **Meet** (**hold B** on the Pet) is for two unidex side by side:
 
@@ -241,9 +246,9 @@ a store game to offload or delete it.
 - **Battery & info:** battery voltage and %, firmware version, storage used, and the device's name (`unidex-1A2B`,
   handy when you ask for help).
 - **Reset data:** clear calendar events, the Pet's friends, or everything (settings and calendar; your badges,
-  timetable, notes, apps, keys and Pet stay). Each one asks first.
+  timetable, notes, apps, keys, Pet and your name stay). Each one asks first.
 - **Factory reset** (at the bottom of Reset data, and it asks twice) is for passing the device on. It wipes the WiFi
-  and keys, the Pet and its friends, every setting and the calendar, then starts like new. Notes, badges
+  and keys, the Pet and its friends, your name, every setting and the calendar, then starts like new. Notes, badges
   and the timetable on the SD card stay, so format the card on a computer as well.
 - **Hold B** in the list sets it up from your phone (below).
 
@@ -259,7 +264,7 @@ your phone's camera and join, and a page opens by itself with five tabs:
 - **Setup:** what the website's Setup page does: WiFi networks (it lists the ones nearby), the OpenAI, ElevenLabs
   and Anthropic keys, the language your notes are in, the tidy-up, GitHub, the calendar link, and Remove everything.
 - **Tools:** the badge maker (choose a photo or take one, adjust it, and it's saved as a new badge that the Badge
-  app opens on), your badges with Delete, and the Pet designer (each part of its look, and its name).
+  app opens on), your badges with Delete, and the Pet designer (each part of its look, its name, and yours).
 - **Apps:** the app store. Tap Install and the device downloads the app itself (your phone has no internet while
   it's on the device's WiFi, so the device looks for your saved WiFi first and joins it if it's in range, which
   takes a few seconds before the QR code shows; if it isn't, the code shows straight away). The apps on the device are listed above the store (tap to show them), with Update and Delete, and

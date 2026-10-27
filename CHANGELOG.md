@@ -6,6 +6,21 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 
 ## Next release
 
+- **The Pet knows you** (new): give it your name (Dress up > Your name, or the Pet card on your phone) and it greets
+  you by it. It talks about your day in a speech bubble, from your timetable, calendar and reminders: the next
+  class within the hour ("Maths in 15 min, B12", excited when it's close), the one on now ("In Maths till 8:35"),
+  a reminder that's late or due within 2 hours, good morning, and when you're free ("Free till tomorrow 9:00").
+  It sleeps from 22:00 to 07:00. The first four also show on its home screen line.
+- **Timetable:** once every event its home line knew about has ended, it reads the card again (at most every 15
+  minutes), so the line no longer stays on "Nothing coming up" until you open it.
+
+## v1.12 (27 October 2026)
+
+- **Setup page:** a Language choice on the Transcription card, as in the device's Settings and the phone portal.
+  The device is the same as v1.11.
+
+## v1.11 (27 October 2026)
+
 - **Notes in other languages:** notes are transcribed and tidied up in the language you speak; the title, summary
   and note are never translated into English (a French note used to get an English summary). Auto (the default)
   works the language out; set yours (16 languages) in Settings > Note language or the Setup tab on your phone when it
