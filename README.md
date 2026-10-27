@@ -159,6 +159,12 @@ if you pick Claude), and GitHub (a repo and a
 repo only). Each has a **Test** button. If you'd rather not pay for anything, pick ElevenLabs and turn the tidy-up
 off: you get the plain transcript with a short title.
 
+**Other languages:** notes are transcribed and tidied up in the language you speak, never translated into English.
+On Auto (the default) the service works the language out; on a short note it can guess wrong, so you can set
+yours in Settings > Note language or in the Setup tab on your phone (16 languages). The screen only has letters
+without accents, so accented letters lose their marks ("Lodz", "Cestina"). A note in a script it can't show at all
+(Arabic, Chinese, Greek, Russian...) says so: hold B in the note to read it on your phone.
+
 Your keys stay on the device: the page can't read them back, and they're never in the code or on the card. Treat
 the device like an unlocked phone, because anyone holding it could use them.
 
@@ -228,7 +234,9 @@ a store game to offload or delete it.
 - **Sleep:** stay awake for 10, 20, 30 or 60 seconds after the last press.
 - **Volume:** the speaker, for playing notes and the reminder chime. **B** is louder, **hold B** quieter, with a
   chime at each step; 0 turns it off.
-- **Alert sound:** off, and a reminder falling due still shows on screen but doesn't chime.
+- **Alert sound:** off, and a reminder falling due still shows on screen but doesn't chime (nor do apps).
+- **Note language:** **B** steps through Auto, English, Spanish, French ... Korean: the language your notes are
+  in (see [Notes](#notes)).
 - **Invert:** white on black.
 - **Battery & info:** battery voltage and %, firmware version, storage used, and the device's name (`unidex-1A2B`,
   handy when you ask for help).
@@ -249,7 +257,7 @@ your phone's camera and join, and a page opens by itself with five tabs:
 - **Settings:** its name (which its WiFi is called from the next start), sleep, volume, invert, and the time
   (set from your phone's clock when it's wrong).
 - **Setup:** what the website's Setup page does: WiFi networks (it lists the ones nearby), the OpenAI, ElevenLabs
-  and Anthropic keys, the tidy-up, GitHub, the calendar link, and Remove everything.
+  and Anthropic keys, the language your notes are in, the tidy-up, GitHub, the calendar link, and Remove everything.
 - **Tools:** the badge maker (choose a photo or take one, adjust it, and it's saved as a new badge that the Badge
   app opens on), your badges with Delete, and the Pet designer (each part of its look, and its name).
 - **Apps:** the app store. Tap Install and the device downloads the app itself (your phone has no internet while

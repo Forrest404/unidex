@@ -6,6 +6,19 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 
 ## Next release
 
+- **Notes in other languages:** notes are transcribed and tidied up in the language you speak; the title, summary
+  and note are never translated into English (a French note used to get an English summary). Auto (the default)
+  works the language out; set yours (16 languages) in Settings > Note language or the Setup tab on your phone when it
+  guesses wrong. On the screen, accented Latin letters (Polish, Czech, Turkish...) lose their marks instead of
+  showing "?", and a note in a script the screen can't show (Arabic, Chinese, Greek...) says to read it on your
+  phone, with the time it was recorded as its title.
+- **Apps: `unidex.chime()`** (API level 5) plays the device's chime, so an app such as a timer can make a sound. It
+  follows Settings > Alert sound, and chimes at most once a second.
+- **Phone portal from Settings:** with none of your WiFi networks in range, the QR code shows straight away instead
+  of after up to 45 seconds of trying to join.
+
+## v1.10 (27 October 2026)
+
 - **Games from the store** (new): games anyone can make now play in Games, after the four built in, with their
   best scores, the game-over screen and the home line, like the built-in ones. A game is four Lua functions
   (start, step, draw, score; API level 4): see GAMES.md in the app store's repo, the "A game" starter in the App
