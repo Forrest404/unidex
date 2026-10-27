@@ -211,6 +211,11 @@ padding:3px 8px;border-radius:6px;white-space:nowrap}
 .arow p{font-size:14px;line-height:1.45;margin:6px 0 0;color:var(--ink);opacity:.86}
 .arow .tags{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 0}.arow .tags:empty{display:none}
 .arow .btns{margin:10px 0 0}.arow .btn{min-width:96px}
+.btn.more{width:100%;justify-content:space-between;min-height:48px;padding:10px 16px;font-size:14px;border-radius:16px}
+.btn.more svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s var(--ease)}
+.btn.more[aria-expanded=true] svg{transform:rotate(180deg)}
+#aMineBtn+.alist:not(:empty){margin-top:6px}
+.asearch{margin:0 0 12px}.asearch .search{background:var(--paper)}
 .btn.get{background:var(--soft);border-color:transparent;font-weight:750}
 .arow .tag.warn{background:var(--warnbg);color:var(--warn)}
 .cats .topic[aria-pressed=true]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
@@ -346,8 +351,11 @@ max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
 <div class="stack">
 <div class="card hero" id="aHero"><i class="ic" id="aHeroI" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0119 0M5.5 12.5a9.5 9.5 0 0113 0M8.5 16a5 5 0 017 0"/><circle cx="12" cy="19.5" r=".9"/></svg></i><div class="grow"><h2 id="aHeroT">Looking…</h2><p class="hint" id="aHeroH">&nbsp;</p><a class="btn hidden" id="aHeroGo" href="#setup">Set up WiFi</a></div></div>
 <div class="card" id="cMine"><div class="ch"><i class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/></svg></i><div><div class="hrow"><h2>On your unidex</h2><span class="tag" id="mineTag"></span></div><p class="hint">Open them from Apps, or Games for a game, on your unidex. Delete asks first, and takes the app’s saved data with it.</p></div></div>
+<button class="btn more hidden" id="aMineBtn" aria-expanded="false" aria-controls="aMine"><span id="aMineT">Show the apps</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg></button>
 <div class="alist" id="aMine"><p class="hint">Loading…</p></div><p class="say" id="mineSay" role="status"></p></div>
 <div class="card" id="cStore"><div class="ch"><i class="ic sand"><svg viewBox="0 0 24 24"><path d="M5 8.5h14l-1.2 11a1.5 1.5 0 01-1.5 1.3H7.7a1.5 1.5 0 01-1.5-1.3z"/><path d="M9 8.5V7a3 3 0 016 0v1.5"/></svg></i><div><div class="hrow"><h2>Store</h2><span class="tag" id="storeTag"></span></div><p class="hint">Free apps from tools.unidex.shop. Your unidex downloads them itself.</p></div></div>
+<div class="find asearch"><input id="aq" class="search" type="search" placeholder="Search apps…" aria-label="Search apps" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+<button id="aqc" class="clear hidden" aria-label="Clear search">&times;</button></div>
 <div class="near cats" id="aCats" role="group" aria-label="Category"></div>
 <div class="alist" id="aStore"><p class="hint">Loading…</p></div><p class="say" id="storeSay" role="status"></p></div>
 <div class="finish"><button class="btn primary wide" onclick="done(this)">Done</button><p class="hint">Closes this page and your unidex’s WiFi.</p></div>
@@ -645,7 +653,7 @@ if(!location.hash&&TAB!='notes')history.replaceState(null,'','#'+TAB);
 loadSetup();
 // --- Apps: the store's list as the device saved it (/apps.json), what's on the device (/installed.json), and
 // installs the device does itself over its WiFi (it's on that and on this hotspot at once) ---
-var A=null,M=null,aCat='',aWas=null,aTm=0;
+var A=null,M=null,aCat='',aWas=null,aTm=0,aOpen=false;
 var CATS={time:'Time',tools:'Tools',games:'Games',fun:'Fun',learning:'Learning',badges:'Badges'};
 function vNum(v){var p=String(v||'').split('.');return((+p[0]||0)*1e4+(+p[1]||0))*1e4+(+p[2]||0)}
 function aKB(b){return b<1024?b+' bytes':Math.round(b/1024)+' KB'}
@@ -678,10 +686,15 @@ $('aHeroH').textContent=on?n+' apps in the store. Tap Install and your unidex do
 'It joins your WiFi when this page starts, to get apps. '+(S&&S.cred.wifi_ssid&&S.cred.wifi_ssid.set?'It couldn’t this time: check it’s in range, then start again from Settings (hold B).':'Set up WiFi first, then start again from Settings (hold B).')+(n?' The list below is from last time.':'');
 $('aHeroGo').classList.toggle('hidden',on||!!(S&&S.cred.wifi_ssid&&S.cred.wifi_ssid.set));$('aHeroI').className='ic '+(on?'':'warn');$('aHero').style.background=on?'':'var(--surface)';
 // on the device
-var mine=$('aMine');mine.textContent='';tag('mineTag',M.apps.length,M.apps.length+' of '+M.max,'None yet');
+// The list is folded away behind a button (it can be long); the count and any updates show on the button.
+var mine=$('aMine'),mb=$('aMineBtn'),k=M.apps.length,ups=0;mine.textContent='';tag('mineTag',k,k+' of '+M.max,'None yet');
+M.apps.forEach(function(a){var e=aEntry(a.id);if(e&&!a.offloaded&&vNum(e.version)>vNum(a.version)&&e.api<=M.api)ups++});
+mb.classList.toggle('hidden',!M.card||!k);mb.setAttribute('aria-expanded',aOpen?'true':'false');
+$('aMineT').textContent=aOpen?'Hide the list':'Show '+k+(k==1?' app':' apps')+(ups?' · '+ups+(ups==1?' update':' updates'):'');
+mb.onclick=function(){aOpen=!aOpen;aDraw()};
 if(!M.card)mine.appendChild(el('p','hint','There’s no SD card in your unidex: apps are kept on it.'));
 else if(!M.apps.length)mine.appendChild(el('p','hint','No apps yet. Pick some from the store below.'));
-M.apps.forEach(function(a){var e=aEntry(a.id),tags=[],bs=[],d=el('button','btn danger','Delete');
+if(aOpen)M.apps.forEach(function(a){var e=aEntry(a.id),tags=[],bs=[],d=el('button','btn danger','Delete');
 if(a.offloaded)tags.push(el('span','tag','Offloaded: data kept'));if(a.problem)tags.push(el('span','tag warn',a.problem));
 if(e&&!a.offloaded&&vNum(e.version)>vNum(a.version)&&e.api<=M.api)tags.push(el('span','tag ok','Update: '+e.version));
 d.setAttribute('aria-label','Delete '+a.name);d.disabled=M.job.busy&&M.job.id==a.id;
@@ -695,10 +708,16 @@ if(!n)return box.appendChild(el('p','hint',on?'The store is empty right now.':'Y
 var seen={};A.apps.forEach(function(e){seen[e.category]=1});
 [''].concat(Object.keys(CATS).filter(function(k){return seen[k]})).forEach(function(k){var c=el('button','topic',k?CATS[k]:'All');
 c.setAttribute('aria-pressed',aCat==k?'true':'false');c.onclick=function(){aCat=k;aDraw()};cats.appendChild(c)});
-A.apps.filter(function(e){return!aCat||e.category==aCat}).forEach(function(e){var tags=[];
+// Search looks through every category: the name, what it does and who made it.
+var q=$('aq').value.trim().toLowerCase(),shown=A.apps.filter(function(e){return(!aCat||e.category==aCat)&&(!q||
+[e.name,e.description,e.author,CATS[e.category]].join(' ').toLowerCase().indexOf(q)>=0)});
+if(!shown.length){box.appendChild(el('p','hint',q?'No apps match “'+$('aq').value.trim()+'”.':'No apps here yet.'));return}
+shown.forEach(function(e){var tags=[];
 if((e.permissions||[]).indexOf('wifi')>=0)tags.push(el('span','tag','Uses WiFi'));if((e.permissions||[]).indexOf('mic')>=0)tags.push(el('span','tag','Uses the mic'));
 if(e.type=='plugin')tags.push(el('span','tag','Adds to '+(e.extends=='badge'?'Badge':e.extends)));
 box.appendChild(aRow(e,e.name,(e.author?'by '+e.author+' · ':'')+aKB(e.bytes),e.description,tags,[aButton(e)]))})}
+$('aq').oninput=function(){if(this.value.trim())aCat='';$('aqc').classList.toggle('hidden',!this.value);aDraw()};
+$('aqc').onclick=function(){$('aq').value='';this.classList.add('hidden');aDraw();$('aq').focus()};
 function start(d){notes=d;byId={};notes.forEach(function(o){byId[o.id]=o});render();route();setTimeout(prefetch,250)}
 if(NOTES)start(NOTES);
 else fetch('/notes.json').then(function(r){return r.json()}).then(start)
