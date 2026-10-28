@@ -144,11 +144,13 @@ void powerNap() {
   delay(5);  // test build: no light sleep (see powerSleepIfIdle)
   return;
 #endif
-  if (HWCDC::isPlugged() || inputAnyDown() || holds || idle >= idleMs) {  // light sleep drops WiFi
+  if (HWCDC::isPlugged() || inputAnyDown() || holds) {  // light sleep drops WiFi
     delay(5);
     return;
   }
-  uint32_t napMs = idleMs - idle;  // wake for the deep-sleep check, or sooner if an app asked
+  // Past the idle time and still awake: a plain charger is holding the battery up (see powerSleepIfIdle),
+  // so nap in short steps rather than spin. A button still wakes it.
+  uint32_t napMs = idle >= idleMs ? 250 : idleMs - idle;  // else wake for the deep-sleep check, or sooner if an app asked
   if (wakeWithin && wakeWithin < napMs) napMs = wakeWithin;
   wakeWithin = 0;
   esp_sleep_enable_timer_wakeup((uint64_t)napMs * 1000);
