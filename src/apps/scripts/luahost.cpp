@@ -9,6 +9,7 @@
 #include "../badge/badge_file.h"
 #include "../../core/audio.h"
 #include "../../core/battery.h"
+#include "../../core/climate.h"
 #include "../../core/clock.h"
 #include "../../core/display.h"
 #include "../../core/launcher.h"
@@ -328,6 +329,26 @@ static int l_time(lua_State *s) {
   return 1;
 }
 
+static int l_climate(lua_State *s) {
+    SensorReading reading;
+
+    if (!sensorRead(reading)) {
+        lua_pushnil(s);
+        lua_pushstring(s, "sensor read failed");
+        return 2;
+    }
+
+    lua_createtable(s, 0, 2);
+
+    lua_pushnumber(s, reading.temperatureC);
+    lua_setfield(s, -2, "temperature_c");
+
+    lua_pushnumber(s, reading.humidityRH);
+    lua_setfield(s, -2, "humidity_rh");
+
+    return 1;
+}
+
 static int l_battery(lua_State *s) {
   lua_pushinteger(s, batteryPercent());
   lua_pushboolean(s, batteryCharging());
@@ -546,7 +567,7 @@ static int setup(lua_State *s) {
                           {"wrap", l_wrap},     {"width", l_width},     {"rect", l_rect},       {"fill", l_fill},
                           {"line", l_line},     {"qr", l_qr},           {"icon", l_icon},       {"bitmap", l_bitmap},
                           {"time", l_time},     {"battery", l_battery}, {"toast", l_toast},     {"wake_in", l_wake_in},
-                          {"random", l_random}, {"frame", l_frame},     {"chime", l_chime},
+                          {"random", l_random}, {"frame", l_frame},     {"chime", l_chime},     {"climate", l_climate},
                           {nullptr, nullptr}};
   luaL_newlib(s, API);
   lua_pushinteger(s, apps::API_LEVEL);
