@@ -14,6 +14,11 @@
 #include "launcher.h"
 #include "power.h"
 #include "storage.h"
+#include <LittleFS.h>
+#include "../apps/notes/store.h"
+#include "../apps/timetable/callink.h"
+#include "../apps/scripts/appfetch.h"
+#include "net.h"
 
 static bool dryRun, fakeCloud, netFail, noCard, noPush, noSave, demo, manualFrames, emptyHeard;
 static int failNotes;
@@ -236,6 +241,71 @@ bool devUsb(const char *l) {
   } else if (!strncmp(c, "WELCOME", 7)) {  // X WELCOME: the first-start screens, without wiping anything
     launcherShowWelcome();
     Serial.println("OK X WELCOME");
+  } else if (!strncmp(c, "FLASHFILE ", 10)) {  // X FLASHFILE <path> <bytes>: a file in internal flash (0: removed)
+#if UNIDEX_EMU
+    Serial.println("ERR");  // no internal flash in the browser
+#else
+    char path[48] = "";
+    long bytes = 0;
+    bool ok = sscanf(c + 10, "%47s %ld", path, &bytes) == 2 && path[0] == '/' && LittleFS.begin(true);
+    if (ok && bytes > 0) {
+      fs::File f = LittleFS.open(path, "w", true);
+      for (long i = 0; f && i < bytes; i++) f.write((uint8_t)('a' + i % 26));
+      if (f) f.close();
+      fs::File check = LittleFS.open(path, "r");
+      ok = check && check.size() == (size_t)bytes;  // (a file's size is only right once it's closed)
+    } else if (ok) {
+      LittleFS.remove(path);
+    }
+    if (ok) LittleFS.end();
+    Serial.println(ok ? "OK X FLASHFILE" : "ERR");
+#endif
+  } else if (!strncmp(c, "ADDLINE /", 9)) {  // X ADDLINE <path> <text>: adds a line to a card file (test data)
+    const char *path = c + 8, *space = strchr(path, ' ');
+    String p = space ? String(path).substring(0, space - path) : String(path);
+    fs::File f = space ? storageOpen(p.c_str(), "a") : fs::File();
+    const bool ok = f && f.print(String(space + 1) + "\n") == strlen(space + 1) + 1;
+    if (f) f.close();
+    Serial.println(ok ? "OK X ADDLINE" : "ERR");
+  } else if (!strncmp(c, "RMFILE /", 8)) {  // X RMFILE <path>: removes one file from the card (test leftovers)
+    Serial.println(storageRemove(c + 7) ? "OK X RMFILE" : "ERR");
+  } else if (!strncmp(c, "NOTE ", 5)) {  // X NOTE <id> <markdown as hex>: one note with this text (test data)
+    char id[25] = "";
+    const char *hex = strchr(c + 5, ' ');
+    String md;
+    if (hex && hex - (c + 5) < (int)sizeof id) strlcpy(id, c + 5, hex - (c + 5) + 1);
+    for (const char *h = hex ? hex + 1 : ""; h[0] && h[1]; h += 2) {
+      char pair[3] = {h[0], h[1], 0};
+      md += (char)strtol(pair, nullptr, 16);
+    }
+    Serial.println(storeValidId(id) && md.length() && storeSaveNote(id, md) ? "OK X NOTE" : "ERR");
+  } else if (!strncmp(c, "NOTES ", 6)) {  // X NOTES <n>: n made-up notes (test-0001 ...) for long lists; 0 removes them
+    const int n = atoi(c + 6);
+    for (int i = 1; i <= 999; i++) {
+      char id[16];
+      snprintf(id, sizeof id, "test-%04d", i);
+      if (i <= n) storeSaveNote(id, String("---\ntitle: \"Test ") + i + "\"\n---\n\nA made-up note.\n");
+      else if (storeReadNote(id).length()) storeDelete(id);
+      powerAlive();  // hundreds of files take longer than the watchdog's 30 s
+    }
+    Serial.printf("OK X NOTES %d\n", n);
+  } else if (!strcmp(c, "CALSYNC")) {  // X CALSYNC: what Settings > Sync does (clock, then the calendar link)
+    const SyncResult r = calendarSync();
+    Serial.printf("OK X CALSYNC clock=%s link=%d calendar=%s events=%d\n", r.clock ? r.clock : "ok", r.link,
+                  r.calendar ? r.calendar : "ok", r.events);
+  } else if (!strncmp(c, "FETCH", 5)) {  // X FETCH [<id>]: the store's list, or an app installed from it, over WiFi
+#if UNIDEX_EMU
+    Serial.println("ERR");  // no WiFi in the browser
+#else
+    const char *why = netClaimed() ? "WiFi busy" : netConnect();
+    if (!why && !c[5]) why = appfetchCatalogue();
+    if (!why && c[5] == ' ' && !(why = appfetchStart(String(c + 6)))) {
+      while (appfetchBusy()) appfetchStep(), powerAlive();
+      why = appfetchStatus().ok ? nullptr : appfetchStatus().why.c_str();
+    }
+    if (!netClaimed()) netOff();
+    Serial.printf("OK X FETCH %s\n", why ? why : "ok");
+#endif
   } else if (!strcmp(c, "HANG")) {  // X HANG: the main loop stops; the watchdog should restart the device in 30 s
     Serial.println("OK X HANG");
     Serial.flush();

@@ -9,11 +9,12 @@
 #include "theme.h"
 #include "logo.h"
 #include "../apps/apps.h"
+#include "../apps/notes/phone.h"
 #include <qrcode.h>
 
 static const int HOME = -1, NO_CARD = -2, WELCOME = -3;
 RTC_DATA_ATTR static int current = HOME;  // open app, HOME, NO_CARD or WELCOME
-RTC_DATA_ATTR static uint8_t welcomePage; // WELCOME: 0 the buttons, 1 the website
+RTC_DATA_ATTR static uint8_t welcomePage; // WELCOME: 0 the buttons, 1 setting it up (the phone portal, or the website)
 RTC_DATA_ATTR static int noCardFor;       // the app that couldn't open
 RTC_DATA_ATTR static int selected;        // highlighted app on the home screen
 static const int NOWHERE = -99;
@@ -128,7 +129,12 @@ static void drawWelcomeButtons() {
 }
 
 static void drawWelcomeSite() {
-  drawHeader("Set it up");
+  if (phoneOn()) {  // the device's own WiFi: a phone sets it up, or a computer at the website
+    phoneDraw("Set it up", SITE);
+    drawHints("back", "done", "");
+    return;
+  }
+  drawHeader("Set it up");  // no hotspot (battery low, or the emulator): the website
   QRCode qr;
   uint8_t modules[qrcode_getBufferSize(3)];
   const String url = String("https://") + SITE;
@@ -139,8 +145,8 @@ static void drawWelcomeSite() {
         if (qrcode_getModule(&qr, x, y)) display.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, BLACK);
   }
   display.setFont(FONT_TINY);
-  drawCentered("WiFi, notes, badges, updates:", 135);
-  drawCentered(SITE, 151);
+  drawCentered(SITE, 135);  // over USB from a computer
+  drawCentered("or on a phone: Settings, hold B", 151);
   drawHints("previous", "start", "");
 }
 
@@ -154,6 +160,25 @@ void launcherShowWelcome() {
   current = WELCOME;
   welcomePage = 0;
   displayShow(drawWelcome, true);
+}
+
+// "Set it up": the phone portal on its Setup tab, if the battery allows (else the website's QR code instead).
+static void welcomeSetUp() {
+  welcomePage = 1;
+  if (!batteryTooLow()) phoneStart(PhoneTab::Setup);
+}
+
+static void goHome();
+
+// The first screens are done (B, hold A, or Done on the phone). WiFi or keys set up on a phone: Settings checks
+// them first, over the home screen.
+static void welcomeDone() {
+  phoneStop();
+  storagePutInt("welcomed", 1);
+  if (!phoneChanged()) return goHome();
+  current = HOME;  // where the checks' Exit goes back to
+  settingsShowChecks();
+  launcherInterrupt(&settingsApp);
 }
 
 static bool firstStart() {
@@ -264,11 +289,12 @@ void launcherHandle(Event e) {
   if (e == Event::Reset) systemRestart("");
   *toastText = 0;  // any press clears a message
   if (current == WELCOME) {
+    phoneActivity();  // a press keeps the hotspot up
     if (e == Event::ALong || (e == Event::BShort && welcomePage == 1)) {  // done (hold A skips it)
-      storagePutInt("welcomed", 1);
-      goHome();
+      welcomeDone();
     } else if (e == Event::AShort || e == Event::BShort) {
-      welcomePage = !welcomePage;
+      if (welcomePage == 0) welcomeSetUp();
+      else phoneStop(), welcomePage = 0;
       displayShow(drawWelcome, false);
     }
     return;
@@ -340,7 +366,11 @@ void launcherPoll() {
   } else if (current == NO_CARD) {
     if (changed || toastOver) displayTick(drawNoCard);
   } else if (current == WELCOME) {
-    // nothing changes on its own
+    if (phoneOn()) {  // "Set it up" with the hotspot on: answer the phone
+      const Redraw r = phoneTick();
+      if (!phoneOn() && phoneDone()) welcomeDone();  // Done on the phone
+      else if (r != Redraw::None) displayShow(drawWelcome, r == Redraw::Full);
+    }
   } else {
     const Redraw r = open()->tick ? open()->tick() : Redraw::None;
     if (r != Redraw::None) showApp(r);

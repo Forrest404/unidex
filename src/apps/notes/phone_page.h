@@ -1,9 +1,11 @@
 #pragma once
 
-// The whole "Open on phone" page: one reply, everything inline (no internet, no outside files). Its look and
+// The whole phone portal page: one reply, everything inline (no internet, no outside files). Its look and
 // layout follow the Pala Note 2.0 portal (warm paper, ink, coral accent, lilac and sand cards, a floating
-// pill navigation, big headlines); the notes are drawn on the phone from /notes.json and /note.json, so
-// moving around is instant.
+// pill navigation, big headlines). Five tabs: Notes, drawn on the phone from /notes.json and /note.json so
+// moving around is instant; Settings and Setup, from /setup.json, saved with POST /settings, /time and /set;
+// Tools (badges, the Pet); Apps, the store's list (/apps.json) and what's installed (/installed.json), installed
+// with POST /apps/install and watched until it's done.
 static const char PHONE_PAGE[] = R"PAGE(<!doctype html>
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
@@ -11,15 +13,15 @@ static const char PHONE_PAGE[] = R"PAGE(<!doctype html>
 <style>
 :root{--ink:#22211f;--muted:#6b675f;--line:#d9d4c9;--paper:#f6f4ef;--surface:#fffdfa;--accent:#c9402a;
 --lilac:#ddd7e9;--sand:#f1e7cc;--soft:#ebe9e3;--navbg:rgba(232,230,223,.94);--shadow:rgba(49,44,36,.045);
---ease:cubic-bezier(.32,.72,0,1)}
+--ok:#2d6a39;--segon:#fffdfa;--warn:#c9402a;--okbg:#e1eddf;--track:rgba(0,0,0,.08);--warnbg:#f6e0d9;--ease:cubic-bezier(.32,.72,0,1)}
 @media(prefers-color-scheme:dark){:root{--ink:#f2efe8;--muted:#9c978e;--line:#3b3833;--paper:#151412;
---surface:#211f1c;--lilac:#36324a;--sand:#3d3524;--soft:#2a2825;--navbg:rgba(38,36,33,.94);--shadow:rgba(0,0,0,.3)}}
+--surface:#211f1c;--ok:#8fcf9b;--segon:#45413a;--warn:#ff8f78;--okbg:#1f3424;--track:rgba(255,255,255,.14);--warnbg:#3b2521;--lilac:#36324a;--sand:#3d3524;--soft:#2a2825;--navbg:rgba(38,36,33,.94);--shadow:rgba(0,0,0,.3)}}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html{background:var(--paper);touch-action:manipulation;-webkit-text-size-adjust:100%}
 :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
 body{margin:0;padding:0 24px 64px;background:var(--paper);color:var(--ink);
 font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,Helvetica,sans-serif;font-synthesis:none;-webkit-font-smoothing:antialiased}
-button,input{font-family:inherit}
+button,input,textarea{font-family:inherit}
 .wrap{max-width:1080px;margin:0 auto}
 .nav{position:sticky;top:12px;z-index:20;min-height:68px;display:flex;align-items:center;justify-content:space-between;
 margin:12px 0 52px;padding:8px 10px 8px 20px;border:1px solid rgba(31,31,28,.06);border-radius:28px;background:var(--navbg);
@@ -45,7 +47,21 @@ background:none;color:var(--muted);font-size:22px;line-height:1;cursor:pointer}
 .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .card{background:var(--surface);border-radius:26px;padding:22px;box-shadow:0 10px 32px var(--shadow)}
 .card.lilac{background:var(--lilac)}.card.sand{background:var(--sand)}
-.note{cursor:pointer;transition:transform .15s ease-out}.note:active{transform:scale(.985)}
+.note{cursor:pointer;transition:transform .15s ease-out;touch-action:pan-y}.note:active{transform:scale(.985)}
+/* a note in the list slides left to show Delete; far enough, and it's deleted */
+.swipe{position:relative;min-width:0;transition:opacity .2s,transform .2s var(--ease)}
+.swipe .sdel{position:absolute;inset:0;border:0;border-radius:22px;background:var(--warn);color:#fff;font:inherit;font-size:15px;
+font-weight:760;display:flex;align-items:center;justify-content:flex-end;gap:7px;padding:0 26px;cursor:pointer;opacity:0;transition:opacity .15s}
+.swipe .sdel svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.swipe.moving .sdel,.swipe.open .sdel{opacity:1}
+.swipe .note{position:relative;transition:transform .25s var(--ease)}.swipe.moving .note{transition:none}
+.swipe.gone{opacity:0;transform:translateX(-30%)}
+.swipe.far .sdel{background:#a52a17}
+/* the first time the list shows on a phone, the top note peeks left once, so the slide can be found */
+@keyframes peek{0%,100%{transform:none}30%,62%{transform:translateX(-72px)}}
+@keyframes peekbg{0%,100%{opacity:0}18%,74%{opacity:1}}
+.swipe.peek .note{animation:peek 1.15s var(--ease) .7s both}.swipe.peek .sdel{animation:peekbg 1.15s .7s both}
+.delnote{width:100%;min-height:52px;margin:22px 0 0;border-radius:18px;font-size:15px}
 .num{font-size:11px;letter-spacing:.11em;text-transform:uppercase;color:var(--muted);margin-bottom:9px;font-weight:700}
 .title{font-size:23px;line-height:1.14;letter-spacing:-.025em;font-weight:780;margin:0 0 12px}
 .text{font-size:15px;line-height:1.5;color:var(--ink);opacity:.86;margin:0 0 14px}
@@ -86,6 +102,141 @@ details .body p{font-size:15px;color:var(--muted)}
 .rec{display:flex;align-items:center;gap:12px}
 .rec audio{flex:1;min-width:0;height:44px}
 .rec .btn{flex:none}
+/* Settings and Setup */
+.stack{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;max-width:640px}
+section:not(.hidden) .stack>*{animation:rise .32s var(--ease) both}
+section:not(.hidden) .stack>:nth-child(2){animation-delay:.03s}section:not(.hidden) .stack>:nth-child(3){animation-delay:.06s}
+section:not(.hidden) .stack>:nth-child(n+4){animation-delay:.09s}
+@keyframes rise{from{opacity:0;transform:translateY(8px)}}
+.card h2{font-size:20px;line-height:1.2;letter-spacing:-.02em;font-weight:780;margin:0 0 4px}
+.card h3{font-size:16px;font-weight:760;margin:18px 0 12px}
+.hint{display:block;font-size:14px;line-height:1.45;color:var(--muted);margin:0 0 14px;font-weight:400}
+.grow{flex:1;min-width:0}
+.ch{display:flex;align-items:flex-start;gap:14px;margin:0 0 16px}.hrow{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:28px}
+.hrow h2{margin:0}.hrow+.hint{margin-top:4px}.ch>div{flex:1;min-width:0}.ch .hint{margin:0}
+.ic{flex:none;width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;background:var(--soft);color:var(--ink)}
+.ic.lilac{background:var(--lilac)}.ic.sand{background:var(--sand)}.ic.warn{background:var(--warnbg);color:var(--warn)}
+.ic svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.tag{flex:none;display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:750;padding:6px 10px;border-radius:999px;
+background:var(--soft);color:var(--muted);white-space:nowrap}
+.tag.ok{background:var(--okbg);color:var(--ok)}.tag.ok::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.field{display:block;margin:0 0 14px}
+.field>span,.field>label>span{display:block;font-size:13px;font-weight:720;margin:0 0 6px}.field i{font-style:normal;font-weight:500;color:var(--muted)}
+.input{display:block;width:100%;font:inherit;font-size:16px;color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:12px 14px;
+background:var(--paper);min-height:48px;outline:0;-webkit-appearance:none;transition:border-color .15s,box-shadow .15s}
+.input:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(201,64,42,.14)}
+.input::placeholder{color:var(--muted);opacity:.85}
+textarea.input{min-height:110px;font:12px/1.4 ui-monospace,Menlo,monospace;resize:vertical}
+.pw{position:relative}.pw .input{padding-right:72px}
+.peek{position:absolute;right:4px;top:4px;min-height:40px;border:0;background:none;color:var(--warn);font:inherit;font-size:14px;font-weight:700;padding:0 12px;cursor:pointer}
+.pair{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.seg{display:flex;gap:4px;padding:4px;border-radius:16px;background:var(--soft);margin:0 0 14px}
+.seg label{flex:1;position:relative;display:flex}
+.seg input{position:absolute;inset:0;opacity:0;margin:0;cursor:pointer}
+.seg span{flex:1;display:flex;align-items:center;justify-content:center;text-align:center;min-height:44px;padding:4px 6px;border-radius:12px;
+font-size:14px;font-weight:700;color:var(--muted);transition:background .2s var(--ease),color .2s,box-shadow .2s}
+.seg input:checked+span{background:var(--segon);color:var(--ink);box-shadow:0 2px 8px var(--shadow)}
+.seg input:focus-visible+span{outline:2px solid var(--accent)}
+.row{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.toggle{cursor:pointer;align-items:center;margin:0}.toggle b{display:block;font-size:20px;letter-spacing:-.02em;font-weight:780}.toggle .hint{margin:2px 0 0}
+#cGithub .toggle{margin:0 0 16px}.sub2{margin-top:16px;padding-top:16px;border-top:1px solid var(--line)}.sub2 b{font-size:16px}
+.switch{appearance:none;-webkit-appearance:none;flex:none;width:52px;height:32px;margin:0;border-radius:999px;background:var(--line);
+position:relative;cursor:pointer;transition:background .2s}
+.switch::after{content:"";position:absolute;top:3px;left:3px;width:26px;height:26px;border-radius:50%;background:#fff;
+box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .25s var(--ease)}
+.switch:checked{background:var(--accent)}.switch:checked::after{transform:translateX(20px)}
+.stepper{display:flex;align-items:center;gap:12px}
+input[type=range]{flex:1;min-width:0;display:block;height:44px;margin:0;accent-color:var(--accent);cursor:pointer}
+.btn.round{width:44px;padding:0;font-size:22px;font-weight:500;flex:none}
+.big{font-size:24px;font-weight:800;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+.btns{display:flex;flex-wrap:wrap;gap:8px}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.saved{background:var(--okbg);color:var(--ok);border-color:transparent}
+.card.dirty [data-save]{background:var(--accent);color:#fff;border-color:var(--accent)}
+.say{font-size:14px;font-weight:650;margin:10px 0 0}.say:empty{display:none}.say.ok{color:var(--ok)}.say.bad{color:var(--warn)}
+.net{display:flex;align-items:center;gap:8px;padding:12px 0;border-top:1px solid var(--line)}
+.net:last-child{margin-bottom:14px;border-bottom:1px solid var(--line)}
+.net div{flex:1;min-width:0}.net b{display:block;overflow-wrap:anywhere}.net small{color:var(--muted);font-size:13px}
+.near{display:flex;flex-wrap:wrap;gap:8px;margin:-6px 0 14px}.near .topic{min-height:40px;padding:8px 12px;font-size:13px}.near:empty{display:none}
+.btn.danger{color:var(--warn);border-color:var(--warn)}
+.btn.wide{width:100%;min-height:56px;font-size:16px;border-radius:20px;box-shadow:0 10px 24px rgba(201,64,42,.22)}
+.finish{margin:10px 0 0}.finish .hint{text-align:center;margin:10px 0 0}
+/* the cards at the top: the device, and how far setup has got */
+.hero{display:flex;align-items:center;gap:18px;background:var(--sand)}
+.hero .hint{margin:0 0 10px;color:var(--ink);opacity:.78}.hero .btn{background:var(--surface)}
+.mini{flex:none;width:84px;padding:8px 8px 10px;border-radius:18px;background:var(--surface);box-shadow:0 6px 16px var(--shadow)}
+.scr{aspect-ratio:1;border-radius:7px;background:#e9e6da;color:#22211f;display:flex;flex-direction:column;align-items:center;justify-content:center;
+gap:2px;border:1px solid rgba(0,0,0,.12);transition:background .3s,color .3s}
+.scr b{font-size:13px;font-weight:900;letter-spacing:-.05em;max-width:100%;padding:0 4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.scr span{font-size:10px;font-weight:700;font-variant-numeric:tabular-nums}
+.mini.inv .scr{background:#22211f;color:#e9e6da}
+.mbtn{display:flex;gap:6px;margin-top:7px}.mbtn i{flex:1;height:7px;border-radius:4px;background:var(--line)}
+.bat{height:8px;border-radius:4px;background:var(--track);overflow:hidden;max-width:220px}
+.bat i{display:block;height:100%;width:0;border-radius:4px;background:var(--ink);transition:width .6s var(--ease)}
+.ring{--p:0;flex:none;width:76px;height:76px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+background:conic-gradient(var(--accent) calc(var(--p)*1turn),var(--track) 0);transition:--p .6s}
+.ring b{width:58px;height:58px;border-radius:50%;background:var(--sand);display:flex;align-items:center;justify-content:center;
+font-size:17px;font-weight:820;letter-spacing:-.02em}
+/* finished, and the device out of reach */
+#bye{position:fixed;inset:0;z-index:60;background:var(--paper);display:flex;align-items:center;justify-content:center;padding:24px;
+animation:fade .3s ease-out}
+.byecard{max-width:420px;text-align:center}.byecard .hint{font-size:16px}
+.tick{width:84px;height:84px;margin:0 auto 18px;display:block;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.tick circle{stroke:var(--okbg);stroke-width:4}.tick path{stroke:var(--ok);stroke-width:4.5;stroke-dasharray:40;stroke-dashoffset:40;animation:draw .5s .2s var(--ease) forwards}
+@keyframes draw{to{stroke-dashoffset:0}}@keyframes fade{from{opacity:0}}
+#lost{position:fixed;left:12px;right:12px;top:calc(12px + env(safe-area-inset-top));z-index:55;max-width:560px;margin:0 auto;display:flex;
+align-items:center;gap:12px;padding:12px 12px 12px 18px;border-radius:20px;background:var(--ink);color:var(--paper);font-size:14px;font-weight:650;
+box-shadow:0 14px 34px rgba(0,0,0,.25);animation:rise .3s var(--ease)}
+#lost span{flex:1}#lost .btn{flex:none;background:var(--paper);color:var(--ink);border:0}
+/* Tools: the badge maker and the Pet, each on a little e-ink screen */
+.eink{position:relative;width:100%;max-width:300px;aspect-ratio:1;margin:0 auto 16px;border-radius:16px;padding:10px;background:var(--surface);
+box-shadow:0 0 0 1px var(--line),0 8px 22px var(--shadow)}
+.eink canvas{display:block;width:100%;height:100%;border-radius:8px;background:#e9e6da;image-rendering:pixelated;image-rendering:crisp-edges}
+.eink.pet{max-width:220px}
+.pick{position:absolute;inset:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border-radius:8px;
+border:2px dashed rgba(34,33,31,.35);color:#22211f;cursor:pointer;text-align:center;transition:background .15s}
+.pick:active{background:rgba(0,0,0,.05)}
+.pick input{position:absolute;width:1px;height:1px;opacity:0}
+.pick svg{width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linejoin:round;margin-bottom:4px}
+.pick b{font-size:16px}.pick small{font-size:13px;opacity:.7}
+.pick:focus-within{outline:2px solid var(--accent);outline-offset:2px}
+.ptag{position:absolute;left:50%;top:16px;transform:translateX(-50%);background:#22211f;color:#e9e6da;font-size:12px;font-weight:800;
+padding:3px 8px;border-radius:6px;white-space:nowrap}
+.field input[type=range]{width:100%}
+.badges{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:14px 12px}
+.bt{display:flex;flex-direction:column;gap:6px;min-width:0}
+.bt .th{position:relative;aspect-ratio:1;border-radius:12px;padding:5px;background:#e9e6da;box-shadow:0 0 0 1px var(--line)}
+.bt img{display:block;width:100%;height:100%;border-radius:6px;image-rendering:pixelated;mix-blend-mode:multiply}
+.bt .on{position:absolute;left:6px;bottom:6px}
+.bt small{font-size:13px;font-weight:650;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.bt .btn{width:100%;padding:8px}
+.part{display:flex;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
+.part:last-child{border-bottom:1px solid var(--line)}
+.part b{width:64px;font-size:14px}.part span{flex:1;text-align:center;font-size:15px;font-weight:650}
+.part small{display:block;font-size:12px;color:var(--muted);font-weight:500}
+/* the Apps tab: each app a row, its 40x40 icon as the screen draws it */
+.alist{display:grid;grid-template-columns:minmax(0,1fr)}
+.arow{display:grid;grid-template-columns:52px minmax(0,1fr) auto;column-gap:14px;align-items:center;padding:16px 0;border-top:1px solid var(--line)}
+.arow>.aic{align-self:start}.arow>.adesc,.arow>.tags{grid-column:2/4}
+.alist>.arow:last-child{border-bottom:1px solid var(--line)}
+.aic{width:52px;height:52px;border-radius:14px;padding:6px;background:#e9e6da;box-shadow:0 0 0 1px var(--line)}
+.aic canvas{display:block;width:40px;height:40px;image-rendering:pixelated;image-rendering:crisp-edges}
+.aic b{display:flex;align-items:center;justify-content:center;width:40px;height:40px;font-size:22px;font-weight:800;color:#22211f}
+.arow h3{margin:0;font-size:16px;font-weight:760;line-height:1.3;overflow-wrap:anywhere}
+.arow small{display:block;font-size:13px;color:var(--muted);margin:2px 0 0}
+.arow p{font-size:14px;line-height:1.45;margin:8px 0 0;color:var(--ink);opacity:.86}
+.arow .tags{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0 0}.arow .tags:empty{display:none}
+.arow .btn{min-width:84px;padding:10px 16px}
+/* installing: the button fills up as the files arrive */
+.btn.prog{background:linear-gradient(90deg,var(--okbg) var(--p,0%),var(--soft) var(--p,0%));color:var(--ok);border-color:transparent;opacity:1;font-variant-numeric:tabular-nums}
+.btn.more{width:100%;justify-content:space-between;min-height:48px;padding:10px 16px;font-size:14px;border-radius:16px}
+.btn.more svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;transition:transform .2s var(--ease)}
+.btn.more[aria-expanded=true] svg{transform:rotate(180deg)}
+#aMineBtn+.alist:not(:empty){margin-top:6px}
+.asearch{margin:0 0 12px}.asearch .search{background:var(--paper)}
+.btn.get{background:var(--soft);border-color:transparent;font-weight:750}
+.arow .tag.warn{background:var(--warnbg);color:var(--warn)}
+.cats .topic[aria-pressed=true]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.cats{margin:0 0 6px}
 @media(prefers-reduced-motion:reduce){*{transition-duration:.01ms!important;animation:none!important}}
 /* share sheet */
 #scrim{position:fixed;inset:0;background:rgba(20,18,15,.38);opacity:0;pointer-events:none;transition:opacity .3s;z-index:40}
@@ -108,20 +259,132 @@ color:var(--paper);font-size:14px;font-weight:700;padding:11px 18px;border-radiu
 @media(max-width:760px){body{padding:0 14px 108px}
 .nav{position:fixed;top:auto;bottom:calc(14px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);width:calc(100% - 28px);
 max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
-.brand{font-size:20px}.navlinks{flex:1;justify-content:flex-end}.navlink{padding:10px 12px}.navlabel{display:none}
+.brand{display:none}.nav{padding:6px}.navlinks{flex:1;justify-content:space-around;gap:4px}
+.navlink{flex:1;flex-direction:column;justify-content:center;gap:3px;padding:8px 4px;font-size:12px;border-radius:20px}
 .top{display:block;margin-top:34px;padding-top:0}.top>.pill{margin-top:18px}
 .grid{grid-template-columns:1fr}.card{border-radius:22px}.title{font-size:21px}
 #open{padding:0 14px 120px}}
 </style></head><body>
 <div class="wrap">
 <nav class="nav"><div class="brand">unidex</div><div class="navlinks">
-<a class="navlink active" href="#" aria-label="Notes" aria-current="page"><svg viewBox="0 0 24 24"><path d="M6 6h14M6 12h14M6 18h14"/><circle cx="3" cy="6" r=".5"/><circle cx="3" cy="12" r=".5"/><circle cx="3" cy="18" r=".5"/></svg><span class="navlabel">Notes</span></a>
+<a class="navlink" id="nNotes" href="#"><svg viewBox="0 0 24 24"><path d="M6 6h14M6 12h14M6 18h14"/><circle cx="3" cy="6" r=".5"/><circle cx="3" cy="12" r=".5"/><circle cx="3" cy="18" r=".5"/></svg><span class="navlabel">Notes</span></a>
+<a class="navlink" id="nSettings" href="#settings"><svg viewBox="0 0 24 24"><path d="M4 7h9M19 7h1M4 17h3M13 17h7"/><circle cx="16" cy="7" r="2.5"/><circle cx="10" cy="17" r="2.5"/></svg><span class="navlabel">Settings</span></a>
+<a class="navlink" id="nSetup" href="#setup"><svg viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0119 0M5.5 12.5a9.5 9.5 0 0113 0M8.5 16a5 5 0 017 0"/><circle cx="12" cy="19.5" r=".9"/></svg><span class="navlabel">Setup</span></a>
+<a class="navlink" id="nTools" href="#tools"><svg viewBox="0 0 24 24"><path d="M18.5 3.5a2.1 2.1 0 013 3L11 17l-4-4z"/><path d="M7 13c-2 0-3.5 1.5-3.5 3.5 0 1.5-1 2.5-1 2.5h4c2 0 3.5-1.5 3.5-3.5"/></svg><span class="navlabel">Tools</span></a>
+<a class="navlink" id="nApps" href="#apps"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><path d="M16.75 13.5v6.5M13.5 16.75H20"/></svg><span class="navlabel">Apps</span></a>
 </div></nav>
+<section id="tabNotes">
 <div class="top"><div><div class="sub">Voice notes on your unidex</div><h1>Notes.</h1></div><div class="pill" id="count">&nbsp;</div></div>
 <div class="toolbar"><div class="find"><input id="q" class="search" type="search" placeholder="Search notes…" aria-label="Search notes" autocomplete="off" autocorrect="off" enterkeyhint="search">
 <button id="qc" class="clear hidden" aria-label="Clear search" onclick="setQuery('')">&times;</button></div>
 <a class="btn" href="/export.txt" download><svg viewBox="0 0 24 24"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>Export</a></div>
 <div id="grid" class="grid"></div><div id="empty" class="empty hidden"></div>
+</section>
+<section id="tabSettings" class="hidden">
+<div class="top"><div><div class="sub">How your unidex behaves</div><h1>Settings.</h1></div></div>
+<div class="stack">
+<div class="card hero"><div class="mini" id="mini" aria-hidden="true"><div class="scr"><b id="miniN">unidex</b><span id="miniT">--:--</span></div><div class="mbtn"><i></i><i></i></div></div>
+<div class="grow"><h2 id="devName">Your unidex</h2><p class="hint" id="devInfo">&nbsp;</p>
+<div class="bat" role="img" id="batBox"><i id="batI"></i></div></div></div>
+<div class="card" id="cName"><div class="ch"><i class="ic sand"><svg viewBox="0 0 24 24"><path d="M3.5 12.6V4.5a1 1 0 011-1h8.1a1 1 0 01.7.3l7.4 7.4a1 1 0 010 1.4l-8.1 8.1a1 1 0 01-1.4 0l-7.4-7.4a1 1 0 01-.3-.7z"/><circle cx="8" cy="8" r="1.4"/></svg></i><div><h2>Name</h2><p class="hint">What your unidex is called. Its WiFi takes the name the next time it starts.</p></div></div>
+<label class="field"><span>Name <i>(up to 20 characters)</i></span><input class="input" id="dname" maxlength="20" autocomplete="off" autocorrect="off" spellcheck="false" enterkeyhint="done"></label>
+<button class="btn" id="nameSave" data-save>Save</button><p class="say" id="nameSay" role="status"></p></div>
+<div class="card"><div class="ch"><i class="ic lilac"><svg viewBox="0 0 24 24"><path d="M20 14.5A8 8 0 019.5 4a8 8 0 1010.5 10.5z"/></svg></i><div><h2>Sleep after</h2><p class="hint">How long it stays on after the last button press.</p></div></div>
+<div class="seg" role="radiogroup" aria-label="Sleep after" style="margin:0"><label><input type="radio" name="sleep" value="10"><span>10 s</span></label><label><input type="radio" name="sleep" value="20"><span>20 s</span></label><label><input type="radio" name="sleep" value="30"><span>30 s</span></label><label><input type="radio" name="sleep" value="60"><span>1 min</span></label></div>
+<p class="say" id="sleepSay" role="status"></p></div>
+<div class="card"><div class="ch"><i class="ic sand"><svg viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 6v12l-4.5-3.5H4z"/><path d="M15.5 9a4.5 4.5 0 010 6M18 6.5a8 8 0 010 11"/></svg></i><div><div class="hrow"><h2>Volume</h2><b class="big" id="volv"></b></div><p class="hint">For playing notes and the reminder chime. It chimes at the new level.</p></div></div>
+<div class="stepper"><button class="btn round" id="volDown" aria-label="Quieter">&minus;</button><input type="range" id="vol" min="0" max="10" step="1" aria-label="Volume"><button class="btn round" id="volUp" aria-label="Louder">+</button></div>
+<label class="row toggle sub2"><span class="grow"><b>Chime for reminders</b><span class="hint">Off: a reminder shows on the screen without a sound.</span></span><input type="checkbox" class="switch" id="chime"></label>
+<p class="say" id="volSay" role="status"></p></div>
+<div class="card"><label class="ch toggle"><i class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 3.5a8.5 8.5 0 010 17z" fill="currentColor"/></svg></i><span class="grow"><b>Invert the screen</b><span class="hint">White on black.</span></span><input type="checkbox" class="switch" id="inv"></label>
+<p class="say" id="invSay" role="status"></p></div>
+<div class="card"><div class="ch"><i class="ic lilac"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg></i><div><div class="hrow"><h2>Date and time</h2><span class="tag" id="timeTag"></span></div><p class="hint" id="clock">&nbsp;</p></div></div>
+<button class="btn" id="setTime">Use this phone’s time</button><p class="say" id="timeSay" role="status"></p></div>
+<div class="finish"><button class="btn primary wide" onclick="done(this)">Done</button><p class="hint">Closes this page and your unidex’s WiFi.</p></div>
+</div></section>
+<section id="tabSetup" class="hidden">
+<div class="top"><div><div class="sub">WiFi, keys and GitHub</div><h1>Setup.</h1></div></div>
+<div class="stack">
+<div class="card hero"><div class="ring" id="ring"><b id="ringN">0/3</b></div><div class="grow"><h2 id="heroT">&nbsp;</h2><p class="hint" id="heroH">&nbsp;</p><button class="btn hidden" id="heroGo">Go</button></div></div>
+<div class="card" id="cWifi"><div class="ch"><i class="ic lilac"><svg viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0119 0M5.5 12.5a9.5 9.5 0 0113 0M8.5 16a5 5 0 017 0"/><circle cx="12" cy="19.5" r=".9"/></svg></i><div><div class="hrow"><h2>WiFi</h2><span class="tag" id="wifiTag"></span></div><p class="hint">For the time, notes and reminders. Save up to 5: it joins whichever is in range.</p></div></div>
+<div id="nets"></div><button class="btn" id="addNet">+ Add a network</button>
+<div id="netForm" class="hidden"><h3 id="netTitle">Add a network</h3>
+<div class="seg" role="radiogroup" aria-label="Kind of network"><label><input type="radio" name="kind" value="home"><span>Home or hotspot</span></label><label><input type="radio" name="kind" value="ent"><span>eduroam or work</span></label></div>
+<label class="field"><span>Network name</span><input class="input" id="ssid" maxlength="32" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+<div class="near" id="near"></div>
+<label class="field" id="userBox"><span>Username</span><input class="input" id="wuser" maxlength="128" placeholder="you@uni.ac.uk" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+<div class="field"><label for="wpass"><span>Password</span></label><div class="pw"><input class="input" id="wpass" type="password" maxlength="128" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"><button type="button" class="peek" id="peek">Show</button></div></div>
+<label class="field" id="caBox"><span>Certificate <i>(optional, from your IT pages)</i></span><textarea class="input" id="wca" spellcheck="false" placeholder="-----BEGIN CERTIFICATE-----"></textarea></label>
+<div class="btns"><button class="btn primary" id="saveNet">Save network</button><button class="btn" id="cancelNet">Cancel</button></div></div>
+<p class="say" id="wifiSay" role="status"></p></div>
+<div class="card" id="cTranscribe"><div class="ch"><i class="ic sand"><svg viewBox="0 0 24 24"><path d="M3 12h2M7 8v8M11 4.5v15M15 8.5v7M19 11v2"/></svg></i><div><div class="hrow"><h2>Transcription</h2><span class="tag" id="transcribeTag"></span></div><p class="hint">Who writes down what you say.</p></div></div>
+<div class="seg" role="radiogroup" aria-label="Transcription"><label><input type="radio" name="transcribe" value="openai"><span>OpenAI Whisper</span></label><label><input type="radio" name="transcribe" value="elevenlabs"><span>ElevenLabs</span></label></div>
+<label class="field" id="oaBox"><span>OpenAI key <i>(platform.openai.com)</i></span><input class="input" id="openai_key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+<label class="field" id="elBox"><span>ElevenLabs key <i>(free plan: about 30 min a month)</i></span><input class="input" id="elevenlabs_key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+<label class="field"><span>Language <i>(what your notes are in)</i></span><select class="input" id="note_lang"><option value="">Auto (it works it out)</option><option value="en">English</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="it">Italian</option><option value="pt">Portuguese</option><option value="nl">Dutch</option><option value="pl">Polish</option><option value="tr">Turkish</option><option value="ru">Russian</option><option value="uk">Ukrainian</option><option value="ar">Arabic</option><option value="hi">Hindi</option><option value="zh">Chinese</option><option value="ja">Japanese</option><option value="ko">Korean</option></select></label>
+<button class="btn" data-save="transcribe">Save</button><p class="say" id="transcribeSay" role="status"></p></div>
+<div class="card" id="cCleanup"><div class="ch"><i class="ic lilac"><svg viewBox="0 0 24 24"><path d="M11 3.5l1.7 4.3 4.3 1.7-4.3 1.7L11 15.5l-1.7-4.3L5 9.5l4.3-1.7z"/><path d="M18 14.5l.8 1.9 1.9.8-1.9.8-.8 1.9-.8-1.9-1.9-.8 1.9-.8z"/></svg></i><div><div class="hrow"><h2>Tidy-up</h2><span class="tag" id="cleanupTag"></span></div><p class="hint">Gives each note a title, a summary and topics.</p></div></div>
+<div class="seg" role="radiogroup" aria-label="Tidy-up"><label><input type="radio" name="cleanup" value="openai"><span>OpenAI</span></label><label><input type="radio" name="cleanup" value="anthropic"><span>Claude</span></label><label><input type="radio" name="cleanup" value="off"><span>Off</span></label></div>
+<label class="field" id="oaBox2"><span>OpenAI key</span><input class="input" id="openai_key2" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+<label class="field" id="anBox"><span>Anthropic key</span><input class="input" id="anthropic_key" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+<label class="field" id="modelBox"><span>Model <i>(optional)</i></span><input class="input" id="cleanup_model" maxlength="64" placeholder="The default" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+<button class="btn" data-save="cleanup">Save</button><p class="say" id="cleanupSay" role="status"></p></div>
+<div class="card" id="cGithub"><label class="ch toggle"><i class="ic sand"><svg viewBox="0 0 24 24"><circle cx="6" cy="5.5" r="2"/><circle cx="6" cy="18.5" r="2"/><circle cx="18" cy="8" r="2"/><path d="M6 7.5v9M18 10c0 4.5-6 3.5-11 7"/></svg></i><span class="grow"><b>Send notes to GitHub</b><span class="hint">Each note as a Markdown file in your repo, for Obsidian.</span></span><input type="checkbox" class="switch" id="gh_on"></label>
+<div id="ghBox">
+<label class="field"><span>Repo</span><input class="input" id="gh_repo" maxlength="100" placeholder="owner/name" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+<div class="pair"><label class="field"><span>Branch</span><input class="input" id="gh_branch" maxlength="64" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+<label class="field"><span>Folder</span><input class="input" id="gh_dir" maxlength="64" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label></div>
+<label class="field"><span>Token <i>(fine-grained, Contents: read and write)</i></span><input class="input" id="gh_token" type="password" autocomplete="off" autocapitalize="off" spellcheck="false"></label></div>
+<button class="btn" data-save="github">Save</button><p class="say" id="githubSay" role="status"></p></div>
+<div class="card hidden" id="calCard"><div class="ch"><i class="ic lilac"><svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15" rx="3"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg></i><div><div class="hrow"><h2>Calendar link</h2><span class="tag" id="calendarTag"></span></div><p class="hint">Your calendar’s private address (iCal, .ics or webcal://), so your unidex fetches your timetable itself.</p></div></div>
+<label class="field"><span>Link</span><input class="input" id="cal_url" type="password" maxlength="256" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+<button class="btn" data-save="calendar">Save</button><p class="say" id="calendarSay" role="status"></p></div>
+<div class="card"><div class="ch"><i class="ic warn"><svg viewBox="0 0 24 24"><path d="M4 7h16M9.5 7V4.5h5V7M6 7l1 12.5h10L18 7"/></svg></i><div><h2>Remove everything</h2><p class="hint">Forgets every WiFi network, key and link on this unidex. Your notes stay.</p></div></div>
+<button class="btn danger" id="clearAll">Remove everything</button><p class="say" id="clearSay" role="status"></p></div>
+<div class="finish"><button class="btn primary wide" onclick="done(this)">Done</button><p class="hint">Closes this page. If you changed WiFi or keys, your unidex then checks they work and shows how it went.</p></div>
+</div></section>
+<section id="tabTools" class="hidden">
+<div class="top"><div><div class="sub">Make it yours</div><h1>Tools.</h1></div></div>
+<div class="stack">
+<div class="card" id="cBadge"><div class="ch"><i class="ic sand"><svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><circle cx="9" cy="10" r="1.8"/><path d="M20.5 15.5l-5-5-9 9"/></svg></i><div><h2>Badge maker</h2><p class="hint">Turn a photo into a badge. It’s saved on your unidex and the Badge app opens on it.</p></div></div>
+<div class="eink" id="bFrame"><canvas id="bOut" width="200" height="200" role="img" aria-label="The badge, as the screen will show it"></canvas>
+<label class="pick" id="bPick"><input type="file" id="bFile" accept="image/*"><svg viewBox="0 0 24 24"><path d="M4 8.5h3l1.5-2.5h7L17 8.5h3v10H4z"/><circle cx="12" cy="13" r="3.2"/></svg><b>Choose a photo</b><small>or take one</small></label></div>
+<div id="bOpts" class="hidden">
+<div class="seg" role="radiogroup" aria-label="Fit"><label><input type="radio" name="bFit" value="contain" checked><span>Fit inside</span></label><label><input type="radio" name="bFit" value="cover"><span>Fill</span></label></div>
+<div class="seg" role="radiogroup" aria-label="Style"><label><input type="radio" name="bStyle" value="auto" checked><span>Auto</span></label><label><input type="radio" name="bStyle" value="photo"><span>Photo</span></label><label><input type="radio" name="bStyle" value="line"><span>Line art</span></label></div>
+<label class="field"><span>Lightness</span><input type="range" id="bLight" min="-100" max="100" value="0"></label>
+<label class="row toggle sub2"><span class="grow"><b>Invert</b><span class="hint">Swap black and white.</span></span><input type="checkbox" class="switch" id="bInv"></label>
+<label class="field" style="margin-top:16px"><span>Name</span><input class="input" id="bName" maxlength="24" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></label>
+<div class="btns"><button class="btn primary" id="bSend">Send to unidex</button><button class="btn" id="bAgain">Another photo</button></div></div>
+<p class="say" id="badgeSay" role="status"></p></div>
+<div class="card" id="cBadges"><div class="ch"><i class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg></i><div><div class="hrow"><h2>Your badges</h2><span class="tag" id="badgesTag"></span></div><p class="hint">The ones on your unidex. Delete asks first.</p></div></div>
+<div class="badges" id="bList"><p class="hint">Loading…</p></div><p class="say" id="badgesSay" role="status"></p></div>
+<div class="card" id="cPet"><div class="ch"><i class="ic lilac"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M8.5 14.5a4.5 4.5 0 007 0"/><circle cx="9" cy="10" r=".9"/><circle cx="15" cy="10" r=".9"/></svg></i><div><h2>Pet</h2><p class="hint">Dress up your Pet and name it. It changes on your unidex straight away.</p></div></div>
+<div class="eink pet"><canvas id="pOut" width="32" height="32" role="img" aria-label="Your Pet"></canvas><b class="ptag hidden" id="pTag"></b></div>
+<div id="pParts"><p class="hint">Loading your Pet…</p></div>
+<label class="field" style="margin-top:16px"><span>Name <i>(optional, up to 12)</i></span><input class="input" id="pName" maxlength="12" placeholder="No name" autocomplete="off" autocorrect="off" spellcheck="false"></label>
+<label class="field"><span>Your name <i>(optional: it says hi to you)</i></span><input class="input" id="pOwner" maxlength="12" placeholder="No name" autocomplete="given-name" autocorrect="off" spellcheck="false"></label>
+<div class="btns"><button class="btn primary" id="pSend" disabled>Send to unidex</button><button class="btn" id="pRandom" disabled>Surprise me</button></div>
+<p class="say" id="petSay" role="status"></p></div>
+<div class="finish"><button class="btn primary wide" onclick="done(this)">Done</button><p class="hint">Closes this page and your unidex’s WiFi.</p></div>
+</div></section>
+<section id="tabApps" class="hidden">
+<div class="top"><div><div class="sub">App store</div><h1>Apps.</h1></div></div>
+<div class="stack">
+<div class="card hero" id="aHero"><i class="ic" id="aHeroI" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M2.5 9a14 14 0 0119 0M5.5 12.5a9.5 9.5 0 0113 0M8.5 16a5 5 0 017 0"/><circle cx="12" cy="19.5" r=".9"/></svg></i><div class="grow"><h2 id="aHeroT">Looking…</h2><p class="hint" id="aHeroH">&nbsp;</p><a class="btn hidden" id="aHeroGo" href="#setup">Set up WiFi</a></div></div>
+<div class="card" id="cMine"><div class="ch"><i class="ic"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.8"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.8"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.8"/></svg></i><div><div class="hrow"><h2>On your unidex</h2><span class="tag" id="mineTag"></span></div><p class="hint">Open them from Apps, or Games for a game, on your unidex. Delete asks first, and takes the app’s saved data with it.</p></div></div>
+<button class="btn more hidden" id="aMineBtn" aria-expanded="false" aria-controls="aMine"><span id="aMineT">Show the apps</span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9.5l6 6 6-6"/></svg></button>
+<div class="alist" id="aMine"><p class="hint">Loading…</p></div><p class="say" id="mineSay" role="status"></p></div>
+<div class="card" id="cStore"><div class="ch"><i class="ic sand"><svg viewBox="0 0 24 24"><path d="M5 8.5h14l-1.2 11a1.5 1.5 0 01-1.5 1.3H7.7a1.5 1.5 0 01-1.5-1.3z"/><path d="M9 8.5V7a3 3 0 016 0v1.5"/></svg></i><div><div class="hrow"><h2>Store</h2><span class="tag" id="storeTag"></span></div><p class="hint">Free apps from tools.unidex.shop. Your unidex downloads them itself.</p></div></div>
+<div class="find asearch"><input id="aq" class="search" type="search" placeholder="Search apps…" aria-label="Search apps" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="search">
+<button id="aqc" class="clear hidden" aria-label="Clear search">&times;</button></div>
+<div class="near cats" id="aCats" role="group" aria-label="Category"></div>
+<div class="alist" id="aStore"><p class="hint">Loading…</p></div><p class="say" id="storeSay" role="status"></p></div>
+<div class="finish"><button class="btn primary wide" onclick="done(this)">Done</button><p class="hint">Closes this page and your unidex’s WiFi.</p></div>
+</div></section>
+<div id="bye" class="hidden"><div class="byecard"><svg class="tick" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l7.5 7.5L37.5 19"/></svg>
+<h2 class="title">All done.</h2><p class="hint">Your unidex has closed its WiFi, so this phone goes back to its usual one. If you changed WiFi or keys, it’s checking them now: the results are on its screen.</p></div></div>
+<div id="lost" class="hidden" role="alert"><span>Can’t reach your unidex. Is this phone still on its WiFi?</span><button class="btn" onclick="location.reload()">Retry</button></div>
 <div class="foot">Straight from your unidex. Nothing goes to the internet.</div>
 </div>
 <div id="open" class="gone" role="dialog" aria-modal="true" aria-labelledby="ot"><div class="reader">
@@ -140,6 +403,7 @@ max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
 <div class="card"><div class="body" id="ob"></div></div>
 <details class="card" id="oq"><summary>Original transcript</summary><div class="body"></div></details>
 <div class="topics" id="ok"></div>
+<button class="btn danger delnote" id="odel">Delete note</button>
 </div></div>
 <div id="scrim" onclick="closeSheet()"></div>
 <div id="sheet"><div class="card"><div class="title" id="st"></div><div class="apps">
@@ -151,9 +415,9 @@ max-width:560px;margin:0;padding:7px 9px 7px 16px;min-height:66px}
 <a id="sWav" download><i><svg viewBox="0 0 24 24"><path d="M9 18V6l10-2v12"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="16.5" cy="16" r="2.5"/></svg></i>Recording</a>
 <button id="sMore" class="hidden" onclick="nativeShare()"><i><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3"/><circle cx="12" cy="12" r="1.3"/><circle cx="19" cy="12" r="1.3"/></svg></i>More</button>
 </div></div><button class="btn cancel" onclick="closeSheet()">Cancel</button></div>
-<div id="toast" role="status" aria-live="polite"></div><textarea id="clip" readonly></textarea>
+<div id="toast" role="status" aria-live="polite"></div><textarea id="clip" readonly aria-hidden="true" tabindex="-1"></textarea>
 <script>
-var NOTES=/*NOTES*/null;
+var NOTES=/*NOTES*/null,TAB=/*TAB*/'notes';
 var $=function(s){return document.getElementById(s)},notes=NOTES||[],byId={},cur=null,cache={},loading={};
 function el(t,c,x){var e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
 function toast(t){var e=$('toast');e.textContent=t;e.classList.add('on');clearTimeout(e.t);e.t=setTimeout(function(){e.classList.remove('on')},2200)}
@@ -175,25 +439,27 @@ function setQuery(v){$('q').value=v;render();if(!v)$('q').blur();window.scrollTo
 function render(){var raw=$('q').value.trim(),q=raw.toLowerCase(),g=$('grid'),n=0,f=document.createDocumentFragment();
 notes.forEach(function(o){if(q&&(o.t+' '+o.s+' '+o.x+' '+o.k).toLowerCase().indexOf(q)<0)return;n++;
 var c=el('article','card note');c.tabIndex=0;c.setAttribute('role','button');
-c.onclick=function(){location.hash=o.id};c.onkeydown=function(e){if(e.key=='Enter')location.hash=o.id};
+c.onclick=function(){if(c.dragged){c.dragged=0;return}location.hash=o.id};c.onkeydown=function(e){if(e.key=='Enter')location.hash=o.id};
 c.onpointerdown=function(){load(o.id).catch(function(){})};
 if(o.p)c.appendChild(el('span','topic state','Waiting'));
 c.appendChild(el('div','num',when(o.id)));c.appendChild(el('h2','title',o.t));
-if(o.s)c.appendChild(el('p','text',o.s));var k=el('div','topics');topics(k,o.k,true);c.appendChild(k);f.appendChild(c)});
+if(o.s)c.appendChild(el('p','text',o.s));var k=el('div','topics');topics(k,o.k,true);c.appendChild(k);f.appendChild(swipe(c,o))});
 g.textContent='';g.appendChild(f);g.classList.toggle('hidden',!n);$('empty').classList.toggle('hidden',!!n);$('qc').classList.toggle('hidden',!raw);
 $('empty').textContent=notes.length?'No notes match “'+raw+'”.':'No notes yet. Hold B on the Notes screen to record one.';
 var all=notes.length+(notes.length==1?' note':' notes');$('count').textContent=q?n+' of '+all:all}
 function body(box,text){box.textContent='';(text||'').split('\n').forEach(function(l){l=l.trim().replace(/\*\*/g,'');if(!l)return;var c='';
 if(/^[-*] /.test(l)){l='• '+l.slice(2);c='li'}else if(/^#/.test(l)){l=l.replace(/^#+\s*/,'');c='h'}box.appendChild(el('p',c,l))})}
 // Opens at once with what the list already knows (title, date, summary); the text follows when it's in.
-function show(o,full){cur=full?o:null;$('od').textContent=when(o.id);$('ot').textContent=o.t;$('os').classList.toggle('hidden',!o.s);$('ost').textContent=o.s||'';
+var shownId='';
+function show(o,full){cur=full?o:null;if(shownId!=o.id){var b=$('odel');clearTimeout(b.tm);delete b.dataset.armed;b.textContent='Delete note'}shownId=o.id;$('od').textContent=when(o.id);$('ot').textContent=o.t;$('os').classList.toggle('hidden',!o.s);$('ost').textContent=o.s||'';
 if(full)body($('ob'),o.b||(o.p?'This note is transcribed the next time the device has WiFi.':''));
 else $('ob').innerHTML='<div class="sk"></div><div class="sk"></div><div class="sk"></div>';
 $('oq').classList.toggle('hidden',!(full&&o.q));$('oq').open=false;if(full)body($('oq').lastChild,o.q);topics($('ok'),o.k);
 $('otxt').href='/note.txt?id='+encodeURIComponent(o.id);$('otxt').classList.toggle('hidden',!!o.p);
 var src='/audio?id='+encodeURIComponent(o.id),au=$('au');if(au.getAttribute('src')!=src){au.pause();au.setAttribute('src',src);$('oa').classList.remove('hidden')}
 $('owav').href=src+'&dl=1'}
-function route(){var id=decodeURIComponent(location.hash.slice(1)),box=$('open');closeSheet();
+function route(){var h=decodeURIComponent(location.hash.slice(1)),t=h=='settings'||h=='setup'||h=='tools'||h=='apps'?h:'notes',id=t=='notes'?h:'',box=$('open');
+showTab(t);closeSheet();
 if(!id){document.body.classList.remove('reading');box.classList.add('gone');cur=null;$('au').pause();return}
 var stub=byId[id]||cache[id];if(!stub&&!cache[id]){load(id).then(function(){route()},function(){toast('Couldn’t open that note');history.back()});return}
 show(cache[id]||stub,!!cache[id]);box.scrollTop=0;box.classList.remove('gone');document.body.classList.add('reading');
@@ -206,9 +472,316 @@ $('sMail').href='mailto:?subject='+e(cur.t)+'&body='+e(cur.c);$('sWa').href='wha
 $('sFile').href='/note.txt?id='+e(cur.id);$('sWav').href='/audio?id='+e(cur.id)+'&dl=1';$('sMore').classList.toggle('hidden',!navigator.share);document.body.classList.add('sharing')}
 function closeSheet(){document.body.classList.remove('sharing')}
 function nativeShare(){navigator.share({title:cur.t,text:cur.c}).catch(function(){});closeSheet()}
-document.onkeydown=function(e){if(e.key!='Escape')return;if(document.body.classList.contains('sharing'))closeSheet();else if(location.hash)history.back()};
+document.onkeydown=function(e){if(e.key!='Escape')return;if(document.body.classList.contains('sharing'))closeSheet();else if(document.body.classList.contains('reading'))history.back()};
 $('q').oninput=render;window.onhashchange=route;$('au').onerror=function(){if(this.getAttribute('src'))$('oa').classList.add('hidden')};
-function start(d){notes=d;byId={};notes.forEach(function(o){byId[o.id]=o});render();route();setTimeout(prefetch,250)}
+// --- Settings and Setup: what /setup.json says, saved with a POST each ---
+var S=null,asked=0,offset=null,editing=-1,SLOTS=5;
+var CHECK='<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+function showTab(t){[['notes','Notes'],['settings','Settings'],['setup','Setup'],['tools','Tools'],['apps','Apps']].forEach(function(x){var on=x[0]==t,a=$('n'+x[1]);
+$('tab'+x[1]).classList.toggle('hidden',!on);a.classList.toggle('active',on);if(on)a.setAttribute('aria-current','page');else a.removeAttribute('aria-current')});
+document.title=t=='notes'?'unidex':t=='settings'?'Settings · unidex':t=='tools'?'Tools · unidex':t=='apps'?'Apps · unidex':'Setup · unidex';
+if(t!='notes'&&!asked)loadSetup();if(t=='tools'&&!P)pLoad(),bList();if(t=='apps')aLoad()}
+function lost(on){$('lost').classList.toggle('hidden',!on)}
+function post(path,data){var b=Object.keys(data).map(function(k){return encodeURIComponent(k)+'='+encodeURIComponent(data[k])}).join('&');
+return fetch(path,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:b})
+.catch(function(){lost(true);throw new Error('Can’t reach your unidex. Is this phone still on its WiFi?')})
+.then(function(r){lost(false);return r.json().catch(function(){return{}}).then(function(o){if(!r.ok||o.error)throw new Error(o.error||'That didn’t work. Try again.');return o})})}
+function tell(id,text,kind){var e=$(id);e.textContent=text||'';e.className='say'+(kind?' '+kind:'')}
+function busy(b,on,text){if(on){b.dataset.t=b.innerHTML;b.textContent=text||'Saving…'}else if(b.dataset.t)b.innerHTML=b.dataset.t;b.disabled=on}
+// A save that worked: the button says so for a moment (and a short buzz, where the phone does that).
+function saved(b){b.classList.add('saved');b.innerHTML=CHECK.replace('<svg','<svg style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4"')+'Saved';
+b.disabled=false;if(navigator.vibrate)navigator.vibrate(8);clearTimeout(b.st);b.st=setTimeout(function(){b.classList.remove('saved');if(b.dataset.t)b.innerHTML=b.dataset.t},1800)}
+function obj(k,v){var o={};o[k]=v;return o}
+function C(n){return S&&S.cred[n]||{set:0,v:''}}
+function radio(n){var r=document.querySelector('input[name='+n+']:checked');return r?r.value:''}
+function setRadio(n,v){var r=document.querySelectorAll('input[name='+n+']');for(var i=0;i<r.length;i++)r[i].checked=r[i].value==String(v)}
+function tag(id,on,yes,no){var e=$(id);if(!e)return;e.textContent=on?yes:no;e.classList.toggle('ok',!!on)}
+// Remove buttons: the first tap asks, a second within 4 s does it.
+function twoTap(b,ask,go){if(b.dataset.armed){delete b.dataset.armed;clearTimeout(b.tm);return go()}
+b.dataset.armed=1;b.dataset.t0=b.textContent;b.textContent=ask;b.tm=setTimeout(function(){delete b.dataset.armed;b.textContent=b.dataset.t0},4000)}
+function loadSetup(){asked=1;return fetch('/setup.json').then(function(r){return r.json()}).then(function(o){var first=!S;S=o;lost(false);drawSettings();drawSetup();if(first)fixTime()},
+function(){lost(true)})}
+// Settings: each change is saved as it's made.
+function drawSettings(){setRadio('sleep',S.sleep);$('vol').max=S.volumeMax;$('vol').value=S.volume;$('volv').textContent=S.volume?S.volume:'Off';
+$('inv').checked=!!S.invert;$('chime').checked=!S.mute;$('mini').classList.toggle('inv',!!S.invert);$('devName').textContent=S.devname||S.name||'Your unidex';
+$('dname').value=S.devname||'';$('miniN').textContent=S.devname||'unidex';$('dname').placeholder=S.defname||'unidex';$('cName').classList.remove('dirty');
+$('devInfo').textContent=(S.battery>=0?(S.charging?'Charging, ':'Battery ')+S.battery+'%':'On USB')+' · '+S.version.replace(/-g[0-9a-f]+/,'').replace('-dirty','');
+$('batI').style.width=(S.battery>=0?S.battery:100)+'%';$('batBox').setAttribute('aria-label',S.battery>=0?'Battery '+S.battery+'%':'No battery');clock()}
+function saveSetting(k,v,say){post('/settings',obj(k,v)).then(function(){S[k]=+v;tell(say,'');drawSettings();toast('Saved')},function(e){tell(say,e.message,'bad');drawSettings()})}
+document.querySelectorAll('input[name=sleep]').forEach(function(r){r.onchange=function(){saveSetting('sleep',r.value,'sleepSay')}});
+function vol(v){v=Math.max(0,Math.min(+$('vol').max,v));$('vol').value=v;$('volv').textContent=v?v:'Off';if(v!=S.volume)saveSetting('volume',v,'volSay')}
+$('vol').oninput=function(){$('volv').textContent=+this.value?this.value:'Off'};$('vol').onchange=function(){vol(+this.value)};
+$('volDown').onclick=function(){vol(+$('vol').value-1)};$('volUp').onclick=function(){vol(+$('vol').value+1)};
+$('chime').onchange=function(){saveSetting('mute',this.checked?0:1,'volSay')};
+$('inv').onchange=function(){$('mini').classList.toggle('inv',this.checked);saveSetting('invert',this.checked?1:0,'invSay')};
+// The device's clock: set from this phone's when it's unset or more than a minute out.
+function clock(){var t=new Date(Date.now()+(offset||0)*1000);$('clock').textContent=offset==null?'Not set yet':t.toLocaleString(undefined,
+{weekday:'long',day:'numeric',month:'long',hour:'2-digit',minute:'2-digit'});$('miniT').textContent=offset==null?'--:--':
+('0'+t.getHours()).slice(-2)+':'+('0'+t.getMinutes()).slice(-2);tag('timeTag',offset!=null&&Math.abs(offset)<60,'Right','Not set')}
+function setTime(auto){var b=$('setTime');busy(b,true,'Setting…');post('/time',{t:Math.round(Date.now()/1000)}).then(function(){offset=0;clock();
+if(auto)tell('timeSay','Set from this phone’s clock.','ok');busy(b,false);if(!auto)saved(b)},function(e){busy(b,false);tell('timeSay',e.message,'bad')})}
+function fixTime(){offset=S.time?S.time-Date.now()/1000:null;clock();if(offset==null||Math.abs(offset)>60)setTime(true)}
+$('setTime').onclick=function(){setTime(false)};setInterval(function(){if(S)clock()},15000);
+// WiFi: network n is wifi_* (the first) or wifi<n+1>_*; a name saved means a network.
+function key(n,part){return n?'wifi'+(n+1)+'_'+part:'wifi_'+part}
+function nets(){var a=[];for(var i=0;i<SLOTS;i++)if(C(key(i,'ssid')).set)a.push({slot:i,ssid:C(key(i,'ssid')).v,user:C(key(i,'user')).v,ca:C(key(i,'ca')).set});return a}
+// How far setup has got: WiFi, who writes notes down (with its key), and the tidy-up (off counts).
+function steps(){var t=C('transcribe').v||'openai',c=C('cleanup').v||'openai';
+return[{done:nets().length>0,card:'cWifi',next:'Add your WiFi so it can set its clock and send notes.'},
+{done:C(t=='elevenlabs'?'elevenlabs_key':'openai_key').set,card:'cTranscribe',next:'Add a key so your voice notes get written down.'},
+{done:c=='off'||C(c=='anthropic'?'anthropic_key':'openai_key').set,card:'cCleanup',next:'Add a key for the tidy-up, or turn it off.'}]}
+function drawSetup(){var box=$('nets'),a=nets();box.textContent='';
+a.forEach(function(n){var r=el('div','net'),t=el('div');t.appendChild(el('b','',n.ssid));t.appendChild(el('small','',n.user?'eduroam · '+n.user:'Home or hotspot'));r.appendChild(t);
+var e=el('button','btn','Edit');e.onclick=function(){editNet(n.slot)};var x=el('button','btn','Remove');x.onclick=function(){twoTap(x,'Sure?',function(){removeNet(n,x)})};
+r.appendChild(e);r.appendChild(x);box.appendChild(r)});
+if(!a.length&&editing==-1)editNet(-1,1);
+$('addNet').classList.toggle('hidden',a.length>=SLOTS||editing!=-1);
+['openai_key','openai_key2','elevenlabs_key','anthropic_key','gh_token','cal_url'].forEach(function(n){var c=C(n.replace('2',''));$(n).value='';
+$(n).placeholder=c.set?'Saved, ends in '+c.v+'. Blank keeps it':'Paste it here'});
+setRadio('transcribe',C('transcribe').v||'openai');$('note_lang').value=C('note_lang').v||'';setRadio('cleanup',C('cleanup').v||'openai');$('cleanup_model').value=C('cleanup_model').v;
+$('gh_on').checked=C('gh_on').v=='1';$('gh_repo').value=C('gh_repo').v;$('gh_branch').value=C('gh_branch').v||'main';$('gh_dir').value=C('gh_dir').v||'VoiceNotes';
+$('calCard').classList.toggle('hidden',!('cal_url' in S.cred));
+var near=$('near');near.textContent='';(S.nearby||[]).filter(function(n){return!a.some(function(x){return x.ssid==n})}).slice(0,8).forEach(function(n){
+var b=el('button','topic',n);b.type='button';b.onclick=function(){$('ssid').value=n;$('wpass').focus()};near.appendChild(b)});
+var st=steps(),n=st.filter(function(x){return x.done}).length,next=st.filter(function(x){return!x.done})[0];
+$('ring').style.setProperty('--p',n/st.length);$('ringN').textContent=n+'/'+st.length;
+$('heroT').textContent=n==st.length?'All set up.':n?'Almost there.':'Let’s get it online.';
+$('heroH').textContent=next?next.next:'Your unidex has WiFi and its keys. Press Done to check they work.';
+$('heroGo').classList.toggle('hidden',!next);$('heroGo').onclick=function(){$(next.card).scrollIntoView({behavior:'smooth',block:'start'})};
+tag('wifiTag',a.length,a.length+' saved','None yet');tag('transcribeTag',st[1].done,'Ready','Needs a key');tag('cleanupTag',st[2].done,C('cleanup').v=='off'?'Off':'Ready','Needs a key');
+tag('calendarTag',C('cal_url').set,'Linked','Not linked');
+document.querySelectorAll('.card.dirty').forEach(function(c){c.classList.remove('dirty')});choices()}
+function choices(){var t=radio('transcribe'),c=radio('cleanup');$('oaBox').classList.toggle('hidden',t!='openai');$('elBox').classList.toggle('hidden',t!='elevenlabs');
+$('oaBox2').classList.toggle('hidden',c!='openai'||t=='openai');$('anBox').classList.toggle('hidden',c!='anthropic');
+$('modelBox').classList.toggle('hidden',c=='off');$('ghBox').classList.toggle('hidden',!$('gh_on').checked)}
+document.querySelectorAll('input[name=transcribe],input[name=cleanup],#gh_on').forEach(function(r){r.addEventListener('change',choices)});
+// A card with a change not saved yet: its Save lights up.
+document.querySelectorAll('[data-save]').forEach(function(b){var card=b.closest('.card');['input','change'].forEach(function(ev){
+card.addEventListener(ev,function(){card.classList.add('dirty')})})});
+function kind(){var e=radio('kind')=='ent';$('userBox').classList.toggle('hidden',!e);$('caBox').classList.toggle('hidden',!e)}
+document.querySelectorAll('input[name=kind]').forEach(function(r){r.onchange=kind});
+function editNet(slot,quiet){var n=nets().filter(function(x){return x.slot==slot})[0];editing=n?slot:-2;
+setRadio('kind',n&&n.user?'ent':'home');$('ssid').value=n?n.ssid:'';$('wuser').value=n?n.user:'';$('wpass').value='';$('wca').value='';
+$('wpass').placeholder=n?'Saved. Blank keeps it':'';$('wca').placeholder=n&&n.ca?'One is saved. Paste another to replace it':'-----BEGIN CERTIFICATE-----';
+$('netTitle').textContent=n?'Edit “'+n.ssid+'”':nets().length?'Add a network':'Your first network';$('near').classList.toggle('hidden',!!n);kind();
+$('netForm').classList.remove('hidden');$('addNet').classList.add('hidden');tell('wifiSay','');$('cancelNet').classList.toggle('hidden',!nets().length);
+if(!quiet)$(n?'wpass':'ssid').focus()}
+function closeNet(){editing=-1;$('netForm').classList.add('hidden');drawSetup()}
+$('addNet').onclick=function(){editNet(-1)};$('cancelNet').onclick=function(){closeNet();tell('wifiSay','')};
+$('peek').onclick=function(){var p=$('wpass'),show=p.type=='password';p.type=show?'text':'password';this.textContent=show?'Hide':'Show'};
+function caBody(){var m=$('wca').value.match(/-----BEGIN CERTIFICATE-----([\s\S]*?)-----END CERTIFICATE-----/),b=m&&m[1].replace(/\s+/g,'');
+return b&&/^[A-Za-z0-9+\/]+=*$/.test(b)&&b.length<=3000?b:null}
+$('saveNet').onclick=function(){var b=this,ent=radio('kind')=='ent',ssid=$('ssid').value.trim(),a=nets(),slot=editing,v={};
+if(ent&&$('wca').value.trim()&&!caBody())return tell('wifiSay','The certificate should be the text from -----BEGIN CERTIFICATE----- to -----END CERTIFICATE-----.','bad');
+if(!ssid){tell('wifiSay','Type the network’s name.','bad');return $('ssid').focus()}
+if(ent&&!$('wuser').value.trim()){tell('wifiSay','Type your username.','bad');return $('wuser').focus()}
+if(a.some(function(n){return n.ssid==ssid&&n.slot!=editing}))return tell('wifiSay','“'+ssid+'” is saved already. Edit that one instead.','bad');
+if(slot<0){for(slot=0;slot<SLOTS&&a.some(function(n){return n.slot==slot});slot++);if(slot>=SLOTS)return tell('wifiSay',SLOTS+' networks are saved already. Remove one first.','bad')}
+v[key(slot,'ssid')]=ssid;v[key(slot,'user')]=ent?$('wuser').value.trim():'';
+if($('wpass').value)v[key(slot,'pass')]=$('wpass').value;else if(editing<0)v[key(slot,'pass')]='';
+if(ent&&caBody())v[key(slot,'ca')]=caBody();if(!ent)v[key(slot,'ca')]='';
+busy(b,true);post('/set',v).then(function(){editing=-1;$('netForm').classList.add('hidden');return loadSetup()})
+.then(function(){busy(b,false);tell('wifiSay','Saved “'+ssid+'”. Your unidex tries it when you press Done.','ok');if(navigator.vibrate)navigator.vibrate(8)},
+function(e){busy(b,false);tell('wifiSay',e.message,'bad')})};
+function removeNet(n,b){var v={};['ssid','pass','user','ca'].forEach(function(p){v[key(n.slot,p)]=''});busy(b,true,'Removing…');
+post('/set',v).then(loadSetup).then(function(){tell('wifiSay','Removed “'+n.ssid+'”.','ok')},function(e){busy(b,false);tell('wifiSay',e.message,'bad')})}
+// Keys and GitHub: which fields each Save sends. Keys only when typed (blank keeps the saved one).
+function typed(id){return $(id).value.trim()}
+var GROUPS={transcribe:function(){var t=radio('transcribe'),v={transcribe:t,note_lang:$('note_lang').value},k=t=='openai'?'openai_key':'elevenlabs_key';if(typed(k))v[k]=typed(k);return v},
+cleanup:function(){var c=radio('cleanup'),v={cleanup:c};if(c!='off')v.cleanup_model=typed('cleanup_model');
+if(c=='anthropic'&&typed('anthropic_key'))v.anthropic_key=typed('anthropic_key');if(c=='openai'&&typed('openai_key2'))v.openai_key=typed('openai_key2');return v},
+github:function(){var v={gh_on:$('gh_on').checked?'1':'0',gh_repo:typed('gh_repo'),gh_branch:typed('gh_branch'),gh_dir:typed('gh_dir')};
+if(typed('gh_token'))v.gh_token=typed('gh_token');return v},
+calendar:function(){return typed('cal_url')?{cal_url:typed('cal_url')}:{}}};
+function check(g){var k=typed('openai_key')||typed('openai_key2');
+if((g=='transcribe'||g=='cleanup')&&k&&k.indexOf('sk-'))return'OpenAI keys start with sk-.';
+if(g=='cleanup'&&/^sk-/.test(typed('cleanup_model')))return'That looks like a key. This box takes a model name, like gpt-4o-mini.';
+if(g=='github'&&typed('gh_repo')&&!/^[\w.-]+\/[\w.-]+$/.test(typed('gh_repo')))return'The repo should look like owner/name.';
+if(g=='github'&&$('gh_on').checked&&!typed('gh_repo'))return'Type the repo first.';
+if(g=='calendar'&&typed('cal_url')&&!/^(webcals?|https?):\/\/\S+$/i.test(typed('cal_url')))return'The link should start with https:// or webcal://.';return''}
+document.querySelectorAll('[data-save]').forEach(function(b){b.onclick=function(){var g=b.dataset.save,say=g+'Say',p=check(g),v=GROUPS[g]();
+if(p)return tell(say,p,'bad');if(!Object.keys(v).length)return tell(say,'Nothing to save yet. Type it in first.','bad');
+busy(b,true);post('/set',v).then(loadSetup).then(function(){tell(say,'');saved(b)},function(e){busy(b,false);tell(say,e.message,'bad')})}});
+$('clearAll').onclick=function(){var b=this;twoTap(b,'Tap again to remove it all',function(){busy(b,true,'Removing…');
+post('/clear',{}).then(loadSetup).then(function(){busy(b,false);tell('clearSay','Removed. WiFi and keys are gone from this unidex.','ok')},function(e){busy(b,false);tell('clearSay',e.message,'bad')})})};
+function done(b){busy(b,true,'Closing…');post('/done',{}).then(function(){$('bye').classList.remove('hidden')},function(e){busy(b,false);toast(e.message)})}
+// --- Tools: the badge maker and the Pet, made on the phone and sent with a POST ---
+// The badge: a photo -> 200x200 grey -> black and white (dithered if it's a photo) -> a 1-bit BMP, as the website's
+// badge maker does it (site/tools.html).
+var B=200,bImg=null,bBits=null;
+function bRadio(n){return document.querySelector('input[name='+n+']:checked').value}
+function bPhoto(g){var m=0;for(var i=0;i<g.length;i++)if(g[i]>=32&&g[i]<224)m++;return m>.15*g.length}
+function bStretch(g){var h=new Array(256).fill(0),i;for(i=0;i<g.length;i++)h[g[i]|0]++;var cut=g.length*.01,lo=0,hi=255,a=0;
+for(;lo<255;lo++){a+=h[lo];if(a>cut)break}a=0;for(;hi>0;hi--){a+=h[hi];if(a>cut)break}if(hi<=lo)return g;
+return g.map(function(v){return Math.max(0,Math.min(255,(v-lo)*255/(hi-lo)))})}
+function bBinarize(gray,dither){var bits=new Uint8Array(gray.length),i,x,y;if(!dither){for(i=0;i<gray.length;i++)bits[i]=gray[i]>=128?1:0;return bits}
+var g=Float32Array.from(bStretch(gray));for(y=0;y<B;y++)for(x=0;x<B;x++){i=y*B+x;var o=g[i],n=o>=128?255:0,e=o-n;bits[i]=n?1:0;
+if(x+1<B)g[i+1]+=e*7/16;if(y+1<B){if(x>0)g[i+B-1]+=e*3/16;g[i+B]+=e*5/16;if(x+1<B)g[i+B+1]+=e/16}}return bits}
+function bRender(){if(!bImg)return;var c=$('bOut'),x=c.getContext('2d',{willReadFrequently:true}),iw=bImg.naturalWidth,ih=bImg.naturalHeight;
+x.fillStyle='#fff';x.fillRect(0,0,B,B);var s=bRadio('bFit')=='cover'?Math.max(B/iw,B/ih):Math.min(B/iw,B/ih),dw=Math.round(iw*s),dh=Math.round(ih*s),
+dx=Math.round((B-dw)/2),dy=Math.round((B-dh)/2);x.imageSmoothingQuality='high';x.drawImage(bImg,dx,dy,dw,dh);
+var px=x.getImageData(0,0,B,B).data,light=+$('bLight').value,inv=$('bInv').checked,gray=new Float32Array(B*B),i,st=bRadio('bStyle');
+for(i=0;i<gray.length;i++){var v=Math.max(0,Math.min(255,.299*px[i*4]+.587*px[i*4+1]+.114*px[i*4+2]+light));gray[i]=inv?255-v:v}
+bBits=bBinarize(gray,st=='photo'||(st=='auto'&&bPhoto(gray)));
+for(var yy=0;yy<B;yy++)for(var xx=0;xx<B;xx++)if(xx<dx||xx>=dx+dw||yy<dy||yy>=dy+dh)bBits[yy*B+xx]=inv?0:1;  // the edges plain
+var out=x.createImageData(B,B);for(i=0;i<bBits.length;i++){var w=bBits[i]?233:34;out.data.set([w,bBits[i]?230:33,bBits[i]?218:31,255],i*4)}
+x.putImageData(out,0,0)}
+function bBmp(){var stride=28,off=62,b=new Uint8Array(off+stride*B),d=new DataView(b.buffer);b[0]=66;b[1]=77;d.setUint32(2,b.length,true);
+d.setUint32(10,off,true);d.setUint32(14,40,true);d.setInt32(18,B,true);d.setInt32(22,B,true);d.setUint16(26,1,true);d.setUint16(28,1,true);
+d.setUint32(34,stride*B,true);d.setUint32(38,3780,true);d.setUint32(42,3780,true);d.setUint32(46,2,true);d.setUint32(50,2,true);b.set([255,255,255,0],58);
+for(var y=0;y<B;y++)for(var x=0;x<B;x++)if(bBits[y*B+x])b[off+(B-1-y)*stride+(x>>3)]|=128>>(x&7);
+var s='';for(var i=0;i<b.length;i++)s+=String.fromCharCode(b[i]);return btoa(s).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'')}
+$('bFile').onchange=function(){var f=this.files[0];if(!f)return;tell('badgeSay','');var im=new Image();
+im.onload=function(){bImg=im;$('bName').value=(f.name.replace(/\.[^.]+$/,'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'badge').slice(0,24);
+if(/^(img|image|photo|dsc|pxl)-?\d/.test($('bName').value))$('bName').value='badge';
+$('bPick').classList.add('hidden');$('bOpts').classList.remove('hidden');bRender()};
+im.onerror=function(){tell('badgeSay','That picture can’t be read here. Try another one.','bad')};im.src=URL.createObjectURL(f);this.value=''};
+document.querySelectorAll('input[name=bFit],input[name=bStyle],#bInv').forEach(function(e){e.addEventListener('change',bRender)});
+$('bLight').oninput=bRender;
+$('bAgain').onclick=function(){$('bFile').click()};
+$('bSend').onclick=function(){var b=this;busy(b,true,'Sending…');post('/badge',{name:$('bName').value.trim()||'badge',bmp:bBmp()})
+.then(function(o){busy(b,false);saved(b);bList();tell('badgeSay','Saved as '+o.name.replace('.bmp','')+'. Open Badge on your unidex to see it.','ok')},
+function(e){busy(b,false);tell('badgeSay',e.message,'bad')})};
+// The badges on the device, each with Delete (a second tap within 4 s does it).
+function bName(n){return n.replace(/\.bmp$/,'').replace(/^\d+-/,'').replace(/-/g,' ')||n}
+function bList(){fetch('/badges.json').then(function(r){return r.json()}).then(function(o){var box=$('bList'),n=o.badges.length;box.textContent='';
+tag('badgesTag',n,n+(n==1?' badge':' badges'),'None yet');
+if(!o.card)return box.appendChild(el('p','hint','There’s no SD card in your unidex: badges are kept on it.'));
+if(!n)return box.appendChild(el('p','hint','No badges yet. Make one above.'));
+o.badges.forEach(function(f){var t=el('div','bt'),th=el('div','th'),im=document.createElement('img');im.src='/badge.bmp?name='+encodeURIComponent(f);
+im.alt=bName(f);im.loading='lazy';th.appendChild(im);if(f==o.current)th.appendChild(el('span','tag ok on','Showing'));t.appendChild(th);
+t.appendChild(el('small','',bName(f)));var d=el('button','btn danger','Delete');d.setAttribute('aria-label','Delete '+bName(f));
+d.onclick=function(){twoTap(d,'Sure?',function(){busy(d,true,'Deleting…');post('/badge/delete',{name:f}).then(function(){
+tell('badgesSay','Deleted “'+bName(f)+'”.','ok');bList()},function(e){busy(d,false);tell('badgesSay',e.message,'bad')})})};t.appendChild(d);box.appendChild(t)})},
+function(){lost(true)})}
+// The Pet: its parts come from the device (/pet.json), so they're always the ones it can draw.
+var P=null,look=[];
+function pDraw(){var c=$('pOut'),x=c.getContext('2d');x.fillStyle='#e9e6da';x.fillRect(0,0,32,32);
+P.layers.forEach(function(l,i){var r=l.parts[look[i]].r;for(var p=0;p<1024;p++){var ch=r[p];if(ch=='.')continue;
+x.fillStyle=ch=='#'?'#22211f':'#e9e6da';x.fillRect(p%32,p>>5,1,1)}});
+var n=$('pName').value.trim();$('pTag').textContent=n;$('pTag').classList.toggle('hidden',!n);
+P.layers.forEach(function(l,i){var s=$('pPart'+i);s.firstChild.textContent=l.parts[look[i]].n;s.lastChild.textContent=(look[i]+1)+' of '+l.parts.length})}
+function pLoad(){fetch('/pet.json').then(function(r){return r.json()}).then(function(o){P=o;var box=$('pParts');box.textContent='';
+look=o.layers.map(function(l,i){var p=Math.floor(o.look/Math.pow(16,i))%16;return p<l.parts.length?p:0});
+o.layers.forEach(function(l,i){var row=el('div','part'),step=function(d){return function(){look[i]=(look[i]+d+l.parts.length)%l.parts.length;pDraw()}};
+var prev=el('button','btn round','‹'),next=el('button','btn round','›'),name=el('span');name.id='pPart'+i;name.appendChild(document.createTextNode(''));
+name.appendChild(el('small'));name.setAttribute('aria-live','polite');prev.setAttribute('aria-label','Previous '+l.name.toLowerCase());
+next.setAttribute('aria-label','Next '+l.name.toLowerCase());prev.onclick=step(-1);next.onclick=step(1);
+row.appendChild(el('b','',l.name));row.appendChild(prev);row.appendChild(name);row.appendChild(next);box.appendChild(row)});
+$('pName').value=o.name;$('pOwner').value=o.owner||'';$('pSend').disabled=$('pRandom').disabled=false;pDraw()},function(){lost(true)})}
+$('pName').oninput=function(){var v=this.value.replace(/[^\x20-\x7e]/g,'');if(v!=this.value)this.value=v;if(P)pDraw()};
+$('pOwner').oninput=function(){var v=this.value.replace(/[^\x20-\x7e]/g,'');if(v!=this.value)this.value=v};
+$('pRandom').onclick=function(){look=P.layers.map(function(l){return Math.floor(Math.random()*l.parts.length)});pDraw()};
+$('pSend').onclick=function(){var b=this,v=look.reduce(function(a,p,i){return a+p*Math.pow(16,i)},0),n=$('pName').value.trim();busy(b,true,'Sending…');
+post('/pet',{look:v,name:n,owner:$('pOwner').value.trim()}).then(function(){busy(b,false);saved(b);tell('petSay',n?'Sent. Say hi to '+n+'!':'Sent. Open Pet on your unidex to see it.','ok')},
+function(e){busy(b,false);tell('petSay',e.message,'bad')})};
+if(!location.hash&&TAB!='notes')history.replaceState(null,'','#'+TAB);
+loadSetup();
+// --- Apps: the store's list as the device saved it (/apps.json), what's on the device (/installed.json), and
+// installs the device does itself over its WiFi (it's on that and on this hotspot at once) ---
+var A=null,M=null,aCat='',aWas=null,aTm=0,aOpen=false;
+var CATS={time:'Time',tools:'Tools',games:'Games',fun:'Fun',learning:'Learning',badges:'Badges'};
+function vNum(v){var p=String(v||'').split('.');return((+p[0]||0)*1e4+(+p[1]||0))*1e4+(+p[2]||0)}
+function aKB(b){return b<1024?b+' bytes':Math.round(b/1024)+' KB'}
+function aIcon(e,name){var box=el('div','aic');box.setAttribute('aria-hidden','true');
+if(e&&e.icon&&e.icon.length==40){var c=document.createElement('canvas');c.width=c.height=40;var x=c.getContext('2d');x.fillStyle='#22211f';
+e.icon.forEach(function(r,y){for(var i=0;i<40;i++)if(r[i]=='#')x.fillRect(i,y,1,1)});box.appendChild(c)}
+else box.appendChild(el('b','',(name||'?').charAt(0).toUpperCase()));return box}
+function aMineOf(id){for(var i=0;M&&i<M.apps.length;i++)if(M.apps[i].id==id)return M.apps[i];return null}
+function aEntry(id){for(var i=0;A&&i<A.apps.length;i++)if(A.apps[i].id==id)return A.apps[i];return null}
+function aLoad(){if(!A)fetch('/apps.json').then(function(r){return r.json()}).then(function(o){A=o;aDraw()},function(){lost(true)});aPoll()}
+function aPoll(){clearTimeout(aTm);fetch('/installed.json').then(function(r){return r.json()}).then(function(o){lost(false);var j=o.job,w=aWas;M=o;aWas=j.busy?j.id:null;
+if(w&&!j.busy){var e=aEntry(w),n=e?e.name:w;toast(j.ok?'Installed '+n:'Couldn’t install '+n);if(j.ok)tell('storeSay','Installed '+n+'. Open it from '+(e&&(e.type=='game'||e.category=='games')?'Games':'Apps')+' on your unidex.','ok');else tell('storeSay',n+': '+j.why,'bad')}
+aDraw();if(j.busy)aTm=setTimeout(aPoll,900)},function(){lost(true)})}
+// The button for one store app: what it can do now.
+function aButton(e,tags){var mine=aMineOf(e.id),j=M.job,b=el('button','btn');
+if(j.busy&&j.id==e.id){b.className='btn prog';b.style.setProperty('--p',(j.total?Math.round(100*(j.done+.5)/(j.total+1)):10)+'%');
+b.textContent=j.total?Math.min(j.done+1,j.total)+' of '+j.total:'…';b.setAttribute('aria-label','Installing '+e.name);b.disabled=true;return b}
+if(e.api>M.api){tags.push(el('span','tag warn','Needs newer firmware'));b.textContent='Install';b.className='btn get';b.disabled=true;return b}
+if(mine&&!mine.offloaded&&vNum(mine.version)>=vNum(e.version)){b.innerHTML=CHECK.replace('<svg','<svg style="width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2.4"')+'Installed';b.className='btn saved';b.disabled=true;return b}
+var up=mine&&!mine.offloaded;b.textContent=up?'Update':'Install';b.className=up?'btn primary':'btn get';
+if(up)tags.push(el('span','tag ok','Version '+e.version+' is out'));
+if(!up&&!mine&&M.apps.length>=M.max){tags.push(el('span','tag warn','Full: delete an app first'));b.disabled=true;return b}
+b.disabled=!M.online||j.busy;b.setAttribute('aria-label',(up?'Update ':'Install ')+e.name);
+b.onclick=function(){busy(b,true,'Starting…');tell('storeSay','');post('/apps/install',{id:e.id}).then(function(){aWas=e.id;aPoll()},
+function(x){busy(b,false);tell('storeSay',x.message,'bad')})};return b}
+// A row: the icon, the name and a line under it, the button on the right; what it does and its tags below.
+function aRow(e,name,meta,desc,tags,btn){var r=el('div','arow'),t=el('div');r.appendChild(aIcon(e,name));t.appendChild(el('h3','',name));
+if(meta)t.appendChild(el('small','',meta));r.appendChild(t);r.appendChild(btn);if(desc)r.appendChild(el('p','adesc',desc));
+var g=el('div','tags');tags.forEach(function(x){g.appendChild(x)});r.appendChild(g);return r}
+function aDraw(){if(!M)return;var on=M.online,n=A?A.apps.length:0;
+$('aHeroT').textContent=on?'Your unidex is online':A&&n?'Your unidex is offline':'No app list yet';
+$('aHeroH').textContent=on?n+' apps in the store. Tap Install and your unidex downloads it.':
+'It joins your WiFi when this page starts, to get apps. '+(S&&S.cred.wifi_ssid&&S.cred.wifi_ssid.set?'It couldn’t this time: check it’s in range, then start again from Settings (hold B).':'Set up WiFi first, then start again from Settings (hold B).')+(n?' The list below is from last time.':'');
+$('aHeroGo').classList.toggle('hidden',on||!!(S&&S.cred.wifi_ssid&&S.cred.wifi_ssid.set));$('aHeroI').className='ic '+(on?'':'warn');$('aHero').style.background=on?'':'var(--surface)';
+// on the device
+// The list is folded away behind a button (it can be long); the count and any updates show on the button.
+var mine=$('aMine'),mb=$('aMineBtn'),k=M.apps.length,ups=0;mine.textContent='';tag('mineTag',k,k+' of '+M.max,'None yet');
+M.apps.forEach(function(a){var e=aEntry(a.id);if(e&&!a.offloaded&&vNum(e.version)>vNum(a.version)&&e.api<=M.api)ups++});
+mb.classList.toggle('hidden',!M.card||!k);mb.setAttribute('aria-expanded',aOpen?'true':'false');
+$('aMineT').textContent=aOpen?'Hide the list':'Show '+k+(k==1?' app':' apps')+(ups?' · '+ups+(ups==1?' update':' updates'):'');
+mb.onclick=function(){aOpen=!aOpen;aDraw()};
+if(!M.card)mine.appendChild(el('p','hint','There’s no SD card in your unidex: apps are kept on it.'));
+else if(!M.apps.length)mine.appendChild(el('p','hint','No apps yet. Pick some from the store below.'));
+if(aOpen)M.apps.forEach(function(a){var e=aEntry(a.id),tags=[],d=el('button','btn danger','Delete');
+if(a.offloaded)tags.push(el('span','tag','Offloaded: data kept'));if(a.problem)tags.push(el('span','tag warn',a.problem));
+if(e&&!a.offloaded&&vNum(e.version)>vNum(a.version)&&e.api<=M.api)tags.push(el('span','tag ok','Update: '+e.version));
+d.setAttribute('aria-label','Delete '+a.name);d.disabled=M.job.busy&&M.job.id==a.id;
+d.onclick=function(){twoTap(d,'Sure?',function(){busy(d,true,'Deleting…');post('/apps/delete',{id:a.id}).then(function(){
+tell('mineSay','Deleted '+a.name+'.','ok');aPoll()},function(x){busy(d,false);tell('mineSay',x.message,'bad')})})};
+mine.appendChild(aRow(e,a.name,a.version?'Version '+a.version:'',e?e.description:'',tags,d))});
+// the store
+var box=$('aStore'),cats=$('aCats');box.textContent='';cats.textContent='';tag('storeTag',on&&n,'Online',A&&n?'Offline':'—');
+if(!A)return box.appendChild(el('p','hint','Loading…'));
+if(!n)return box.appendChild(el('p','hint',on?'The store is empty right now.':'Your unidex hasn’t got the store’s list yet. It gets it when it starts this page on WiFi.'));
+var seen={};A.apps.forEach(function(e){seen[e.category]=1});
+[''].concat(Object.keys(CATS).filter(function(k){return seen[k]})).forEach(function(k){var c=el('button','topic',k?CATS[k]:'All');
+c.setAttribute('aria-pressed',aCat==k?'true':'false');c.onclick=function(){aCat=k;aDraw()};cats.appendChild(c)});
+// Search looks through every category: the name, what it does and who made it.
+var q=$('aq').value.trim().toLowerCase(),shown=A.apps.filter(function(e){return(!aCat||e.category==aCat)&&(!q||
+[e.name,e.description,e.author,CATS[e.category]].join(' ').toLowerCase().indexOf(q)>=0)});
+if(!shown.length){box.appendChild(el('p','hint',q?'No apps match “'+$('aq').value.trim()+'”.':'No apps here yet.'));return}
+shown.forEach(function(e){var tags=[];
+if((e.permissions||[]).indexOf('wifi')>=0)tags.push(el('span','tag','Uses WiFi'));if((e.permissions||[]).indexOf('mic')>=0)tags.push(el('span','tag','Uses the mic'));
+if(e.type=='plugin')tags.push(el('span','tag','Adds to '+(e.extends=='badge'?'Badge':e.extends)));
+var b=aButton(e,tags);box.appendChild(aRow(e,e.name,(e.author?'by '+e.author+' · ':'')+aKB(e.bytes),e.description,tags,b))})}
+$('aq').oninput=function(){if(this.value.trim())aCat='';$('aqc').classList.toggle('hidden',!this.value);aDraw()};
+$('aqc').onclick=function(){$('aq').value='';this.classList.add('hidden');aDraw();$('aq').focus()};
+// --- deleting a note: Delete in the open note (two taps), or slide it left in the list ---
+var SW=110,swOpen=null;
+function delNote(id){return post('/note/delete',{id:id}).then(function(){notes=notes.filter(function(o){return o.id!=id});
+delete byId[id];delete cache[id];toast('Note deleted')})}
+function swClose(){if(swOpen){swOpen.classList.remove('open');swOpen.lastChild.style.transform='';swOpen=null}}
+function swipe(c,o){var w=el('div','swipe'),d=el('button','sdel'),x0,y0,dx=0,mode=0,pid=null;
+d.innerHTML='<svg viewBox="0 0 24 24"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13"/></svg><span>Delete</span>';d.setAttribute('aria-label','Delete '+o.t);d.tabIndex=-1;
+var go=function(){w.classList.remove('open');w.classList.add('gone');c.style.transform='translateX(-100%)';swOpen=null;
+delNote(o.id).then(function(){setTimeout(render,200)},function(e){w.classList.remove('gone');c.style.transform='';toast(e.message)})};
+d.onclick=go;w.appendChild(d);w.appendChild(c);
+c.addEventListener('pointerdown',function(e){if(e.button)return;if(swOpen&&swOpen!=w)swClose();x0=e.clientX;y0=e.clientY;dx=0;mode=0;pid=e.pointerId});
+c.addEventListener('pointermove',function(e){if(e.pointerId!==pid)return;var mx=e.clientX-x0,my=e.clientY-y0;
+if(!mode){if(Math.abs(mx)>10&&Math.abs(mx)>Math.abs(my)*1.4){mode=1;w.classList.add('moving');try{c.setPointerCapture(pid)}catch(x){}}else if(Math.abs(my)>10)mode=2}
+if(mode==1){dx=Math.min(0,mx-(w.classList.contains('open')?SW:0));c.style.transform='translateX('+dx+'px)';
+var far=dx<-w.offsetWidth*.6;if(far!=w.classList.contains('far')){w.classList.toggle('far',far);d.lastChild.textContent=far?'Release to delete':'Delete';
+if(far&&navigator.vibrate)navigator.vibrate(10)}}});
+var end=function(e){if(e.pointerId!==pid)return;pid=null;if(mode!=1)return;c.dragged=1;setTimeout(function(){c.dragged=0},350);w.classList.remove('moving','far');
+d.lastChild.textContent='Delete';
+if(dx<-w.offsetWidth*.6)return go();if(dx<-60){w.classList.add('open');c.style.transform='translateX(-'+SW+'px)';swOpen=w}
+else{w.classList.remove('open');c.style.transform='';if(swOpen==w)swOpen=null}};
+c.addEventListener('pointerup',end);c.addEventListener('pointercancel',end);return w}
+$('odel').onclick=function(){var b=this,id=shownId;twoTap(b,'Tap again to delete',function(){busy(b,true,'Deleting…');
+delNote(id).then(function(){busy(b,false);history.back();render()},function(e){busy(b,false);toast(e.message)})})};
+// The name: the characters a WiFi QR code would have to escape, and anything the screen can't draw, never go in.
+$('dname').oninput=function(){var v=this.value.replace(/[^\x20-\x7e]|[\\;,:"]/g,'');if(v!=this.value)this.value=v;$('miniN').textContent=v.trim()||'unidex'};
+$('dname').onkeydown=function(e){if(e.key=='Enter')$('nameSave').click()};
+$('nameSave').onclick=function(){var b=this,v=$('dname').value.trim();$('dname').value=v;busy(b,true);tell('nameSay','');
+post('/name',{name:v}).then(function(){busy(b,false);saved(b);$('cName').classList.remove('dirty');S.devname=v;$('devName').textContent=v||S.name;
+var now=v||S.defname;tell('nameSay',now==S.name?'Saved.':'Saved. Its WiFi is called “'+now+'” from the next time it starts.','ok')},
+function(e){busy(b,false);tell('nameSay',e.message,'bad')})};
+function start(d){notes=d;byId={};notes.forEach(function(o){byId[o.id]=o});render();route();setTimeout(prefetch,250);peekOnce()}
+// Once per visit, on a touch screen: the top note slides left a little and back, showing Delete underneath.
+function peekOnce(){var w=document.querySelector('#grid .swipe');if(!w||!matchMedia('(pointer:coarse)').matches)return;
+try{if(sessionStorage.getItem('peeked'))return;sessionStorage.setItem('peeked','1')}catch(e){}
+w.classList.add('peek');setTimeout(function(){w.classList.remove('peek')},2100)}
 if(NOTES)start(NOTES);
 else fetch('/notes.json').then(function(r){return r.json()}).then(start)
 .catch(function(){$('empty').classList.remove('hidden');$('empty').textContent='Couldn’t load the notes. Reload the page to try again.'});

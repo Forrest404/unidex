@@ -324,32 +324,38 @@ static void worker(void *) {
       else if (running.kind == Kind::Reminders) runReminders(running);
       else runSweep(running);
       portENTER_CRITICAL(&mux);
-      const bool more = hasWaiting;
+      bool more = hasWaiting;
       if (more) running = waitingItem, hasWaiting = false;
       portEXIT_CRITICAL(&mux);
+      if (more) continue;
+      netOff();
+      netClaim(false);
+      publish(JobStep::Idle);
+      powerRelease();
+      // Done, unless a recording was queued while this was finishing: that's checked and busy cleared in one go, so
+      // start() either queues it here or starts a new run, never queues it behind a run that has ended.
+      portENTER_CRITICAL(&mux);
+      more = hasWaiting;
+      if (more) running = waitingItem, hasWaiting = false;
+      else busy = false;
+      portEXIT_CRITICAL(&mux);
       if (!more) break;
+      netClaim(true);
+      powerHold();
     }
-    netOff();
-    netClaim(false);
-    busy = false;
-    publish(JobStep::Idle);
-    powerRelease();
   }
 }
 
 static bool start(const Item &it) {
   if (!task) task = xTaskCreateStaticPinnedToCore(worker, "notes", sizeof stack / sizeof stack[0], nullptr, 1, stack,
                                                   &taskBuffer, 0);  // core 0: the screen and buttons stay on core 1
-  if (busy) {
-    if (hasWaiting || !it.samples) return false;  // only a new recording queues (a sweep or retry can wait)
-    portENTER_CRITICAL(&mux);
-    waitingItem = it;
-    hasWaiting = true;
-    portEXIT_CRITICAL(&mux);
-    return true;
-  }
-  running = it;
+  portENTER_CRITICAL(&mux);  // busy and the queue are checked together with the worker's last look at the queue
+  const bool wasBusy = busy, queued = wasBusy && !hasWaiting && it.samples;  // only a new recording queues
+  if (queued) waitingItem = it, hasWaiting = true;
   busy = true;
+  portEXIT_CRITICAL(&mux);
+  if (wasBusy) return queued;  // (a sweep or retry can wait)
+  running = it;
   netClaim(true);
   powerHold();  // no sleep (light sleep would drop the WiFi) until the work is done
   publish(it.samples ? JobStep::Saving : JobStep::Connecting, "");

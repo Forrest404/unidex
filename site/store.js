@@ -3,7 +3,7 @@
 import { supported } from './serial.js';
 import { STORE_REPO } from './chrome.js';
 import {
-  el, icon, kb, plural, kindLabel, iconTile, loadCatalogue, device, onDevice, onDeviceChange, reportTo, withDevice,
+  el, icon, kb, plural, kindLabel, isGame, iconTile, loadCatalogue, device, onDevice, onDeviceChange, reportTo, withDevice,
   stateOf, install, offload, remove, compareAppVersions, CATEGORIES, EXTENDS, PERMISSIONS,
 } from './store-ui.js';
 
@@ -14,7 +14,8 @@ let catalogue = [];
 // Each facet: a URL key and how an app's values are read. Within a facet any ticked option matches (or);
 // across facets all must (and).
 const FACETS = [
-  { key: 'type', title: 'Type', values: a => [a.type || 'app'], label: v => (v === 'plugin' ? 'Plugins' : 'Apps') },
+  { key: 'type', title: 'Type', values: a => [a.type === 'plugin' ? 'plugin' : isGame(a) ? 'game' : 'app'],
+    label: v => (v === 'plugin' ? 'Plugins' : v === 'game' ? 'Games' : 'Apps') },
   { key: 'cat', title: 'Category', values: a => [a.category || 'other'], label: v => CATEGORIES[v] || v },
   { key: 'with', title: 'Works with', values: a => (a.type === 'plugin' ? [a.extends] : []), label: v => EXTENDS[v] || v,
     hint: 'Plugins that add to a built-in app' },
@@ -132,7 +133,7 @@ function actionButton(a) {
 function card(a) {
   const link = `app.html?id=${encodeURIComponent(a.id)}`;
   const tags = [CATEGORIES[a.category] || 'Other'];
-  if (a.type === 'plugin') tags.push(kindLabel(a));
+  if (a.type === 'plugin' || isGame(a)) tags.push(kindLabel(a));
   for (const p of a.permissions) tags.push(PERMISSIONS[p] || p);
   return el('li', { class: 'app-card' },
     el('div', { class: 'top' }, iconTile(a.icon, 56), stateChip(a)),

@@ -1,5 +1,6 @@
 # Pet: the main screen and the dress-up editor. It starts from a known Pet with no name, and your Pet's look and
 # name are put back at the end (keep pet); Random is repeatable (seed); no blinking (manual), so the shots repeat.
+# The Your name row is only looked at: nothing would put your name back.
 keep pet
 pet 00000
 seed 7
@@ -47,6 +48,8 @@ press b
 shot pt-name-done-hint
 press b
 shot pt-edit-name-set
+press a
+shot pt-edit-owner-row
 press a
 shot pt-edit-random-row
 press b

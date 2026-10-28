@@ -68,7 +68,8 @@
   <p>What you type here goes <b>over USB to your device and nowhere else</b>. This page can't reach the internet.
     <a href="https://github.com/Forrest404/unidex/blob/main/PRIVACY.md" target="_blank" rel="noopener">Privacy ↗</a></p></div>
   <p id="unsupported" class="unsupported" hidden>Your browser can't talk to USB devices. Use <b>Chrome</b> or
-    <b>Edge</b> on a computer.</p>
+    <b>Edge</b> on a computer. <b>On a phone?</b> Set up from the device instead: in Settings, hold B, then scan
+    the QR code it shows. The page that opens can also name your unidex and install apps.</p>
 
   <section id="connect">
     <div class="card">
@@ -166,6 +167,12 @@
           <p class="note"><b>Free setup:</b> ElevenLabs here and the tidy-up off below. Notes then keep the plain
             transcript with a short title, and no OpenAI account is needed.</p>
         </div>
+        <div id="langBox" hidden>
+          <label for="note_lang">Language <span class="hint">(what your notes are in)</span></label>
+          <select id="note_lang"><option value="">Auto (it works it out)</option><option value="en">English</option><option value="es">Spanish</option><option value="fr">French</option><option value="de">German</option><option value="it">Italian</option><option value="pt">Portuguese</option><option value="nl">Dutch</option><option value="pl">Polish</option><option value="tr">Turkish</option><option value="ru">Russian</option><option value="uk">Ukrainian</option><option value="ar">Arabic</option><option value="hi">Hindi</option><option value="zh">Chinese</option><option value="ja">Japanese</option><option value="ko">Korean</option></select>
+          <p class="note">Auto works it out each time. Choosing one helps short notes and strong accents, and the title
+            and summary are written in it.</p>
+        </div>
         <div class="buttons">
           <button data-save="transcribe">Save</button>
           <button class="secondary" data-test="elevenlabs" id="testElevenLabs">Test ElevenLabs</button>
@@ -215,6 +222,22 @@
           <button class="secondary" data-test="github">Test</button>
         </div>
         <p class="status" id="githubStatus"></p>
+      </div>
+
+      <div class="card">
+        <h3>Calendar <span class="saved" id="calendarSaved"></span></h3>
+        <label for="cal_url">Calendar link <span class="hint">(.ics, private)</span></label>
+        <input id="cal_url" type="password" autocomplete="off" spellcheck="false" maxlength="256">
+        <p class="note">With a link saved, <b>Settings &gt; Sync</b> on the device sets the clock and fetches the next
+          week's events over WiFi, with no computer. Where to find it: in Google Calendar, your calendar's settings,
+          <b>Secret address in iCal format</b>. In Outlook, Settings &gt; Calendar &gt; Shared calendars &gt;
+          <b>Publish a calendar</b>, the ICS link. In iCloud, share the calendar as a <b>Public Calendar</b> (anyone
+          with the link can see it).</p>
+        <div class="buttons">
+          <button data-save="calendar">Save</button>
+          <button class="secondary" data-test="calendar">Test</button>
+        </div>
+        <p class="status" id="calendarStatus"></p>
       </div>
     </div>
   </section>

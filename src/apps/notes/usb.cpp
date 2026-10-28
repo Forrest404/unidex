@@ -4,6 +4,7 @@
 #include <math.h>
 #include "cloud.h"
 #include "job.h"
+#include "phone.h"
 #include "play.h"
 #include "store.h"
 #include "../../core/audio.h"
@@ -66,6 +67,7 @@ static void status() {
 static void startSync() {
   int notes = 0;
   if (jobBusy()) Serial.println("OK N SYNC busy");
+  else if (netClaimed()) Serial.println("OK N SYNC fail the phone hotspot is on");  // its radio: a send would end it
   else if (!storeReady()) Serial.println("OK N SYNC fail no SD card");
   else if (!credWifiAny()) Serial.println("OK N SYNC fail WiFi not set up");
   else if (const int waiting = waitingNotes(notes)) {
@@ -78,7 +80,8 @@ static void startSync() {
 
 // Records 2 s and reports how loud it was. With `radio`, WiFi is connecting meanwhile (to check it adds no hum).
 static void micTest(bool radio) {
-  if (radio && !jobBusy()) netBegin();
+  const bool ownRadio = radio && !netClaimed();  // a note sending, or the phone hotspot: the radio is on already
+  if (ownRadio) netBegin();
   if (!audioBegin()) {
     Serial.println("OK N MIC fail codec not answering");
     return;
@@ -98,7 +101,7 @@ static void micTest(bool radio) {
     total += n;
   }
   audioEnd();
-  if (radio && !jobBusy()) netOff();
+  if (ownRadio) netOff();
   powerActivity();
   if (!total) Serial.println("OK N MIC fail no samples");
   else Serial.printf("OK N MIC %d %d\n", peak, (int)sqrt(sum / total));
@@ -179,8 +182,10 @@ bool notesUsb(const char *l) {
     else if (credKnown(arg)) credClear(arg);
     Serial.println("OK N CLR");
   } else if (strcmp(cmd, "TEST") == 0) {
-    const char *err = cloudTest(arg);
+    String detail;
+    const char *err = cloudTest(arg, detail);
     if (err) Serial.printf("OK N TEST %s fail %s\n", arg, err);
+    else if (detail.length()) Serial.printf("OK N TEST %s ok %s\n", arg, detail.c_str());
     else Serial.printf("OK N TEST %s ok\n", arg);
     powerActivity();
   } else if (strcmp(cmd, "MIC") == 0) {

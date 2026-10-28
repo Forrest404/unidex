@@ -8,7 +8,7 @@
 
 namespace apps {
 
-const int API_LEVEL = 1;                // what this firmware offers (unidex.api)
+const int API_LEVEL = 5;                // what this firmware offers (unidex.api)
 const size_t MAX_FILE = 64 * 1024;      // one file, code or data
 const size_t MAX_APP = 512 * 1024;      // an app's code and assets
 const size_t MAX_DATA = 512 * 1024;     // an app's data/ folder
@@ -103,8 +103,9 @@ inline bool extendable(const std::string &app) { return app == "badge"; }
 
 // What app.json says, already read (the device fills it with ArduinoJson; the tests by hand).
 struct Manifest {
-  std::string id, name, version, author, description, type = "app", extends;
+  std::string id, name, version, author, description, type = "app", extends, category;
   int api = 0;
+  int frameMs = 100;              // a game: how often step() runs ("frame_ms")
   std::vector<std::string> permissions;
   std::vector<std::string> icon;  // empty, or 40 rows of 40
   uint8_t perms = 0;              // set by check()
@@ -122,6 +123,11 @@ inline const char *check(Manifest &m, const char *folder) {
   if (m.type == "plugin") {
     if (m.extends.empty()) return "a plugin needs \"extends\"";
     if (!extendable(m.extends)) return "can't extend that app";
+  } else if (m.type == "game") {  // API 4: start, step, draw and score, run by the Games app
+    if (m.api < 4) return "a game needs \"api\": 4";
+    if (m.category != "games") return "a game's category is games";
+    if (!m.extends.empty()) return "only plugins extend an app";
+    if (m.frameMs < 48 || m.frameMs > 1000) return "frame_ms is 48 to 1000";
   } else if (m.type != "app") {
     return "unknown type";
   } else if (!m.extends.empty()) {
@@ -140,5 +146,8 @@ inline const char *check(Manifest &m, const char *folder) {
   }
   return nullptr;
 }
+
+// Listed in Games, not Apps: a game, or an app in the "games" category (it opens as an app from there).
+inline bool inGames(const Manifest &m) { return m.type == "game" || (m.type == "app" && m.category == "games"); }
 
 }  // namespace apps

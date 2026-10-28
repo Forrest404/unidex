@@ -146,15 +146,21 @@ async function load() {
   const transcribe = s('transcribe').value === 'elevenlabs' ? 'elevenlabs' : 'openai';  // older firmware: Whisper
   document.querySelector(`input[name=transcribe][value=${transcribe}]`).checked = true;
   showTranscribe();
-  for (const name of ['openai_key', 'elevenlabs_key', 'anthropic_key', 'gh_token']) {
+  // The note language: firmware that has it lists note_lang in N ? (unset: Auto).
+  $('langBox').hidden = !st.settings.note_lang;
+  const lang = s('note_lang').value;
+  $('note_lang').value = [...$('note_lang').options].some(o => o.value === lang) ? lang : '';
+  const langName = $('note_lang').value ? ', ' + $('note_lang').selectedOptions[0].textContent : '';
+  for (const name of ['openai_key', 'elevenlabs_key', 'anthropic_key', 'gh_token', 'cal_url']) {
     $(name).value = '';
     $(name).placeholder = s(name).set ? (s(name).value ? `saved (…${s(name).value})` : 'saved') : '';
   }
   $('openaiSaved').textContent = s('openai_key').set ? '· saved' : '';
   $('elevenlabsSaved').textContent = s('elevenlabs_key').set ? '· saved' : '';
   $('anthropicSaved').textContent = s('anthropic_key').set ? '· saved' : '';
-  $('transcribeSaved').textContent = transcribe === 'elevenlabs' ? '· ElevenLabs' : '· OpenAI';
+  $('transcribeSaved').textContent = (transcribe === 'elevenlabs' ? '· ElevenLabs' : '· OpenAI') + langName;
   $('githubSaved').textContent = s('gh_on').value === '1' ? '· on' : '· off';
+  $('calendarSaved').textContent = s('cal_url').set ? '· saved' : '';
   $('cleanupSaved').textContent = cleanup === 'off' ? '· off' : cleanup === 'anthropic' ? '· Claude' : '· OpenAI';
   $('device').textContent = st.card
     ? `Connected. ${st.notes} note${st.notes === 1 ? '' : 's'} on the card${st.waiting ? `, ${st.waiting} waiting to sync` : ''}.`
@@ -190,10 +196,13 @@ $('disconnect').onclick = async () => {
 // Which fields each Save sends. Secrets are only sent when typed (blank keeps the saved one).
 const GROUPS = {
   openai: { status: 'openaiStatus', plain: [], secret: ['openai_key'] },
-  transcribe: { status: 'transcribeStatus', plain: [], secret: ['elevenlabs_key'], extra: () => ({ transcribe: transcribeChoice() }) },
+  // note_lang only when the device knows it (firmware before it refuses the name, and so the whole save).
+  transcribe: { status: 'transcribeStatus', plain: [], secret: ['elevenlabs_key'],
+                extra: () => ({ transcribe: transcribeChoice(), ...($('langBox').hidden ? {} : { note_lang: $('note_lang').value }) }) },
   cleanup: { status: 'cleanupStatus', plain: ['cleanup_model'], secret: ['anthropic_key'], extra: () => ({ cleanup: cleanupChoice() }) },
   github: { status: 'githubStatus', plain: ['gh_repo', 'gh_branch', 'gh_dir'], secret: ['gh_token'],
             extra: () => ({ gh_on: $('gh_on').checked ? '1' : '0' }) },
+  calendar: { status: 'calendarStatus', plain: [], secret: ['cal_url'] },
 };
 
 // The base64 body of the first certificate in a pasted PEM, or null if there isn't one.
@@ -206,6 +215,10 @@ function caBody() {
 function check(group) {
   if (group === 'openai' && $('openai_key').value && !$('openai_key').value.trim().startsWith('sk-'))
     return 'OpenAI keys start with sk-.';
+  if (group === 'cleanup' && /^sk-/.test($('cleanup_model').value.trim()))
+    return 'That looks like an API key. The model box takes a model name, like gpt-4o-mini.';
+  if (group === 'calendar' && $('cal_url').value && !/^(webcals?|https?):\/\/\S+$/i.test($('cal_url').value.trim()))
+    return 'The link should start with https:// or webcal://.';
   if (group === 'github' && $('gh_repo').value && !/^[\w.-]+\/[\w.-]+$/.test($('gh_repo').value.trim()))
     return 'Repo should look like owner/name.';
   if (group === 'github' && $('gh_on').checked && !$('gh_repo').value.trim()) return 'Type the repo first.';
@@ -284,11 +297,11 @@ document.querySelectorAll('[data-test]').forEach(btn => {
   btn.onclick = () => {
     const what = btn.dataset.test;
     const status = { wifi: 'wifiStatus', openai: 'openaiStatus', elevenlabs: 'transcribeStatus', anthropic: 'cleanupStatus',
-                     github: 'githubStatus' }[what];
+                     github: 'githubStatus', calendar: 'calendarStatus' }[what];
     run(status, async () => {
       say(status, 'Testing on the device… (a few seconds)');
       const r = await notesTest(dev, what);
-      say(status, r.ok ? 'Works.' : r.reason + (HINTS.find(h => r.reason.includes(h[0]))?.[1] ?? ''), r.ok ? 'ok' : 'bad');
+      say(status, r.ok ? (r.detail ? `Works: ${r.detail}.` : 'Works.') : r.reason + (HINTS.find(h => r.reason.includes(h[0]))?.[1] ?? ''), r.ok ? 'ok' : 'bad');
     });
   };
 });

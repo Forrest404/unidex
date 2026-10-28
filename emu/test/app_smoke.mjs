@@ -140,11 +140,46 @@ for (const folder of args) {
       failed += problems.length > 0;
       continue;
     }
-    // Home: A until Apps is highlighted, then open it and find the app
-    for (let i = 0; i < 14 && (await state()).sel !== 'Apps'; i++) await press('a');
-    if ((await state()).screen === 'Home') await press('b');
-    for (let i = 0; i < 30 && (await state()).detail !== `list:${id}`; i++) await press('a');
-    if ((await state()).detail !== `list:${id}`) throw new Error('it isn\'t in the Apps list');
+    // Games: a game, and an app in the games category, are listed there by name, not in Apps
+    const inGames = entry.type === 'game' || (entry.type !== 'plugin' && entry.category === 'games');
+    if (inGames) {
+      for (let i = 0; i < 14 && (await state()).sel !== 'Games'; i++) await press('a');
+      if ((await state()).screen === 'Home') await press('b');
+      for (let i = 0; i < 40 && (await state()).detail !== `list:${entry.name}`; i++) await press('a');
+      if ((await state()).detail !== `list:${entry.name}`) throw new Error('it isn\'t in the Games list');
+    }
+    if (entry.type === 'game') {
+      // A round on a fixed seed, frame by frame: B tapped now and then, then held, then left alone
+      await cmd('X SEED 7', 'OK X SEED');
+      await cmd('X MANUAL 1', 'OK X MANUAL');
+      await press('b');
+      await shot(`${id}-1-start`);
+      let s = await state();
+      const pattern = ('000000001'.repeat(8) + '1'.repeat(20) + '0'.repeat(60)).match(/.{1,40}/g);
+      for (const chunk of pattern) {
+        if (!s.detail.startsWith('play:')) break;
+        await cmd(`X PLAY ${chunk}`, 'OK X PLAY');
+        s = await state();
+      }
+      await shot(`${id}-2-played`);
+      if (s.detail.startsWith('failed:')) problems.push('it stopped with an error (see the screenshot)');
+      else if (!s.detail.startsWith('play:') && !s.detail.startsWith('over:')) problems.push(`it left the round (${s.detail})`);
+      await cmd('X MANUAL 0', 'OK X MANUAL');
+      await cmd('X SEED 0', 'OK X SEED');
+      if ((await state()).detail.startsWith('failed:')) await press('b');
+      for (let i = 0; i < 4 && (await state()).screen !== 'Home'; i++) await press('A');
+      await store.removeApp(dev, id, false);
+      console.log(problems.length ? `FAIL  ${id}: ${problems.join('; ')}` : `ok    ${id} (game)`);
+      failed += problems.length > 0;
+      continue;
+    }
+    if (!inGames) {
+      // Home: A until Apps is highlighted, then open it and find the app
+      for (let i = 0; i < 14 && (await state()).sel !== 'Apps'; i++) await press('a');
+      if ((await state()).screen === 'Home') await press('b');
+      for (let i = 0; i < 30 && (await state()).detail !== `list:${id}`; i++) await press('a');
+      if ((await state()).detail !== `list:${id}`) throw new Error('it isn\'t in the Apps list');
+    }
     await press('b');
     await shot(`${id}-1-open`);
     let why = await failure();

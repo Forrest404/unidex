@@ -1,15 +1,34 @@
 #include "phone.h"
 #include <DNSServer.h>
+#include <StreamString.h>
 #include <WiFi.h>
+#include <algorithm>
 #include <esp_mac.h>
 #include <esp_wifi.h>
+#include <qrcode.h>
+#include <unidex_version.h>
+#include "job.h"
 #include "phone_page.h"
+#include "phone_setup.h"
 #include "phone_text.h"
 #include "store.h"
+#include "../badge/badge_file.h"
+#include "../pet/pet.h"
+#include "../scripts/appfetch.h"
+#include "../scripts/appstore.h"
+#include "../scripts/scripts.h"
+#include "../../core/audio.h"
+#include "../../core/battery.h"
+#include "../../core/clock.h"
+#include "../../core/credentials.h"
+#include "../../core/wifi_logic.h"
 #include "../../core/storage.h"
 #include "../../core/devtools.h"
+#include "../../core/display.h"
+#include "../../core/launcher.h"
 #include "../../core/net.h"
 #include "../../core/power.h"
+#include "../../core/theme.h"
 
 #if UNIDEX_DEV
 static const uint32_t IDLE_MS = 60000;  // test build: a minute, so the auto-stop can be tested
@@ -21,15 +40,28 @@ static WiFiServer http(80, 8);
 static DNSServer dns;  // every name the phone looks up points here, so its internet check finds this page
 static bool on;
 static uint32_t lastUse, served, startedAt, firstAt;  // firstAt: the first request from a phone
-static char ssid[16], password[12], joinCode[64];
+static uint32_t shown;     // requests answered when the screen was last drawn ("Phone connected" once there are some)
+static uint32_t stopAt;    // Done was pressed: stop at this time (after its answer has gone out)
+static bool changed;       // setup was saved since the start
+static bool notesChanged;  // a note was deleted from the page (the Notes app reads its list again)
+static bool done;          // Done was pressed (it stops, or has stopped, because of that)
+static bool redrawFull;    // the screen needs a full refresh (invert changed)
+static bool redrawSoon;    // or a partial one (a message to show: "Badge saved")
+static PhoneTab tab;
+static bool online;        // on the normal WiFi too (the hotspot on its channel), so the Apps tab can install
+static String nearby = "[]";  // the WiFi names around, strongest first, as a JSON array
+static bool savedNearby;      // one of the saved networks was among them (worth joining for the Apps tab)
+static char ssid[24], password[12], joinCode[64];  // the code: 28 characters and the name (20 at most)
 
 #if UNIDEX_DEV
-// Test build: when a phone got through each step of joining, in ms after the start (X STATE detail).
+// Test build: the hotspot, so a computer can join it, and when a phone got through each step of joining, in ms
+// after the start (X STATE detail).
 static uint32_t joinedAt, addressAt;
 static char reqLog[96];  // the last requests and how long each took
-static char times[160];
+static char times[200];
 static const char *phoneTimes() {
-  snprintf(times, sizeof times, "joined=%lu address=%lu first=%lu%s", joinedAt ? joinedAt - startedAt : 0,
+  snprintf(times, sizeof times, "ssid=%s pw=%s ch=%d online=%d joined=%lu address=%lu first=%lu%s", ssid, password,
+           (int)WiFi.channel(), online && WiFi.status() == WL_CONNECTED, joinedAt ? joinedAt - startedAt : 0,
            addressAt ? addressAt - startedAt : 0, firstAt ? firstAt - startedAt : 0, reqLog);
   return times;
 }
@@ -41,7 +73,8 @@ static const char *phoneTimes() {
 // real request queues behind it. Each request is answered and closed straight away.
 
 struct Request {
-  String path, query, host, range;  // range: the Range header's value ("bytes=0-1"), if any
+  String method, path, query, host, range;  // range: the Range header's value ("bytes=0-1"), if any
+  String origin, body;                      // origin: the Origin header (the page that sent it), if any
   String arg(const char *name) const {  // a query value, %XX-decoded
     const String all = "&" + query, key = String("&") + name + "=";
     const int at = all.indexOf(key);
@@ -65,13 +98,25 @@ struct Connection {
 };
 static const int CONNECTIONS = 6;
 static const uint32_t REQUEST_WAIT_MS = 4000;  // an empty connection is dropped after this
+static const size_t HEAD_MAX = 4096, BODY_MAX = 10240;  // a badge is ~7 KB as a form, an eduroam certificate ~4 KB
 static Connection connections[CONNECTIONS];
+
+// Writes all of it, or gives up on a phone that stopped taking it (it left the hotspot, say for its usual WiFi): the
+// WiFi library waits ~10 s on a write that can't go, so a page sent in several writes would otherwise hold the loop
+// up past the watchdog. After the first that fails, the rest return at once.
+static bool send(WiFiClient &c, const void *data, size_t len) {
+  if (!len) return true;
+  if (c.connected() && c.write((const uint8_t *)data, len) == len) return true;
+  c.stop();
+  return false;
+}
 
 static String header(int code, const char *type, size_t len, const String &headers = "") {
   const char *status = code == 200   ? "OK"
                        : code == 204 ? "No Content"
                        : code == 206 ? "Partial Content"
                        : code == 302 ? "Found"
+                       : code == 400 ? "Bad Request"
                        : code == 416 ? "Range Not Satisfiable"
                                      : "Not Found";
   return "HTTP/1.1 " + String(code) + " " + status + "\r\nContent-Type: " + type + "\r\nContent-Length: " + String(len) +
@@ -81,8 +126,7 @@ static String header(int code, const char *type, size_t len, const String &heade
 static void reply(WiFiClient &c, int code, const char *type, const char *body, size_t len,
                   const String &headers = "") {
   const String head = header(code, type, len, headers);
-  c.write((const uint8_t *)head.c_str(), head.length());
-  if (len) c.write((const uint8_t *)body, len);
+  if (send(c, head.c_str(), head.length())) send(c, body, len);
 }
 
 static void reply(WiFiClient &c, int code, const char *type, const String &body, const String &headers = "") {
@@ -152,16 +196,307 @@ static void sendText(WiFiClient &c, const String &id) {
         "Content-Disposition: attachment; filename=\"" + (name.length() ? name : id) + ".txt\"\r\n");
 }
 
-// The page with the note list already inside it (in place of "/*NOTES*/null"), so the list draws with the page.
+// The page with the note list already inside it (in place of "/*NOTES*/null"), so the list draws with the page,
+// and the tab to open on (in place of "/*TAB*/'notes'").
 static void sendPage(WiFiClient &c) {
-  static const char MARK[] = "/*NOTES*/null";
-  const char *at = strstr(PHONE_PAGE, MARK);
-  const size_t before = at - PHONE_PAGE, after = sizeof PHONE_PAGE - 1 - before - (sizeof MARK - 1);
-  const String head = header(200, "text/html; charset=utf-8", before + listJson.length() + after);
-  c.write((const uint8_t *)head.c_str(), head.length());
-  c.write((const uint8_t *)PHONE_PAGE, before);
-  c.write((const uint8_t *)listJson.c_str(), listJson.length());
-  c.write((const uint8_t *)at + sizeof MARK - 1, after);
+  static const char NOTES_MARK[] = "/*NOTES*/null", TAB_MARK[] = "/*TAB*/'notes'";
+  const char *notesAt = strstr(PHONE_PAGE, NOTES_MARK), *tabAt = strstr(PHONE_PAGE, TAB_MARK);
+  const char *afterNotes = notesAt + sizeof NOTES_MARK - 1, *afterTab = tabAt + sizeof TAB_MARK - 1;
+  const char *tabName = tab == PhoneTab::Setup ? "'setup'" : tab == PhoneTab::Settings ? "'settings'" : "'notes'";
+  const char *end = PHONE_PAGE + sizeof PHONE_PAGE - 1;
+  const String head = header(200, "text/html; charset=utf-8", (notesAt - PHONE_PAGE) + listJson.length() +
+                                                                 (tabAt - afterNotes) + strlen(tabName) + (end - afterTab));
+  send(c, head.c_str(), head.length()) && send(c, PHONE_PAGE, notesAt - PHONE_PAGE) &&
+      send(c, listJson.c_str(), listJson.length()) && send(c, afterNotes, tabAt - afterNotes) &&
+      send(c, tabName, strlen(tabName)) && send(c, afterTab, end - afterTab);
+}
+
+// --- setup and settings ---
+
+using namespace phonesetup;
+
+static String answer(const char *error) {  // what a save sends back: {"ok":1} or {"error":"..."}
+  return error ? "{\"error\":\"" + str(json(error)) + "\"}" : String("{\"ok\":1}");
+}
+
+// One value of a form ("" if it isn't there).
+static String formValue(const String &body, const char *name) {
+  for (const auto &p : formPairs(body.c_str()))
+    if (p.first == name) return p.second.c_str();
+  return "";
+}
+
+// "unidex-" and the last 4 hex digits of the hotspot's address: the name until the person gives it one.
+static String defaultName() {
+  uint8_t mac[6];
+  esp_read_mac(mac, ESP_MAC_WIFI_SOFTAP);
+  char out[16];
+  snprintf(out, sizeof out, "unidex-%02X%02X", mac[4], mac[5]);
+  return out;
+}
+
+// The device's name (name=..., empty for the default). The hotspot keeps the name it started with: changing it now
+// would drop the phone, so the new one is used from the next start.
+static const char *saveName(const String &body) {
+  const String name = formValue(body, "name");
+  if (const char *why = checkName(name.c_str())) return why;
+  if (name.length()) storagePutString("dev_name", name.c_str());
+  else storageRemoveKey("dev_name");
+  return nullptr;
+}
+
+// Everything the Settings and Setup tabs show. Keys only as their last 4 characters, WiFi passwords not at all
+// (credStatus's rules).
+static String setupJson() {
+  StreamString lines;
+  credStatus(lines);
+  return "{\"cred\":" + str(statusJson(lines.c_str())) + ",\"sleep\":" + String(powerSleepSeconds()) +
+         ",\"volume\":" + String(audioVolume()) + ",\"volumeMax\":" + String(AUDIO_VOLUME_MAX) +
+         ",\"invert\":" + String(display.inverted ? 1 : 0) + ",\"mute\":" + String(audioAlertsMuted() ? 1 : 0) +
+         ",\"time\":" + String(clockValid() ? (long long)time(nullptr) : 0LL) +
+         ",\"battery\":" + String(batteryPercent()) + ",\"charging\":" + String(batteryCharging() ? 1 : 0) +
+         ",\"name\":\"" + str(json(ssid)) + "\",\"devname\":\"" + str(json(storageGetString("dev_name").c_str())) +
+         "\",\"defname\":\"" + defaultName() + "\",\"version\":\"" + str(json(UNIDEX_VERSION)) +
+         "\",\"nearby\":" + nearby + ",\"busy\":" + String(jobBusy() ? 1 : 0) + "}";
+}
+
+// WiFi, keys, GitHub: name=value pairs with the names of the Setup page's N SET. Every value is checked before
+// any is saved, so a form is saved whole or not at all (unless the device's memory fills up mid-way).
+static const char *saveCredentials(const String &body) {
+  const auto pairs = formPairs(body.c_str());
+  if (pairs.empty()) return "Nothing to save.";
+  if (jobBusy()) return "A note is sending. Try again in a moment.";  // it still needs its keys
+  for (const auto &p : pairs) {
+    if (!credKnown(p.first.c_str())) return "The device doesn't know that setting. Update it first.";
+    if (const char *why = checkValue(p.first, p.second)) return why;
+  }
+  for (const auto &p : pairs)
+    if (!credSet(p.first.c_str(), String(p.second.c_str())))
+      return "Couldn't save that: it's too long or has characters the device can't keep.";
+  changed = true;
+  return nullptr;
+}
+
+// Sleep after, volume, the reminder chime (mute) and invert, each only if sent.
+static const char *saveSettings(const String &body) {
+  int sleepS = -1, volume = -1, invert = -1, mute = -1;
+  for (const auto &p : formPairs(body.c_str())) {
+    const int v = p.second.empty() ? -1 : atoi(p.second.c_str());
+    if (p.first == "sleep") sleepS = v == 10 || v == 20 || v == 30 || v == 60 ? v : -2;
+    else if (p.first == "volume") volume = v >= 0 && v <= AUDIO_VOLUME_MAX ? v : -2;
+    else if (p.first == "invert") invert = p.second == "0" || p.second == "1" ? v : -2;
+    else if (p.first == "mute") mute = p.second == "0" || p.second == "1" ? v : -2;
+    else return "The device doesn't know that setting. Update it first.";
+  }
+  if (sleepS == -2 || volume == -2 || invert == -2 || mute == -2) return "That value isn't one the device takes.";
+  if (mute >= 0) audioSetAlertsMuted(mute == 1);
+  if (sleepS > 0) powerSetSleepSeconds(sleepS);
+  if (volume >= 0 && volume != audioVolume()) {
+    audioSetVolume(volume);
+    audioChime();  // how loud it is now (silent at 0), as in Settings > Volume
+  }
+  if (invert >= 0 && (invert == 1) != display.inverted) {
+    displaySetInverted(invert == 1);
+    redrawFull = true;
+  }
+  return nullptr;
+}
+
+// The phone's clock, in seconds since 1970 (UTC). Anything before 2024 is a phone that doesn't know the time.
+static const char *saveTime(const String &body) {
+  for (const auto &p : formPairs(body.c_str()))
+    if (p.first == "t") {
+      const long long t = atoll(p.second.c_str());
+      if (t < 1704067200LL || t > 4102444800LL) return "That time doesn't look right.";
+      clockSet((time_t)t);
+      return nullptr;
+    }
+  return "No time sent.";
+}
+
+// The WiFi names around, strongest first, once before the hotspot starts (it can't look while phones are on it).
+static void scanNearby() {
+  WiFi.mode(WIFI_STA);
+  const int n = WiFi.scanNetworks();  // ~2 s
+  std::vector<int> order;
+  for (int i = 0; i < n; i++) order.push_back(i);
+  std::sort(order.begin(), order.end(), [](int a, int b) { return WiFi.RSSI(a) > WiFi.RSSI(b); });
+  std::vector<String> names;
+  for (int i : order) {
+    const String name = WiFi.SSID(i);
+    if (name.length() && std::find(names.begin(), names.end(), name) == names.end() && names.size() < 15)
+      names.push_back(name);
+  }
+  savedNearby = false;
+  for (int slot = 0; slot < wifi::SLOTS; slot++) {
+    const String saved = credWifiSaved(slot) ? credGet(credWifiName(slot, "ssid").c_str()) : String();
+    for (int i = 0; i < n && saved.length() && !savedNearby; i++) savedNearby = WiFi.SSID(i) == saved;
+  }
+  WiFi.scanDelete();
+  nearby = "[";
+  for (const String &name : names) nearby += (nearby.length() > 1 ? ",\"" : "\"") + str(json(name.c_str())) + "\"";
+  nearby += "]";
+}
+
+// The Tools tab's badge: name=<what it's called>&bmp=<the 200x200 1-bit BMP, base64>. Saved on the card as the next
+// badge, and made the one the Badge app opens on. `saved` gets its file name.
+static const char *saveBadge(const String &body, String &saved) {
+  std::string name, data;
+  for (const auto &p : formPairs(body.c_str())) {
+    if (p.first == "name") name = p.second;
+    else if (p.first == "bmp") data = p.second;
+  }
+  std::vector<uint8_t> bmp;
+  if (!base64Decode(data, bmp) || !badgeBmpOk(bmp)) return "That isn't a badge picture. Try the photo again.";
+  if (!storageCardMount()) return "There's no SD card in your unidex: badges are kept on it.";
+  static String names[64];
+  const int n = badgeList(names, 64);
+  std::vector<std::string> existing;
+  for (int i = 0; i < n; i++) existing.push_back(names[i].c_str());
+  const std::string file = badgeFileName(existing, name);
+  if (!badgeSave(file.c_str(), bmp.data(), bmp.size())) return "Couldn't save it: the card may be full.";
+  storagePutString("badge", file.c_str());  // the Badge app opens on it
+  saved = file.c_str();
+  return nullptr;
+}
+
+// The Tools tab's badges: their file names, and the one the Badge app opens on.
+static String badgesJson() {
+  static String names[64];
+  const int n = storageCardMount() ? badgeList(names, 64) : -1;
+  String out = "{\"card\":" + String(n >= 0 ? 1 : 0) + ",\"current\":\"" + str(json(storageGetString("badge").c_str())) +
+               "\",\"badges\":[";
+  for (int i = 0; i < n; i++) out += String(i ? ",\"" : "\"") + str(json(names[i].c_str())) + "\"";
+  return out + "]}";
+}
+
+// One badge's file, for its thumbnail (phones show BMPs as they are).
+static void sendBadgeFile(WiFiClient &c, const String &name) {
+  fs::File f = badgeNameOk(name.c_str()) ? storageOpen((String(BADGE_DIR) + "/" + name).c_str()) : fs::File();
+  if (!f || f.size() > BADGE_MAX_BYTES) return reply(c, 404, "text/plain", String("Not found"));
+  std::vector<uint8_t> data(f.size());
+  data.resize(f.read(data.data(), data.size()));
+  f.close();
+  reply(c, 200, "image/bmp", (const char *)data.data(), data.size());
+}
+
+// The Tools tab's Pet: look=<the parts, packed as pet_logic.h does>&name=<up to 12 characters>.
+static const char *savePet(const String &body) {
+  long long look = -1;
+  String name, owner;
+  bool hasOwner = false;  // an older page sends no owner: yours is left as it is
+  for (const auto &p : formPairs(body.c_str())) {
+    if (p.first == "look") look = atoll(p.second.c_str());
+    else if (p.first == "name") name = p.second.c_str();
+    else if (p.first == "owner") owner = p.second.c_str(), hasOwner = true;
+  }
+  if (look < 0 || look > 0xFFFFF) return "That look isn't one the device knows.";
+  if (hasOwner && !petNameOk(owner)) return "Your name can be up to 12 letters, numbers or symbols.";
+  if (!petSave((uint32_t)look, name)) return "The name can be up to 12 letters, numbers or symbols.";
+  if (hasOwner && !petSaveOwner(owner)) return "Your name can be up to 12 letters, numbers or symbols.";
+  return nullptr;
+}
+
+// --- the Apps tab ---
+
+// The store's catalogue as the device saved it last (fetched again at each start when it's online), sent whole:
+// the phone reads it, the device only checks an entry when it's asked to install that app.
+static void sendCatalogue(WiFiClient &c) {
+  fs::File f = storageOpen(APPFETCH_CATALOGUE);
+  if (!f || f.isDirectory()) return reply(c, 200, "application/json", String("{\"apps\":[]}"));
+  const String head = header(200, "application/json", f.size(), "Cache-Control: no-store\r\n");
+  bool ok = send(c, head.c_str(), head.length());
+  uint8_t buf[2048];
+  for (int n; ok && (n = f.read(buf, sizeof buf)) > 0;) ok = send(c, buf, n);
+  f.close();
+}
+
+// What's installed, whether the device can reach the store now, and how the last install from here went.
+static String installedJson() {
+  const AppfetchStatus &j = appfetchStatus();
+  String out = "{\"online\":" + String(online && WiFi.status() == WL_CONNECTED ? 1 : 0) +
+               ",\"card\":" + String(storageCardMount() ? 1 : 0) + ",\"api\":" + String(apps::API_LEVEL) +
+               ",\"max\":" + String(apps::MAX_APPS) + ",\"job\":{\"id\":\"" + str(json(j.id.c_str())) +
+               "\",\"busy\":" + String(j.busy ? 1 : 0) + ",\"ok\":" + String(j.ok ? 1 : 0) + ",\"done\":" +
+               String(j.done) + ",\"total\":" + String(j.total) + ",\"why\":\"" + str(json(j.why.c_str())) +
+               "\"},\"apps\":[";
+  bool first = true;
+  for (const AppEntry &e : appsList(false)) {
+    out += String(first ? "" : ",") + "{\"id\":\"" + e.id + "\",\"name\":\"" + str(json(e.name.c_str())) +
+           "\",\"version\":\"" + str(json(e.version.c_str())) + "\",\"offloaded\":" + String(e.offloaded ? 1 : 0) +
+           ",\"problem\":\"" + str(json(e.problem.c_str())) + "\"}";
+    first = false;
+  }
+  return out + "]}";
+}
+
+static const char *installApp(const String &id) {
+  if (!online || WiFi.status() != WL_CONNECTED) return "Your unidex isn't on WiFi. Set it up in Setup, then start again.";
+  return appfetchStart(id);
+}
+
+static const char *deleteApp(const String &id) {
+  if (!apps::idOk(id.c_str()) || !storageExists(appsDir(id).c_str())) return "That app isn't there any more.";
+  if (scriptsRunning(id.c_str())) return "Close it on your unidex first.";
+  if (appfetchBusy() && appfetchStatus().id == id) return "It's installing. Try again in a moment.";
+  if (!appsRemove(id, false)) return "Couldn't delete it.";
+  scriptsListChanged();
+  launcherToast("App deleted");
+  redrawSoon = true;
+  return nullptr;
+}
+
+static void post(WiFiClient &c, const Request &r) {
+  const char *error = "Not found.";
+  if (r.path == "/set") error = saveCredentials(r.body);
+  else if (r.path == "/settings") error = saveSettings(r.body);
+  else if (r.path == "/time") error = saveTime(r.body);
+  else if (r.path == "/name") error = saveName(r.body);
+  else if (r.path == "/clear") {  // Remove everything: WiFi, keys, GitHub, the calendar link
+    if (jobBusy()) error = "A note is sending. Try again in a moment.";
+    else credClearAll(), changed = false, error = nullptr;
+  } else if (r.path == "/badge") {
+    String file;
+    error = saveBadge(r.body, file);
+    if (!error) {
+      launcherToast("Badge saved");
+      redrawSoon = true;
+      return reply(c, 200, "application/json", "{\"ok\":1,\"name\":\"" + str(json(file.c_str())) + "\"}");
+    }
+  } else if (r.path == "/badge/delete") {
+    std::string name;
+    for (const auto &p : formPairs(r.body.c_str()))
+      if (p.first == "name") name = p.second;
+    if (!storageCardMount()) error = "There's no SD card in your unidex.";
+    else if (!badgeDelete(name.c_str())) error = "That badge isn't there any more.";
+    else launcherToast("Badge deleted"), redrawSoon = true, error = nullptr;
+  } else if (r.path == "/pet") {
+    error = savePet(r.body);
+    if (!error) launcherToast("Pet saved"), redrawSoon = true;
+  } else if (r.path == "/note/delete") {
+    const String id = formValue(r.body, "id");
+    if (!storeValidId(id) || (!storageExists(storeWavPath(id).c_str()) && !storeReadNote(id).length()))
+      error = "That note isn't there any more.";
+    else if (jobBusy() && id == jobStatus().noteId) error = "It's sending right now. Try again in a moment.";
+    else if (devDryRun()) error = "Test build, dry run: not deleted.";
+    else {
+      storeDelete(id);
+      buildList();  // so a reload doesn't show it
+      notesChanged = true;
+      launcherToast("Note deleted");
+      redrawSoon = true;
+      error = nullptr;
+    }
+  } else if (r.path == "/apps/install") {
+    error = installApp(formValue(r.body, "id"));
+  } else if (r.path == "/apps/delete") {
+    error = deleteApp(formValue(r.body, "id"));
+  } else if (r.path == "/done") {
+    stopAt = millis() + 500;  // the answer goes out first
+    done = true;
+    error = nullptr;
+  }
+  reply(c, error ? 400 : 200, "application/json", answer(error));
 }
 
 // "Export": every note as one .txt, newest first.
@@ -193,7 +528,7 @@ static void startAudio(Connection &conn, const Request &r) {
   if (ranged) headers += "Content-Range: bytes " + String(first) + "-" + String(last) + "/" + String(total) + "\r\n";
   if (r.arg("dl") == "1") headers += "Content-Disposition: attachment; filename=\"unidex " + id + ".wav\"\r\n";
   const String head = header(ranged ? 206 : 200, "audio/wav", last - first + 1, headers);
-  conn.client.write((const uint8_t *)head.c_str(), head.length());
+  if (!send(conn.client, head.c_str(), head.length())) return conn.file.close();
   conn.file.seek(first);
   conn.remaining = last - first + 1;
 }
@@ -213,7 +548,30 @@ static void handle(Connection &conn, const Request &r) {
     reply(c, 302, "text/plain", "", 0, "Location: http://" + self + "/\r\n");
     return logRequest("probe", t0);
   }
-  if (r.path == "/notes.json") {
+  if (r.method == "POST") {
+    // Saves come only from the page itself: another page (one open from before joining) can't send them here.
+    if (r.origin.length() && r.origin != "http://" + self) reply(c, 400, "application/json", answer("Not from this page."));
+    else post(c, r);
+    logRequest("save", t0);
+  } else if (r.path == "/badges.json") {
+    reply(c, 200, "application/json", badgesJson());
+    logRequest("badges", t0);
+  } else if (r.path == "/badge.bmp") {
+    sendBadgeFile(c, r.arg("name"));
+    logRequest("bmp", t0);
+  } else if (r.path == "/pet.json") {
+    reply(c, 200, "application/json", petPartsJson());
+    logRequest("pet", t0);
+  } else if (r.path == "/apps.json") {
+    sendCatalogue(c);
+    logRequest("apps", t0);
+  } else if (r.path == "/installed.json") {
+    reply(c, 200, "application/json", installedJson());
+    logRequest("installed", t0);
+  } else if (r.path == "/setup.json") {
+    reply(c, 200, "application/json", setupJson());
+    logRequest("setup", t0);
+  } else if (r.path == "/notes.json") {
     reply(c, 200, "application/json", listJson);
     logRequest("list", t0);
   } else if (r.path == "/note.json") {
@@ -236,29 +594,44 @@ static void handle(Connection &conn, const Request &r) {
   }
 }
 
-static Request parseRequest(const String &head) {  // "GET /path?query HTTP/1.1" and the Host header
+// A header's value ("" if it isn't there). `lower` is the headers in lower case, `name` like "\nhost:".
+static String headerValue(const String &head, const String &lower, const char *name) {
+  const int at = lower.indexOf(name);
+  if (at < 0) return "";
+  const int from = at + strlen(name);
+  String v = head.substring(from, head.indexOf('\r', from));
+  v.trim();
+  return v;
+}
+
+// "GET /path?query HTTP/1.1", the headers that matter, and the body after the blank line at `end`.
+static Request parseRequest(const String &head, int end) {
   Request r;
   const int sp1 = head.indexOf(' '), sp2 = head.indexOf(' ', sp1 + 1);
+  r.method = sp1 < 0 ? "GET" : head.substring(0, sp1);
   String target = sp1 < 0 || sp2 < 0 ? "/" : head.substring(sp1 + 1, sp2);
   const int q = target.indexOf('?');
   r.path = q < 0 ? target : target.substring(0, q);
   r.query = q < 0 ? "" : target.substring(q + 1);
-  String lower = head;
+  String lower = head.substring(0, end + 2);
   lower.toLowerCase();
-  const int range = lower.indexOf("\nrange:");
-  if (range >= 0) {
-    r.range = head.substring(range + 7, head.indexOf('\r', range + 7));
-    r.range.trim();
-    r.range.replace(" ", "");
-  }
-  const int h = lower.indexOf("\nhost:");
-  if (h >= 0) {
-    r.host = head.substring(h + 6, head.indexOf('\r', h + 6));
-    r.host.trim();
-    const int colon = r.host.indexOf(':');
-    if (colon >= 0) r.host = r.host.substring(0, colon);
-  }
+  r.range = headerValue(head, lower, "\nrange:");
+  r.range.replace(" ", "");
+  r.host = headerValue(head, lower, "\nhost:");
+  const int colon = r.host.indexOf(':');
+  if (colon >= 0) r.host = r.host.substring(0, colon);
+  r.origin = headerValue(head, lower, "\norigin:");
+  r.body = head.substring(end + 4);
   return r;
+}
+
+// How long the body after the headers is (Content-Length), or -1 if it's more than a save could need.
+static long bodyLength(const String &head, int end) {
+  String lower = head.substring(0, end + 2);
+  lower.toLowerCase();
+  const String v = headerValue(head, lower, "\ncontent-length:");
+  const long n = v.length() ? v.toInt() : 0;
+  return n < 0 || n > (long)BODY_MAX ? -1 : n;
 }
 
 static void serveHttp() {
@@ -292,15 +665,24 @@ static void serveHttp() {
       continue;
     }
     uint8_t buf[256];
-    while (conn.client.available() && conn.head.length() < 4096) {
+    while (conn.client.available() && conn.head.length() < HEAD_MAX + BODY_MAX) {
       const int n = conn.client.read(buf, sizeof buf);
       if (n <= 0) break;
       conn.head.concat((const char *)buf, n);
     }
-    if (conn.head.indexOf("\r\n\r\n") >= 0) {
-      handle(conn, parseRequest(conn.head));
-      if (conn.remaining) continue;  // a recording: it goes out over the next loop turns
-    } else if (conn.client.connected() && millis() - conn.since < REQUEST_WAIT_MS && conn.head.length() < 4096) {
+    const int end = conn.head.indexOf("\r\n\r\n");
+    const bool waiting = conn.client.connected() && millis() - conn.since < REQUEST_WAIT_MS;
+    if (end >= 0) {
+      const long body = bodyLength(conn.head, end);
+      if (body < 0) {
+        reply(conn.client, 400, "application/json", answer("That's too much to save at once."));
+      } else if (conn.head.length() >= (size_t)end + 4 + body) {
+        handle(conn, parseRequest(conn.head.substring(0, end + 4 + body), end));
+        if (conn.remaining) continue;  // a recording: it goes out over the next loop turns
+      } else if (waiting) {
+        continue;  // the rest of a save's form is on its way
+      }
+    } else if (waiting && conn.head.length() < HEAD_MAX) {
       continue;  // still waiting for the request
     }
     conn.client.stop();
@@ -309,12 +691,18 @@ static void serveHttp() {
   }
 }
 
-bool phoneStart() {
-  if (on) return true;
-  if (netClaimed()) return false;  // a note is sending over the normal WiFi
-  uint8_t mac[6];
-  esp_read_mac(mac, ESP_MAC_WIFI_SOFTAP);
-  snprintf(ssid, sizeof ssid, "unidex-%02X%02X", mac[4], mac[5]);
+static void drawLooking() {
+  drawHeader("Phone");
+  drawEmpty("Looking for WiFi", "for the app store");
+}
+
+const char *phoneStart(PhoneTab startTab) {
+  tab = startTab;
+  if (on) return nullptr;
+  if (netClaimed()) return "Sending a note: try soon";  // over the normal WiFi
+  const String name = storageGetString("dev_name");  // what the person called it (Settings on the page)
+  if (name.length() && !checkName(name.c_str())) strlcpy(ssid, name.c_str(), sizeof ssid);
+  else strlcpy(ssid, defaultName().c_str(), sizeof ssid);
   // No look-alike characters (l/1, O/0), so it can be typed from the screen if the camera can't scan.
   static const char ALPHABET[] = "abcdefghjkmnpqrstuvwxyz23456789";
   for (size_t i = 0; i < sizeof password - 2; i++) password[i] = ALPHABET[esp_random() % (sizeof ALPHABET - 1)];
@@ -323,21 +711,41 @@ bool phoneStart() {
   buildList();  // reads the card once, before the radio starts
   netOff();
   setCpuFrequencyMhz(240);  // full speed while the radio is on (as for normal WiFi): phones join faster
-  WiFi.mode(WIFI_AP);
-  if (!WiFi.softAP(ssid, password)) {
-    WiFi.mode(WIFI_OFF);
-    setCpuFrequencyMhz(80);
-    return false;
+  if (tab == PhoneTab::Notes) {
+    nearby = "[]";
+    savedNearby = false;
+  } else {
+    displayShow(drawLooking, false);
+    scanNearby();  // for the WiFi name box on Setup, and to see if a saved network is in range
+  }
+  // The Apps tab installs over the normal WiFi, which the phone on the hotspot can't reach: the device joins it
+  // first and puts the hotspot on its channel (joining after would move the hotspot and drop the phone). Not
+  // from a note ("Open on phone" should open at once), nor when none of the saved networks is in range: then the
+  // hotspot starts straight away, and the Apps tab shows the store's list from last time.
+  online = false;
+  if (savedNearby) {
+    WiFi.setAutoReconnect(false);  // a drop mustn't send it looking on other channels, taking the hotspot along
+    online = !netConnect();
+    if (online) appfetchCatalogue();  // if it fails, the list saved last time is shown
+    setCpuFrequencyMhz(240);         // (a failed netConnect turned the radio off and slowed the CPU)
+  }
+  WiFi.mode(online ? WIFI_AP_STA : WIFI_AP);
+  if (!WiFi.softAP(ssid, password, online ? WiFi.channel() : 1)) {
+    netOff();
+    WiFi.setAutoReconnect(true);
+    return "WiFi didn't start: try again";
   }
   WiFi.setSleep(false);                             // answer at once, no power-save naps
   esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT20);  // a 20 MHz channel: phones join it more reliably
   http.begin();
   dns.start(53, "*", WiFi.softAPIP());
-  powerHold();  // no light or deep sleep while the phone may be reading
-  on = true, served = 0, firstAt = 0;
+  powerHold();     // no light or deep sleep while the phone may be reading
+  netClaim(true);  // the radio is the hotspot's: the background sends (Notes, Reminders) wait until it's off
+  on = true, served = 0, firstAt = 0, shown = 0, stopAt = 0, changed = false, notesChanged = false, done = false, redrawFull = false, redrawSoon = false;
   startedAt = lastUse = millis();
 #if UNIDEX_DEV
   joinedAt = addressAt = 0;
+  reqLog[0] = 0;
   static bool watching;
   if (!watching) {
     WiFi.onEvent([](arduino_event_id_t, arduino_event_info_t) { if (!joinedAt) joinedAt = millis(); },
@@ -348,7 +756,7 @@ bool phoneStart() {
   }
   devSetDetail(phoneTimes);
 #endif
-  return true;
+  return nullptr;
 }
 
 void phoneStop() {
@@ -357,9 +765,12 @@ void phoneStop() {
   for (Connection &conn : connections)
     conn.client.stop(), conn.client = WiFiClient(), conn.head = "", conn.file.close(), conn.remaining = 0;
   http.end();
+  appfetchCancel();
   WiFi.softAPdisconnect(true);
-  WiFi.mode(WIFI_OFF);
-  setCpuFrequencyMhz(80);
+  netOff();  // the normal WiFi too, if the Apps tab had it
+  WiFi.setAutoReconnect(true);
+  netClaim(false);
+  online = false;
   powerRelease();
 #if UNIDEX_DEV
   devSetDetail(nullptr);
@@ -369,16 +780,72 @@ void phoneStop() {
 
 bool phoneOn() { return on; }
 
-void phonePoll() {
-  if (!on) return;
+Redraw phoneTick() {
+  if (!on) return Redraw::None;
   dns.processNextRequest();
   serveHttp();
-  if (millis() - lastUse > IDLE_MS) phoneStop();
+  if (appfetchBusy()) {  // an app installing from the Apps tab: a file per tick (a second or two each)
+    appfetchStep();
+    lastUse = millis();
+    if (!appfetchBusy() && appfetchStatus().ok) launcherToast("App installed"), redrawSoon = true;
+  }
+  if (millis() - lastUse > IDLE_MS || (stopAt && (int32_t)(millis() - stopAt) >= 0)) {
+    phoneStop();
+    return Redraw::Partial;
+  }
+  if (redrawFull) {
+    redrawFull = redrawSoon = false;
+    return Redraw::Full;
+  }
+  if (redrawSoon) {
+    redrawSoon = false;
+    return Redraw::Partial;
+  }
+  // "Phone connected", once its first few requests are answered: a screen refresh holds everything up for
+  // ~0.5 s, and the phone is waiting on those answers to open the page.
+  return !shown && firstAt && millis() - firstAt > 3000 ? Redraw::Partial : Redraw::None;
+}
+
+// The hotspot's name and password, to type if the camera can't scan. A long name is cut to fit beside the password.
+static void drawJoinLine(int16_t baseline) {
+  display.setFont(FONT_TINY);
+  const String pw = String("   ") + password;
+  drawCenteredLine((fitText(ssid, display.width() - 8 - textWidth(pw.c_str())) + pw).c_str(), baseline);
+}
+
+// The QR code the camera joins with, then the name and password to type.
+void phoneDraw(const char *title, const char *computer) {
+  shown = served;
+  drawHeader(title);
+  QRCode qr;
+  uint8_t modules[qrcode_getBufferSize(3)];
+  if (qrcode_initText(&qr, modules, 3, ECC_LOW, joinCode) == 0) {  // version 3: 29x29, 4 px each (3 with `computer`)
+    const int scale = computer ? 3 : 4, x0 = (display.width() - qr.size * scale) / 2, y0 = CONTENT_TOP + (computer ? 3 : 4);
+    for (uint8_t y = 0; y < qr.size; y++)
+      for (uint8_t x = 0; x < qr.size; x++)
+        if (qrcode_getModule(&qr, x, y)) display.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, BLACK);
+  }
+  char line[48];
+  if (computer) {  // everything above the hints
+    display.setFont(FONT_SMALL);
+    drawCenteredLine(shown ? "Phone connected" : "Scan with your phone", 128);
+    display.setFont(FONT_TINY);
+    drawJoinLine(142);
+    snprintf(line, sizeof line, "Computer: %s", computer);
+    drawCenteredLine(line, 157);
+    return;
+  }
+  display.setFont(FONT_SMALL);
+  drawCenteredLine(shown ? "Phone connected" : "Scan with your camera", 162);
+  display.setFont(FONT_TINY);
+  drawJoinLine(179);
+  drawCenteredLine("Hold A to stop", 194);  // descenders clear of the 2 px margin
 }
 
 void phoneActivity() { lastUse = millis(); }
+bool phoneChanged() { return changed; }
+bool phoneNotesChanged() { return notesChanged; }
+bool phoneDone() { return done; }
 const char *phoneSsid() { return ssid; }
 const char *phonePassword() { return password; }
 const char *phoneJoinCode() { return joinCode; }
-uint32_t phoneServed() { return served; }
-uint32_t phoneConnectedMs() { return firstAt ? millis() - firstAt : 0; }

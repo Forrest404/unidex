@@ -2,6 +2,7 @@
 #include <vector>
 #include "appstore.h"
 #include "luahost.h"
+#include "../games/games.h"
 #include "../../core/app.h"
 #include "../../core/display.h"
 #include "../../core/launcher.h"
@@ -18,28 +19,43 @@ RTC_DATA_ATTR static Screen screen;
 RTC_DATA_ATTR static uint8_t cursor, option;  // option: 0 offload, 1 delete
 RTC_DATA_ATTR static char runId[24 + 1];      // the app open, kept through deep sleep (its Lua state isn't)
 RTC_DATA_ATTR static int8_t appCount = -1;    // for the home screen line
+// Opened by Games (scriptsOpenForGames, scriptsManageForGames): one of its apps, run or offered for removal here,
+// and back to Games when it's done (instead of this list).
+RTC_DATA_ATTR static bool guest;
+static AppEntry guestEntry;
 static std::vector<AppEntry> apps_;
 static bool listed, changed;
 static String failMsg, failTitle;
 static uint64_t confirmData;
 static uint32_t lastTick;
 
+// Everything installed but the games (they're listed in Games).
+static std::vector<AppEntry> appsOnly() {
+  std::vector<AppEntry> out;
+  for (const AppEntry &e : appsList(false))
+    if (!e.inGames) out.push_back(e);
+  return out;
+}
+
 static void ensureList() {
   if (listed) return;
-  apps_ = appsList(false);
+  apps_ = appsOnly();
   listed = true;
   appCount = apps_.size();
   if (cursor >= apps_.size()) cursor = 0;
 }
 
-static const AppEntry *selected() { return cursor < apps_.size() ? &apps_[cursor] : nullptr; }
+static const AppEntry *selected() {
+  if (guest) return &guestEntry;
+  return cursor < apps_.size() ? &apps_[cursor] : nullptr;
+}
 
-bool scriptsRunning(const char *id) { return screen == RUN && strcmp(runId, id) == 0; }
+bool scriptsRunning(const char *id) { return (screen == RUN && strcmp(runId, id) == 0) || gamesPlaying(id); }
 
 void scriptsListChanged() {
   listed = false;
   changed = true;
-  appCount = appsList(false).size();  // the home screen's line, which can't wait for the list to be looked at
+  appCount = appsOnly().size();  // the home screen's line, which can't wait for the list to be looked at
 }
 
 static void showFailure(const char *title, const String &why) {
@@ -147,8 +163,9 @@ static String kb(uint64_t bytes) {
 }
 
 static void drawConfirm() {
-  drawRows();
   const AppEntry *e = selected();
+  if (guest) drawHeader(e ? fitText(e->name.c_str(), 150).c_str() : "App");  // from Games: not the Apps list behind
+  else drawRows();
   const String name = e ? e->name : String("this app");
   if (option == 0) {
     drawSheet(("Offload " + name + "?").c_str(), "Its data stays. Install", "it again to use it.");
@@ -190,6 +207,41 @@ static void draw() {
     case FAILED: drawFailed(); break;
     default: drawList(); break;
   }
+}
+
+// --- opened from Games ---
+static bool findEntry(const String &id) {
+  for (const AppEntry &e : appsList(false))
+    if (e.id == id) {
+      guestEntry = e;
+      return true;
+    }
+  return false;
+}
+
+static void openSelected();
+
+void scriptsOpenForGames(const String &id) {
+  if (!findEntry(id)) return;
+  guest = true;
+  openSelected();
+}
+
+void scriptsManageForGames(const String &id) {
+  if (!findEntry(id)) return;
+  guest = true;
+  option = guestEntry.offloaded ? 1 : 0;
+  screen = OPTIONS;
+}
+
+// Done with what Games opened: back there (the launcher returns to it as it was).
+static Redraw guestDone() {
+  guest = false;
+  hostStop();
+  runId[0] = 0;
+  screen = LIST;
+  listed = false;
+  return Redraw::Exit;
 }
 
 // --- buttons ---
@@ -246,12 +298,14 @@ static Redraw onButton(Event e) {
       return Redraw::None;
     case CONFIRM:
       if (e == Event::AShort) {
+        if (guest) return guestDone();
         screen = LIST;
         return Redraw::Partial;
       }
       if (e == Event::BShort && selected()) {
         const bool ok = appsRemove(selected()->id, option == 0);
         launcherToast(!ok ? "Couldn't remove it" : option == 0 ? "Offloaded" : "Deleted");
+        if (guest) return guestDone();
         listed = false;
         screen = LIST;
         return Redraw::Full;
@@ -259,6 +313,7 @@ static Redraw onButton(Event e) {
       return Redraw::None;
     case FAILED:
       if (e == Event::BShort) {
+        if (guest) return guestDone();
         screen = LIST;
         listed = false;
         return Redraw::Full;
@@ -275,6 +330,7 @@ static Redraw onBack() {
       const Redraw r = hostBack();
       if (!hostRunning() && hostError().length()) return checked(r);
       if (r != Redraw::Exit) return r;
+      if (guest) return guestDone();
       hostStop();
       runId[0] = 0;
       screen = LIST;
@@ -284,6 +340,7 @@ static Redraw onBack() {
     case LIST:
       return Redraw::Exit;
     default:
+      if (guest) return guestDone();
       screen = LIST;
       listed = false;
       return Redraw::Full;
@@ -307,12 +364,14 @@ static void onEnter() {
   screen = LIST;
   runId[0] = 0;
   listed = false;
+  guest = false;
 }
 
 static void onExit() {
   hostStop();
   runId[0] = 0;
   screen = LIST;
+  guest = false;
 }
 
 static void status(char *out, size_t len) {

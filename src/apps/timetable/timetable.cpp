@@ -10,6 +10,8 @@
 #include "../../core/storage.h"
 #include "../../core/theme.h"
 #include "../../core/usbsync.h"
+#include "timetable.h"
+#include "timetable_logic.h"
 
 struct Class {
   int32_t date;  // days since 1970-01-01 for a calendar event; -1 = weekly class
@@ -24,12 +26,13 @@ struct Upcoming {
   int32_t delta;  // minutes from now to the start; negative = in progress
 };
 
-static const int MAX_CLASSES = 96, MAX_UPCOMING = 5, DAY_ROWS = 6, ROW_H = 20;
+static const int MAX_WEEKLY = 128, MAX_DATED = 64, MAX_CLASSES = MAX_WEEKLY + MAX_DATED;  // timetable / events.csv
+static const int MAX_UPCOMING = 5, DAY_ROWS = 6, ROW_H = 20;
 static const int DETAIL_LINES = 40, PAGE_LINES = 7, LINE_H = 18;  // details screen, small font
 static const int32_t WEEK = 7 * 1440;
 
 // RAM is lost in deep sleep, so the CSV is loaded again on first use after a wake.
-static Class classes[MAX_CLASSES];
+static Class *classes;  // MAX_CLASSES of them, in PSRAM (about 56 KB)
 static int count = -1;  // -1 = not loaded yet
 static uint32_t loadedGeneration;  // reload when the USB sync brings new events
 static int drawnMinute = -1;       // the minute on screen, for the live countdown
@@ -39,78 +42,30 @@ RTC_DATA_ATTR static uint8_t view, peek, scroll, page, row, detailFrom;
 RTC_DATA_ATTR static int16_t detailClass;   // the event the details screen shows
 RTC_DATA_ATTR static int32_t detailDelta;   // minutes from now to its start, when it was opened
 
-// The next few events, kept through sleep for the home screen's line (it can't read the card).
-struct Soon {
-  char title[32];
-  time_t start, end;
-};
+// The next few events, kept through sleep for the home screen's line and the Pet (they can't read the card).
+using Soon = TimetableSoon;
 RTC_DATA_ATTR static Soon soon[3];
 RTC_DATA_ATTR static int8_t soonCount = -1;  // -1 = not worked out since power-up
+RTC_DATA_ATTR static time_t staleLookAt;     // when the card was last read because they had all ended
 
-static int parseDay(String s) {
-  static const char *DAYS[] = {"sun", "mon", "tue", "wed", "thu", "fri", "sat"};
-  s.trim();
-  s.toLowerCase();
-  for (int i = 0; i < 7; i++)
-    if (s.startsWith(DAYS[i])) return i;
-  return -1;
-}
-
-// Days since 1970-01-01 (Howard Hinnant's days_from_civil).
-static int32_t daysFromCivil(int y, int m, int d) {
-  y -= m <= 2;
-  const int era = (y >= 0 ? y : y - 399) / 400;
-  const int yoe = y - era * 400;
-  const int doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
-  return era * 146097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468;
-}
-
-static int32_t parseDate(const String &s) {  // YYYY-MM-DD
-  if (s.length() != 10 || s[4] != '-' || s[7] != '-') return -1;
-  int y = s.substring(0, 4).toInt(), m = s.substring(5, 7).toInt(), d = s.substring(8, 10).toInt();
-  return (y >= 2024 && m >= 1 && m <= 12 && d >= 1 && d <= 31) ? daysFromCivil(y, m, d) : -1;
-}
-
-static int parseTime(const String &s) {
-  int colon = s.indexOf(':');
-  if (colon < 1) return -1;
-  int h = s.substring(0, colon).toInt(), m = s.substring(colon + 1).toInt();
-  return (h >= 0 && h < 24 && m >= 0 && m < 60) ? h * 60 + m : -1;
-}
-
-static int splitCsv(const String &line, String *field) {
-  int n = 0, from = 0;
-  while (n < 6) {
-    int comma = line.indexOf(',', from);
-    field[n] = line.substring(from, comma < 0 ? line.length() : comma);
-    field[n++].trim();
-    if (comma < 0) break;
-    from = comma + 1;
-  }
-  return n;
-}
-
-// timetable.csv rows are weekly (day,start,end,module,room); events.csv rows are dated
-// (YYYY-MM-DD,start,end,title,location[,notes]; empty times = all day). Rows that don't parse,
-// including header rows, are skipped.
+// Rows as timetable_logic.h reads them; ones that don't parse (a header, a bad day, date or time) are skipped. Each
+// file has its own room, so a long timetable can't push this week's events out (or the other way round).
 static void loadFile(const char *path, bool dated) {
+  if (!storageExists(path)) return;  // none yet (opening it anyway logs an error)
   fs::File f = storageOpen(path);
-  for (String line; count < MAX_CLASSES && storageReadLine(f, line);) {
-    String field[6];
-    const int n = splitCsv(line, field);
-    if (n < 5) continue;
+  const int limit = count + (dated ? MAX_DATED : MAX_WEEKLY);
+  timetable::Row r;
+  for (String line; count < limit && storageReadLine(f, line);) {
+    if (!timetable::parseRow(line.c_str(), dated, r)) continue;
     Class c = {};
-    c.date = dated ? parseDate(field[0]) : -1;
-    c.allDay = dated && field[1].isEmpty() && field[2].isEmpty();
-    int wday = dated ? (c.date + 4) % 7 : parseDay(field[0]);  // 1970-01-01 was a Thursday
-    int start = c.allDay ? 0 : parseTime(field[1]), end = c.allDay ? 1440 : parseTime(field[2]);
-    if ((dated && c.date < 0) || wday < 0 || start < 0 || end <= start) continue;
-    c.wday = wday;
-    c.start = start;
-    c.end = end;
-    strlcpy(c.module, field[3].c_str(), sizeof c.module);
-    strlcpy(c.room, field[4].c_str(), sizeof c.room);
-    if (n > 5) strlcpy(c.notes, field[5].c_str(), sizeof c.notes);
+    c.date = r.date;
+    c.allDay = r.allDay;
+    c.wday = r.wday;
+    c.start = r.start;
+    c.end = r.end;
+    strlcpy(c.module, r.module.c_str(), sizeof c.module);
+    strlcpy(c.room, r.room.c_str(), sizeof c.room);
+    strlcpy(c.notes, r.notes.c_str(), sizeof c.notes);
     classes[count++] = c;
   }
 }
@@ -146,7 +101,9 @@ static void loadDemo() {
 static bool loadedDemo;
 
 static void load() {
+  if (!classes) classes = (Class *)ps_malloc(MAX_CLASSES * sizeof(Class));
   count = 0;
+  if (!classes) return;
   loadedDemo = devDemo();
 #if UNIDEX_DEV
   if (loadedDemo) loadDemo();
@@ -165,7 +122,7 @@ static void ensureReady() {
 
 static int nowMinutes(const struct tm &now) { return now.tm_hour * 60 + now.tm_min; }
 
-static int32_t today(const struct tm &now) { return daysFromCivil(now.tm_year + 1900, now.tm_mon + 1, now.tm_mday); }
+static int32_t today(const struct tm &now) { return timetable::daysFromCivil(now.tm_year + 1900, now.tm_mon + 1, now.tm_mday); }
 
 // The next classes and timed events, soonest first. All-day events are left out: they'd always be "now".
 static int findUpcoming(Upcoming *out, const struct tm &now) {
@@ -265,6 +222,7 @@ static void rememberSoon(const Upcoming *up, int n) {
   for (int i = 0; i < soonCount; i++) {
     const Class &c = classes[up[i].index];
     strlcpy(soon[i].title, c.module, sizeof soon[i].title);
+    strlcpy(soon[i].room, c.room, sizeof soon[i].room);
     soon[i].start = now - now % 60 + (time_t)up[i].delta * 60;
     soon[i].end = soon[i].start + (time_t)(c.end - c.start) * 60;
   }
@@ -552,6 +510,38 @@ static Redraw tick() {
 
 static void onExit() {}
 
+// Reads the card for the next events: once after a restart, so they're there before the first visit, and when every
+// remembered one has ended (at most every 15 minutes), so the line doesn't stay on "Nothing coming up" until a visit.
+static void ensureSoon() {
+  static bool looked;
+  if (soonCount < 0) {
+    if (looked) return;
+    looked = true;
+  } else {
+    const time_t now = time(nullptr);
+    for (int i = 0; i < soonCount; i++)
+      if (now < soon[i].end) return;
+    if (now - staleLookAt < 15 * 60) return;
+    staleLookAt = now;
+  }
+  if (storageCardMount()) {
+    count = -1;
+    ensureReady();
+    Upcoming up[MAX_UPCOMING];
+    rememberSoon(up, findUpcoming(up, clockLocal()));
+  }
+}
+
+int timetableSoon(TimetableSoon out[3]) {
+  if (!clockValid()) return 0;
+  ensureSoon();
+  const time_t now = time(nullptr);
+  int n = 0;
+  for (int i = 0; i < soonCount; i++)
+    if (now < soon[i].end) out[n++] = soon[i];
+  return n;
+}
+
 // "In 12 min: Maths", "Now: Maths", "Tue 09:00: Maths", from the events remembered on the last visit. The time
 // goes first so a long title is what gets cut.
 static void status(char *out, size_t len) {
@@ -559,16 +549,7 @@ static void status(char *out, size_t len) {
     snprintf(out, len, "Time not set");
     return;
   }
-  static bool looked;  // after a restart, read the card once so the line is there before the first visit
-  if (soonCount < 0 && !looked) {
-    looked = true;
-    if (storageCardMount()) {
-      count = -1;
-      ensureReady();
-      Upcoming up[MAX_UPCOMING];
-      rememberSoon(up, findUpcoming(up, clockLocal()));
-    }
-  }
+  ensureSoon();
   const time_t now = time(nullptr);
   for (int i = 0; i < soonCount; i++) {
     const Soon &s = soon[i];

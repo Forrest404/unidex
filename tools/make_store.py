@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Builds the website's app store catalogue (site/store/) from app folders.
 
-  python3 tools/make_store.py                     the examples in apps/examples (until the registry repo exists)
+  python3 tools/make_store.py                     the apps in ../unidex-apps/apps (the store's repo, cloned beside this one)
   python3 tools/make_store.py path/to/apps ...    every app folder inside these folders
   ... --source https://github.com/Forrest404/unidex-apps/tree/main/apps   where each app's code can be read
 
@@ -18,7 +18,7 @@ import shutil
 import subprocess
 import sys
 
-API_LEVEL = 1
+API_LEVEL = 5  # the newest the firmware offers; an app may ask for any level up to it
 MAX_FILE, MAX_APP = 64 * 1024, 512 * 1024
 PERMISSIONS = {"wifi", "mic", "meet"}
 EXTENDABLE = {"badge"}  # the built-in apps plugins can add to (apps_logic.h, extendable())
@@ -58,15 +58,23 @@ def check(folder):
     desc = text("description", 140)
     if not VERSION.match(str(m.get("version", ""))):
         problems.append("version: major.minor.patch")
-    if m.get("api") != API_LEVEL:
-        problems.append(f"api: must be {API_LEVEL}")
+    if not isinstance(m.get("api"), int) or not 1 <= m["api"] <= API_LEVEL:
+        problems.append(f"api: 1 to {API_LEVEL}")
     kind, extends = m.get("type", "app"), m.get("extends", "")
     if kind == "plugin" and extends not in EXTENDABLE:
         problems.append(f"extends: a plugin extends one of {sorted(EXTENDABLE)}")
-    elif kind == "app" and extends:
+    elif kind in ("app", "game") and extends:
         problems.append("extends: only plugins extend an app")
-    elif kind not in ("app", "plugin"):
-        problems.append("type: \"app\" or \"plugin\"")
+    elif kind not in ("app", "plugin", "game"):
+        problems.append("type: \"app\", \"plugin\" or \"game\"")
+    if kind == "game":  # run by the Games app (apps_logic.h, check())
+        if m.get("api", 0) < 4:
+            problems.append("api: a game needs 4")
+        if m.get("category") != "games":
+            problems.append("category: a game's is games")
+        frame_ms = m.get("frame_ms", 100)
+        if not isinstance(frame_ms, int) or not 48 <= frame_ms <= 1000:
+            problems.append("frame_ms: 48 to 1000")
     perms = m.get("permissions", [])
     if not isinstance(perms, list) or any(p not in PERMISSIONS for p in perms):
         problems.append(f"permissions: only {sorted(PERMISSIONS)}")
@@ -101,7 +109,8 @@ def check(folder):
     files.sort(key=lambda f: f["path"] == "app.json")  # sent last, as the device expects
     entry = {"id": m.get("id"), "name": name, "version": m.get("version"), "author": author, "description": desc,
              "type": kind, "extends": extends if kind == "plugin" else "", "category": category,
-             "permissions": perms, "license": m.get("license", ""), "icon": icon, "bytes": total, "files": files}
+             "permissions": perms, "license": m.get("license", ""), "icon": icon, "bytes": total, "files": files,
+             "api": m.get("api")}  # the firmware's API level it needs (unidex.api): newer firmware may be needed
     return entry, problems
 
 
@@ -124,7 +133,10 @@ def main():
         i = args.index("--source")
         source = args[i + 1].rstrip("/")
         del args[i:i + 2]
-    sources = args or [os.path.join(root, "apps", "examples")]
+    sources = args or [os.path.join(root, "..", "unidex-apps", "apps")]
+    for src in sources:
+        if not os.path.isdir(src):
+            sys.exit(f"{src} isn't there: clone https://github.com/Forrest404/unidex-apps beside this repo, or name a folder")
     out = os.path.join(root, "site", "store")
     apps, failed = [], False
     for src in sources:

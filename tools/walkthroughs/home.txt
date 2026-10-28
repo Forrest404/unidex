@@ -10,10 +10,6 @@ shot home-pet
 press a
 shot home-badge
 press a
-shot home-dex
-press a
-shot home-chooser
-press a
 shot home-games
 press a
 shot home-apps
@@ -26,7 +22,7 @@ expect sel=Settings
 shot home-holdA-previous
 
 nocard 1
-select Dex
+select Apps
 press b
 expect screen=No card
 shot nocard
@@ -36,7 +32,7 @@ sleep 3200
 shot nocard-toast-gone
 nocard 0
 press b
-expect screen=Dex
+expect screen=Apps
 shot nocard-retry-opens
 press A
 expect screen=Home

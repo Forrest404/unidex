@@ -102,3 +102,12 @@ bool badgeSave(const char *name, const uint8_t *data, size_t size) {
   }
   return storageReplace(TMP, (String(BADGE_DIR) + "/" + name).c_str(), size);
 }
+
+bool badgeDelete(const char *name) {
+  if (!badgeNameOk(name)) return false;
+  const String path = String(BADGE_DIR) + "/" + name, old = path + ".old";
+  if (!storageExists(path.c_str()) || !storageRemove(path.c_str())) return false;
+  if (storageExists(old.c_str())) storageRemove(old.c_str());
+  if (storageGetString("badge") == name) storageRemoveKey("badge");
+  return true;
+}

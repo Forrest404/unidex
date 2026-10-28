@@ -37,16 +37,18 @@ to your device over USB, and it shows up in the Apps list. No toolchain, no refl
 | `name` | Up to 20 characters, shown in the list. |
 | `version` | `major.minor.patch`. The website offers an update when the store has a higher one. |
 | `author`, `description` | Up to 40 and 140 characters. |
-| `api` | The API level it was written for. The device refuses an app that needs a newer one. This guide is level 1. |
-| `type` | `"app"`, or `"plugin"` with `extends` (see Plugins, at the end). |
+| `api` | The API level it was written for. The device refuses an app that needs a newer one. Level 2 adds `unidex.wifi.scan`, 3 `unidex.frame`, 4 games (v1.10), and 5 `unidex.chime` (the firmware after v1.10). |
+| `type` | `"app"`, `"game"` (see Games), or `"plugin"` with `extends` (see Plugins). Both are at the end. |
+| `frame_ms` | Games only, optional: how often `step()` runs, 48 to 1000 milliseconds (100 by default). |
 | `permissions` | What it asks for. The website shows these before you install. See below. |
 | `icon` | Optional. 40 strings of 40 characters, `#` is ink, anything else is blank. |
-| `category` | Optional, for the store's filters: `games`, `tools`, `time`, `badges`, `learning`, `fun` or `other` (the default). |
+| `category` | Optional, for the store's filters: `games`, `tools`, `time`, `badges`, `learning`, `fun` or `other` (the default). An app in `games` is listed in Games on the device, not in Apps. |
 | `license` | Optional on the device. The store may require one. |
 
 ## What your code defines
 
-Everything is optional except `draw`. Define the ones you need as global functions.
+Everything is optional except `draw`. Define the ones you need as global functions. (A game defines four functions
+of its own: see Games, at the end.)
 
 | Function | When it runs | What to return |
 |---|---|---|
@@ -62,7 +64,8 @@ Everything is optional except `draw`. Define the ones you need as global functio
 
 A **redraw** is `"partial"` (a quick refresh, the normal choice), `"full"` (flashes the whole screen, use it
 sparingly) or `nil` (nothing changed). e-paper ghosts if you refresh too often, so the device refreshes the
-screen at most once a second unless the app is in its animation mode (not in level 1).
+screen at most once a second, except for animation frames (`unidex.frame`, level 3) and games (level 4), which use
+the panel's fast mode.
 
 The device sleeps a few seconds after the last press (Settings > Sleep after), and a sleep forgets everything in
 memory. When it wakes in your app, the app starts again from the top and `onEnter()`: keep anything that matters in
@@ -116,13 +119,21 @@ Only the app's own `data/` folder. Names use a-z, 0-9, `.`, `_` and `-`.
 | `unidex.toast(text)` | A short message over the screen. |
 | `unidex.wake_in(ms)` | Ask to be redrawn after this long (the device may be asleep until then). |
 | `unidex.random(n)` | A number from 1 to `n`. |
-| `unidex.api` | The API level of this firmware. |
+| `unidex.frame(ms)` | API 3: shows `draw()` now, mid-function, as an animation frame, then waits `ms` (up to 1000). At most 60 a call; the screen and the wait don't count against the app's time. |
+| `unidex.chime()` | API 5: plays the device's chime (about half a second) and returns true, or false if it was skipped: Settings > Alert sound is off, it already chimed less than a second ago, or the speaker is busy (a recording). At Volume 0 it plays silently. The chime doesn't count against the app's time. |
+| `unidex.api` | The API level of this firmware: 5 after v1.10 (4 before `unidex.chime`, 3 before games, 2 before `unidex.frame`, 1 before `unidex.wifi`). |
 
 ### The network (permission `"wifi"`)
 
 `unidex.http.get(url)` returns `status, body`. HTTPS only, up to 32 KB of reply, 15 seconds, and it blocks the
 screen while it works. The device refuses it on a low battery. Apps never see the saved WiFi password or any
 key, and can't ask for one.
+
+`unidex.wifi.scan()` (API 2) lists the WiFi networks nearby, up to 64: a table of `{ssid=, rssi=, security=}`
+(security: `open`, `WEP`, `WPA`, `WPA2`, `WPA2-E` or `WPA3`), hidden networks left out, one entry per access point
+(a name can show more than once). Never a network's address. It takes about 2 seconds, which don't count against
+the app's time, and returns `nil` and the reason on a low battery or while the radio is busy. Set `"api": 2` in
+`app.json` to use it: older firmware then refuses the install with "needs newer firmware".
 
 Other permission names (`"mic"`, `"meet"`) are reserved and do nothing yet.
 
@@ -147,6 +158,10 @@ returns to the app list. It never crashes the device.
 You install from the store page on the website: plug the unidex in, open the page, choose an app. The site
 copies the files over USB, and the app is only listed once everything has arrived, so a cable pulled halfway
 leaves nothing broken behind.
+
+Or from a phone, with no cable: in Settings, hold B, scan the code, and open the Apps tab. The device downloads the
+store's files itself over its WiFi and checks each one's size and SHA-256 against the store's `index.json` before
+installing it the same way.
 
 - **Offload** removes the app but keeps its `data/`, so installing it again brings your files back.
 - **Delete** removes the app and its data. The site and the device both warn you first, and say how much data
@@ -229,9 +244,37 @@ keep anything it needs to remember in its data files.
 |---|---|---|
 | `"badge"` | `badge()`: draw the whole badge (200 x 200, no header or hints needed) | It is listed in Badge after the image badges, with a thumbnail. Each time it is shown, `badge()` runs, so it can show today's date, a countdown, a QR code... If it fails, Badge says so in its place. |
 
-More built-in apps will take plugins later; each is added to this table first. `apps/examples/today-badge` is an
-example.
+More built-in apps will take plugins later; each is added to this table first. `today-badge` in the
+[store's repository](https://github.com/Forrest404/unidex-apps/tree/main/apps/today-badge) is an example.
 
 ```json
 { "id": "today-badge", "name": "Today", "version": "1.0.0", "api": 1, "type": "plugin", "extends": "badge" }
 ```
+
+## Games
+
+A game is played in Games, after Flappy, Dino, Stack and Jetpack, with B as its one button. It is the same kind of
+folder as an app, with `"type": "game"`, `"category": "games"` and `"api": 4` (firmware after v1.9; older firmware
+refuses it with "needs newer firmware"). It can't have `extends`. `frame_ms` sets how often `step()` runs.
+
+| Function | When it runs | What to return |
+|---|---|---|
+| `start(seed)` | A new round. Call `math.randomseed(seed)` and use `math.random`, so the same seed replays the same round (the tests and the test tools rely on it). | nothing |
+| `step(tapped, held)` | Every frame. `tapped`: B was pressed since the last frame (a quick tap between frames counts). `held`: B is down now. | `"over"` (the round ends), `"moved"` (redraw) or `"still"` (no redraw). Nothing counts as `"moved"`. |
+| `draw()` | The play screen needs painting. Paint all of it; no header or hints. | nothing |
+| `score()` | The score so far. | a whole number |
+
+The rest of the API works as in an app (`unidex.data`, the drawing calls, `unidex.random`, `unidex.time`), and so
+do the limits: a step should take milliseconds, not the 2 seconds a call may run.
+
+The Games app does the rest. It lists the game with "best N", runs the frames on the panel's fast mode (about 7
+a second, so keep drawing simple), ends a round when A is held (no score) or after 30 seconds without B (so the
+device can sleep), shows the game-over screen (the score, "New best!" or the best, "B again"), keeps the best score
+in the game's data file `best`, and shows "Best: <name> N" on the home screen. Hold B on anything from the store in
+the list offers Offload and Delete, as in Apps. An error ends the round on "This game failed" with the reason.
+
+Apps in the `games` category that aren't games (Dice, Coin & RPS, Dex) are listed in Games too, and open as normal
+apps from there.
+
+The guide, with a template (Hop, a block-hopping game), is
+[Making games](https://github.com/Forrest404/unidex-apps/blob/main/GAMES.md) in the store's repository.

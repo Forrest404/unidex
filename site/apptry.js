@@ -75,7 +75,7 @@ zone.addEventListener('drop', async e => {
   catch (err) { $('appStatus').textContent = err.message; $('appStatus').className = 'status bad'; }
 });
 ready.then(async () => {
-  // For checking this page without a person (site/try.html?test=apps/examples/hello, served from the repo's root):
+  // For checking this page without a person (site/try.html?test=<an app folder's path from the server's root>):
   // loads that folder's files as if it had been chosen, and with &open=1 opens it.
   const test = new URLSearchParams(location.search).get('test');
   if (test && /^[a-z0-9/_-]+$/.test(test)) {

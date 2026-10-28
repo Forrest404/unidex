@@ -6,7 +6,6 @@
 // Note: A = next page, B = play the recording (play.h; any button stops it), hold B = open on phone (starts the
 // hotspot, phone.h, and shows its QR code until hold A). Hold A = back everywhere.
 #include <vector>
-#include <qrcode.h>
 #include "cloud.h"
 #include "job.h"
 #include "phone.h"
@@ -28,7 +27,8 @@ static const uint32_t MAX_SECONDS = 180, AUTO_SYNC_S = 600;  // waiting notes: t
 static const int ROWS = 5, ROW_H = 26, LINES = 7, LINE_H = 19;
 
 enum Screen : uint8_t { MAIN, LIST, VIEW, CONFIRM, PHONE };
-RTC_DATA_ATTR static uint8_t screen, cursor, page;
+RTC_DATA_ATTR static uint8_t screen;
+RTC_DATA_ATTR static uint16_t cursor, page;  // (a byte wrapped at 256 notes: later ones couldn't be reached)
 RTC_DATA_ATTR static char openId[24];  // the note on screen in VIEW / CONFIRM
 RTC_DATA_ATTR static int16_t noteCount = -1, waitingCount;  // for the home screen (it can't read the card)
 RTC_DATA_ATTR static time_t lastAutoSync;  // clock time of the last try by itself (millis start again after sleep)
@@ -41,7 +41,6 @@ static String linesFor, viewTitle;  // viewTitle: a note shown but not kept (no 
 static bool hasWav;  // the open note's recording is on the card (it can be played)
 static String message;   // one line under the main screen's prompt: the last result or a problem
 static uint32_t seenGen;  // the job status last taken in (results arriving while away show on return)
-static uint32_t phoneShown;  // pages the phone had loaded when the screen was last drawn
 
 static int8_t card = -1;  // SD card readable: checked once per visit (with no card, each check takes a while)
 
@@ -146,7 +145,12 @@ static String readable(const String &md) {
   body.replace("**", "");
   body.replace("- ", "* ");
   body.trim();
-  return ascii(body);
+  // Mostly in a script the fonts don't have (Greek, Arabic, Chinese...): rows of "?" would say nothing.
+  int missing = 0, letters = 0;
+  const String text = asciiText(body, &missing);
+  for (size_t i = 0; i < text.length(); i++) letters += isalnum((unsigned char)text[i]);
+  if (missing > letters) return "This note is in a script the screen can't show. Hold B to read it on your phone.";
+  return text;
 }
 
 static void ensureLines() {
@@ -166,7 +170,14 @@ static void ensureLines() {
 
 // A note's title, or for one not transcribed yet, when it was recorded ("2 Oct, 21:50", from its id).
 static String titleOf(const NoteInfo &n) {
-  if (n.text) return n.title.length() ? ascii(n.title) : n.id;
+  if (n.text && n.title.length()) {
+    int missing = 0, letters = 0;
+    const String t = asciiText(n.title, &missing);
+    for (size_t i = 0; i < t.length(); i++) letters += isalnum((unsigned char)t[i]);
+    if (missing <= letters) return t;  // (a title the fonts can't show: its time instead, below)
+  } else if (n.text) {
+    return n.id;
+  }
   static const char *MONTHS[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
   const int month = n.id.substring(4, 6).toInt();
   if (n.id.length() < 13 || !isdigit((unsigned char)n.id[0]) || month < 1 || month > 12) return n.id;
@@ -270,27 +281,6 @@ static void drawList() {
   drawHints(notes.size() > 1 ? "next" : "", "open", "delete");
 }
 
-// "Open on phone": the hotspot's QR code (the camera joins with it), then the name and password to type.
-static void drawPhone() {
-  phoneShown = phoneServed();
-  drawHeader("Open on phone");
-  QRCode qr;
-  uint8_t modules[qrcode_getBufferSize(3)];
-  if (qrcode_initText(&qr, modules, 3, ECC_LOW, phoneJoinCode()) == 0) {  // version 3: 29x29, 4 px each
-    const int scale = 4, x0 = (display.width() - qr.size * scale) / 2, y0 = CONTENT_TOP + 4;
-    for (uint8_t y = 0; y < qr.size; y++)
-      for (uint8_t x = 0; x < qr.size; x++)
-        if (qrcode_getModule(&qr, x, y)) display.fillRect(x0 + x * scale, y0 + y * scale, scale, scale, BLACK);
-  }
-  display.setFont(FONT_SMALL);
-  drawCenteredLine(phoneShown ? "Phone connected" : "Scan with your camera", 164);
-  display.setFont(FONT_TINY);
-  char line[40];
-  snprintf(line, sizeof line, "%s   %s", phoneSsid(), phonePassword());
-  drawCenteredLine(line, 181);
-  drawCenteredLine("Hold A to stop", 196);
-}
-
 static int viewPages() { return max(1, ((int)lines.size() + LINES - 1) / LINES); }
 
 static void drawViewText() {
@@ -367,6 +357,17 @@ static void onEnter() {
   message = "";
 }
 
+// Back from the phone portal: to the note it was opened on, or to the list if notes were deleted from the page
+// (that one may be gone).
+static void leavePhone() {
+  screen = VIEW;
+  if (!phoneNotesChanged()) return;
+  listed = false;
+  linesFor = "";
+  ensureList();
+  screen = hasCard() ? LIST : MAIN;
+}
+
 static Redraw onButton(Event e) {
   ensureList();
   switch (screen) {
@@ -419,8 +420,8 @@ static Redraw onButton(Event e) {
           launcherToast(low);
           return Redraw::Partial;
         }
-        if (!phoneStart()) {
-          launcherToast("Sending a note: try soon");
+        if (const char *err = phoneStart(PhoneTab::Notes)) {
+          launcherToast(err);
           return Redraw::Partial;
         }
         screen = PHONE;
@@ -459,15 +460,15 @@ static Redraw onBack() {
     case CONFIRM: screen = LIST; break;
     case PHONE:
       phoneStop();
-      screen = VIEW;
+      leavePhone();
       break;
   }
   return Redraw::Partial;
 }
 
 static void draw() {
-  if (screen == PHONE && !phoneOn()) screen = VIEW;  // e.g. after a restart
-  if (screen == PHONE) drawPhone();
+  if (screen == PHONE && !phoneOn()) leavePhone();  // e.g. after a restart
+  if (screen == PHONE) phoneDraw("Open on phone");
   else if (screen == LIST) drawList();
   else if (screen == VIEW) drawView();
   else if (screen == CONFIRM) drawConfirm();
@@ -477,14 +478,12 @@ static void draw() {
 // Redraws as the background job moves on, and takes in its result (also one that arrived while away).
 static Redraw tick() {
   if (screen == PHONE) {
-    phonePoll();
-    if (!phoneOn()) {  // stopped itself: nobody used it for a while
-      screen = VIEW;
+    const Redraw r = phoneTick();
+    if (!phoneOn()) {  // stopped itself: nobody used it for a while, or Done on the page
+      leavePhone();
       return Redraw::Partial;
     }
-    // "Phone connected", once its first few requests are answered: a screen refresh holds everything up for
-    // ~0.5 s, and the phone is waiting on those answers to open the page.
-    return !phoneShown && phoneConnectedMs() > 3000 ? Redraw::Partial : Redraw::None;
+    return r;
   }
   const JobStatus js = jobStatus();
   if (js.gen == seenGen) return Redraw::None;

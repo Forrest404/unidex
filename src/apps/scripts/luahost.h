@@ -16,3 +16,8 @@ bool hostHas(const char *fn);
 Redraw hostBack();                  // onBack: Exit unless the app handles it
 String hostStatus();                // status(), or ""
 size_t hostMemoryUsed();
+// A game (type "game", run by the Games app): start(seed), step(tapped, held) and score(). A failure closes it
+// (hostRunning() turns false, hostError() says why): false, or -1 from a step.
+bool hostGameStart(uint32_t seed);
+int hostGameStep(bool tapped, bool held);  // 0 over, 1 moved (redraw), 2 still
+bool hostGameScore(int &score);

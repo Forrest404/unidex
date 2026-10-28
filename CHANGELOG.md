@@ -6,6 +6,101 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 
 ## Next release
 
+- **The Pet knows you** (new): give it your name (Dress up > Your name, or the Pet card on your phone) and it greets
+  you by it. It talks about your day in a speech bubble, from your timetable, calendar and reminders: the next
+  class within the hour ("Maths in 15 min, B12", excited when it's close), the one on now ("In Maths till 8:35"),
+  a reminder that's late or due within 2 hours, good morning, and when you're free ("Free till tomorrow 9:00").
+  It sleeps from 22:00 to 07:00. The first four also show on its home screen line.
+- **Timetable:** once every event its home line knew about has ended, it reads the card again (at most every 15
+  minutes), so the line no longer stays on "Nothing coming up" until you open it.
+
+## v1.12 (27 October 2026)
+
+- **Setup page:** a Language choice on the Transcription card, as in the device's Settings and the phone portal.
+  The device is the same as v1.11.
+
+## v1.11 (27 October 2026)
+
+- **Notes in other languages:** notes are transcribed and tidied up in the language you speak; the title, summary
+  and note are never translated into English (a French note used to get an English summary). Auto (the default)
+  works the language out; set yours (16 languages) in Settings > Note language or the Setup tab on your phone when it
+  guesses wrong. On the screen, accented Latin letters (Polish, Czech, Turkish...) lose their marks instead of
+  showing "?", and a note in a script the screen can't show (Arabic, Chinese, Greek...) says to read it on your
+  phone, with the time it was recorded as its title.
+- **Apps: `unidex.chime()`** (API level 5) plays the device's chime, so an app such as a timer can make a sound. It
+  follows Settings > Alert sound, and chimes at most once a second.
+- **Phone portal from Settings:** with none of your WiFi networks in range, the QR code shows straight away instead
+  of after up to 45 seconds of trying to join.
+
+## v1.10 (27 October 2026)
+
+- **Games from the store** (new): games anyone can make now play in Games, after the four built in, with their
+  best scores, the game-over screen and the home line, like the built-in ones. A game is four Lua functions
+  (start, step, draw, score; API level 4): see GAMES.md in the app store's repo, the "A game" starter in the App
+  editor, and Hop, the first one in the store. Store apps in the games category (Dex, Dice, Coin & RPS) are listed
+  in Games too, not Apps. Hold B on one from the store there to offload or delete it.
+- **Chooser moves to the app store**, like Dex: install it from the store (Apps). Your tally is kept: the update
+  moves it into the app's folder, so Apps lists an offloaded "chooser" until you install it. It spins the same; it
+  lives in Apps now (no home screen line), and Settings > Reset data no longer has a tally row (the app clears its
+  own).
+- **Apps: `unidex.frame(ms)`** (API level 3) shows the screen straight away, mid-function, so apps can animate (the
+  Chooser spin uses it). The store says which API level each app needs.
+- **Dex moves to the app store.** The WiFi network collecting game no longer comes built in: install it from the
+  store on the website (Apps). Your finds are kept: the update moves them into the app's folder, so Apps lists an
+  offloaded "dex" until you install it, and it carries on with them. It plays the same, but it lives in Apps now (no
+  home screen line) and is cleared from inside it or with Delete in Apps; Settings > Reset data no longer has a Dex
+  row. It keeps network names only, no longer a hashed address per find.
+- **Apps: `unidex.wifi.scan()`** (API level 2, with the `wifi` permission) lists the WiFi networks nearby: name,
+  signal and security, never their addresses. Apps that use it need this update.
+- **Badge:** delete a badge. In the picker, hold B on it and press B to confirm, or tap Delete under it in the phone
+  portal's Tools tab (it asks first there too). A plugin's badge goes with the plugin, in Apps.
+- **Phone portal: delete notes** (new): Delete at the bottom of an open note (tap twice), or slide a note left in
+  the list. A note that's sending can't be deleted until it's done.
+- **Name your unidex** (new): in the portal's Settings. Its WiFi takes the name from the next start (up to 20
+  characters); without one it's `unidex-` and 4 characters, as before.
+- **Phone portal: Apps** (new): a fifth tab with the app store. Tap Install and the device downloads the app
+  from the store itself, over your saved WiFi, checking each file's size and SHA-256 against the store's list; your
+  phone stays on the device's own WiFi meanwhile (the device joins your WiFi first and puts its own on the same
+  channel). It also lists the apps on the device (folded away until you tap), with Update and Delete, and the store has a
+  search box. With no WiFi, it shows the store's list
+  from last time.
+- **Phone portal: Tools** (new): a fourth tab with the badge maker and the Pet designer. Choose a photo (or take
+  one), pick Fit or Fill, Photo or Line art, the lightness and invert, and send it: it's saved on the card as the next
+  badge and the Badge app opens on it. The Pet designer loads your Pet as it is, lets you change each part and its
+  name (or Surprise me), and sends it.
+
+- **Notes:** without the clock set, a new note could overwrite an older one after a reset (the numbering started
+  again at 1 while the notes stayed on the card). Taken numbers are now skipped.
+- **Notes:** with more than 255 notes, the later ones couldn't be reached in the list (it went back to the top).
+- **Saving:** a power cut can't lose a file when something is later added to it (the backup copy is put back first,
+  whatever the file is opened for), and the one-time copy from internal memory to the card (boards updated from
+  before the SD card) is checked before it counts, and tried again if it didn't work.
+- **Notes:** a recording made just as the previous one finished sending could wait until the next sync (up to 10
+  minutes) before it was sent. It now goes straight away.
+- **Timetable:** a long timetable.csv no longer pushes this week's calendar events out (each file has its own
+  room: 128 classes, 64 events); a class ending at midnight (00:00, 24:00, or after it) shows, cut at midnight; a
+  name or room in quotes can hold a comma (`"Maths, advanced"`); and a time that isn't one (`ab:cd`) is skipped
+  instead of read as 00:00.
+- **Clock:** a time sent over USB that isn't a number, or is outside 2024 to 2099, is refused (it used to set the
+  clock to 1970 and a nonsense year on the clock chip).
+- **Calendar:** a garbled calendar transfer over USB (no numbers, a negative count) is refused instead of being taken
+  as an empty week, which replaced the saved calendar with nothing.
+- **Phone portal:** the website's Sync, Test and microphone check leave the phone hotspot alone while it's on
+  (they used to switch the radio over and end it), and say so.
+## v1.9 (27 October 2026)
+
+- **Set up from your phone** (new): in Settings, hold B. The device shows a QR code; your phone joins its WiFi and
+  a page opens with Notes, Settings (sleep, volume, invert, the time) and Setup (WiFi networks, with the ones nearby
+  to pick from, keys, the tidy-up, GitHub, the calendar link). No computer or cable needed, and nothing goes over
+  the internet. Press Done when you're finished: if you changed WiFi or keys, the device checks each one and lists
+  how it went. Open on phone (hold B in a note) opens the same page on its Notes tab. A new device's first screens
+  offer it too: Set it up shows the QR code for your phone, with the website's address underneath for a computer.
+- **Settings > Sync** (new): sets the clock from the internet and fetches this week's events from your calendar's
+  private link over WiFi, with no computer. Save the link on the Setup page's new Calendar card (it says where
+  Google, Outlook and iCloud keep it); its Test button says how many events it found. Repeating, moved and
+  cancelled events and other time zones come out as they do on the Tools page. The clock also sets on networks that
+  block the usual time servers.
+- **Settings > Alert sound:** turn it off and a reminder falling due still pops up, without the chime.
 - **Reminders** (new): a to-do list you talk to. Hold B and say one ("call Sam tomorrow at 5pm", "take the cake out
   in 20 minutes", "dentist on the 3rd of November"). It's written down by the same service as your notes, with the
   key you already set up, and the device works out the to-do and its time by itself, with no AI. B ticks one off,
@@ -45,6 +140,9 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   home screen's count of apps is right straight after one is added or removed from the website.
 - **Battery:** the % while charging carries on through a restart instead of being worked out again from the
   voltage, which made it jump.
+- **Notes:** an API key saved in the tidy-up's Model box no longer breaks the tidy-up ("OpenAI: error 404" after
+  every note, with no summary). The device ignores it and uses the default model, and the Setup page won't save
+  one. A model name the service doesn't know now says "unknown model".
 - **Website: Release or Beta.** Install and Update each have a Version menu: the newest release (the default) or
   Beta, the newest changes before they're released. Beta is rebuilt whenever it changes. Update back to Release
   the same way.

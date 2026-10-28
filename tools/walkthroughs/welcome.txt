@@ -1,4 +1,5 @@
-# The first-start welcome (X WELCOME: nothing is wiped). "welcomed" is put back as it was at the end.
+# The first-start welcome (X WELCOME: nothing is wiped). "welcomed" is put back as it was at the end. Set it up
+# starts the hotspot (its QR code, the website underneath); A goes back and stops it, B finishes.
 keep welcomed
 home
 welcome

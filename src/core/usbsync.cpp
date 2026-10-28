@@ -118,6 +118,26 @@ static void finishEvents() {
   Serial.printf("OK E %lu\n", (unsigned long)crc);
 }
 
+bool usbSyncSaveEvents(const std::vector<std::string> &lines) {
+  uint32_t sum = 0;  // the same crc as an E transfer's, so the same events from either way aren't written again
+  for (const std::string &l : lines) {
+    sum = esp_rom_crc32_le(sum, (const uint8_t *)l.c_str(), l.size());
+    sum = esp_rom_crc32_le(sum, (const uint8_t *)"\n", 1);
+  }
+  if ((uint32_t)storageGetInt("events_crc", 0) != sum || !storageExists(EVENTS)) {
+    fs::File f = storageOpen(EVENTS_TMP, "w");
+    if (!f) return false;
+    size_t bytes = 0;
+    for (const std::string &l : lines) bytes += f.println(l.c_str());
+    f.close();
+    if (!storageReplace(EVENTS_TMP, EVENTS, bytes)) return false;
+    storagePutInt("events_crc", (int32_t)sum);
+    generation++;
+  }
+  lastSync = time(nullptr);
+  return true;
+}
+
 static void handle(const char *l) {
   if (appsUsbData(l)) return;  // a file of an app being installed (A PUT)
   if (badgeLeft > 0 && l[0] == 'D' && l[1] == ' ') {
@@ -170,12 +190,22 @@ static void handle(const char *l) {
     badgeExpected = crc32;
     Serial.println("OK B");
   } else if (l[0] == 'T' && l[1] == ' ') {
-    clockSet((time_t)strtoll(l + 2, nullptr, 10));
-    Serial.println("OK T");
-  } else if (l[0] == 'E' && l[1] == ' ') {
     char *end;
-    remaining = strtol(l + 2, &end, 10);
-    expectedCrc = strtoul(end, nullptr, 10);
+    const long long t = strtoll(l + 2, &end, 10);
+    // A number and a time from 2024 to 2099 only: "T abc" or "T 0" used to set 1970 and a nonsense year on the chip.
+    Serial.println(end != l + 2 && !*end && clockSet((time_t)t) ? "OK T" : "ERR");
+  } else if (l[0] == 'E' && l[1] == ' ') {
+    // "E <count> <crc>", both numbers: "E abc" or "E -1 0" used to read as an empty calendar and replace the saved
+    // one. ("E 0 0" is a real empty week: the crc of nothing is 0.)
+    char *end, *crcEnd;
+    const long count = strtol(l + 2, &end, 10);
+    const unsigned long sum = strtoul(end, &crcEnd, 10);
+    if (end == l + 2 || crcEnd == end || *crcEnd || count < 0 || count > 1000 || strchr(end, '-')) {
+      Serial.println("ERR");
+      return;
+    }
+    remaining = count;
+    expectedCrc = sum;
     crc = 0;
     written = 0;
     unchanged = (uint32_t)storageGetInt("events_crc", 0) == expectedCrc && storageExists(EVENTS);

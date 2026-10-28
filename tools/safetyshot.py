@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 # Tests the safety features on one board running the test build (pio run -e dev), and puts everything back:
-#   low battery     X BATTMV 3400: Notes (recording, Open on phone) and Dex refuse with "Battery too low"
+#   low battery     X BATTMV 3400: Notes (recording, Open on phone) refuses with "Battery too low"
 #   flat battery    X BATTMV 3300: "Charge me" within ~31 s (the test build shows it but stays on), then a restart
 #   watchdog        X HANG: the main loop stops; the board must restart by itself within ~40 s
 #   safe saving     a calendar sent with a wrong checksum is refused and the saved one is untouched; with no SD card
 #                   a correct one is refused too (it used to say OK)
-# Nothing here writes to your calendar, Dex or notes, and the battery reading is put back to the real one.
+# Nothing here writes to your calendar or notes, and the battery reading is put back to the real one.
 #   python3 tools/safetyshot.py [port] [--skip flat,hang]
 # Screens go to shots/safety/.
 import argparse
@@ -122,15 +122,6 @@ class Run:
                 st = self.dev.state()
                 self.shot("low-phone")
                 self.check(toast(st) == LOW, f"Open on phone refuses when low (toast: {toast(st)!r})")
-        if self.select("Dex"):
-            self.dev.press("b")
-            if self.dev.state()["screen"] == "Dex":
-                self.dev.press("b")  # scan
-                st = self.dev.state()
-                self.shot("low-dex")
-                self.check(toast(st) == LOW, f"Dex refuses to scan when low (toast: {toast(st)!r})")
-            else:
-                print("      (Dex needs a card: skipped)")
         self.dev.cmd("X BATTMV 0")
         self.dev.cmd("X FAKE 0")
         self.home()

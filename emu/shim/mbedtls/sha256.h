@@ -1,7 +1,8 @@
 #pragma once
 #include <stdint.h>
 #include <stddef.h>
-// A small SHA-256 (the Dex hashes network ids with it).
+// A small SHA-256. Dex hashed network ids with it while it was built in (v1.7 to v1.9): the Try page builds those
+// releases with this emulator (emu/build_version.sh), so it stays.
 inline int mbedtls_sha256_ret(const unsigned char *in, size_t len, unsigned char out[32], int) {
   static const uint32_t K[64] = {
       0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5, 0xd807aa98,

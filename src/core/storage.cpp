@@ -19,7 +19,7 @@ static void recover(const char *path) {
 
 fs::File storageOpen(const char *path, const char *mode) {
   if (!storageCardMount()) return fs::File();
-  if (*mode == 'r') recover(path);
+  recover(path);  // any mode: adding to a file that only exists as .old would start a new one and lose the old
   if (*mode != 'r') {  // FAT won't create a file in a missing folder (e.g. /badges on a new card)
     String dir = String(path).substring(0, String(path).lastIndexOf('/'));
     if (dir.length()) storageMakeDirs(dir.c_str());
@@ -191,7 +191,7 @@ void storagePutBytes(const char *key, const void *data, size_t len) {
 void storageRemoveKey(const char *key) {
   Preferences prefs;
   prefs.begin(NVS_NAMESPACE, false);
-  prefs.remove(key);
+  if (prefs.isKey(key)) prefs.remove(key);  // removing a missing key logs an error on USB
   prefs.end();
 }
 
@@ -215,29 +215,128 @@ bool storageUsage(uint64_t &used, uint64_t &total) {
 }
 
 // Files used to live in internal flash (LittleFS). The first time a card mounts, copy any of them the
-// card doesn't have yet (never overwriting), once. Each file is streamed and written in one go.
-static void copyFile(const String &path) {
-  if (SD_MMC.exists(path) || !LittleFS.exists(path)) return;
-  fs::File in = LittleFS.open(path, "r"), out = SD_MMC.open(path, "w");
+// card doesn't have yet (never overwriting), once. Each file goes to a temporary copy that's checked against the
+// original before it takes the real name, so a power cut can't leave half a file that later starts would keep.
+// False if a copy was needed and didn't work.
+static bool copyFile(const String &path) {
+  if (SD_MMC.exists(path) || !LittleFS.exists(path)) return true;
+  const String tmp = path + ".tmp";
+  fs::File in = LittleFS.open(path, "r"), out = SD_MMC.open(tmp, "w");
+  const size_t want = in ? in.size() : 0;
+  size_t copied = 0;
   uint8_t buf[512];
-  for (size_t n; in && out && (n = in.read(buf, sizeof buf)) > 0;) out.write(buf, n);
+  for (size_t n; in && out && (n = in.read(buf, sizeof buf)) > 0;) copied += out.write(buf, n);
+  const bool opened = in && out;
+  if (in) in.close();
+  if (out) out.close();
+  if (opened && copied == want) return storageReplace(tmp.c_str(), path.c_str(), copied);
+  if (SD_MMC.exists(tmp)) SD_MMC.remove(tmp);
+  return false;
 }
 
 static void copyFromFlashOnce() {
   if (storageGetInt("sd_copied", 0)) return;
+  bool ok = true;
   if (LittleFS.begin(false)) {
-    copyFile("/timetable.csv");
-    copyFile("/dex.csv");
-    copyFile("/events.csv");
+    ok &= copyFile("/timetable.csv");
+    ok &= copyFile("/dex.csv");
+    ok &= copyFile("/events.csv");
     if (!SD_MMC.exists("/badges")) SD_MMC.mkdir("/badges");
     fs::File dir = LittleFS.open("/badges");
     for (fs::File f = dir ? dir.openNextFile() : fs::File(); f; f = dir.openNextFile()) {
       String n = f.name();
-      if (n.endsWith(".bmp")) copyFile("/badges/" + n);
+      if (n.endsWith(".bmp")) ok &= copyFile("/badges/" + n);
     }
     LittleFS.end();
   }
-  storagePutInt("sd_copied", 1);
+  if (ok) storagePutInt("sd_copied", 1);  // otherwise tried again next time (a full card, say)
+}
+
+// Dex left the device for the app store: its finds (/dex.csv: hash,ssid,rssi,enc,rarity,first_seen) move into the
+// store app's own folder in the app's format (finds-1.csv ... with 500 rows each: name,rssi,security,rarity,date), so
+// installing Dex carries on with them; until then Apps lists an offloaded "dex". The old file goes only once every
+// new one is written, and is left alone if the app already has finds.
+static void moveDexFinds() {
+  static const char *OLD = "/dex.csv", *DIR = "/apps/dex/data";
+  static const int PER_FILE = 500, MAX = 2000;
+  if (!SD_MMC.exists(OLD) || SD_MMC.exists("/apps/dex/data/finds-1.csv") || !storageMakeDirs(DIR)) return;
+  fs::File in = SD_MMC.open(OLD, "r");
+  String rows;
+  int count = 0, file = 0;
+  bool ok = (bool)in;
+  auto flush = [&]() {
+    if (!rows.length()) return;
+    const String path = String(DIR) + "/finds-" + (++file) + ".csv", tmp = String(DIR) + "/.move.tmp";
+    fs::File out = storageOpen(tmp.c_str(), "w");
+    const size_t wrote = out ? out.print(rows) : 0;
+    if (out) out.close();
+    ok = ok && wrote == rows.length() && storageReplace(tmp.c_str(), path.c_str(), wrote);
+    rows = "";
+  };
+  for (String line; ok && count < MAX && storageReadLine(in, line);) {
+    String f[6];
+    int n = 0, from = 0;
+    for (; n < 6; n++) {
+      const int comma = line.indexOf(',', from);
+      f[n] = line.substring(from, comma < 0 ? line.length() : comma);
+      if (comma < 0) break;
+      from = comma + 1;
+    }
+    if (n < 5 || f[0].length() != 16 || !f[1].length()) continue;  // the header, or a broken row
+    char date[12] = "";
+    const time_t seen = (time_t)f[5].toInt();
+    if (seen > 1704067200) {  // after 2024-01-01: the clock was set
+      struct tm t;
+      localtime_r(&seen, &t);
+      strftime(date, sizeof date, "%Y-%m-%d", &t);
+    }
+    rows += f[1] + "," + f[2] + "," + f[3] + "," + f[4] + "," + date + "\n";
+    if (++count % PER_FILE == 0) flush();
+  }
+  if (in) in.close();
+  flush();
+  if (ok) {
+    SD_MMC.remove(OLD);
+    storageRemoveKey("dex_salt");  // only the built-in Dex hashed with it
+  }
+}
+
+// Chooser left the device for the app store too: its tally (wins per square, NVS keys ch_w1 ... ch_w9) goes into the
+// store app's own folder (/apps/chooser/data/tally: "w1,w2,...,w9"), added to whatever is there, so installing
+// Chooser carries on with it. The keys go only once the file is written.
+static void moveChooserTally() {
+  static const int SQUARES = 9;
+  int32_t old[SQUARES];
+  bool any = false;
+  char key[8];
+  for (int i = 0; i < SQUARES; i++) {
+    snprintf(key, sizeof key, "ch_w%d", i + 1);
+    old[i] = storageGetInt(key, 0);
+    any |= old[i] != 0;
+  }
+  if (!any || !storageMakeDirs("/apps/chooser/data")) return;
+  static const char *PATH = "/apps/chooser/data/tally", *TMP = "/apps/chooser/data/.move.tmp";
+  String had;
+  if (storageExists(PATH)) {
+    fs::File f = storageOpen(PATH);
+    storageReadLine(f, had, 200);
+    f.close();
+  }
+  String text;
+  for (int i = 0, from = 0; i < SQUARES; i++) {
+    const int comma = had.indexOf(',', from);
+    const long was = from < (int)had.length() ? had.substring(from, comma < 0 ? had.length() : comma).toInt() : 0;
+    from = comma < 0 ? had.length() : comma + 1;
+    text += String(was + old[i]) + (i + 1 < SQUARES ? "," : "");
+  }
+  fs::File out = storageOpen(TMP, "w");
+  const size_t wrote = out ? out.print(text) : 0;
+  if (out) out.close();
+  if (wrote != text.length() || !storageReplace(TMP, PATH, wrote)) return;
+  for (int i = 0; i < SQUARES; i++) {
+    snprintf(key, sizeof key, "ch_w%d", i + 1);
+    storageRemoveKey(key);
+  }
 }
 
 bool storageCardMount() {
@@ -250,6 +349,8 @@ bool storageCardMount() {
     return false;
   }
   copyFromFlashOnce();
+  moveDexFinds();
+  moveChooserTally();
   return true;
 }
 

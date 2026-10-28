@@ -149,8 +149,9 @@
 
   <section id="pet">
     <h2>Pet</h2>
-    <p class="muted">Pick each part of your Pet's look, give it a name if you like, and send it. It changes on the
-      device straight away. This needs firmware v1.5 or newer, which you can get on Install.</p>
+    <p class="muted">Pick each part of your Pet's look, give it a name and tell it yours if you like, and send it. It
+      changes on the device straight away. This needs firmware v1.5 or newer (your name, v1.13), which you can get on
+      Install.</p>
     <div class="grid">
       <div class="card">
         <div id="petParts"></div>
@@ -158,6 +159,8 @@
         <label for="petName">Name <span class="hint">(optional, up to 12 characters, shown at the top of the Pet
           screen)</span></label>
         <input id="petName" type="text" maxlength="12" placeholder="No name" autocomplete="off" spellcheck="false">
+        <label for="petOwner">Your name <span class="hint">(optional: it says hi to you)</span></label>
+        <input id="petOwner" type="text" maxlength="12" placeholder="No name" autocomplete="given-name" spellcheck="false">
       </div>
       <div class="card" id="petStage">
         <div id="petFrame"><canvas id="petCanvas" width="224" height="224" role="img" aria-label="Pet preview"></canvas></div>
@@ -628,7 +631,7 @@ function encodeBmp(bits) {
 </script>
 <script type="module">
 // The Pet designer: the same parts as the device (site/pet-parts.js, made from src/apps/pet/parts.h).
-import { supported, connect, asleepHint, petGet, petSet } from './serial.js';
+import { supported, connect, asleepHint, petGet, petSet, petOwnerGet, petOwnerSet } from './serial.js';
 import { LAYERS, DEFAULT_LOOK, drawLook, pack, unpack, randomLook, cleanName } from './pet.js';
 
 const $ = id => document.getElementById(id);
@@ -663,7 +666,8 @@ LAYERS.forEach((layer, i) => {
 });
 
 $('petRandom').onclick = () => { look = randomLook(); render(); };
-$('petName').oninput = e => { const c = cleanName(e.target.value); if (c !== e.target.value.trim()) e.target.value = c; };
+for (const id of ['petName', 'petOwner'])
+  $(id).oninput = e => { const c = cleanName(e.target.value); if (c !== e.target.value.trim()) e.target.value = c; };
 
 async function withDevice(work) {
   const status = $('petStatus');
@@ -678,14 +682,19 @@ async function withDevice(work) {
 
 $('petSend').disabled = $('petLoad').disabled = !supported;
 $('petSend').onclick = () => withDevice(async dev => {
-  const name = cleanName($('petName').value);
+  const name = cleanName($('petName').value), owner = cleanName($('petOwner').value);
   await petSet(dev, pack(look), name);
+  const knows = await petOwnerSet(dev, owner);  // blank clears it; false on firmware before v1.13
+  if (owner && !knows) return 'Sent the Pet. Your name needs firmware v1.13 or newer: update it on the Install page.';
+  if (owner) return `Sent. ${name || 'Your Pet'} will say hi to ${owner}!`;
   return name ? `Sent. Say hi to ${name}!` : 'Sent. Open Pet on the device to see it.';
 });
 $('petLoad').onclick = () => withDevice(async dev => {
   const pet = await petGet(dev);
   look = unpack(pet.look);
   $('petName').value = pet.name;
+  const owner = await petOwnerGet(dev);
+  if (owner !== null) $('petOwner').value = owner;
   render();
   return 'Loaded the Pet from the device.';
 });

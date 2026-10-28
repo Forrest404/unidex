@@ -7,6 +7,8 @@ const uint16_t FRAME_MS = 48;
 // What one frame did: the round ended, something moved (redraw), or nothing changed (no redraw needed).
 enum class Step : uint8_t { Over, Moved, Still };
 
+bool gamesPlaying(const char *id);  // that store game is being played (the store mustn't replace it now)
+
 // One game inside the Games app. The Games app owns the list, the frame loop, the game-over screen and the
 // best scores; a game only plays. B is its one action (a tap, or held down); hold A leaves it.
 struct Game {

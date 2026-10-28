@@ -1,6 +1,8 @@
-// Settings: date and time, sleep, volume, invert, battery and info, reset data (one thing, or the whole device).
+// Settings: date and time, sync (the clock and the calendar link over WiFi), sleep, volume, alert sound, invert,
+// battery and info, reset data (one thing, or the whole device). Six rows a page.
 // A = next row or field, B = change, open or clear, hold A = back (in the date editor: leave without saving).
 // Volume: B = louder, hold B = quieter, each with a chime at the new level.
+// Hold B in the list: set up from a phone (the phone portal, src/apps/notes/phone.cpp), then check what changed.
 #include "../../core/app.h"
 #include "../../core/audio.h"
 #include "../../core/battery.h"
@@ -11,7 +13,12 @@
 #include "../../core/power.h"
 #include "../../core/storage.h"
 #include "../../core/theme.h"
+#include "../notes/cloud.h"
+#include "../notes/phone.h"
 #include "../pet/meet.h"
+#include "../timetable/callink.h"
+#include "../notes/languages.h"
+#include "../../core/credentials.h"
 #include <LittleFS.h>
 #include <esp_mac.h>
 #include "../../core/usbsync.h"
@@ -19,12 +26,12 @@
 
 static const char *VERSION = UNIDEX_VERSION;  // from git, tools/version.py
 static const int SLEEP_CHOICES[] = {10, 20, 30, 60};
-static const int ROW_H = 22;  // six rows fit above the hints
+static const int ROW_H = 22, PAGE_ROWS = 6;  // six rows fit above the hints
 
-enum Screen : uint8_t { LIST, DATETIME, INFO, RESET, CONFIRM, CONFIRM_AGAIN, VOLUME };
-enum Row : uint8_t { DATE, SLEEP, VOLUME_ROW, INVERT, INFO_ROW, RESET_ROW, ROWS };
-enum Reset : uint8_t { TALLY, DEX, CALENDAR, PET_FRIENDS, EVERYTHING, FACTORY, RESETS };
-static const char *RESET_NAMES[] = {"Chooser tally", "Dex", "Calendar", "Pet friends", "Everything", "Factory reset"};
+enum Screen : uint8_t { LIST, DATETIME, INFO, RESET, CONFIRM, CONFIRM_AGAIN, VOLUME, PHONE, CHECK, SYNC };
+enum Row : uint8_t { DATE, SYNC_ROW, SLEEP, VOLUME_ROW, ALERTS, LANGUAGE, INVERT, INFO_ROW, RESET_ROW, ROWS };
+enum Reset : uint8_t { CALENDAR, PET_FRIENDS, EVERYTHING, FACTORY, RESETS };
+static const char *RESET_NAMES[] = {"Calendar", "Pet friends", "Everything", "Factory reset"};
 static const int RESET_ROW_H = 22;  // six rows fit above the hints
 enum Field : uint8_t { YEAR, MONTH, DAY, HOUR, MINUTE, SAVE, FIELDS };
 
@@ -58,28 +65,163 @@ static void drawSlider(int16_t cy) {
   }
 }
 
+// When the clock and calendar last came (the Mac, the Tools page or Sync): "10:42" today, else "27 Oct"; "" if not
+// since power-up.
+static void lastSync(char *out, size_t len) {
+  *out = 0;
+  if (time_t t = usbSyncLastTime()) {
+    struct tm s, now = clockLocal();
+    localtime_r(&t, &s);
+    strftime(out, len, s.tm_yday == now.tm_yday && s.tm_year == now.tm_year ? "%H:%M" : "%d %b", &s);
+  }
+}
+
 static void drawList() {
-  drawHeader("Settings");
+  const int page = cursor / PAGE_ROWS, first = page * PAGE_ROWS;
+  char pages[8];
+  snprintf(pages, sizeof pages, "%d/%d", page + 1, (ROWS + PAGE_ROWS - 1) / PAGE_ROWS);
+  drawHeader("Settings", pages);
   display.setFont(FONT_SMALL);
-  char time[8] = "not set", sleep[8];
+  char time[8] = "not set", sleep[8], synced[12];
   if (clockValid()) {
     struct tm now = clockLocal();
     snprintf(time, sizeof time, "%02d:%02d", now.tm_hour, now.tm_min);
   }
   snprintf(sleep, sizeof sleep, "%d s", powerSleepSeconds());
-  drawRow(DATE, cursor == DATE, "Date & time", time);
-  drawRow(SLEEP, cursor == SLEEP, "Sleep after", sleep);
-  drawRow(VOLUME_ROW, cursor == VOLUME_ROW, "Volume", "");
-  {  // a small bar, filled as far as the volume
-    const int16_t w = 50, x = display.width() - MARGIN - w, y = CONTENT_TOP + 4 + VOLUME_ROW * ROW_H + 5;
-    const uint16_t ink = cursor == VOLUME_ROW ? WHITE : BLACK;
-    display.drawRect(x, y, w, 10, ink);
-    display.fillRect(x + 2, y + 2, (w - 4) * audioVolume() / AUDIO_VOLUME_MAX, 6, ink);
+  lastSync(synced, sizeof synced);
+  for (int row = first; row < first + PAGE_ROWS && row < ROWS; row++) {
+    const int i = row - first;
+    const bool sel = cursor == row;
+    switch (row) {
+      case DATE: drawRow(i, sel, "Date & time", time); break;
+      case SYNC_ROW: drawRow(i, sel, "Sync", synced); break;
+      case SLEEP: drawRow(i, sel, "Sleep after", sleep); break;
+      case VOLUME_ROW: {
+        drawRow(i, sel, "Volume", "");
+        // a small bar, filled as far as the volume
+        const int16_t w = 50, x = display.width() - MARGIN - w, y = CONTENT_TOP + 4 + i * ROW_H + 5;
+        const uint16_t ink = sel ? WHITE : BLACK;
+        display.drawRect(x, y, w, 10, ink);
+        display.fillRect(x + 2, y + 2, (w - 4) * audioVolume() / AUDIO_VOLUME_MAX, 6, ink);
+        break;
+      }
+      case ALERTS: drawRow(i, sel, "Alert sound", audioAlertsMuted() ? "off" : "on"); break;
+      case LANGUAGE: {  // the language notes are in ("Auto" or its name)
+        const int lang = max(0, languages::find(credGet("note_lang").c_str()));
+        drawRow(i, sel, "Note language", languages::LIST[lang].name);
+        break;
+      }
+      case INVERT: drawRow(i, sel, "Invert", display.inverted ? "on" : "off"); break;
+      case INFO_ROW: drawRow(i, sel, "Battery & info", ">"); break;
+      case RESET_ROW: drawRow(i, sel, "Reset data", ">"); break;
+    }
   }
-  drawRow(INVERT, cursor == INVERT, "Invert", display.inverted ? "on" : "off");
-  drawRow(INFO_ROW, cursor == INFO_ROW, "Battery & info", ">");
-  drawRow(RESET_ROW, cursor == RESET_ROW, "Reset data", ">");
-  drawHints("next", cursor == SLEEP || cursor == INVERT ? "change" : "open", "");
+  drawHints("next", cursor == SLEEP || cursor == INVERT || cursor == ALERTS || cursor == LANGUAGE ? "change" : "open", "phone");
+}
+
+// Sync: the clock from the internet, then this week's events from the calendar link (src/apps/timetable/callink.h).
+static SyncResult synced;
+static bool hasSynced, syncing;
+
+static void drawSync() {
+  drawHeader("Sync");
+  display.setFont(FONT_SMALL);
+  if (syncing) {
+    drawCentered("Syncing...", 88);
+    drawHints("", "", "");
+    return;
+  }
+  if (!hasSynced) {
+    const bool link = credHas("cal_url");
+    drawCentered("Sets the clock from", 56);
+    drawCentered(link ? "the internet, and gets" : "the internet.", 76);
+    drawCentered(link ? "this week's events" : "Add a calendar link", link ? 96 : 108);
+    drawCentered(link ? "from your calendar." : "on the Setup page too.", link ? 116 : 128);
+    drawHints("", "sync", "");
+    return;
+  }
+  // What each part did, and below, why one didn't ("Link not found"), as the service said it.
+  char clock[12] = "set", events[16];
+  if (!synced.clock && clockValid()) {
+    struct tm now = clockLocal();
+    snprintf(clock, sizeof clock, "set %02d:%02d", now.tm_hour, now.tm_min);
+  }
+  drawRow(0, false, "Clock", synced.clock ? "not synced" : clock);
+  if (!synced.link) snprintf(events, sizeof events, "no link");
+  else if (synced.clock || synced.calendar) snprintf(events, sizeof events, "not synced");
+  else snprintf(events, sizeof events, synced.events == 1 ? "1 event" : "%d events", synced.events);
+  drawRow(1, false, "Calendar", events);
+  String why = synced.clock ? synced.clock : synced.calendar ? synced.calendar : "";
+  if (why.startsWith("Calendar: ")) why = why.substring(10);
+  if (why.length()) {
+    char line[48];
+    snprintf(line, sizeof line, "%s", why.c_str());
+    line[0] = toupper(line[0]);
+    drawCentered(fitText(line, display.width() - 2 * MARGIN).c_str(), 108);
+  } else if (!synced.link) {
+    drawCentered("Add a calendar link", 100);
+    drawCentered("on the Setup page.", 120);
+  }
+  drawHints("", "again", "");
+}
+
+// After phone setup changed WiFi or keys: each service with something saved, checked over the internet one per
+// tick, so the screen shows how far it's got. Not kept over a sleep (it's back to the list then).
+static const int CHECKS_MAX = 6;
+static const char *checkWhat[CHECKS_MAX];
+static String checkResult[CHECKS_MAX];
+static int checks, checked;
+static bool checkShown;  // the row being checked shows "..." before the (blocking) check starts
+static bool checksThenExit;  // opened for the checks alone (the first start): when they're read, leave
+
+static const char *checkLabel(const char *what) {
+  return !strcmp(what, "wifi") ? "WiFi" : !strcmp(what, "openai") ? "OpenAI" : !strcmp(what, "elevenlabs") ? "ElevenLabs"
+         : !strcmp(what, "anthropic") ? "Claude" : !strcmp(what, "github") ? "GitHub" : "Calendar";
+}
+
+static void planChecks() {
+  checks = checked = 0;
+  checkShown = checksThenExit = false;
+  auto add = [](const char *what) { checkWhat[checks] = what, checkResult[checks++] = ""; };
+  add("wifi");
+  const bool eleven = credGet("transcribe") == "elevenlabs";
+  if (credHas(eleven ? "elevenlabs_key" : "openai_key")) add(eleven ? "elevenlabs" : "openai");
+  const String tidy = credGet("cleanup");
+  if (tidy == "anthropic" && credHas("anthropic_key")) add("anthropic");
+  else if (tidy == "openai" && eleven && credHas("openai_key")) add("openai");
+  if (credGet("gh_on") == "1") add("github");
+  if (credHas("cal_url")) add("calendar");
+}
+
+// The next check. A failure reads without the service's name, which is on the row already ("OpenAI: bad key").
+static void runCheck() {
+  const char *what = checkWhat[checked], *label = checkLabel(what);
+  String detail, result;
+  if (checked > 0 && checkResult[0] != "ok") {
+    result = "needs WiFi";
+  } else if (const char *err = cloudTest(what, detail)) {
+    result = err;
+    if (result.startsWith(label)) result = result.substring(strlen(label));
+    if (result.startsWith(":")) result = result.substring(1);
+    result.trim();
+  } else {
+    result = "ok";
+  }
+  checkResult[checked++] = result;
+  checkShown = false;
+  powerActivity();  // still in use: no sleep between checks
+}
+
+static void drawCheck() {
+  drawHeader(checked < checks ? "Checking" : "Checked");
+  display.setFont(FONT_SMALL);
+  for (int i = 0; i < checks; i++) {
+    String v = i < checked ? checkResult[i] : i == checked ? "..." : "";
+    const int16_t room = display.width() - 2 * MARGIN - textWidth(checkLabel(checkWhat[i])) - 10;
+    while (v.length() > 3 && textWidth(v.c_str()) > room) v = v.substring(0, v.length() - 4) + "..";
+    drawRow(i, false, checkLabel(checkWhat[i]), v.c_str());
+  }
+  drawHints("", checked < checks ? "" : "done", "");
 }
 
 static void drawVolume() {
@@ -149,7 +291,7 @@ static const char *deviceId() {
 static void drawInfo() {
   drawHeader("Battery & info");
   display.setFont(FONT_SMALL);
-  char battery[24], storage[24], sync[12] = "not yet";
+  char battery[24], storage[24], sync[12];
   const int mv = batteryMillivolts(), pct = batteryPercent();
   if (pct < 0) snprintf(battery, sizeof battery, "none");
   else snprintf(battery, sizeof battery, "%d.%02d V %d%%", mv / 1000, mv % 1000 / 10, pct);
@@ -158,12 +300,8 @@ static void drawInfo() {
     snprintf(storage, sizeof storage, "%llu / %llu MB", used >> 20, total >> 20);
   else
     snprintf(storage, sizeof storage, "no card");
-  if (time_t t = usbSyncLastTime()) {
-    struct tm s, now = clockLocal();
-    localtime_r(&t, &s);
-    if (s.tm_yday == now.tm_yday && s.tm_year == now.tm_year) strftime(sync, sizeof sync, "%H:%M", &s);
-    else strftime(sync, sizeof sync, "%d %b", &s);
-  }
+  lastSync(sync, sizeof sync);
+  if (!*sync) snprintf(sync, sizeof sync, "not yet");
   drawRow(0, false, pct >= 0 && batteryCharging() ? "On USB" : "Battery", battery);
   // A build between releases, "v1.4-3-g13bf907": shown as "v1.4-3", which fits. A test build's "-dirty" (uncommitted
   // changes) is left out here to fit too; USB's V command reports it.
@@ -172,7 +310,7 @@ static void drawInfo() {
   version.replace("-dirty", "");
   drawRow(1, false, "Firmware", version.c_str());
   drawRow(2, false, "Storage", storage);
-  drawRow(3, false, "Mac sync", sync);
+  drawRow(3, false, "Calendar sync", sync);
   drawRow(4, false, "Device", deviceId());
   drawHints("", "refresh", "");
 }
@@ -189,14 +327,11 @@ static void drawReset() {
 }
 
 static void drawConfirm() {
-  static const char *TITLES[] = {"Clear the tally?", "Clear the Dex?", "Clear the calendar?", "Forget friends?",
-                                 "Reset everything?", "Factory reset?"};
+  static const char *TITLES[] = {"Clear the calendar?", "Forget friends?", "Reset everything?", "Factory reset?"};
   // Each line has to fit the box: about 164 px in the small font.
-  static const char *WHAT[] = {"Wins go back to 0.", "Forget all networks.", "Synced events go.",
-                               "Your Pet forgets all.", "Settings, Dex, tally", "Wipes WiFi, keys,"};
-  static const char *MORE[] = {"Can't be undone.", "Can't be undone.", "Can't be undone.", "Can't be undone.",
-                               "and calendar go.", "the Pet, all settings."};
-  static const char *LAST[] = {"", "", "", "", "Pet and keys stay.", "Card files stay."};
+  static const char *WHAT[] = {"Synced events go.", "Your Pet forgets all.", "Settings and the", "Wipes WiFi, keys,"};
+  static const char *MORE[] = {"Can't be undone.", "Can't be undone.", "calendar go.", "the Pet, all settings."};
+  static const char *LAST[] = {"", "", "Pet and keys stay.", "Card files stay."};
   drawResetRows();
   if (screen == CONFIRM_AGAIN) {  // the factory reset asks twice
     drawSheet("Wipe the device?", "Back to as new.", "Can't be undone.");
@@ -208,7 +343,7 @@ static void drawConfirm() {
 }
 
 // The whole device back to as new, for passing it on: every setting, the WiFi and keys (also the copy the WiFi
-// keeps for itself), the Pet, its friends (and their copy on the card), the calendar and Dex, and anything left in
+// keeps for itself), the Pet, its friends (and their copy on the card), the calendar, and anything left in
 // the internal flash from older versions. Notes, badges and the timetable on the card stay: the card can be taken
 // out and wiped on a computer.
 static void factoryReset() {
@@ -216,7 +351,7 @@ static void factoryReset() {
     launcherToast("Dry run: not wiped");
     return;
   }
-  for (const char *path : {"/pet/friends.bin", "/pet/friends.bin.old", "/dex.csv", "/events.csv"}) storageRemove(path);
+  for (const char *path : {"/pet/friends.bin", "/pet/friends.bin.old", "/events.csv"}) storageRemove(path);
   LittleFS.begin(false);  // format() needs the partition begin() names (without it, it stops the device)
   LittleFS.format();
   LittleFS.end();
@@ -230,23 +365,11 @@ static void clear(uint8_t what) {
     launcherToast("Dry run: not cleared");
     return;
   }
-  if (what == TALLY) {
-    bool any = false;
-    char key[8];
-    for (int i = 1; i <= 6; i++) {
-      snprintf(key, sizeof key, "ch_w%d", i);
-      any |= storageGetInt(key, 0) != 0;
-      storageRemoveKey(key);
-    }
-    launcherToast(any ? "Tally cleared" : "Nothing to clear");
-    return;
-  }
-  if (what == DEX || what == CALENDAR) {
-    const char *path = what == DEX ? "/dex.csv" : "/events.csv";
+  if (what == CALENDAR) {
     if (!storageCardMount()) launcherToast("No SD card");
-    else if (!storageExists(path)) launcherToast("Nothing to clear");
-    else launcherToast(storageRemove(path) ? (what == DEX ? "Dex cleared" : "Calendar cleared") : "Couldn't clear it");
-    if (what == CALENDAR) storageRemoveKey("events_crc");  // so the next Mac sync writes the events again
+    else if (!storageExists("/events.csv")) launcherToast("Nothing to clear");
+    else launcherToast(storageRemove("/events.csv") ? "Calendar cleared" : "Couldn't clear it");
+    storageRemoveKey("events_crc");  // so the next Mac sync writes the events again
     return;
   }
   if (what == PET_FRIENDS) {
@@ -255,18 +378,18 @@ static void clear(uint8_t what) {
     launcherToast(any ? "Friends forgotten" : "No friends to forget");
     return;
   }
-  // Everything: but the Pet stays (its look, name, number and friends), like the WiFi and keys, so friends' devices
-  // still know it. Read before NVS is cleared, written back after.
+  // Everything: but the Pet stays (its look, name, number and friends, and your name), like the WiFi and keys, so
+  // friends' devices still know it. Read before NVS is cleared, written back after.
   const int32_t petId = storageGetInt("pet_id", 0), look = storageGetInt("pet_look", INT32_MIN);
-  const String petName = storageGetString("pet_name");
+  const String petName = storageGetString("pet_name"), ownerName = storageGetString("owner_name");
   static uint8_t friendsBlock[1024];
   const size_t friendsLen = storageGetBytes("pet_friends", friendsBlock, sizeof friendsBlock);
-  storageRemove("/dex.csv");
   storageRemove("/events.csv");
-  storageClearKeys();  // settings, badge choice, tally, Dex salt (not the WiFi and keys: they're separate)
+  storageClearKeys();  // settings and the badge choice (not the WiFi and keys: they're separate)
   if (petId) storagePutInt("pet_id", petId);
   if (look != INT32_MIN) storagePutInt("pet_look", look);
   if (petName.length()) storagePutString("pet_name", petName.c_str());
+  if (ownerName.length()) storagePutString("owner_name", ownerName.c_str());
   if (friendsLen) storagePutBytes("pet_friends", friendsBlock, friendsLen);
   systemRestart("Starting fresh");
 }
@@ -320,8 +443,17 @@ static Redraw onButton(Event e) {
           for (int i = 0; i < 3; i++)
             if (SLEEP_CHOICES[i] == now) next = SLEEP_CHOICES[i + 1];
           powerSetSleepSeconds(next);
+        } else if (cursor == SYNC_ROW) {
+          screen = SYNC;
+          hasSynced = false;
         } else if (cursor == VOLUME_ROW) {
           screen = VOLUME;
+        } else if (cursor == ALERTS) {
+          audioSetAlertsMuted(!audioAlertsMuted());
+          if (!audioAlertsMuted()) audioChime();  // what an alert sounds like now
+        } else if (cursor == LANGUAGE) {  // the next one in the list, round to Auto
+          const int lang = max(0, languages::find(credGet("note_lang").c_str()));
+          credSet("note_lang", languages::LIST[(lang + 1) % languages::COUNT].code);
         } else if (cursor == INVERT) {
           displaySetInverted(!display.inverted);
           return Redraw::Full;  // every pixel changes
@@ -329,9 +461,21 @@ static Redraw onButton(Event e) {
           screen = cursor == INFO_ROW ? INFO : RESET;
           resetCursor = 0;
         }
+      } else if (e == Event::BLong) {  // set up from a phone: Setup first if there's no WiFi yet
+        if (const char *low = batteryTooLow()) launcherToast(low);  // the hotspot draws as much as normal WiFi
+        else if (const char *err = phoneStart(credWifiAny() ? PhoneTab::Settings : PhoneTab::Setup)) launcherToast(err);
+        else screen = PHONE;
       } else {
         return Redraw::None;
       }
+      return Redraw::Partial;
+    case PHONE:
+      phoneActivity();  // any press keeps the hotspot up
+      return Redraw::None;
+    case CHECK:
+      if (checked < checks) return Redraw::None;
+      screen = LIST;
+      if (checksThenExit) return checksThenExit = false, Redraw::Exit;
       return Redraw::Partial;
     case DATETIME:
       if (e == Event::AShort) field = (field + 1) % FIELDS;
@@ -345,6 +489,15 @@ static Redraw onButton(Event e) {
       return Redraw::Partial;
     case INFO:
       return e == Event::BShort ? Redraw::Partial : Redraw::None;  // refresh the readings
+    case SYNC:
+      if (e != Event::BShort) return Redraw::None;
+      syncing = true;
+      displayShow(drawSync, false);  // the sync holds everything up for a few seconds (more for a big calendar)
+      synced = calendarSync();
+      syncing = false;
+      hasSynced = true;
+      powerActivity();  // it took a while: don't sleep straight away
+      return Redraw::Partial;
     case VOLUME: {
       const int v = audioVolume() + (e == Event::BShort ? 1 : e == Event::BLong ? -1 : 0);
       if (v == audioVolume() || v < 0 || v > AUDIO_VOLUME_MAX) return Redraw::None;
@@ -381,15 +534,29 @@ static Redraw onBack() {
     case DATETIME: launcherToast("Not saved"); screen = LIST; break;
     case CONFIRM:
     case CONFIRM_AGAIN: screen = RESET; break;
+    case PHONE:
+      phoneStop();
+      if (phoneChanged()) planChecks(), screen = CHECK;
+      else screen = LIST;
+      break;
+    case CHECK:
+      if (checked < checks) return Redraw::None;
+      screen = LIST;
+      if (checksThenExit) return checksThenExit = false, Redraw::Exit;
+      break;
     default: screen = LIST; break;
   }
   return Redraw::Partial;
 }
 
 static void draw() {
+  if ((screen == PHONE && !phoneOn()) || (screen == CHECK && !checks)) screen = LIST;  // e.g. after a sleep
   switch (screen) {
+    case PHONE: phoneDraw("Set up on phone"); break;
+    case CHECK: drawCheck(); break;
     case DATETIME: drawDateTime(); break;
     case INFO: drawInfo(); break;
+    case SYNC: drawSync(); break;
     case VOLUME: drawVolume(); break;
     case RESET: drawReset(); break;
     case CONFIRM:
@@ -398,11 +565,35 @@ static void draw() {
   }
 }
 
-static void onExit() {}
+static Redraw tick() {
+  if (screen == PHONE) {
+    const Redraw r = phoneTick();
+    if (phoneOn()) return r;
+    // Done on the page, or nobody used it for a while: check what changed.
+    if (phoneChanged()) planChecks(), screen = CHECK;
+    else screen = LIST;
+    return Redraw::Partial;
+  }
+  if (screen != CHECK || checked >= checks) return Redraw::None;
+  if (!checkShown) {
+    checkShown = true;  // show "..." on the row first: the check holds everything up for a few seconds
+    return Redraw::Partial;
+  }
+  runCheck();
+  return Redraw::Partial;
+}
+
+static void onExit() { phoneStop(); }
+
+void settingsShowChecks() {
+  planChecks();
+  screen = CHECK;
+  checksThenExit = true;
+}
 
 static void status(char *out, size_t len) {
   if (!clockValid()) snprintf(out, len, "Clock not set");
   else snprintf(out, len, "Sleep after %d s", powerSleepSeconds());
 }
 
-extern const App settingsApp = {"Settings", ICON_SETTINGS, onEnter, onButton, draw, onExit, onBack, status};
+extern const App settingsApp = {"Settings", ICON_SETTINGS, onEnter, onButton, draw, onExit, onBack, status, tick};

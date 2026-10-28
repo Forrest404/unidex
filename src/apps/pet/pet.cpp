@@ -6,7 +6,11 @@
 #include "meet.h"
 #include "pet.h"
 #include "pet_logic.h"
+#include "talk_logic.h"
+#include "../reminders/reminders.h"
+#include "../timetable/timetable.h"
 #include "../../core/app.h"
+#include "../../core/clock.h"
 #include "../../core/devtools.h"
 #include "../../core/display.h"
 #include "../../core/power.h"
@@ -15,19 +19,22 @@
 
 static const int MAIN_SCALE = 4, EDIT_SCALE = 3;  // 128 px on the main screen, 96 px while editing
 static const int16_t EDIT_AVATAR_Y = CONTENT_TOP + 4, ROW_Y = HINTS_TOP - 14;
-static const int NAME_ROW = pet::LAYERS, RANDOM_ROW = pet::LAYERS + 1, DONE_ROW = pet::LAYERS + 2;
-static const int ROWS = pet::LAYERS + 3;
+static const int NAME_ROW = pet::LAYERS, OWNER_ROW = pet::LAYERS + 1, RANDOM_ROW = pet::LAYERS + 2;
+static const int DONE_ROW = pet::LAYERS + 3, ROWS = pet::LAYERS + 4;
 
 enum Screen : uint8_t { MAIN, EDIT, MEET, NAME };
 RTC_DATA_ATTR static uint8_t screen, row;
 RTC_DATA_ATTR static uint32_t draft;  // the look being edited (kept through sleep)
 RTC_DATA_ATTR static char places[pet::MAX_NAME + 1];  // the name being edited, a letter a place (pet_logic.h)
 RTC_DATA_ATTR static uint8_t place;                    // the place being chosen
+RTC_DATA_ATTR static bool ownerNaming;                 // the name being edited is yours, not the Pet's
 static bool blinking, happy;
 static uint8_t heart;  // the heart beside it while it's happy: 0 none, else its scale (it pops: 1, then 2)
 static uint32_t nextBlinkAt, openAt, lastPressAt;
 
 static const int16_t MAIN_Y = CONTENT_TOP + (HINTS_TOP - CONTENT_TOP - pet::SIZE * MAIN_SCALE) / 2;  // centred
+// With something to say: a bubble of up to 2 lines across the top, the Pet smaller under it, its head at the tail.
+static const int16_t TALK_TOP = CONTENT_TOP + 2, TALK_LINE = 16, TALK_PET_Y = HINTS_TOP - 1 - pet::SIZE * 3;
 static const uint32_t AWAKE_MS = 60000;  // blinking stops this long after the last press
 
 static const char *const HEART[] = {  // beside its head while it's happy
@@ -45,9 +52,51 @@ uint32_t petLookBits() { return storageGetInt("pet_look", pet::pack(pet::DEFAULT
 
 String petName() { return storageGetString("pet_name"); }
 
+String petOwnerName() { return storageGetString("owner_name"); }
+
 static uint32_t changes;  // counts saves from the website; the screen and the home line each notice a new one
 
 void petChanged() { changes++; }
+
+// What it says about your day (talk_logic.h), from what the Timetable and Reminders keep for the home screen.
+// The home line asks on every pass, so it's worked out at most once a second (and your name read once a change).
+static const talk::Talk &todaysTalk() {
+  static talk::Talk said;
+  static uint32_t at, seenChanges;
+  static bool worked;
+  static String owner;
+  if (!worked || seenChanges != changes) owner = petOwnerName();
+  if (worked && seenChanges == changes && millis() - at < 1000) return said;
+  worked = true;
+  at = millis();
+  seenChanges = changes;
+  const time_t now = time(nullptr);
+  talk::Agenda a;
+  a.owner = owner.c_str();
+  a.clock = clockValid();
+  if (a.clock) {
+    const struct tm t = clockLocal();
+    a.minute = t.tm_hour * 60 + t.tm_min;
+    a.wday = t.tm_wday;
+    TimetableSoon soon[3];
+    a.eventCount = timetableSoon(soon);
+    for (int i = 0; i < a.eventCount; i++) {  // whole minutes, rounded up as the Timetable's line does
+      const time_t start = soon[i].start - now, end = soon[i].end - now;
+      a.events[i] = {soon[i].title, soon[i].room, start > 0 ? (long)(start + 59) / 60 : (long)start / 60,
+                     (long)(end + 59) / 60};
+    }
+    RemindersNext r;
+    if (remindersNext(&r)) {
+      a.late = r.late;
+      a.lateTitle = r.lateTitle;
+      const long today = reminders::daysFromCivil(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday) * 1440L + a.minute;
+      if (r.nextMin >= 0 && r.nextHasTime) a.reminderIn = r.nextMin - today;
+      a.reminderTitle = r.nextTitle;
+    }
+  }
+  said = talk::say(a);
+  return said;
+}
 
 void petDraw(uint32_t look, int scale, int16_t x0, int16_t y0, PetMood mood) {
   pet::Look l = pet::unpack(look);
@@ -103,13 +152,43 @@ static void save() { storagePutInt("pet_look", pet::pack(pet::unpack(draft))); }
 
 static uint32_t randomNumber() { return devSeed() ? (uint32_t)rand() : esp_random(); }  // test build: repeatable
 
+// The bubble: up to 2 lines, each centred, in a rounded box across the top; the tail's tip at the Pet's head.
+static std::string talkShown;  // what it said on the last draw
+
+static void drawTalk(const char *text) {
+  display.setFont(FONT_SMALL);
+  String lines[2];
+  const int n = min(2, wrapText(text, display.width() - 2 * MARGIN - 12, lines, 2));
+  int16_t w = 0;
+  for (int i = 0; i < n; i++) w = max(w, textWidth(lines[i].c_str()));
+  w += 14;
+  const int16_t h = n * TALK_LINE + 3, x = (display.width() - w) / 2, cx = display.width() / 2;
+  display.fillRoundRect(x, TALK_TOP, w, h, 6, WHITE);
+  display.drawRoundRect(x, TALK_TOP, w, h, 6, BLACK);
+  display.fillTriangle(cx - 4, TALK_TOP + h - 1, cx + 4, TALK_TOP + h - 1, cx, TALK_PET_Y, WHITE);
+  display.drawLine(cx - 4, TALK_TOP + h - 1, cx, TALK_PET_Y, BLACK);
+  display.drawLine(cx + 4, TALK_TOP + h - 1, cx, TALK_PET_Y, BLACK);
+  for (int i = 0; i < n; i++) drawCenteredLine(lines[i].c_str(), TALK_TOP + 14 + i * TALK_LINE);
+}
+
 static void drawMain() {
   const String name = petName();
   drawHeader("Pet", name.length() ? name.c_str() : nullptr);
+  const talk::Talk &said = todaysTalk();
+  const String hi = happy && petOwnerName().length() ? "Hi " + petOwnerName() + "!" : "";  // A: hi, by name
+  const char *text = hi.length() ? hi.c_str() : said.text.c_str();
+  talkShown = said.text;
   pet::Look look = pet::unpack(petLookBits());
-  if (happy) look.part[pet::EYES_LAYER] = pet::HAPPY_EYES;
-  drawAvatar(look, MAIN_SCALE, MAIN_Y, blinking);
-  if (heart) petDrawHeart(175, CONTENT_TOP + 16, heart);  // beside the head
+  if (happy || said.mood == talk::HAPPY) look.part[pet::EYES_LAYER] = pet::HAPPY_EYES;
+  const bool asleep = said.mood == talk::ASLEEP && !happy;
+  if (*text) {
+    drawTalk(text);
+    drawAvatar(look, 3, TALK_PET_Y, blinking || asleep);
+    if (heart) petDrawHeart(172, TALK_PET_Y + 20, heart);  // beside the head
+  } else {
+    drawAvatar(look, MAIN_SCALE, MAIN_Y, blinking);
+    if (heart) petDrawHeart(175, CONTENT_TOP + 16, heart);
+  }
   drawHints("hi", "dress up", "meet");
 }
 
@@ -157,8 +236,9 @@ static Redraw onButton(Event e) {
     } else if (e == Event::BShort && pet::nameDoneAt(places, place)) {
       char name[pet::MAX_NAME + 1];
       pet::nameFromPlaces(places, name);
-      if (*name) storagePutString("pet_name", name);
-      else storageRemoveKey("pet_name");
+      const char *key = ownerNaming ? "owner_name" : "pet_name";
+      if (*name) storagePutString(key, name);
+      else storageRemoveKey(key);
       petChanged();
       screen = EDIT;
     } else if (e == Event::BShort) {
@@ -169,8 +249,9 @@ static Redraw onButton(Event e) {
     return Redraw::Partial;
   }
   pet::Look look = pet::unpack(draft);
-  if (e == Event::BShort && row == NAME_ROW) {
-    pet::placesFromName(petName().c_str(), places);
+  if (e == Event::BShort && (row == NAME_ROW || row == OWNER_ROW)) {
+    ownerNaming = row == OWNER_ROW;
+    pet::placesFromName((ownerNaming ? petOwnerName() : petName()).c_str(), places);
     place = 0;
     screen = NAME;
     return Redraw::Partial;
@@ -229,10 +310,10 @@ static void drawEdit() {
     snprintf(right, sizeof right, "%s  %d/%d", lp.parts[look.part[row]].name, look.part[row] + 1, lp.count);
     drawRight(right, ROW_Y);
     drawHints("next", "change", "previous");
-  } else if (row == NAME_ROW) {
+  } else if (row == NAME_ROW || row == OWNER_ROW) {
     display.setCursor(MARGIN, ROW_Y);
-    display.print("Name");
-    const String name = petName();
+    display.print(row == OWNER_ROW ? "Your name" : "Name");
+    const String name = row == OWNER_ROW ? petOwnerName() : petName();
     drawRight(name.length() ? name.c_str() : "none", ROW_Y);
     drawHints("next", "change", "");
   } else if (row == RANDOM_ROW) {
@@ -248,7 +329,7 @@ static void drawEdit() {
 
 // The name a letter at a time: the place being chosen in a black box (a blank place shows as a short line).
 static void drawName() {
-  drawHeader("Name");
+  drawHeader(ownerNaming ? "Your name" : "Name");
   display.setFont(FONT_MEDIUM);
   int len = pet::MAX_NAME;
   while (len > 0 && places[len - 1] == ' ') len--;
@@ -294,16 +375,16 @@ static void draw() {
 #if UNIDEX_DEV
 // Test build (X STATE detail): "main:<saved look>" or "edit:<row>:<look being edited>", looks in hex.
 static const char *detail() {
-  static char buf[32];
+  static char buf[96];
   if (screen == MEET) return meetDetail();
   if (screen == NAME) {
     char name[pet::MAX_NAME + 1];
     pet::nameFromPlaces(places, name);
-    snprintf(buf, sizeof buf, "name:%d:%s", place, name);
+    snprintf(buf, sizeof buf, "%s:%d:%s", ownerNaming ? "owner" : "name", place, name);
     return buf;
   }
   if (screen == EDIT) snprintf(buf, sizeof buf, "edit:%d:%05lx", row, (unsigned long)pet::pack(pet::unpack(draft)));
-  else snprintf(buf, sizeof buf, "main:%05lx", (unsigned long)pet::pack(pet::unpack(petLookBits())));
+  else snprintf(buf, sizeof buf, "main:%05lx:%s", (unsigned long)pet::pack(pet::unpack(petLookBits())), todaysTalk().text.c_str());
   return buf;
 }
 #endif
@@ -319,6 +400,7 @@ static Redraw tick() {
     return Redraw::Partial;
   }
   if (screen == MEET) return meetTick();
+  if (screen == MAIN && todaysTalk().text != talkShown) return Redraw::Partial;  // a new minute changed it
 #if UNIDEX_DEV
   if (devManualFrames()) return Redraw::None;  // test build: no blinking, for repeatable screenshots
 #endif
@@ -338,7 +420,7 @@ static Redraw tick() {
     nextBlinkAt = now + 2500 + esp_random() % 3500;
     return Redraw::Tick;
   }
-  if (now - lastPressAt > AWAKE_MS) return Redraw::None;
+  if (now - lastPressAt > AWAKE_MS || todaysTalk().mood == talk::ASLEEP) return Redraw::None;
   if (nextBlinkAt == 0) nextBlinkAt = now + 2500 + esp_random() % 3500;
   if ((int32_t)(now - nextBlinkAt) < 0) {
     powerWakeWithin(nextBlinkAt - now);
@@ -367,6 +449,11 @@ static void status(char *out, size_t len) {
     seen = changes;
     strlcpy(name, petName().c_str(), sizeof name);
     named = name[0] != 0;
+  }
+  const talk::Talk &said = todaysTalk();
+  if (said.home) {  // about now: the next class, a late reminder
+    snprintf(out, len, "%s", said.text.c_str());
+    return;
   }
   const int friends = meetFriendCount();
   if (friends && named) snprintf(out, len, "%s, %d friend%s", name, friends, friends == 1 ? "" : "s");

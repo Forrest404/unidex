@@ -10,6 +10,8 @@
 struct AppEntry {
   String id, name, version;
   String extends;      // a plugin: the built-in app it adds to ("badge"); "" for an app
+  bool inGames = false;  // listed in Games, not Apps: a game, or an app in the "games" category
+  bool game = false;     // a game (start/step/draw/score, run by the Games app)
   String problem;      // why it can't run ("needs newer firmware"), or "" if it can
   bool offloaded;      // only its data/ is left
   uint64_t code, data; // bytes (only when asked for: reading sizes walks the folders)
@@ -30,3 +32,4 @@ bool appsStaging(const String &id);  // an install of `id` has begun (A BEGIN)
 const char *appsCommit(const String &id);  // nullptr when installed, else a short reason (and nothing changes)
 // Removes an app: keepData leaves data/ (an offload), otherwise everything goes.
 bool appsRemove(const String &id, bool keepData);
+uint32_t appsGeneration();  // goes up whenever an app is installed or removed (lists read again)

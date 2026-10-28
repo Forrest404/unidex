@@ -20,4 +20,7 @@ void audioPlayEnd(bool now);
 static const int AUDIO_VOLUME_MAX = 10;
 int audioVolume();
 void audioSetVolume(int volume);
+// Alerts (a reminder falling due) on screen only, without the chime: Settings > Mute alerts, saved in NVS.
+bool audioAlertsMuted();
+void audioSetAlertsMuted(bool muted);
 bool audioChime();  // two short notes on the speaker (blocks ~0.5 s); false while recording or if the codec is silent

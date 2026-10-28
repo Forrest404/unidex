@@ -10,7 +10,7 @@ const $ = id => document.getElementById(id);
 const text = $('text'), paint = $('paint'), gutter = $('gutter'), logEl = $('log');
 const enc = new TextEncoder(), dec = new TextDecoder();
 const KEY = 'unidex-editor';
-const STARTERS = { app: 'An app', badge: 'A badge plugin' };
+const STARTERS = { app: 'An app', game: 'A game', badge: 'A badge plugin' };
 const TEXT_FILE = /\.(lua|json|md|txt|csv)$/i;
 
 let files = [];       // [{path, text} or {path, bytes}], in tab order

@@ -9,7 +9,7 @@ export { compareAppVersions, el, icon };
 export const EXTENDS = { badge: 'Badge' };  // the built-in apps plugins add to
 export const PERMISSIONS = { wifi: 'Uses WiFi', mic: 'Uses the microphone', meet: 'Uses the Pet radio' };
 export const PERMISSION_DETAIL = {
-  wifi: 'It can connect to the internet over your saved WiFi, to the addresses its README names. It never sees your WiFi password or keys.',
+  wifi: 'It can connect to the internet over your saved WiFi, to the addresses its README names, and see the names of WiFi networks nearby. It never sees your WiFi password or keys.',
   mic: 'It can record from the microphone.',
   meet: 'It can use the radio the Pet uses to meet other unidex.',
 };
@@ -25,7 +25,9 @@ const DEFAULT_ICON = [...Array(40)].map((_, y) => [...Array(40)].map((_, x) => {
 
 export const kb = n => n < 1024 ? `${n} byte${n === 1 ? '' : 's'}` : `${Math.ceil(n / 1024)} KB`;
 export const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
-export const kindLabel = a => (a.type === 'plugin' ? `Plugin for ${EXTENDS[a.extends] || a.extends}` : 'App');
+// Listed in Games on the device, not Apps: a game, or an app in the games category (apps_logic.h, inGames()).
+export const isGame = a => a.type === 'game' || (a.type !== 'plugin' && a.category === 'games');
+export const kindLabel = a => (a.type === 'plugin' ? `Plugin for ${EXTENDS[a.extends] || a.extends}` : isGame(a) ? 'Game' : 'App');
 
 // The app's 40x40 icon as an e-ink tile (`size` in CSS pixels).
 export function iconTile(rows, size = 48) {
@@ -103,7 +105,7 @@ export function install(entry) {
   const was = stateOf(entry);
   return withDevice(async dev => {
     await installApp(dev, entry, getFile, (text, fraction) => reporter(`${entry.name}: ${text}…`, '', fraction));
-    const where = entry.type === 'plugin' ? `in ${EXTENDS[entry.extends] || entry.extends}` : 'under Apps';
+    const where = entry.type === 'plugin' ? `in ${EXTENDS[entry.extends] || entry.extends}` : isGame(entry) ? 'in Games' : 'under Apps';
     reporter(was === 'update' ? `${entry.name} updated to ${entry.version}. Its data was kept.`
                               : `${entry.name} installed. Find it ${where} on your unidex.`, 'ok');
   });

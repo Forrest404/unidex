@@ -1,6 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include <FS.h>
+#include <functional>
 
 // WiFi with the network saved from the website (credentials.h), and a small HTTPS client that checks
 // certificates against the embedded root CA bundle. Turn WiFi off again as soon as the work is done.
@@ -26,3 +27,11 @@ struct NetPart {
 // The response body (de-chunked) goes in `body`, cut at `maxBody` bytes.
 int netHttps(const char *host, const char *method, const char *path, const String &headers,
              const NetPart *parts, int nParts, String &body, size_t maxBody = 65536);
+
+// GET https://host/path with the reply's body handed to `sink` as it comes (it returns false to stop). Returns the
+// HTTP status, or -1 if the connection failed. A redirect's address goes in `location`.
+int netHttpsGet(const char *host, const char *path, const std::function<bool(const uint8_t *, size_t)> &sink,
+                String &location);
+
+// GET https://host/path for one header of the reply (`name` in lower case, e.g. "date"). Returns the HTTP status.
+int netHttpsHeader(const char *host, const char *path, const char *name, String &value);

@@ -165,13 +165,15 @@ export async function notesClear(dev, name = 'all') {
   if (!(await dev.expect('OK N CLR', 3000))) throw new Error(tooOld);
 }
 
-// Runs on the device, with its own WiFi: 'wifi', 'openai', 'elevenlabs', 'anthropic' or 'github'. {ok, reason}
+// Runs on the device, with its own WiFi: 'wifi', 'openai', 'elevenlabs', 'anthropic', 'github' or 'calendar'.
+// {ok, detail} or {ok: false, reason}; detail is what was found ("12 events this week"), if the device says.
 export async function notesTest(dev, what) {
   await dev.send(`N TEST ${what}`);
   const line = await dev.expect(`OK N TEST ${what}`, 60000);
   if (!line) throw new Error('No answer from the device.');
   const rest = line.slice(`OK N TEST ${what} `.length);
-  return rest === 'ok' ? { ok: true } : { ok: false, reason: rest.replace(/^fail /, '') };
+  if (rest === 'ok' || rest.startsWith('ok ')) return { ok: true, detail: rest.slice(3) };
+  return { ok: false, reason: rest.replace(/^fail /, '') };
 }
 
 // Two seconds from the microphone: {peak, rms} (0-32767), or {reason}.
@@ -227,4 +229,27 @@ export async function petGet(dev) {
 export async function petSet(dev, look, name) {
   await dev.send(`P SET ${look.toString(16).padStart(5, '0')} ${toHex(name)}`.trimEnd());
   if (!(await dev.expect('OK P SET', 3000))) throw new Error('No reply. Update the firmware (Install page) to use the Pet designer.');
+}
+
+// Your name, which the Pet greets you by (v1.13 and newer: "OK P OWNER <hex>", empty for none). Older firmware
+// answers ERR: then the get gives null and the set false, and nothing else changes.
+export async function petOwnerGet(dev) {
+  await dev.send('P OWNER');
+  try {
+    const line = await dev.expect('OK P OWNER', 3000);
+    return line ? fromHex(line.split(' ')[3] || '') : null;
+  } catch (e) {
+    if (e.reply) return null;
+    throw e;
+  }
+}
+
+export async function petOwnerSet(dev, name) {
+  await dev.send(`P OWNER ${name ? toHex(name) : '-'}`);  // "-" clears it
+  try {
+    return !!(await dev.expect('OK P OWNER', 3000));
+  } catch (e) {
+    if (e.reply) return false;
+    throw e;
+  }
 }
