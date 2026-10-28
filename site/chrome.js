@@ -195,7 +195,8 @@ function footer() {
       el('span', { text: 'Free for non-commercial use.' }),
       el('nav', { 'aria-label': 'More' },
         link('Learn to code ↗', LEARN), link('GitHub ↗', REPO), link('unidex.shop ↗', SHOP), link('Ko-fi ↗', 'https://ko-fi.com/forrest404'),
-        link('Licence ↗', `${REPO}/blob/main/LICENSE`), link('Privacy ↗', `${REPO}/blob/main/PRIVACY.md`))),
+        link('Licence ↗', `${REPO}/blob/main/LICENSE`), link('Terms ↗', `${REPO}/blob/main/TERMS.md`),
+        link('Privacy ↗', `${REPO}/blob/main/PRIVACY.md`))),
   ];
 }
 
@@ -210,7 +211,8 @@ const PAGES = [
   { group: 'Help', title: '"App error" on the device', sub: 'What it means and what to do', href: 'help.html#app-error', icon: 'wrench', words: 'crash broken lua' },
   { group: 'Help', title: 'The SD card', sub: 'FAT32, the starter files, No SD card', href: 'help.html#sd', icon: 'file', words: 'card fat32 files storage' },
   { group: 'Help', title: 'Passing it on (factory reset)', sub: 'Wipe your WiFi, keys and Pet', href: 'help.html#reset', icon: 'trash', words: 'wipe sell give erase' },
-  { group: 'Help', title: 'Privacy', sub: 'What the device and this site send, and where', href: `${REPO}/blob/main/PRIVACY.md`, icon: 'key', ext: true, words: 'data keys tracking' },
+  { group: 'Help', title: 'Privacy', sub: 'What the device and this site send, and where', href: `${REPO}/blob/main/PRIVACY.md`, icon: 'key', ext: true, words: 'data keys tracking cookies gdpr policy' },
+  { group: 'Help', title: 'Terms of Use', sub: 'The rules for the website, the firmware and the app store', href: `${REPO}/blob/main/TERMS.md`, icon: 'file', ext: true, words: 'terms conditions legal rules licence age' },
   { group: 'Pages', title: 'Install unidex', sub: 'Install erases; Update keeps your files', href: './', icon: 'install', words: 'firmware flash erase update version esp32' },
   { group: 'Pages', title: 'App editor', sub: 'Write an app in your browser and run it on the emulator', href: 'editor.html', icon: 'code', words: 'editor write code lua playground ide run test' },
   { group: 'Pages', title: 'Example: Hello', sub: 'A whole app in about 20 lines of Lua', href: 'developers.html#example', icon: 'code', words: 'lua sample code template' },

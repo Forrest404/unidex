@@ -395,10 +395,12 @@ off so the battery isn't drained further. Plug in USB to charge it, then press P
 - **Still stuck, or found a bug?** [Open an issue](https://github.com/Forrest404/unidex/issues/new/choose) with the
   firmware version and what happened. For security problems, see [SECURITY.md](SECURITY.md).
 
-## Privacy
+## Privacy and terms
 
-unidex has no account, analytics or tracking. [PRIVACY.md](PRIVACY.md) covers what the device and website send
-and where (Notes and Reminders, the Pet's Meet, the website).
+unidex has no account, analytics or tracking. The [Privacy Policy](PRIVACY.md) covers what the device and website
+send and where (Notes, Reminders, Clock's voice commands, the Pet's Meet, the website), and your rights. The
+[Terms of Use](TERMS.md) cover the website, the firmware and the app store. Buying a device at
+[unidex.shop](https://unidex.shop) is covered by the shop's own terms.
 
 ## Licence
 
