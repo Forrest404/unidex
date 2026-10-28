@@ -226,7 +226,7 @@ Everything here was read from the chip, seen working on the device, or taken fro
 | USB | Native USB-Serial/JTAG (`303A:1001`), no UART bridge | confirmed |
 | Panel | 1.54" black/white e-paper, 200×200, SSD1681 | confirmed |
 | Driver | our own SSD1681 driver (`src/core/display.cpp`), drawing with Adafruit GFX | confirmed |
-| Also on board | SHTC3 temp/humidity, ES8311 audio codec, mic, speaker header | codec, mic and speaker used (Notes, Reminders); SHTC3 read by apps (`unidex.climate`, `src/core/climate.cpp`) |
+| Also on board | SHTC3 temp/humidity, ES8311 audio codec, mic, speaker header | codec, mic and speaker used (Notes, Reminders); SHTC3 unused |
 | Micro SD slot | SD_MMC 1-bit, FAT32, holds all files | confirmed (mounted a 128 GB SDHC card) |
 
 | Function | GPIO | Notes |
