@@ -27,8 +27,9 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   confetti when the day's done. It notices what you did in other apps ("Nice one!" for a ticked-off reminder, a new
   best in Games, "Got it!" for a saved note), and now and then says it misses a friend you haven't met in a week.
 - **Pet > Meet:** friends stay friends on both devices, and "Be friends?" shows on both. Friends who meet again
-  wave, hug from the 5th meeting and do a secret handshake from the 10th; at night they have a sleepover. Hold B
-  for a high five: press B together to slap hands. The new acts need both devices on v1.13.
+  wave, hug from the 5th meeting and do a secret handshake from the 10th; at night (22:00-07:00) they have a
+  sleepover. Hold B and choose High five (or the room starts one now and then): press B together to slap hands. The
+  new acts need both devices on v1.13.
 - **Apps:** `unidex.climate()` (API 6) reads the board's temperature and humidity sensor. Thanks to @candour.
 - **Timetable:** once every event its home line knew about has ended, it reads the card again (at most every 15
   minutes), so the line no longer stays on "Nothing coming up" until you open it.
