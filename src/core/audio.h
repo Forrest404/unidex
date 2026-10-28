@@ -23,4 +23,9 @@ void audioSetVolume(int volume);
 // Alerts (a reminder falling due) on screen only, without the chime: Settings > Mute alerts, saved in NVS.
 bool audioAlertsMuted();
 void audioSetAlertsMuted(bool muted);
-bool audioChime();  // two short notes on the speaker (blocks ~0.5 s); false while recording or if the codec is silent
+bool audioChime();  // the ringtone on the speaker (blocks up to ~1.2 s); false while recording or if the codec is silent
+// Which tune the chime plays (Settings > Ringtone, ringtones.h): 0 to AUDIO_RINGTONES - 1, saved in NVS. 0 is the
+// two notes it always had.
+int audioRingtone();
+void audioSetRingtone(int tune);
+const char *audioRingtoneName(int tune);

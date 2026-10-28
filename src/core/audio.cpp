@@ -2,6 +2,7 @@
 // as used by Waveshare's 08_Audio_Test for this board. That library needs ESP-IDF 5, so this is a small
 // standalone version on the legacy I2S driver and the Wire bus the clock chip already uses.
 #include "audio.h"
+#include "ringtones.h"
 #include <Arduino.h>
 #include <Wire.h>
 #include <driver/i2s.h>
@@ -129,8 +130,9 @@ void audioEnd() {
   running = false;
 }
 
-// One note: a sine at `hz` for `ms`, faded in and out so it doesn't click.
-static void tone(float hz, int ms) {
+// One note: a sine at `hz` for `ms`, faded in and out so it doesn't click. struck: it dies away from the start,
+// as a bell does, instead of holding steady.
+static void tone(float hz, int ms, bool struck = false) {
   static int16_t frames[256 * 2];  // stereo
   const int total = AUDIO_RATE * ms / 1000, fade = AUDIO_RATE / 100;  // 10 ms
   float phase = 0;
@@ -138,7 +140,8 @@ static void tone(float hz, int ms) {
   for (int done = 0; done < total;) {
     const int n = min(256, total - done);
     for (int i = 0; i < n; i++, done++) {
-      const float env = min(1.0f, min(done, total - done) / (float)fade);
+      float env = min(1.0f, min(done, total - done) / (float)fade);
+      if (struck) env *= expf(-4.0f * done / total);  // down to about 2% by the end
       frames[2 * i] = frames[2 * i + 1] = (int16_t)(sinf(phase) * env * 9000);  // about a quarter of full scale
       phase += step;
     }
@@ -212,10 +215,27 @@ void audioPlayEnd(bool now) {
   playing = false;
 }
 
+static int ringtone = -1;  // not read yet
+
+int audioRingtone() {
+  if (ringtone < 0) ringtone = constrain(storageGetInt("ringtone", 0), 0, ringtones::COUNT - 1);
+  return ringtone;
+}
+
+void audioSetRingtone(int tune) {
+  ringtone = constrain(tune, 0, ringtones::COUNT - 1);
+  storagePutInt("ringtone", ringtone);
+}
+
+const char *audioRingtoneName(int tune) { return ringtones::TUNES[constrain(tune, 0, ringtones::COUNT - 1)].name; }
+
 bool audioChime() {
   if (!playBegin(2)) return false;
-  tone(880, 140);
-  tone(1319, 220);
+  const ringtones::Tune &t = ringtones::TUNES[audioRingtone()];
+  for (const ringtones::Note &n : t.notes) {
+    if (!n.hz && !n.ms) break;
+    tone(n.hz, n.ms, t.struck);
+  }
   audioPlayEnd(false);
   return true;
 }

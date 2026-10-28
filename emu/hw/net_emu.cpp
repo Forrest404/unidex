@@ -2,6 +2,7 @@
 #include "../../src/core/net.h"
 #include "../../src/core/link.h"
 #include "../../src/core/audio.h"
+#include "../../src/core/ringtones.h"
 static const char *NO_NET = "Not in the demo";
 const char *netConnect() { return NO_NET; }
 const char *netBegin() { return NO_NET; }
@@ -30,3 +31,7 @@ void audioSetVolume(int v) { volume = v; }
 static bool alertsMuted;
 bool audioAlertsMuted() { return alertsMuted; }
 void audioSetAlertsMuted(bool muted) { alertsMuted = muted; }
+static int ringtone;
+int audioRingtone() { return ringtone; }
+void audioSetRingtone(int tune) { ringtone = tune; }
+const char *audioRingtoneName(int tune) { return ringtones::TUNES[tune >= 0 && tune < ringtones::COUNT ? tune : 0].name; }

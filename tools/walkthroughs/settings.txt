@@ -4,6 +4,7 @@ same sleep_s
 same volume
 same invert
 same mute_alerts
+same ringtone
 select Settings
 shot s-home-status
 press b
@@ -25,6 +26,15 @@ press a
 shot s-list-volume-row
 press a
 shot s-list-alerts-row
+press a
+shot s-list-ringtone-row
+press b
+shot s-ringtone-bell
+press b
+press b
+press b
+press b
+shot s-ringtone-back-to-chime
 press a
 shot s-list-language-row
 press b

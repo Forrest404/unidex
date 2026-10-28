@@ -12,6 +12,8 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 - **Clock by voice** (new): hold B on Clock's list and say it: "set a timer for 8 minutes", "set an alarm for
   5pm", "wake me up at 7 every weekday", "stop the timer", "turn off my alarms", "start the stopwatch". Needs WiFi
   and a transcription key, and English.
+- **Ringtones** (new): Settings > Ringtone picks the sound of every chime (alarms, the timer, reminders and apps):
+  Chime (as before), Bell, Rise, Beeps or Ripple. B plays each as you go.
 - **The Pet knows you** (new): give it your name (Dress up > Your name, or the Pet card on your phone) and it greets
   you by it. It talks about your day in a speech bubble, from your timetable, calendar and reminders: the next
   class within the hour ("Maths in 15 min, B12", excited when it's close), the one on now ("In Maths till 8:35"),

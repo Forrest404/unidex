@@ -5,6 +5,7 @@
 // Hold B in the list: set up from a phone (the phone portal, src/apps/notes/phone.cpp), then check what changed.
 #include "../../core/app.h"
 #include "../../core/audio.h"
+#include "../../core/ringtones.h"
 #include "../../core/battery.h"
 #include "../../core/clock.h"
 #include "../../core/devtools.h"
@@ -29,7 +30,7 @@ static const int SLEEP_CHOICES[] = {10, 20, 30, 60};
 static const int ROW_H = 22, PAGE_ROWS = 6;  // six rows fit above the hints
 
 enum Screen : uint8_t { LIST, DATETIME, INFO, RESET, CONFIRM, CONFIRM_AGAIN, VOLUME, PHONE, CHECK, SYNC };
-enum Row : uint8_t { DATE, SYNC_ROW, SLEEP, VOLUME_ROW, ALERTS, LANGUAGE, INVERT, INFO_ROW, RESET_ROW, ROWS };
+enum Row : uint8_t { DATE, SYNC_ROW, SLEEP, VOLUME_ROW, ALERTS, RINGTONE, LANGUAGE, INVERT, INFO_ROW, RESET_ROW, ROWS };
 enum Reset : uint8_t { CALENDAR, PET_FRIENDS, EVERYTHING, FACTORY, RESETS };
 static const char *RESET_NAMES[] = {"Calendar", "Pet friends", "Everything", "Factory reset"};
 static const int RESET_ROW_H = 22;  // six rows fit above the hints
@@ -106,6 +107,7 @@ static void drawList() {
         break;
       }
       case ALERTS: drawRow(i, sel, "Alert sound", audioAlertsMuted() ? "off" : "on"); break;
+      case RINGTONE: drawRow(i, sel, "Ringtone", audioRingtoneName(audioRingtone())); break;
       case LANGUAGE: {  // the language notes are in ("Auto" or its name)
         const int lang = max(0, languages::find(credGet("note_lang").c_str()));
         drawRow(i, sel, "Note language", languages::LIST[lang].name);
@@ -116,7 +118,7 @@ static void drawList() {
       case RESET_ROW: drawRow(i, sel, "Reset data", ">"); break;
     }
   }
-  drawHints("next", cursor == SLEEP || cursor == INVERT || cursor == ALERTS || cursor == LANGUAGE ? "change" : "open", "phone");
+  drawHints("next", cursor == SLEEP || cursor == INVERT || cursor == ALERTS || cursor == RINGTONE || cursor == LANGUAGE ? "change" : "open", "phone");
 }
 
 // Sync: the clock from the internet, then this week's events from the calendar link (src/apps/timetable/callink.h).
@@ -451,6 +453,9 @@ static Redraw onButton(Event e) {
         } else if (cursor == ALERTS) {
           audioSetAlertsMuted(!audioAlertsMuted());
           if (!audioAlertsMuted()) audioChime();  // what an alert sounds like now
+        } else if (cursor == RINGTONE) {  // the next tune, and how it sounds (even with Alert sound off: you asked)
+          audioSetRingtone((audioRingtone() + 1) % ringtones::COUNT);
+          audioChime();
         } else if (cursor == LANGUAGE) {  // the next one in the list, round to Auto
           const int lang = max(0, languages::find(credGet("note_lang").c_str()));
           credSet("note_lang", languages::LIST[(lang + 1) % languages::COUNT].code);

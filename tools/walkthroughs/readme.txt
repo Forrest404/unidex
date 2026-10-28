@@ -20,6 +20,8 @@ press a
 press a
 press a
 press a
+press a
+press a
 press b
 press a
 press a

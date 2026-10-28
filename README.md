@@ -264,6 +264,8 @@ a store game to offload or delete it.
   chime at each step; 0 turns it off.
 - **Alert sound:** off, and a reminder falling due still shows on screen but doesn't chime (nor do apps). The
   Clock's alarms and timer still ring.
+- **Ringtone:** the sound of every chime (alarms, the timer, reminders, apps): Chime, Bell, Rise, Beeps or Ripple.
+  **B** picks the next and plays it.
 - **Note language:** **B** steps through Auto, English, Spanish, French ... Korean: the language your notes are
   in (see [Notes](#notes)).
 - **Invert:** white on black.
