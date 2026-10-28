@@ -9,6 +9,9 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 - **Clock** (new, built in, after Reminders): a timer (presets from 1 minute to 2 hours), up to three alarms (once,
   every day, weekdays or weekends, with snooze), a stopwatch with laps, and the time in up to four of 24 cities.
   Alarms and timers wake the device and ring over whatever's on screen, even with Alert sound off.
+- **Clock by voice** (new): hold B on Clock's list and say it: "set a timer for 8 minutes", "set an alarm for
+  5pm", "wake me up at 7 every weekday", "stop the timer", "turn off my alarms", "start the stopwatch". Needs WiFi
+  and a transcription key, and English.
 - **The Pet knows you** (new): give it your name (Dress up > Your name, or the Pet card on your phone) and it greets
   you by it. It talks about your day in a speech bubble, from your timetable, calendar and reminders: the next
   class within the hour ("Maths in 15 min, B12", excited when it's close), the one on now ("In Maths till 8:35"),

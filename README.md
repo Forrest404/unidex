@@ -196,6 +196,11 @@ A timer, alarms, a stopwatch and the time in other cities. **A** moves down the 
   counting while the device sleeps.
 - **World:** up to four cities, each with its time, how far ahead or behind London it is, and "tomorrow" or
   "yesterday". **B** picks the next city (24 to choose from), **hold B** the one before.
+- **By voice:** on the list, **hold B** and say it, then let go: "set a timer for 8 minutes", "timer for an hour and
+  a half", "set an alarm for 5pm", "wake me up at 7 every weekday", "alarm in 20 minutes", "stop the timer", "turn
+  off my alarms", "start the stopwatch". It opens what it set, so you can check it. It needs WiFi and a
+  transcription key (the same as Notes), and it understands English. A time said without am or pm ("alarm at 5")
+  is whichever 5 comes next.
 
 When a timer ends or an alarm is due, the device wakes up and rings over whatever's on screen, chiming every few
 seconds for up to two minutes. **B** stops it; **A** snoozes an alarm for 9 minutes or gives a timer a minute more.

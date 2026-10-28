@@ -18,6 +18,7 @@
 #include "../apps/notes/store.h"
 #include "../apps/timetable/callink.h"
 #include "../apps/scripts/appfetch.h"
+#include "../apps/apps.h"
 #include "net.h"
 
 static bool dryRun, fakeCloud, netFail, noCard, noPush, noSave, demo, manualFrames, emptyHeard;
@@ -289,6 +290,8 @@ bool devUsb(const char *l) {
       powerAlive();  // hundreds of files take longer than the watchdog's 30 s
     }
     Serial.printf("OK X NOTES %d\n", n);
+  } else if (!strncmp(c, "CLOCKSAY ", 9)) {  // X CLOCKSAY <words>: Clock does what they ask, as if said to it
+    Serial.printf("OK X CLOCKSAY %s\n", clockSay(c + 9));
   } else if (!strcmp(c, "CALSYNC")) {  // X CALSYNC: what Settings > Sync does (clock, then the calendar link)
     const SyncResult r = calendarSync();
     Serial.printf("OK X CALSYNC clock=%s link=%d calendar=%s events=%d\n", r.clock ? r.clock : "ok", r.link,

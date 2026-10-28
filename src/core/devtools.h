@@ -37,6 +37,8 @@
 //   X RMFILE <path>   -> removes one file from the card (cleaning up after a test)
 //   X NOTE <id> <hex> -> saves a note with this markdown (test data: e.g. text in another language)
 //   X NOTES <n>       -> n made-up notes on the card (test-0001 ...), for long lists; X NOTES 0 removes them
+//   X CLOCKSAY <words> -> Clock does what the words ask, as if they'd been said to it (hold B on its menu):
+//                        "OK X CLOCKSAY <what it would show>", e.g. "Timer 8:00"
 //   X CALSYNC         -> what Settings > Sync does: "OK X CALSYNC clock=<ok|reason> link=<0|1> calendar=<ok|reason>
 //                        events=<n>"
 //   X FETCH [<id>]    -> over WiFi, the store's list to the card, or the app <id> installed from it (as the phone

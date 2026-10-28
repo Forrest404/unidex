@@ -1,14 +1,25 @@
 // Clock: a timer, up to 3 alarms, a stopwatch and the time in other cities. The timer and alarms ring wherever you
 // are, waking the device from sleep (powerWakeAt) as reminders do, and they ring even with Settings > Alert sound off
-// (Volume still counts: 0 is silent). The sums are in clock_logic.h.
+// (Volume still counts: 0 is silent). The sums are in clock_logic.h. Hold B on the menu to say what to set ("timer
+// for 8 minutes", "alarm at 7 every weekday"): the words come back from Notes' transcription over WiFi, and
+// voice_logic.h reads them.
 #include <sys/time.h>
 #include "clock_logic.h"
+#include "voice_logic.h"
+#include "../apps.h"
+#include "../notes/cloud.h"
+#include "../notes/job.h"
+#include "../notes/record.h"
+#include "../notes/store.h"
 #include "../../core/app.h"
 #include "../../core/audio.h"
+#include "../../core/battery.h"
 #include "../../core/clock.h"
+#include "../../core/credentials.h"
 #include "../../core/devtools.h"
 #include "../../core/display.h"
 #include "../../core/launcher.h"
+#include "../../core/net.h"
 #include "../../core/power.h"
 #include "../../core/storage.h"
 #include "../../core/theme.h"
@@ -229,7 +240,7 @@ static void drawMenu() {
   drawRow(M_ALARM, menuRow == M_ALARM, "Alarm", alarm.c_str());
   drawRow(M_STOPWATCH, menuRow == M_STOPWATCH, "Stopwatch", sw.c_str());
   drawRow(M_WORLD, menuRow == M_WORLD, "World", world.c_str());
-  drawHints("next", "open", "");
+  drawHints("next", "open", "say it");
 }
 
 static void drawBig(const char *text, int16_t cy) {
@@ -395,6 +406,118 @@ static void startTimer() {
   storagePutInt("clk_timer", preset);  // skips the write if unchanged
 }
 
+// --- by voice ---
+
+static const uint32_t VOICE_SECONDS = 10;  // a command is a few words
+
+static void drawWorking() {
+  drawHeader("Clock");
+  drawEmpty("Working it out", "a few seconds");
+}
+
+// Records while B is held, then has it transcribed over WiFi (blocking: a few seconds). nullptr with the words in
+// `heard`, or why not, for a toast.
+static const char *hear(String &heard) {
+  if (!credWifiAny()) return "Voice needs WiFi: Setup";
+  if (const char *missing = cloudTranscribeMissing()) return missing;
+  if (jobBusy() || netClaimed()) return "WiFi busy: try again soon";
+  if (const char *low = batteryTooLow()) return low;
+  if (!jobCanTake()) return "Still saving a note";
+  int16_t *samples;
+  size_t count;
+  if (const char *err = recordWhileHeld(VOICE_SECONDS, samples, count)) return err;
+  displayShow(drawWorking, false);
+  netClaim(true);  // the WiFi is ours until the words are back: Notes' background sends wait
+  powerHold();
+  const char *err = netConnect();
+  if (err) {
+    err = "Voice needs WiFi";
+  } else {
+    uint8_t wav[44];
+    storeWavHeader(wav, count * 2);
+    const NetPart audio[] = {NetPart::bytes(wav, sizeof wav), NetPart::bytes(samples, count * 2)};
+    err = cloudTranscribe(audio, 2, heard);
+  }
+  jobGiveBuffer(samples);
+  netOff();
+  netClaim(false);
+  powerRelease();
+  return err;
+}
+
+// Does what the words ask, and opens what it changed. `said` is the toast: what was done, or why not.
+static void act(const String &words, String &said) {
+  const time_t now = time(nullptr);
+  const clocks::Local here = clocks::localIn(clocks::CITIES[clocks::HOME], now);
+  const clockvoice::Command c = clockvoice::parse(asciiText(words).c_str(), clockValid() ? here.hour * 60 + here.minute : -1);
+  switch (c.kind) {
+    case clockvoice::Kind::TIMER:
+      timerEndsAt = now + c.seconds, pausedLeft = 0, screen = TIMER;
+      said = ("Timer " + clocks::duration(c.seconds)).c_str();
+      return;
+    case clockvoice::Kind::TIMER_STOP:
+      said = timerEndsAt || pausedLeft ? "Timer stopped" : "No timer running";
+      timerEndsAt = 0, pausedLeft = 0;
+      return;
+    case clockvoice::Kind::ALARM: {
+      int slot = -1;  // the alarm already at that time, or else the first that's off
+      for (int i = 0; i < clocks::ALARMS && slot < 0; i++)
+        if (alarms[i].hour == c.hour && alarms[i].minute == c.minute) slot = i;
+      for (int i = 0; i < clocks::ALARMS && slot < 0; i++)
+        if (!alarms[i].on) slot = i;
+      if (slot < 0) {
+        said = "3 alarms on: turn one off";
+        return;
+      }
+      alarms[slot] = {true, (uint8_t)c.hour, (uint8_t)c.minute, c.repeat};
+      saveAlarm(slot);
+      if (snoozed == slot) snoozeAt = 0;
+      screen = ALARMS, alarmRow = slot;
+      said = ("Alarm " + clocks::hhmm(c.hour, c.minute)).c_str();
+      if (!clockValid()) said += ": clock not set";
+      else if (c.repeat != clocks::ONCE) said += String(" ") + clocks::REPEAT_NAMES[c.repeat];
+      else said += (" " + clocks::whenWords((time_t)clocks::nextRing(alarms[slot], now), now)).c_str();
+      return;
+    }
+    case clockvoice::Kind::ALARMS_OFF:
+      for (int i = 0; i < clocks::ALARMS; i++)
+        if (alarms[i].on) alarms[i].on = false, saveAlarm(i);
+      snoozeAt = 0;
+      said = "Alarms off";
+      return;
+    case clockvoice::Kind::STOPWATCH_START:
+      if (!swRunning) swSince = nowMs(), swRunning = true;
+      screen = STOPWATCH;
+      said = "Stopwatch going";
+      return;
+    case clockvoice::Kind::STOPWATCH_STOP:
+      if (swRunning) swBase = swElapsed(), swRunning = false;
+      screen = STOPWATCH;
+      said = "Stopwatch stopped";
+      return;
+    default:
+      said = words.length() ? "Try \"timer 5 min\"" : "Heard nothing";  // (a toast holds ~17 characters)
+      return;
+  }
+}
+
+static Redraw voice() {
+  String heard, said;
+  if (const char *err = hear(heard)) said = err;
+  else act(heard, said);
+  launcherToast(said.c_str());
+  return Redraw::Full;
+}
+
+#if UNIDEX_DEV
+const char *clockSay(const char *words) {  // X CLOCKSAY: as if it had been said
+  static String said;
+  load();
+  act(words, said);
+  return said.c_str();
+}
+#endif
+
 static Redraw onButton(Event e) {
   load();
   const bool a = e == Event::AShort, b = e == Event::BShort, holdB = e == Event::BLong;
@@ -403,6 +526,7 @@ static Redraw onButton(Event e) {
       if (a || b) return stopRinging(a);
       return Redraw::None;
     case MENU:
+      if (holdB) return voice();
       if (a) menuRow = (menuRow + 1) % MENU_ROWS;
       else if (b) {
         screen = menuRow == M_TIMER ? TIMER : menuRow == M_ALARM ? ALARMS : menuRow == M_STOPWATCH ? STOPWATCH : WORLD;
