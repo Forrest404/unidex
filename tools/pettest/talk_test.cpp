@@ -133,6 +133,30 @@ int main() {
   a.notice = "Got it!";
   says(a, "Got it!", HAPPY, false, "at night it wakes up for it");
 
+  // Missing a friend
+  const long long day0 = 1793059200LL;  // a midnight; a week later and more below
+  std::vector<Pal> pals = {{"Mochi", day0 - 10 * 86400}, {"Bean", day0 - 2 * 86400}, {"Ghost", 0}};
+  int missedDays = 0;
+  bool onlyMochi = true, sameAllDay = true;
+  for (int d = 0; d < 60; d++) {
+    pals[1].lastMet = day0 + (d - 2) * 86400LL;  // Bean: always 2 days ago
+    const std::string m = missedToday(pals, day0 + d * 86400LL + 9 * 3600);
+    missedDays += !m.empty();
+    onlyMochi = onlyMochi && (m.empty() || m == "Mochi");
+    sameAllDay = sameAllDay && m == missedToday(pals, day0 + d * 86400LL + 20 * 3600);
+  }
+  check(missedDays >= 10 && missedDays <= 30, "about one day in three");
+  check(onlyMochi, "only a friend not met for a week (not one met 2 days ago, nor one met without a clock)");
+  check(sameAllDay, "the same all day");
+  check(missedToday({{"Bean", day0 - 86400}}, day0) == "", "nobody to miss");
+  a = at(15, 0);
+  a.missed = "Mochi";
+  add(a, "Maths", "", 20 * 60, 60);
+  says(a, "I miss Mochi", NORMAL, false, "it says so in the afternoon, before when you're free");
+  a = at(8, 0);
+  a.missed = "Mochi";
+  says(a, "Morning!", NORMAL, false, "not instead of good morning");
+
   // Poses
   a = at(9, 0);
   add(a, "Maths", "B12", 10, 60);

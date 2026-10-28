@@ -2,6 +2,7 @@
 # reminders (demo 1: nothing on the card changes), a known Pet (keep pet), and the clock moved (put back at the end).
 # The sample classes are worked out, around the time, when the Timetable opens. The sample reminders are due at
 # 08:00 (ticked off, but late at first the last time) and 17:00 (Call Sam: never reached, so it doesn't go off).
+# Ticking one off makes it say "Nice one!" on the next visit (unless something more urgent is on), then forget it.
 # Afterwards, open the Timetable and Reminders once so their home lines are yours again.
 keep pet
 pet 00000
@@ -50,6 +51,10 @@ press b
 press A
 select Pet
 press b
+expect detail=main:00000:Nice one!
+shot pk-nice-one
+press A
+press b
 expect detail=main:00000:Call Sam at 5pm
 shot pk-reminder
 press A
@@ -69,6 +74,9 @@ press b
 press b
 press A
 select Pet
+press b
+expect detail=main:00000:Nice one!
+press A
 press b
 expect detail=main:00000:Morning!
 shot pk-morning

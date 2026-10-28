@@ -3,6 +3,7 @@
 // It blinks every few seconds for a minute after the last press. Edit: A = next row, B = change it (next option;
 // Random: a new look; Done: save), hold B = previous option, hold A = save and back.
 #include <esp_random.h>
+#include "friends_logic.h"
 #include "meet.h"
 #include "pet.h"
 #include "notice.h"
@@ -153,6 +154,13 @@ static const talk::Talk &todaysTalk() {
   talk::Agenda a;
   a.owner = owner.c_str();
   if (petOpen && screen == MAIN) a.notice = noticeText(a.noticePose);  // on the Pet's own screen only
+  if (clockValid()) {  // a friend not met for a week, now and then
+    char names[friends::MAX][13];
+    uint32_t met[friends::MAX];
+    std::vector<talk::Pal> pals;
+    for (int i = 0, n = meetFriends(names, met, friends::MAX); i < n; i++) pals.push_back({names[i], met[i]});
+    a.missed = talk::missedToday(pals, now);
+  }
   a.clock = clockValid();
   if (a.clock) {
     const struct tm t = clockLocal();

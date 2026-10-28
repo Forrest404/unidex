@@ -140,6 +140,16 @@ static bool isFriend(uint32_t id) { return friendsList().find(id) >= 0; }
 
 int meetFriendCount() { return friendsList().count; }
 
+int meetFriends(char (*names)[13], uint32_t *lastMet, int max) {
+  const friends::List &l = friendsList();
+  const int n = min<int>(l.count, max);
+  for (int i = 0; i < n; i++) {
+    strlcpy(names[i], l.f[i].name, 13);
+    lastMet[i] = l.f[i].lastMet;
+  }
+  return n;
+}
+
 // Sending badges to a friend (hold B in the room: a menu with "Swap screens" and "Send a badge").
 static bool menuOpen, picking, waitingVerdict, receiving, previewing;
 static int menuRow, pickAt, pickCount;

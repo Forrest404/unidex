@@ -1,11 +1,14 @@
 #pragma once
 // What the Pet says about your day, from your timetable, calendar and reminders: one thing at a time, the first
 // that applies of: a late reminder, a class on now, one within the hour, something that just happened in another
-// app, a reminder within 2 hours, the day's classes just over, asleep at night, good morning, then when you're free. Some come with a little picture beside
+// app, a reminder within 2 hours, the day's classes just over, asleep at night, good morning, a friend it misses,
+// then when you're free. Some come with a little picture beside
 // it (a pose): its backpack just before a class, a wave during one, confetti when they're over. No Arduino code, so
 // it can be checked on a computer (tools/pettest).
+#include <stdint.h>
 #include <stdio.h>
 #include <string>
+#include <vector>
 #include "../reminders/reminders_logic.h"
 
 namespace talk {
@@ -30,6 +33,7 @@ struct Agenda {
   std::string reminderTitle;
   long dayDoneAgo = -1;  // minutes since today's last class or event ended (-1: none today, or not yet)
   std::string notice;    // something that just happened in another app ("Nice one!"), "" for none
+  std::string missed;    // a friend it misses today (missedToday), "" for none
   Pose noticePose = NO_POSE;
   std::string owner;  // your name ("" if not set)
 };
@@ -49,6 +53,26 @@ inline std::string clockText24(long minutes) {  // "9:00", "14:30"
   char out[8];
   snprintf(out, sizeof out, "%ld:%02ld", minutes / 60, minutes % 60);
   return out;
+}
+
+struct Pal {
+  std::string name;
+  long long lastMet;  // unix time, 0 if the clock wasn't set then
+};
+
+static const long long MISS_AFTER = 7 * 86400LL;  // not met for a week
+
+// The friend it misses today: one not met for a week or more, on about one day in three, the same one all day (so it
+// doesn't change every minute); "" on other days or with nobody to miss.
+inline std::string missedToday(const std::vector<Pal> &pals, long long now) {
+  std::vector<const Pal *> missed;
+  for (const Pal &p : pals)
+    if (p.lastMet > 0 && now - p.lastMet >= MISS_AFTER) missed.push_back(&p);
+  if (missed.empty()) return "";
+  const uint32_t day = (uint32_t)(now / 86400);
+  const uint32_t mix = (day * 2654435761u) >> 7;  // the day, stirred (32 bits, the same on the device and a computer)
+  if (mix % 3) return "";
+  return missed[(mix / 3) % missed.size()]->name;
 }
 
 inline std::string hello(const char *word, const std::string &owner) {  // "Hi Sam!", "Morning!"
@@ -106,6 +130,10 @@ inline Talk say(const Agenda &a) {
   if (a.minute < MORNING_TO) {
     t.text = hello("Morning", a.owner);
     if (next && laterToday < 1440) t.text += " " + next->title + " at " + clockText24(laterToday);
+    return t;
+  }
+  if (!a.missed.empty()) {
+    t.text = "I miss " + a.missed;
     return t;
   }
   if (next) {
