@@ -1,10 +1,10 @@
 #pragma once
 
-struct SensorReading {
-    float temperatureC;
-    float humidityRH;
+struct ClimateReading {
+  float temperatureC;
+  float humidityRH;
 };
 
-// Reads the SHTC3.
-// Returns false if communication or data validation fails.
-bool sensorRead(SensorReading &out);
+// Reads the board's SHTC3 (about 20 ms). false if it doesn't answer or a CRC is wrong. The sensor sits next to the
+// chip, so it reads the board's own warmth too: a few degrees over the room, more while charging or on WiFi.
+bool climateRead(ClimateReading &out);

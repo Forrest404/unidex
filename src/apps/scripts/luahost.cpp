@@ -329,24 +329,20 @@ static int l_time(lua_State *s) {
   return 1;
 }
 
+// API 6: the SHTC3's reading, or nil and the reason.
 static int l_climate(lua_State *s) {
-    SensorReading reading;
-
-    if (!sensorRead(reading)) {
-        lua_pushnil(s);
-        lua_pushstring(s, "sensor read failed");
-        return 2;
-    }
-
-    lua_createtable(s, 0, 2);
-
-    lua_pushnumber(s, reading.temperatureC);
-    lua_setfield(s, -2, "temperature_c");
-
-    lua_pushnumber(s, reading.humidityRH);
-    lua_setfield(s, -2, "humidity_rh");
-
-    return 1;
+  ClimateReading r;
+  if (!climateRead(r)) {
+    lua_pushnil(s);
+    lua_pushstring(s, "sensor read failed");
+    return 2;
+  }
+  lua_createtable(s, 0, 2);
+  lua_pushnumber(s, r.temperatureC);
+  lua_setfield(s, -2, "temperature_c");
+  lua_pushnumber(s, r.humidityRH);
+  lua_setfield(s, -2, "humidity_rh");
+  return 1;
 }
 
 static int l_battery(lua_State *s) {

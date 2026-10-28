@@ -19,6 +19,7 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   class within the hour ("Maths in 15 min, B12", excited when it's close), the one on now ("In Maths till 8:35"),
   a reminder that's late or due within 2 hours, good morning, and when you're free ("Free till tomorrow 9:00").
   It sleeps from 22:00 to 07:00. The first four also show on its home screen line.
+- **Apps:** `unidex.climate()` (API 6) reads the board's temperature and humidity sensor. Thanks to @candour.
 - **Timetable:** once every event its home line knew about has ended, it reads the card again (at most every 15
   minutes), so the line no longer stays on "Nothing coming up" until you open it.
 

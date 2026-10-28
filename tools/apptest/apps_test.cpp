@@ -101,6 +101,8 @@ int main() {
   m = good();
   m.api = 5;
   check(check(m, "hello") == nullptr, "an app for api 5 (unidex.chime) is fine");
+  m.api = 6;
+  check(check(m, "hello") == nullptr, "an app for api 6 (unidex.climate) is fine");
   m = good();
   m.api = API_LEVEL + 1;
   check(strcmp(check(m, "hello"), "needs newer firmware") == 0, "a newer api level is refused");
