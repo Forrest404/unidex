@@ -18,7 +18,10 @@ import shutil
 import subprocess
 import sys
 
-API_LEVEL = 5  # the newest the firmware offers; an app may ask for any level up to it
+# The newest API level the firmware offers (an app may ask for any level up to it), read from apps_logic.h so the
+# two can't drift apart.
+API_LEVEL = int(re.search(r"const int API_LEVEL = (\d+);", open(os.path.join(os.path.dirname(os.path.abspath(
+    __file__)), "..", "src", "apps", "scripts", "apps_logic.h")).read()).group(1))
 MAX_FILE, MAX_APP = 64 * 1024, 512 * 1024
 PERMISSIONS = {"wifi", "mic", "meet"}
 EXTENDABLE = {"badge"}  # the built-in apps plugins can add to (apps_logic.h, extendable())
