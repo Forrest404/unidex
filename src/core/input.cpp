@@ -1,6 +1,9 @@
 #include "input.h"
 #include <Arduino.h>
 #include <esp_sleep.h>
+#if !UNIDEX_EMU
+#include <esp_timer.h>
+#endif
 
 static const uint32_t DEBOUNCE_MS = 30;  // no bounce seen at this value in STEP 0
 static const uint32_t LONG_MS = 250;     // tuned on the device in STEP 2
@@ -63,9 +66,60 @@ void inputInit() {
   }
 }
 
+// B presses, counted: a press is B going down after it was up for UP_MS (so a bounce isn't a second press).
+static const uint32_t UP_MS = 20;
+static volatile uint32_t pressAt[8], pressCount, upAt;
+static volatile bool counting, downNow;
+static uint32_t taken;
+
+static void IRAM_ATTR pressEdge(bool down, uint32_t t) {
+  if (down && !downNow && t - upAt >= UP_MS) {
+    pressAt[pressCount % 8] = t;
+    pressCount++;
+    downNow = true;
+  } else if (!down) {
+    downNow = false;
+    upAt = t;
+  }
+}
+
+#if UNIDEX_EMU
+static void pollEdge() { pressEdge(digitalRead(18) == LOW, millis()); }  // the emulator: no interrupts
+#else
+static void IRAM_ATTR onBChange() { pressEdge(gpio_get_level(GPIO_NUM_18) == 0, esp_timer_get_time() / 1000); }
+#endif
+
+void inputCountB(bool on) {
+  if (on == counting) return;
+  downNow = digitalRead(18) == LOW;  // a press already down isn't a new one
+  upAt = 0;
+  taken = pressCount;
+  counting = on;
+#if !UNIDEX_EMU
+  if (on) attachInterrupt(18, onBChange, CHANGE);
+  else detachInterrupt(18);
+#endif
+}
+
+int inputTakeBPresses(uint32_t *at, int max) {
+#if UNIDEX_EMU
+  if (counting) pollEdge();
+#endif
+  const uint32_t now = pressCount;
+  if (now - taken > 8) taken = now - 8;  // more than it keeps: the oldest are gone
+  int n = 0;
+  for (; taken != now && n < max; taken++) at[n++] = pressAt[taken % 8];
+  taken = now;
+  return n;
+}
+
 #if UNIDEX_DEV
+void inputVirtualEvent(Event e) { pending = e; }
 static uint32_t virtualHoldUntil;
-void inputVirtualHoldB(uint32_t ms) { virtualHoldUntil = millis() + ms; }
+void inputVirtualHoldB(uint32_t ms) {
+  virtualHoldUntil = millis() + ms;
+  if (counting) pressEdge(true, millis()), pressEdge(false, millis());  // a counted press too
+}
 bool inputBHeld() { return digitalRead(18) == LOW || (int32_t)(virtualHoldUntil - millis()) > 0; }
 #else
 bool inputBHeld() { return digitalRead(18) == LOW; }

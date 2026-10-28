@@ -10,7 +10,7 @@ Redraw meetButton(Event e);
 void meetDraw();
 Redraw meetTick();
 // Test build: "meet:<on|off>:<Pets heard>:<searching|connected>:<left|right>:<x0>,<x1>:<strength both ways,
-// dBm>:<latest dBm>:<one in reach 0|1>:f<friends>:a<last act>:t<their FEATURES>:<asleep>:<ask|list|menu...>"
+// dBm>:<latest dBm>:<one in reach 0|1>:f<friends>:a<last act>:t<their FEATURES>:<asleep>:<ask|list|menu<row>...>"
 int meetFriendCount();  // for the home screen's line
 // The friends' names and when each was last met (unix time, 0 if the clock wasn't set), up to max; returns how many.
 int meetFriends(char (*names)[13], uint32_t *lastMet, int max);

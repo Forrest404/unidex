@@ -74,6 +74,7 @@ void devShotDuringAnimation() {
       line[n] = 0;
       if (strcmp(line, "X SHOT") == 0 || strcmp(line, "X STATE") == 0) devUsb(line);  // safe: they only report
       else if (strcmp(line, "X TAP B") == 0) inputVirtualHoldB(80), Serial.println("OK X TAP B");  // B for an instant (a high five)
+      else if (strcmp(line, "X HOLD A") == 0) inputVirtualEvent(Event::ALong), Serial.println("OK X HOLD A");  // (a game)
       else if (n) Serial.println("ERR busy");  // anything else would act in the middle of the animation
       if (Serial) Serial.flush();
       n = 0;

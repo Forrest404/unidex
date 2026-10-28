@@ -21,6 +21,7 @@
 //           u32, to u32, 0, 0: the right device asks its owner too, even if the greeting that asks never reached it.
 //   PRESS   (the right device, during a high five): from u32, to u32, act u8, 0, when u32: its press, in ms from the
 //           "Now!" beat (signed), sent 3 times. The left device decides and starts SLAP or MISS.
+//   GAME    (both, during catch or tug of war): from u32, to u32, event u8, its byte, its value u32 (play_logic.h).
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -29,10 +30,12 @@ namespace meet {
 
 static const uint8_t VERSION = 2;
 static const size_t MAX_NAME = 12;
-enum Type : uint8_t { HELLO = 1, CONNECT = 3, ACT = 4, ASK = 5, ANSWER = 6, FEATURES = 11, PRESS = 12, QUESTION = 13 };
+enum Type : uint8_t {
+  HELLO = 1, CONNECT = 3, ACT = 4, ASK = 5, ANSWER = 6, FEATURES = 11, PRESS = 12, QUESTION = 13, GAME = 14
+};
 // FEATURES bits: the newer acts, and (not a feature) "you're my friend".
-enum : uint32_t { F_GREETINGS = 1, F_SLEEPOVER = 2, F_HIGH_FIVE = 4, F_FRIEND = 0x80000000u };
-static const uint32_t MY_FEATURES = F_GREETINGS | F_SLEEPOVER | F_HIGH_FIVE;
+enum : uint32_t { F_GREETINGS = 1, F_SLEEPOVER = 2, F_HIGH_FIVE = 4, F_GAMES = 8, F_FRIEND = 0x80000000u };
+static const uint32_t MY_FEATURES = F_GREETINGS | F_SLEEPOVER | F_HIGH_FIVE | F_GAMES;
 
 struct Hello {
   uint32_t id, look, heard;
@@ -82,7 +85,8 @@ inline bool decodeHello(const uint8_t *p, size_t len, Hello &h) {
   return h.id != 0;
 }
 
-// CONNECT, ACT and ASK: from, to, then (ACT, ASK) act and actor, then (ACT, FEATURES, PRESS) seed (or bits, or when).
+// CONNECT, ACT and ASK: from, to, then (ACT, ASK) act and actor, then (ACT, FEATURES, PRESS, GAME) seed (or bits,
+// or when, or value).
 struct Message {
   uint8_t type;
   uint32_t from, to, seed;
@@ -95,24 +99,24 @@ inline size_t encodeMessage(const Message &m, uint8_t *out) {
   put32(out + 9, m.to);
   if (m.type == CONNECT) return 13;
   out[13] = m.act, out[14] = m.actor;
-  if (m.type == ASK || m.type == ANSWER || m.type == QUESTION) return 15;  // (ACT, FEATURES and PRESS go on to 19)
+  if (m.type == ASK || m.type == ANSWER || m.type == QUESTION) return 15;  // (ACT, FEATURES, PRESS, GAME: 19)
   put32(out + 15, m.seed);
   return 19;
 }
 
 inline bool decodeMessage(const uint8_t *p, size_t len, Message &m) {
   const uint8_t t = typeOf(p, len);
-  const size_t want = t == CONNECT                                  ? 13
-                      : t == ASK || t == ANSWER || t == QUESTION     ? 15
-                      : t == ACT || t == FEATURES || t == PRESS      ? 19
-                                                                     : 0;
+  const size_t want = t == CONNECT                                          ? 13
+                      : t == ASK || t == ANSWER || t == QUESTION             ? 15
+                      : t == ACT || t == FEATURES || t == PRESS || t == GAME ? 19
+                                                                             : 0;
   if (!want || len != want) return false;
   m = {};
   m.type = t;
   m.from = get32(p + 5);
   m.to = get32(p + 9);
   if (t != CONNECT) m.act = p[13], m.actor = p[14];
-  if (t == ACT || t == FEATURES || t == PRESS) m.seed = get32(p + 15);
+  if (t == ACT || t == FEATURES || t == PRESS || t == GAME) m.seed = get32(p + 15);
   return m.from && m.to;
 }
 
@@ -256,6 +260,7 @@ enum Act : uint8_t {
   HUG, HANDSHAKE,              // friends meeting again, the 5th time and on, the 10th and on (F_GREETINGS)
   SLEEPOVER,                   // friends meeting at night (F_SLEEPOVER)
   HIGH_FIVE, SLAP, MISS,       // a high five: the countdown, then how it went (F_HIGH_FIVE)
+  CATCH, TUG,                  // the games, played by play_logic.h rather than as frames (F_GAMES)
   ACT_COUNT
 };
 enum Mood : uint8_t { NORMAL, HAPPY, SLEEPY };  // SLEEPY: eyes closed
@@ -264,11 +269,13 @@ enum Mood : uint8_t { NORMAL, HAPPY, SLEEPY };  // SLEEPY: eyes closed
 enum : uint8_t { NO_BUBBLE = 0, SAY_HI_NAME = 1, SAY_HI_AGAIN = 2, SAY_FRIENDS = 3, FIRST_PHRASE = 4 };
 // Words for the newer acts, numbered clear of the phrases (FIRST_PHRASE + PHRASE_COUNT is below 100).
 enum : uint8_t {
-  SAY_HUG = 100, SAY_SECRET, SAY_ZZZ, SAY_NIGHT, SAY_HIGH_FIVE, SAY_3, SAY_2, SAY_1, SAY_NOW, SAY_SLAP, SAY_OOPS
+  SAY_HUG = 100, SAY_SECRET, SAY_ZZZ, SAY_NIGHT, SAY_HIGH_FIVE, SAY_3, SAY_2, SAY_1, SAY_NOW, SAY_SLAP, SAY_OOPS,
+  SAY_CATCH, SAY_PULL, SAY_I_WIN, SAY_HEHE, SAY_TIE, SAY_GOOD_GAME
 };
-static const char *const SAYINGS[] = {"Hug!", "Secret handshake!", "Zzz", "Night night!", "High five?", "3", "2",
-                                      "1",    "Now!",              "Slap!", "Oops!"};
-inline const char *saying(uint8_t b) { return b >= SAY_HUG && b <= SAY_OOPS ? SAYINGS[b - SAY_HUG] : nullptr; }
+static const char *const SAYINGS[] = {"Hug!",   "Secret handshake!", "Zzz",    "Night night!", "High five?", "3",
+                                      "2",      "1",                 "Now!",   "Slap!",        "Oops!",      "Catch!",
+                                      "Pull!",  "I win!",            "Hehe",   "Tie!",         "Good game!"};
+inline const char *saying(uint8_t b) { return b >= SAY_HUG && b <= SAY_GOOD_GAME ? SAYINGS[b - SAY_HUG] : nullptr; }
 static const char *const PHRASES[] = {"Nice hat!", "Wanna play?", "Yay!",   "I like your eyes", "Let's go!",
                                       "See you!",  "Hehe",        "Cute!",  "Best friends?",    "Over here!",
                                       "Ooh!",      "Me too!",     "Hello!", "You're fun!"};
@@ -405,6 +412,9 @@ class Script {
         nowBeat = count;
         hold(3, [&](Frame &f) { f.pet[0].bubble = f.pet[1].bubble = SAY_NOW, f.pet[0].dy = f.pet[1].dy = -4; });
         return;  // SLAP or MISS follows (and walks them home)
+      case CATCH:  // the games: played live (play_logic.h), not built here
+      case TUG:
+        break;
       case SLAP:  // both pressed together
         hold(2, [&](Frame &f) {
           f.pet[0].x += 4, f.pet[1].x -= 4;

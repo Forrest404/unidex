@@ -2,6 +2,7 @@
 #include <esp_random.h>
 #include "friends_logic.h"
 #include "meet_logic.h"
+#include "play_logic.h"
 #include "send_logic.h"
 #include "../badge/badge_file.h"
 #include "pet.h"
@@ -171,6 +172,7 @@ static bool canPlay(uint8_t act) {
   if (act == meet::HUG || act == meet::HANDSHAKE) return theirFeatures() & meet::F_GREETINGS;
   if (act == meet::SLEEPOVER) return theirFeatures() & meet::F_SLEEPOVER;
   if (act == meet::HIGH_FIVE || act == meet::SLAP || act == meet::MISS) return theirFeatures() & meet::F_HIGH_FIVE;
+  if (act == meet::CATCH || act == meet::TUG) return theirFeatures() & meet::F_GAMES;
   return act >= meet::GREET && act < meet::ACT_COUNT;
 }
 static bool greetDue;            // the left device greets once it knows what the other can do (or after a moment)
@@ -178,7 +180,12 @@ static uint32_t greetBy;
 static bool roomAsleep;          // after a sleepover: both asleep side by side until something happens
 static uint32_t ignoreBUntil;    // a B still down from a high five isn't also a VISIT
 static int32_t myPress, theirPress;  // a high five: each press, in ms from "Now!" (meet::NO_PRESS: none)
-static int menuRows() { return theirFeatures() & meet::F_HIGH_FIVE ? 3 : 2; }
+// Hold B's menu: what the other Pet can play decides how many rows.
+static const char *const MENU_ROWS[] = {"Swap screens", "Send a badge", "High five", "Catch", "Tug of war"};
+static const uint8_t MENU_ACTS[] = {meet::SWAP, 0, meet::HIGH_FIVE, meet::CATCH, meet::TUG};  // (0: a badge)
+static int menuRows() {
+  return theirFeatures() & meet::F_GAMES ? 5 : theirFeatures() & meet::F_HIGH_FIVE ? 3 : 2;
+}
 static void rxFree() {
   free(rxBuf);
   rxBuf = nullptr;
@@ -267,16 +274,164 @@ static void highFiveListen(uint32_t nowAt) {
   while (linkPoll(p)) pressMessage(p);  // (HELLOs are kept too)
 }
 
+// --- the games (catch, tug of war): live, on the fast waveform, until they end (play_logic.h) ---
+
+static const uint32_t GAME_FRAME_MS = 140;  // ~7 frames a second, as Games
+static duo::Game game;
+static duo::Scene scene;  // the frame being drawn
+static duo::Rallies rallies;  // the best catch rally with each Pet ("pet_rallies")
+static bool ralliesLoaded;
+static bool gameToast;  // how it went is in a toast: the room redraws once more to show it
+
+static duo::Rallies &ralliesSaved() {
+  if (!ralliesLoaded) {
+    if (storageGetBytes("pet_rallies", &rallies, sizeof rallies) != sizeof rallies ||
+        rallies.count > duo::Rallies::MAX)
+      rallies = {};
+    ralliesLoaded = true;
+  }
+  return rallies;
+}
+
+static void drawBall(int16_t x, int16_t y) {
+  if (x < -6 || x > display.width() + 6) return;
+  display.fillCircle(x, y, 5, BLACK);
+  display.fillCircle(x - 2, y - 2, 1, WHITE);  // a shine
+}
+
+// The rope between their paws, and its knot (the gap between the screens is the middle).
+static void drawRope() {
+  const int16_t y = PY + duo::PAW_Y, o = offset();
+  const int16_t from = scene.pet[0].x + meet::PET_W - 6 - o, to = scene.pet[1].x + 6 - o;
+  display.fillRect(from, y - 1, to - from, 3, BLACK);
+  display.fillCircle(scene.knotX - o, y, 5, BLACK);
+  display.drawCircle(scene.knotX - o, y, 7, WHITE);
+}
+
+static void drawGameFrame() {
+  char right[24] = "";
+  if (game.act == meet::CATCH) {
+    if (game.over) snprintf(right, sizeof right, "best %d", scene.best);
+    else if (scene.best > scene.rally) snprintf(right, sizeof right, "%d, best %d", scene.rally, scene.best);
+    else snprintf(right, sizeof right, "rally %d", scene.rally);
+  } else if (scene.secondsLeft >= 0) {
+    snprintf(right, sizeof right, "%ds", scene.secondsLeft);
+  }
+  drawHeader(game.act == meet::CATCH ? "Catch" : "Tug of war", right);
+  if (scene.rope) drawRope();
+  for (int i = 0; i < 2; i++) drawPet(i, scene.pet[i], false);
+  if (scene.ball) drawBall(scene.ballX - offset(), PY + scene.ballY);
+  drawHints("", game.act == meet::CATCH ? "catch" : "pull", "");
+}
+
+static void tellGame(const duo::Out &o, int copies) {
+  meet::Message m = {meet::GAME, myId(), partner.id, o.value, o.ev, o.actor};
+  uint8_t packet[24];
+  const size_t n = meet::encodeMessage(m, packet);
+  for (int i = 0; i < copies; i++) {
+    if (i) delay(4);
+    linkBroadcast(packet, n);
+  }
+}
+
+// Plays a game from startAt (both devices, as an act): B presses go to the game as they happen, the other's GAME
+// packets as they come, a frame every GAME_FRAME_MS; holding A ends it for both.
+static void runGame(uint8_t act, uint32_t seed, uint32_t startAt) {
+  game.begin(act, seed, mine(), pos[0], pos[1]);
+  inputCountB(true);
+  displayFastFrames(true);
+  uint32_t nextFrameAt = startAt, resendAt = 0;
+#if UNIDEX_DEV
+  int announced = -1;  // the test build says when each throw to this Pet leaves, so a test can catch it
+#endif
+  for (;;) {
+    const uint32_t now = millis();
+    const int32_t t = (int32_t)(now - startAt);
+    uint32_t at[8];
+    for (int i = 0, n = inputTakeBPresses(at, 8); i < n; i++) game.press((int32_t)(at[i] - startAt));
+    LinkPacket p;
+    meet::Hello h;
+    meet::Message m;
+    while (linkPoll(p)) {
+      if (meet::decodeHello(p.data, p.len, h)) {
+        if (h.id != myId()) nearby.heard(h, p.mac, millis(), p.rssi, myId());
+      } else if (meet::decodeMessage(p.data, p.len, m) && m.type == meet::GAME && m.to == myId() &&
+                 m.from == partner.id) {
+        game.heard(m.act, m.actor, m.seed, (int32_t)(p.at - startAt));
+      }
+    }
+    const Event e = inputPoll();
+    if (e == Event::ALong || e == Event::Reset) game.leave(t);
+    game.tick(t);
+    duo::Out o;
+    if (game.takeOut(o)) tellGame(o, 3), resendAt = millis() + 200;
+    else if ((int32_t)(now - resendAt) >= 0 && game.latest(o)) tellGame(o, 1), resendAt = now + 200;
+    if (game.done(t)) break;
+#if UNIDEX_DEV
+    if (act == meet::CATCH && !game.over && game.cur.to() == mine() && t >= game.cur.at && announced != game.k) {
+      announced = game.k;
+      Serial.printf("XG throw %d arrives %ld\n", game.k, (long)(game.cur.arrives() - t));
+      if (Serial) Serial.flush();
+    }
+#endif
+    if (t >= 0 && (int32_t)(now - nextFrameAt) >= 0) {
+      game.scene(t, scene);
+      displayFrame(drawGameFrame);
+      nextFrameAt = now + GAME_FRAME_MS;
+#if UNIDEX_DEV
+      Serial.printf("XG t=%ld k=%d rally=%d best=%d drops=%d pulls=%d,%d shift=%d winner=%d over=%d\n", (long)t,
+                    game.k, game.rally, game.best, game.drops, game.pulls[0], game.pulls[1], game.shift(),
+                    game.winner, game.over);
+      if (Serial) Serial.flush();
+#endif
+    }
+    keepAlive();
+#if UNIDEX_DEV
+    devShotDuringAnimation();
+#endif
+    delay(2);
+  }
+  inputCountB(false);
+  displayFastFrames(false);
+#if UNIDEX_DEV
+  Serial.printf("XG end rally=%d best=%d winner=%d quit=%d\n", game.rally, game.best, game.winner, game.quit);
+#endif
+  char text[40];
+  const char *who = partner.name[0] ? partner.name : "them";
+  if (game.quit) return;
+  if (act == meet::CATCH && game.best > 0) {
+    if (ralliesSaved().record(partner.id, game.best)) {
+      storagePutBytes("pet_rallies", &rallies, sizeof rallies);
+      snprintf(text, sizeof text, "New best with %s: %d!", who, game.best);
+    } else {
+      snprintf(text, sizeof text, "Best rally: %d", game.best);
+    }
+    launcherToast(text);
+    gameToast = true;
+  } else if (act == meet::TUG && game.winner >= 0) {
+    if (game.winner == 2) strlcpy(text, "A tie!", sizeof text);
+    else if (game.winner == mine()) strlcpy(text, "You won!", sizeof text);
+    else snprintf(text, sizeof text, "%s won!", partner.name[0] ? partner.name : "They");
+    launcherToast(text);
+    gameToast = true;
+  }
+}
+
 static uint8_t lastAct;  // for the test build's detail
 
 static void play(uint8_t act, uint8_t actor, uint32_t seed, uint32_t startAt) {
   lastAct = act;
   script.build(act, actor, seed, pos[0], pos[1]);
   roomAsleep = false;
+  const bool aGame = act == meet::CATCH || act == meet::TUG;
+  if (aGame) {
+    if (!devManualFrames()) runGame(act, seed, startAt);
+    script.x[0] = meet::HOME[0], script.x[1] = meet::HOME[1];  // back home after
+  }
   const bool highFive = act == meet::HIGH_FIVE;
   const uint32_t nowAt = startAt + script.nowBeat * BEAT_MS;  // (a high five's "Now!")
   if (highFive) myPress = theirPress = meet::NO_PRESS;
-  if (!devManualFrames()) {  // test build (X MANUAL 1): straight to the end, for repeatable screenshots
+  if (!devManualFrames() && !aGame) {  // test build (X MANUAL 1): straight to the end, for repeatable screenshots
     for (int k = 0; k < script.count; k++) {
       while ((int32_t)(millis() - (startAt + k * BEAT_MS)) < 0) {
 #if UNIDEX_DEV
@@ -621,9 +776,9 @@ Redraw meetButton(Event e) {
       menuRow = (menuRow + 1) % menuRows();
     } else if (e == Event::BShort) {
       menuOpen = false;
-      if (menuRow == 0 || menuRow == 2) {
+      if (MENU_ACTS[menuRow]) {
         tellBusy();
-        startAct(menuRow == 0 ? meet::SWAP : meet::HIGH_FIVE, mine());
+        startAct(MENU_ACTS[menuRow], mine());
         return Redraw::None;
       }
       if (!isFriend(partner.id)) {
@@ -708,6 +863,10 @@ Redraw meetButton(Event e) {
 
 Redraw meetTick() {
   if (!linkOn()) return Redraw::None;
+  if (gameToast) {
+    gameToast = false;
+    return Redraw::Partial;
+  }
   const uint32_t now = millis();
   if (now - lastPress > (connected ? STOP_CONNECTED_MS : STOP_MS) && !devManualFrames()) {  // save the battery
     linkStop();
@@ -895,6 +1054,10 @@ static void drawFriends() {
   }
   display.setFont(FONT_TINY);
   drawCentered(when, CONTENT_TOP + 9);
+  if (const int best = ralliesSaved().of(f.id)) {  // played catch together
+    snprintf(when, sizeof when, "best catch rally %d", best);
+    drawCentered(when, CONTENT_TOP + 19);
+  }
   const int16_t x = (display.width() - SIZE) / 2;
   petDraw(f.look, SCALE, x, PY);
   petDrawTag(f.name, x + SIZE / 2, PY - 3);
@@ -961,10 +1124,9 @@ void meetDraw() {
   if (connected && (receiving || waitingVerdict)) return drawSheetFrame();
   if (connected && menuOpen) {  // a small list over the room, the chosen row in black
     drawRoomOnly();
-    static const char *const ROWS[] = {"Swap screens", "Send a badge", "High five"};
     const int rows = menuRows();
-    const int16_t x = MARGIN, w = display.width() - 2 * MARGIN, rowH = 30, h = rows * rowH + 12;
-    const int16_t y = HINTS_TOP - 10 - h;
+    const int16_t x = MARGIN, w = display.width() - 2 * MARGIN, rowH = rows > 3 ? 24 : 30, h = rows * rowH + 12;
+    const int16_t y = max<int>(CONTENT_TOP + 2, HINTS_TOP - 10 - h);
     display.fillRoundRect(x, y, w, h, 6, WHITE);
     display.drawRoundRect(x, y, w, h, 6, BLACK);
     display.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 5, BLACK);
@@ -975,7 +1137,7 @@ void meetDraw() {
         display.fillRoundRect(x + 6, ry, w - 12, rowH - 2, 4, BLACK);
         display.setTextColor(WHITE);
       }
-      drawCentered(ROWS[i], ry + rowH / 2 - 1);
+      drawCentered(MENU_ROWS[i], ry + rowH / 2 - 1);
       display.setTextColor(BLACK);
     }
     drawHints("next", "choose", "");
@@ -1047,9 +1209,11 @@ const char *meetDetail() {
            i >= 0 ? nearby.strength(i) : 0, latest, nearby.firstInReach() >= 0);
   const size_t used = strlen(buf);  // then: friends saved, the last act played, the other's FEATURES, asleep, and
   // last (tools look for ":ask" at the end) "Be friends?" on screen, the friends list open...
+  char menu[8] = "";
+  if (menuOpen) snprintf(menu, sizeof menu, "menu%d", menuRow);  // and which row is chosen
   snprintf(buf + used, sizeof buf - used, ":f%d:a%d:t%lu:%s:%s%s%s%s%s%s%s", friendsList().count, lastAct,
            (unsigned long)theirFeatures(), roomAsleep ? "asleep" : "", asking ? "ask" : "", listing ? "list" : "",
-           menuOpen ? "menu" : "", picking ? "pick" : "", waitingVerdict ? "wait" : "", receiving ? "recv" : "",
+           menu, picking ? "pick" : "", waitingVerdict ? "wait" : "", receiving ? "recv" : "",
            previewing ? "preview" : "");
   return buf;
 }
