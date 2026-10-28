@@ -170,6 +170,51 @@ int main() {
             s.frames[0].pet[1].bubble != s.frames[3].pet[0].bubble,
         "saying something: one speaks, the other answers with a different line");
 
+  // --- the newer acts ---
+  m = {FEATURES, 22, 11, MY_FEATURES, 0, 0};
+  n = encodeMessage(m, p);
+  check(decodeMessage(p, n, back) && back.type == FEATURES && back.seed == MY_FEATURES && n == 19, "FEATURES carries the bits");
+  m = {PRESS, 22, 11, (uint32_t)-250, HIGH_FIVE, 0};
+  n = encodeMessage(m, p);
+  check(decodeMessage(p, n, back) && back.type == PRESS && (int32_t)back.seed == -250, "PRESS carries a time before Now!");
+  {  // what an older device makes of them: a version-2 type it doesn't know is no message at all
+    uint8_t q[24];
+    n = encodeMessage({FEATURES, 22, 11, 7, 0, 0}, q);
+    q[4] = 2;  // (type 2 is unused by every version)
+    check(!decodeMessage(q, n, back), "an unknown type is ignored");
+  }
+  m = {QUESTION, 22, 11, 0, 0, 0};
+  n = encodeMessage(m, p);
+  check(decodeMessage(p, n, back) && back.type == QUESTION && n == 15, "a QUESTION too");
+  check(friendsNow(true, 0) && friendsNow(false, MY_FEATURES | F_FRIEND) && !friendsNow(false, MY_FEATURES),
+        "friends if either side has the other; strangers only if neither does");
+  check((MY_FEATURES & F_FRIEND) == 0, "\"you're my friend\" isn't a feature");
+  check(friendsGreeting(1, false, MY_FEATURES) == GREET_FRIEND && friendsGreeting(4, false, MY_FEATURES) == GREET_FRIEND,
+        "friends' greeting: a wave until the 5th meeting");
+  check(friendsGreeting(5, false, MY_FEATURES) == HUG && friendsGreeting(9, false, MY_FEATURES) == HUG, "a hug from the 5th");
+  check(friendsGreeting(10, false, MY_FEATURES) == HANDSHAKE, "the secret handshake from the 10th");
+  check(friendsGreeting(12, false, 0) == GREET_FRIEND && friendsGreeting(12, true, 0) == GREET_FRIEND,
+        "older firmware on the other side: the wave, never a newer act");
+  check(friendsGreeting(12, true, MY_FEATURES) == SLEEPOVER && friendsGreeting(12, true, F_GREETINGS) == HANDSHAKE,
+        "at night: a sleepover, if they know it");
+  check(isNight(22 * 60) && isNight(6 * 60 + 59) && !isNight(7 * 60) && !isNight(21 * 60 + 59), "night: 22:00 to 07:00");
+  check(highFive(100, 300) == SLAP && highFive(-200, 200) == SLAP && highFive(0, 401) == MISS, "together within 0.4 s: a slap");
+  check(highFive(NO_PRESS, 0) == MISS && highFive(0, NO_PRESS) == MISS, "one didn't press: a miss");
+  s.build(HIGH_FIVE, 0, 9, HOME[0], HOME[1]);
+  check(s.nowBeat > 0 && s.frames[s.nowBeat].pet[0].bubble == SAY_NOW && s.nowBeat + 3 == s.count,
+        "the high five: Now! comes, then 3 beats to press in");
+  check(s.x[0] < SCREEN_W && s.x[1] >= SCREEN_W - 6 && s.x[1] - s.x[0] < PET_W + 20, "they're at the gap for it");
+  const int16_t gap0 = s.x[0], gap1 = s.x[1];
+  s.build(SLAP, 0, 9, gap0, gap1);
+  check(s.x[0] == HOME[0] && s.x[1] == HOME[1], "after a slap, home");
+  s.build(MISS, 0, 9, gap0, gap1);
+  check(s.x[0] == HOME[0] && s.x[1] == HOME[1], "after a miss, home");
+  s.build(SLEEPOVER, 0, 9, HOME[0], HOME[1]);
+  check(s.frames[s.count - 1].pet[0].mood == SLEEPY && s.frames[s.count - 1].pet[1].mood == SLEEPY,
+        "a sleepover ends with both asleep");
+  for (int b = SAY_HUG; b <= SAY_OOPS; b++) check(saying(b) != nullptr, "every newer bubble has its words");
+  check(FIRST_PHRASE + PHRASE_COUNT < SAY_HUG, "the newer words don't clash with the phrases");
+
   printf(failures ? "\n%d check(s) failed\n" : "\nall checks passed\n", failures);
   return failures ? 1 : 0;
 }

@@ -13,6 +13,14 @@
 //   ANSWER  (be friends? this device's answer): from u32, to u32, act u8 (1 yes, 2 not now, 3 yes and already
 //           settled: the reply to a 1 heard after this side became friends), actor u8 (0). A yes is repeated
 //           every ~0.3 s until the question is settled, so a lost or collided packet can't leave one side behind.
+//   FEATURES (both, 3 times on connecting): from u32, to u32, 0, 0, bits u32: the newer acts this device knows
+//           (F_*), and F_FRIEND if it has the other as a friend. An act the other hasn't announced is never started,
+//           so a Pet on older firmware (which ignores types it doesn't know) only ever gets the acts it has. Friends
+//           on either side are friends on both: one that forgot (a reset, a removal) adds the other back.
+//   QUESTION (the left device, about every 0.7 s while "Be friends?" is up and the right hasn't answered): from
+//           u32, to u32, 0, 0: the right device asks its owner too, even if the greeting that asks never reached it.
+//   PRESS   (the right device, during a high five): from u32, to u32, act u8, 0, when u32: its press, in ms from the
+//           "Now!" beat (signed), sent 3 times. The left device decides and starts SLAP or MISS.
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
@@ -21,7 +29,10 @@ namespace meet {
 
 static const uint8_t VERSION = 2;
 static const size_t MAX_NAME = 12;
-enum Type : uint8_t { HELLO = 1, CONNECT = 3, ACT = 4, ASK = 5, ANSWER = 6 };
+enum Type : uint8_t { HELLO = 1, CONNECT = 3, ACT = 4, ASK = 5, ANSWER = 6, FEATURES = 11, PRESS = 12, QUESTION = 13 };
+// FEATURES bits: the newer acts, and (not a feature) "you're my friend".
+enum : uint32_t { F_GREETINGS = 1, F_SLEEPOVER = 2, F_HIGH_FIVE = 4, F_FRIEND = 0x80000000u };
+static const uint32_t MY_FEATURES = F_GREETINGS | F_SLEEPOVER | F_HIGH_FIVE;
 
 struct Hello {
   uint32_t id, look, heard;
@@ -71,7 +82,7 @@ inline bool decodeHello(const uint8_t *p, size_t len, Hello &h) {
   return h.id != 0;
 }
 
-// CONNECT, ACT and ASK: from, to, then (ACT, ASK) act and actor, then (ACT) seed.
+// CONNECT, ACT and ASK: from, to, then (ACT, ASK) act and actor, then (ACT, FEATURES, PRESS) seed (or bits, or when).
 struct Message {
   uint8_t type;
   uint32_t from, to, seed;
@@ -84,21 +95,24 @@ inline size_t encodeMessage(const Message &m, uint8_t *out) {
   put32(out + 9, m.to);
   if (m.type == CONNECT) return 13;
   out[13] = m.act, out[14] = m.actor;
-  if (m.type == ASK || m.type == ANSWER) return 15;
+  if (m.type == ASK || m.type == ANSWER || m.type == QUESTION) return 15;  // (ACT, FEATURES and PRESS go on to 19)
   put32(out + 15, m.seed);
   return 19;
 }
 
 inline bool decodeMessage(const uint8_t *p, size_t len, Message &m) {
   const uint8_t t = typeOf(p, len);
-  const size_t want = t == CONNECT ? 13 : t == ASK || t == ANSWER ? 15 : t == ACT ? 19 : 0;
+  const size_t want = t == CONNECT                                  ? 13
+                      : t == ASK || t == ANSWER || t == QUESTION     ? 15
+                      : t == ACT || t == FEATURES || t == PRESS      ? 19
+                                                                     : 0;
   if (!want || len != want) return false;
   m = {};
   m.type = t;
   m.from = get32(p + 5);
   m.to = get32(p + 9);
   if (t != CONNECT) m.act = p[13], m.actor = p[14];
-  if (t == ACT) m.seed = get32(p + 15);
+  if (t == ACT || t == FEATURES || t == PRESS) m.seed = get32(p + 15);
   return m.from && m.to;
 }
 
@@ -237,11 +251,24 @@ class NearbyList {
 static const int ROOM_W = 400, SCREEN_W = 200, PET_W = 96;
 static const int16_t HOME[2] = {(SCREEN_W - PET_W) / 2, SCREEN_W + (SCREEN_W - PET_W) / 2};  // 52 and 252
 
-enum Act : uint8_t { GREET = 1, VISIT, SWAP, TRIP, SAY, GREET_FRIEND, FRIENDS, ACT_COUNT };
-enum Mood : uint8_t { NORMAL, HAPPY };
+enum Act : uint8_t {
+  GREET = 1, VISIT, SWAP, TRIP, SAY, GREET_FRIEND, FRIENDS,
+  HUG, HANDSHAKE,              // friends meeting again, the 5th time and on, the 10th and on (F_GREETINGS)
+  SLEEPOVER,                   // friends meeting at night (F_SLEEPOVER)
+  HIGH_FIVE, SLAP, MISS,       // a high five: the countdown, then how it went (F_HIGH_FIVE)
+  ACT_COUNT
+};
+enum Mood : uint8_t { NORMAL, HAPPY, SLEEPY };  // SLEEPY: eyes closed
 
 // What a Pet says: "Hi <the other one's name>!", "Hi again <name>!", "Friends!", or a phrase.
 enum : uint8_t { NO_BUBBLE = 0, SAY_HI_NAME = 1, SAY_HI_AGAIN = 2, SAY_FRIENDS = 3, FIRST_PHRASE = 4 };
+// Words for the newer acts, numbered clear of the phrases (FIRST_PHRASE + PHRASE_COUNT is below 100).
+enum : uint8_t {
+  SAY_HUG = 100, SAY_SECRET, SAY_ZZZ, SAY_NIGHT, SAY_HIGH_FIVE, SAY_3, SAY_2, SAY_1, SAY_NOW, SAY_SLAP, SAY_OOPS
+};
+static const char *const SAYINGS[] = {"Hug!", "Secret handshake!", "Zzz", "Night night!", "High five?", "3", "2",
+                                      "1",    "Now!",              "Slap!", "Oops!"};
+inline const char *saying(uint8_t b) { return b >= SAY_HUG && b <= SAY_OOPS ? SAYINGS[b - SAY_HUG] : nullptr; }
 static const char *const PHRASES[] = {"Nice hat!", "Wanna play?", "Yay!",   "I like your eyes", "Let's go!",
                                       "See you!",  "Hehe",        "Cute!",  "Best friends?",    "Over here!",
                                       "Ooh!",      "Me too!",     "Hello!", "You're fun!"};
@@ -273,10 +300,12 @@ class Script {
   Frame frames[MAX_FRAMES];
   int count = 0;
   int16_t x[2];  // where the Pets stand: at the start, then (after build) at the end
+  int nowBeat = -1;  // HIGH_FIVE: the "Now!" frame (-1 for other acts)
 
   // Builds the act from the Pets standing at x0, x1. actor: which Pet does it (VISIT, SAY).
   void build(uint8_t act, uint8_t actor, uint32_t seed, int16_t x0, int16_t x1) {
     count = 0;
+    nowBeat = -1;
     x[0] = x0, x[1] = x1;
     dice.s = seed | 1;
     lastPhrase = 255;
@@ -332,6 +361,64 @@ class Script {
         talk(1, 2);
         happyTogether(2);
         walk2(HOME[0], HOME[1], 6);
+        break;
+      case HUG:  // friends since a while: up to the gap, a hug, hearts, home
+        hold(1, [&](Frame &f) { f.pet[0].bang = f.pet[1].bang = true; });
+        walk2(SCREEN_W - PET_W + 6, SCREEN_W - 6, 4);
+        hold(3, [&](Frame &f) {
+          f.pet[0].bubble = f.pet[1].bubble = SAY_HUG;
+          f.pet[0].mood = f.pet[1].mood = HAPPY;
+        });
+        happyTogether(2);
+        walk2(HOME[0], HOME[1], 4);
+        break;
+      case HANDSHAKE:  // best friends: up to the gap, bump, shake, a jump together, home
+        hold(1, [&](Frame &f) { f.pet[0].bang = f.pet[1].bang = true; });
+        walk2(SCREEN_W - PET_W, SCREEN_W, 4);
+        for (int i = 0; i < 2; i++) {  // bump: one bobs, then the other
+          hold(1, [&](Frame &f) { f.pet[0].dy = -8, f.pet[0].mood = HAPPY; });
+          hold(1, [&](Frame &f) { f.pet[1].dy = -8, f.pet[1].mood = HAPPY; });
+        }
+        for (int i = 0; i < 2; i++) {  // shake: together and apart
+          hold(1, [&](Frame &f) { f.pet[0].x += 6, f.pet[1].x -= 6; });
+          still(1);
+        }
+        hold(2, [&](Frame &f) {  // the jump
+          f.pet[0].dy = f.pet[1].dy = -12;
+          f.pet[0].bubble = f.pet[1].bubble = SAY_SECRET;
+          f.pet[0].mood = f.pet[1].mood = HAPPY;
+        });
+        happyTogether(2);
+        walk2(HOME[0], HOME[1], 4);
+        break;
+      case SLEEPOVER:  // friends at night: sleepily up to the gap, "Night night!", and to sleep side by side
+        walk2(SCREEN_W - PET_W + 6, SCREEN_W - 6, 6);
+        hold(2, [&](Frame &f) { f.pet[0].bubble = f.pet[1].bubble = SAY_NIGHT; });
+        hold(2, [&](Frame &f) { f.pet[0].mood = f.pet[1].mood = SLEEPY, f.pet[0].bubble = SAY_ZZZ; });
+        hold(2, [&](Frame &f) { f.pet[0].mood = f.pet[1].mood = SLEEPY, f.pet[1].bubble = SAY_ZZZ; });
+        hold(1, [&](Frame &f) { f.pet[0].mood = f.pet[1].mood = SLEEPY; });
+        return;  // they stay asleep there (no last normal frame)
+      case HIGH_FIVE:  // up to the gap, "High five?", a countdown, and a few beats to press B in
+        walk2(SCREEN_W - PET_W + 6, SCREEN_W - 6, 4);
+        hold(2, [&](Frame &f) { f.pet[0].bubble = SAY_HIGH_FIVE, f.pet[1].mood = HAPPY; });
+        for (uint8_t n = SAY_3; n <= SAY_1; n++) hold(1, [&](Frame &f) { f.pet[0].bubble = f.pet[1].bubble = n; });
+        nowBeat = count;
+        hold(3, [&](Frame &f) { f.pet[0].bubble = f.pet[1].bubble = SAY_NOW, f.pet[0].dy = f.pet[1].dy = -4; });
+        return;  // SLAP or MISS follows (and walks them home)
+      case SLAP:  // both pressed together
+        hold(2, [&](Frame &f) {
+          f.pet[0].x += 4, f.pet[1].x -= 4;
+          f.pet[0].bubble = f.pet[1].bubble = SAY_SLAP;
+          f.pet[0].bang = f.pet[1].bang = true;
+          f.pet[0].mood = f.pet[1].mood = HAPPY;
+        });
+        happyTogether(3);
+        walk2(HOME[0], HOME[1], 4);
+        break;
+      case MISS:  // not together: both look at each other, "Oops!", laugh, home
+        hold(2, [&](Frame &f) { f.pet[0].bubble = f.pet[1].bubble = SAY_OOPS; });
+        hold(2, [&](Frame &f) { f.pet[0].mood = f.pet[1].mood = HAPPY; });
+        walk2(HOME[0], HOME[1], 4);
         break;
       case SAY:
       default:
@@ -415,5 +502,31 @@ class Script {
     });
   }
 };
+
+// Friends if either side says so (its own list, or F_FRIEND in the other's FEATURES): a reset or a removal on one
+// side doesn't make them strangers again.
+inline bool friendsNow(bool mine, uint32_t theirBits) { return mine || (theirBits & F_FRIEND); }
+
+// Friends meeting again, the left device chooses how (with its own count of meetings): a hug from the 5th, the secret
+// handshake from the 10th, at night a sleepover; only acts the other has announced (FEATURES).
+static const int HUG_FROM = 5, HANDSHAKE_FROM = 10;
+inline uint8_t friendsGreeting(int met, bool night, uint32_t theirFeatures) {
+  if (night && (theirFeatures & F_SLEEPOVER)) return SLEEPOVER;
+  if (theirFeatures & F_GREETINGS) {
+    if (met >= HANDSHAKE_FROM) return HANDSHAKE;
+    if (met >= HUG_FROM) return HUG;
+  }
+  return GREET_FRIEND;
+}
+inline bool isNight(int minuteOfDay) { return minuteOfDay >= 22 * 60 || minuteOfDay < 7 * 60; }  // as the Pet sleeps
+
+// A high five lands when both pressed within HIGH_FIVE_MS of each other, between a beat before "Now!" and the end.
+static const int32_t HIGH_FIVE_MS = 400, PRESS_FROM_MS = -600;
+static const int32_t NO_PRESS = 0x7FFFFFFF;
+inline uint8_t highFive(int32_t mine, int32_t theirs) {
+  if (mine == NO_PRESS || theirs == NO_PRESS) return MISS;
+  const int32_t d = mine > theirs ? mine - theirs : theirs - mine;
+  return d <= HIGH_FIVE_MS ? SLAP : MISS;
+}
 
 }  // namespace meet

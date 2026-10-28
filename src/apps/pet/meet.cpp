@@ -8,6 +8,7 @@
 #include "../../core/clock.h"
 #include "../../core/devtools.h"
 #include "../../core/display.h"
+#include "../../core/input.h"
 #include "../../core/launcher.h"
 #include "../../core/link.h"
 #include "../../core/power.h"
@@ -76,7 +77,7 @@ static friends::List buddies;
 static bool buddiesLoaded, asking;  // asking: the "Be friends?" question is on screen
 static uint8_t myAnswer, theirAnswer;  // 0 not yet, 1 yes, 2 not now (3 from them: yes, settled already)
 static uint32_t nextAnswerAt;          // a yes is repeated until the question is settled
-static uint32_t askedAt;
+static uint32_t askedAt, nextQuestionAt;  // the left device repeats the question until the right one answers
 static const uint32_t ASK_MS = 30000;  // the question goes away after this long
 // The friends list (A on the searching screen)
 static bool listing, confirmRemove;
@@ -161,6 +162,23 @@ static uint8_t *rxBuf;         // its bytes (malloc'd for the transfer, freed af
 static Bmp rxBmp;              // the received badge, checked, for the preview
 
 static bool busyHere() { return asking || menuOpen || picking || waitingVerdict || receiving || previewing; }
+
+// The newer acts the other device knows (its FEATURES, kept from whoever sent them last: it can arrive before this
+// side has connected). An act it hasn't announced is never started.
+static uint32_t featuresFrom, featuresBits;
+static uint32_t theirFeatures() { return featuresFrom == partner.id ? featuresBits : 0; }
+static bool canPlay(uint8_t act) {
+  if (act == meet::HUG || act == meet::HANDSHAKE) return theirFeatures() & meet::F_GREETINGS;
+  if (act == meet::SLEEPOVER) return theirFeatures() & meet::F_SLEEPOVER;
+  if (act == meet::HIGH_FIVE || act == meet::SLAP || act == meet::MISS) return theirFeatures() & meet::F_HIGH_FIVE;
+  return act >= meet::GREET && act < meet::ACT_COUNT;
+}
+static bool greetDue;            // the left device greets once it knows what the other can do (or after a moment)
+static uint32_t greetBy;
+static bool roomAsleep;          // after a sleepover: both asleep side by side until something happens
+static uint32_t ignoreBUntil;    // a B still down from a high five isn't also a VISIT
+static int32_t myPress, theirPress;  // a high five: each press, in ms from "Now!" (meet::NO_PRESS: none)
+static int menuRows() { return theirFeatures() & meet::F_HIGH_FIVE ? 3 : 2; }
 static void rxFree() {
   free(rxBuf);
   rxBuf = nullptr;
@@ -188,7 +206,9 @@ static void drawPet(int i, const meet::Actor &a, bool blink) {
   const bool me = i == mine();
   const String myName = petName();
   const char *name = me ? myName.c_str() : partner.name;
-  const PetMood mood = a.mood == meet::HAPPY ? PetMood::Happy : blink ? PetMood::Blink : PetMood::Normal;
+  const PetMood mood = a.mood == meet::HAPPY                 ? PetMood::Happy
+                       : blink || a.mood == meet::SLEEPY       ? PetMood::Blink
+                                                               : PetMood::Normal;
   petDraw(me ? petLookBits() : partner.look, SCALE, sx, y, mood);
   if (mid < 0 || mid >= display.width()) return;
   petDrawTag(name, mid, y - 3);
@@ -200,6 +220,7 @@ static void drawPet(int i, const meet::Actor &a, bool blink) {
     if (a.bubble == meet::SAY_HI_NAME) snprintf(text, sizeof text, "Hi %s!", *other ? other : "friend");
     else if (a.bubble == meet::SAY_HI_AGAIN) snprintf(text, sizeof text, "Hi again %s!", *other ? other : "friend");
     else if (a.bubble == meet::SAY_FRIENDS) strlcpy(text, "Friends!", sizeof text);
+    else if (meet::saying(a.bubble)) strlcpy(text, meet::saying(a.bubble), sizeof text);
     else strlcpy(text, meet::PHRASES[(a.bubble - meet::FIRST_PHRASE) % meet::PHRASE_COUNT], sizeof text);
     petDrawBubble(text, mid, y - 19);
   }
@@ -227,8 +248,34 @@ static void drawActFrame() {
 static void keepAlive();  // sends a HELLO when one is due, during a long animation or transfer (below)
 
 // Plays an act: the frames on a beat counted from startAt, so two devices that start together stay in step.
+static void pressMessage(const LinkPacket &p);
+static void tell(uint8_t type, uint8_t act, uint8_t actor, uint32_t seed);
+static void startAct(uint8_t act, uint8_t actor);
+
+// A high five, while its frames play: B pressed (from a beat before "Now!") is this side's press; the right device
+// sends it on (PRESS); the left one keeps the other's, to decide when the act ends.
+static void highFiveListen(uint32_t nowAt) {
+  static bool wasDown;
+  const bool down = inputBHeld();
+  const int32_t at = (int32_t)(millis() - nowAt);
+  if (down && !wasDown && myPress == meet::NO_PRESS && at >= meet::PRESS_FROM_MS) {
+    myPress = at;
+    if (!amLeft) tell(meet::PRESS, meet::HIGH_FIVE, 0, (uint32_t)myPress);
+  }
+  wasDown = down;
+  LinkPacket p;
+  while (linkPoll(p)) pressMessage(p);  // (HELLOs are kept too)
+}
+
+static uint8_t lastAct;  // for the test build's detail
+
 static void play(uint8_t act, uint8_t actor, uint32_t seed, uint32_t startAt) {
+  lastAct = act;
   script.build(act, actor, seed, pos[0], pos[1]);
+  roomAsleep = false;
+  const bool highFive = act == meet::HIGH_FIVE;
+  const uint32_t nowAt = startAt + script.nowBeat * BEAT_MS;  // (a high five's "Now!")
+  if (highFive) myPress = theirPress = meet::NO_PRESS;
   if (!devManualFrames()) {  // test build (X MANUAL 1): straight to the end, for repeatable screenshots
     for (int k = 0; k < script.count; k++) {
       while ((int32_t)(millis() - (startAt + k * BEAT_MS)) < 0) {
@@ -236,16 +283,22 @@ static void play(uint8_t act, uint8_t actor, uint32_t seed, uint32_t startAt) {
         devShotDuringAnimation();
 #endif
         keepAlive();  // so the other device never thinks this one has gone, even if it isn't playing along
+        if (highFive) highFiveListen(nowAt);
         delay(5);
       }
       current = &script.frames[k];
       displayFrame(drawActFrame);
 #if UNIDEX_DEV
-      Serial.printf("XW %d\n", k);  // test build: each frame as it shows, so two boards' timing can be compared
+      Serial.printf("XW %d%s\n", k, highFive && k == script.nowBeat ? " now" : "");  // test build: each frame as it
+      // shows, so two boards' timing can be compared (and a test can press in time for a high five)
       if (Serial) Serial.flush();
 #endif
     }
     current = nullptr;
+    if (highFive) {  // the last beat ends the window: a press just after it still counts
+      const uint32_t until = startAt + script.count * BEAT_MS;
+      while ((int32_t)(millis() - until) < 0) highFiveListen(nowAt), delay(5);
+    }
   }
   pos[0] = script.x[0], pos[1] = script.x[1];
   if (!devManualFrames()) displayClean(meetDraw);  // drives every pixel: no trail left behind
@@ -254,20 +307,28 @@ static void play(uint8_t act, uint8_t actor, uint32_t seed, uint32_t startAt) {
   showGap = 8000 + esp_random() % 4000;
   // Friends or not is decided by the left device's greeting, so the two sides can never disagree for long: a
   // friends' greeting adds the friend here if this side had lost it; a strangers' greeting asks both again.
-  if (act == meet::GREET_FRIEND && !isFriend(partner.id)) meetFriend(partner);
+  if ((act == meet::GREET_FRIEND || act == meet::HUG || act == meet::HANDSHAKE || act == meet::SLEEPOVER) &&
+      !isFriend(partner.id))
+    meetFriend(partner);
+  if (act == meet::SLEEPOVER) roomAsleep = true;  // and they stay asleep (drawRoomOnly) until something happens
+  if (highFive) {
+    ignoreBUntil = millis() + 1000;
+    if (amLeft) startAct(meet::highFive(myPress, theirPress), 0);  // the left side decides how it went
+  }
   if (act == meet::FRIENDS) {  // the celebration settles it here too, even if their yes never arrived
     if (!isFriend(partner.id)) meetFriend(partner);
     asking = false;
   }
-  if (act == meet::GREET) {  // a first meeting: ask both owners
+  if (act == meet::GREET && !asking) {  // a first meeting: ask both owners (unless their QUESTION already did)
     asking = true;
     myAnswer = theirAnswer = 0;
-    askedAt = millis();
+    askedAt = nextQuestionAt = millis();
     if (!devManualFrames()) displayClean(meetDraw);  // the question on screen
   }
 }
 
-static void tell(uint8_t type, uint8_t act = 0, uint8_t actor = 0, uint32_t seed = 0) {
+static void tell(uint8_t type, uint8_t act = 0, uint8_t actor = 0, uint32_t seed = 0);
+static void tell(uint8_t type, uint8_t act, uint8_t actor, uint32_t seed) {
   meet::Message m = {type, myId(), partner.id, seed, act, actor};
   uint8_t packet[24];
   const size_t n = meet::encodeMessage(m, packet);
@@ -276,6 +337,7 @@ static void tell(uint8_t type, uint8_t act = 0, uint8_t actor = 0, uint32_t seed
 
 // The left device starts an act for both; the right one asks it to.
 static void startAct(uint8_t act, uint8_t actor) {
+  if (!canPlay(act)) return;  // one the other device doesn't know
   if (!amLeft) {
     tell(meet::ASK, act, actor);
     return;
@@ -287,18 +349,38 @@ static void startAct(uint8_t act, uint8_t actor) {
 
 static bool swapped() { return pos[0] >= meet::SCREEN_W; }
 
-static void connect(const meet::Nearby &who) {
+// since: when this meeting began (this side's first CONNECT sent, or theirs received). Anything that came in after
+// it is news: the other device may greet at once, before this side has finished sending its CONNECT copies (an
+// older left device doesn't wait), and that greeting mustn't be taken for an old copy and dropped.
+static void connect(const meet::Nearby &who, uint32_t since) {
   partner = who;
   connected = true;
   amLeft = myId() < who.id;
   pos[0] = meet::HOME[0], pos[1] = meet::HOME[1];
   partedSince = 0;
-  lastActAt = calmSince = millis();  // also: the other copies of the CONNECT are old news from here
+  lastActAt = since;  // copies of the CONNECT itself (type CONNECT) are ignored once connected anyway
+  calmSince = millis();
   showGap = 3000;  // the greeting comes first
   asking = listing = confirmRemove = false;
-  const bool friendsAlready = isFriend(who.id);
+  roomAsleep = false;
+  // Friends if either side has the other (its FEATURES may already be here): one that forgot adds it back
+  const bool friendsAlready = meet::friendsNow(isFriend(who.id), featuresFrom == who.id ? featuresBits : 0);
   if (friendsAlready) meetFriend(who);  // met again: counted on each side
-  if (amLeft) startAct(friendsAlready ? meet::GREET_FRIEND : meet::GREET, 0);
+  tell(meet::FEATURES, 0, 0, meet::MY_FEATURES | (friendsAlready ? meet::F_FRIEND : 0));  // what this side knows
+  if (amLeft) greetDue = true, greetBy = millis() + 800;  // greets once it knows theirs (or soon anyway)
+}
+
+// The left device's greeting: strangers meet, friends meet again (a wave, a hug, the secret handshake, or at night
+// a sleepover).
+static uint8_t greeting() {
+  if (!isFriend(partner.id)) return meet::GREET;
+  int met = 1;
+  const friends::List &l = friendsList();
+  for (int i = 0; i < l.count; i++)
+    if (l.f[i].id == partner.id) met = l.f[i].met;
+  const struct tm t = clockLocal();
+  const bool night = clockValid() && meet::isNight(t.tm_hour * 60 + t.tm_min);
+  return meet::friendsGreeting(met, night, theirFeatures());
 }
 
 // The right device tells the left one when it's busy (a menu, choosing a badge, a preview), so the show waits.
@@ -308,6 +390,19 @@ static void tellBusy() {
   if (amLeft || busy == told) return;
   told = busy;
   tell(meet::ASK, 0, busy);  // act 0: not an act, "busy" (actor 1) or "free" (0)
+}
+
+// A packet that comes in during a high five: a HELLO is kept (as meetTick does); the other's PRESS, on the left
+// device, is its press; anything else waits for the room (it's dropped, as during any act).
+static void pressMessage(const LinkPacket &p) {
+  meet::Hello h;
+  meet::Message m;
+  if (meet::decodeHello(p.data, p.len, h)) {
+    if (h.id != myId()) nearby.heard(h, p.mac, millis(), p.rssi, myId());
+  } else if (meet::decodeMessage(p.data, p.len, m) && m.type == meet::PRESS && m.to == myId() &&
+             m.from == partner.id && amLeft && theirPress == meet::NO_PRESS) {
+    theirPress = (int32_t)m.seed;
+  }
 }
 
 // Sends the chosen badge: an offer, then piece by piece, each acknowledged (send_logic.h). Blocks for about a
@@ -422,7 +517,8 @@ static void disconnect() {
     const uint32_t seed = esp_random();
     play(meet::SWAP, 0, seed, millis());
   }
-  connected = asking = menuOpen = picking = waitingVerdict = false;
+  connected = asking = menuOpen = picking = waitingVerdict = greetDue = roomAsleep = false;
+  featuresFrom = featuresBits = 0;  // the next meeting starts afresh (a stale "not friends" mustn't decide it)
   rxFree();
   pos[0] = meet::HOME[0], pos[1] = meet::HOME[1];
   char text[32];
@@ -434,6 +530,7 @@ static void disconnect() {
 
 static void start() {
   nearby.clear();
+  featuresFrom = featuresBits = 0;
   stopped = connected = false;
   error = linkStart();
   lastPress = millis();
@@ -514,18 +611,19 @@ Redraw meetButton(Event e) {
     const int i = nearby.firstInReach();
     if (e != Event::BShort || i < 0) return Redraw::None;
     partner = nearby.at(i);
+    const uint32_t since = millis();
     tell(meet::CONNECT);
-    connect(partner);
+    connect(partner, since);
     return Redraw::None;
   }
   if (menuOpen) {  // hold B's menu: "Swap screens" / "Send a badge"
     if (e == Event::AShort) {
-      menuRow = (menuRow + 1) % 2;
+      menuRow = (menuRow + 1) % menuRows();
     } else if (e == Event::BShort) {
       menuOpen = false;
-      if (menuRow == 0) {
+      if (menuRow == 0 || menuRow == 2) {
         tellBusy();
-        startAct(meet::SWAP, mine());
+        startAct(menuRow == 0 ? meet::SWAP : meet::HIGH_FIVE, mine());
         return Redraw::None;
       }
       if (!isFriend(partner.id)) {
@@ -596,6 +694,7 @@ Redraw meetButton(Event e) {
     else if (theirAnswer == 1) becomeFriends();
     return Redraw::Partial;
   }
+  if (e == Event::BShort && (int32_t)(millis() - ignoreBUntil) < 0) return Redraw::None;
   if (e == Event::AShort) startAct(meet::SAY, mine());
   else if (e == Event::BShort) startAct(swapped() ? meet::SWAP : meet::VISIT, mine());  // when swapped: go home
   else if (e == Event::BLong) {  // the menu: swap, or send a badge
@@ -625,24 +724,43 @@ Redraw meetTick() {
     nextHelloAt = now + every - every / 10 + esp_random() % (every / 5);
   }
   bool changed = false, badgeNews = false;  // badgeNews: a badge arrived, or their answer to ours
+  bool questionHere = false;                 // the left device's QUESTION opened "Be friends?" here
   LinkPacket p;
   meet::Hello h;
   meet::Message m;
   bool gotAct = false, gotAsk = false;
   meet::Message act = {}, ask = {};
-  uint32_t actAt = 0, connectFrom = 0;
+  uint32_t actAt = 0, connectFrom = 0, connectAt = 0;
   while (linkPoll(p)) {
+    if (meet::decodeMessage(p.data, p.len, m) && m.type == meet::FEATURES && m.to == myId()) {
+      featuresFrom = m.from, featuresBits = m.seed;  // (before or after connecting)
+      if (connected && m.from == partner.id && (m.seed & meet::F_FRIEND) && !isFriend(partner.id))
+        meetFriend(partner), changed = true;  // they remember being friends: so does this side again
+      continue;
+    }
+    if (meet::decodeMessage(p.data, p.len, m) && m.type == meet::QUESTION && m.to == myId() && connected &&
+        m.from == partner.id && !amLeft) {
+      if (isFriend(partner.id)) {
+        tell(meet::ANSWER, 3);  // friends already: settled
+      } else if (!asking) {  // "Be friends?" here too, even if the greeting never arrived
+        asking = true;
+        myAnswer = theirAnswer = 0;
+        askedAt = now;
+        questionHere = true;
+      }
+      continue;
+    }
     if (meet::decodeHello(p.data, p.len, h)) {
       if (h.id != myId()) changed |= nearby.heard(h, p.mac, now, p.rssi, myId());
     } else if (meet::decodeMessage(p.data, p.len, m) && m.to == myId() && (int32_t)(p.at - lastActAt) > 0) {
       // (Each message is sent three times; copies that came in before the last act ended are old news.)
-      if (m.type == meet::CONNECT && !connected && nearby.find(m.from) >= 0) connectFrom = m.from;
+      if (m.type == meet::CONNECT && !connected && nearby.find(m.from) >= 0) connectFrom = m.from, connectAt = p.at;
       else if (m.type == meet::ACT && connected && m.from == partner.id && !gotAct)
         gotAct = true, act = m, actAt = p.at;
       else if (m.type == meet::ASK && connected && amLeft && m.from == partner.id && m.act == 0)
         partnerBusyUntil = m.actor ? now + 60000 : 0, calmSince = now;  // the right one is busy, or done
       else if (m.type == meet::ASK && connected && amLeft && m.from == partner.id) gotAsk = true, ask = m;
-      else if (m.type == meet::ANSWER && connected && m.from == partner.id) {
+      else if (m.type == meet::ANSWER && connected && m.from == partner.id) {  // (FEATURES: below)
         theirAnswer = m.act == 3 ? 1 : m.act;
         if (m.act == 1 && !asking && isFriend(partner.id)) tell(meet::ANSWER, 3);  // they missed ours: settled
       }
@@ -657,11 +775,16 @@ Redraw meetTick() {
 
   if (!connected) {
     if (connectFrom) {  // they pressed B with this device in reach
-      connect(nearby.at(nearby.find(connectFrom)));
+      connect(nearby.at(nearby.find(connectFrom)), connectAt - 1);
       return Redraw::None;
     }
   } else {
+    if (questionHere) return Redraw::Full;
     if (asking) {
+      if (amLeft && !theirAnswer && (int32_t)(now - nextQuestionAt) >= 0) {  // ask the other side until it answers
+        tell(meet::QUESTION);
+        nextQuestionAt = now + 650 + esp_random() % 100;
+      }
       if (theirAnswer == 2 || now - askedAt > ASK_MS) {  // "not now" from them, or no answer for a while
         asking = false;
         calmSince = now;
@@ -683,6 +806,11 @@ Redraw meetTick() {
     }
     if (gotAsk) {
       startAct(ask.act, ask.actor);
+      return Redraw::None;
+    }
+    if (greetDue && (featuresFrom == partner.id || (int32_t)(now - greetBy) >= 0)) {
+      greetDue = false;
+      startAct(greeting(), 0);
       return Redraw::None;
     }
     const int i = nearby.find(partner.id);
@@ -711,8 +839,13 @@ Redraw meetTick() {
       tellBusy();
       return Redraw::Partial;
     }
-    if (amLeft && !busyHere() && (int32_t)(now - partnerBusyUntil) >= 0 && now - calmSince > showGap) {
-      // the show: something happens every 8-12 s
+    if (amLeft && !busyHere() && !greetDue && !roomAsleep && (int32_t)(now - partnerBusyUntil) >= 0 &&
+        now - calmSince > showGap) {
+      // the show: something happens every 8-12 s (not while they sleep); now and then a high five to join in
+      if (!swapped() && canPlay(meet::HIGH_FIVE) && esp_random() % 8 == 0) {
+        startAct(meet::HIGH_FIVE, 0);
+        return Redraw::None;
+      }
       const uint8_t pick = esp_random() % 6;
       if (swapped()) startAct(pick < 3 ? meet::SAY : meet::SWAP, esp_random() % 2);
       else startAct(pick < 2 ? meet::VISIT : pick == 2 ? meet::TRIP : pick == 3 ? meet::SWAP : meet::SAY,
@@ -787,6 +920,7 @@ static void drawRoomOnly() {
   for (int i = 0; i < 2; i++) {
     meet::Actor a = {};
     a.x = pos[i];
+    if (roomAsleep) a.mood = meet::SLEEPY, a.bubble = i == 0 ? (uint8_t)meet::SAY_ZZZ : (uint8_t)meet::NO_BUBBLE;
     drawPet(i, a, false);
   }
 }
@@ -827,14 +961,15 @@ void meetDraw() {
   if (connected && (receiving || waitingVerdict)) return drawSheetFrame();
   if (connected && menuOpen) {  // a small list over the room, the chosen row in black
     drawRoomOnly();
-    static const char *const ROWS[] = {"Swap screens", "Send a badge"};
-    const int16_t x = MARGIN, w = display.width() - 2 * MARGIN, rowH = 30, h = 2 * rowH + 12;
+    static const char *const ROWS[] = {"Swap screens", "Send a badge", "High five"};
+    const int rows = menuRows();
+    const int16_t x = MARGIN, w = display.width() - 2 * MARGIN, rowH = 30, h = rows * rowH + 12;
     const int16_t y = HINTS_TOP - 10 - h;
     display.fillRoundRect(x, y, w, h, 6, WHITE);
     display.drawRoundRect(x, y, w, h, 6, BLACK);
     display.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 5, BLACK);
     display.setFont(FONT_SMALL);
-    for (int i = 0; i < 2; i++) {
+    for (int i = 0; i < rows; i++) {
       const int16_t ry = y + 6 + i * rowH;
       if (i == menuRow) {
         display.fillRoundRect(x + 6, ry, w - 12, rowH - 2, 4, BLACK);
@@ -885,6 +1020,7 @@ void meetDraw() {
   for (int i = 0; i < 2; i++) {
     meet::Actor a = {};
     a.x = pos[i];
+    if (roomAsleep) a.mood = meet::SLEEPY, a.bubble = i == 0 ? (uint8_t)meet::SAY_ZZZ : (uint8_t)meet::NO_BUBBLE;
     drawPet(i, a, blinking && i == mine());
   }
   if (asking) {  // "Be friends?"
@@ -903,15 +1039,17 @@ void meetDraw() {
 }
 
 const char *meetDetail() {
-  static char buf[112];
+  static char buf[140];
   const int i = connected ? nearby.find(partner.id) : (nearby.count() ? 0 : -1);
   const int latest = i >= 0 && nearby.at(i).count ? nearby.at(i).readings[(nearby.at(i).count - 1) % 8] : 0;
   snprintf(buf, sizeof buf, "meet:%s:%d:%s:%s:%d,%d:%d:%d:%d", linkOn() ? "on" : "off", nearby.count(),
            connected ? "connected" : "searching", connected ? (amLeft ? "left" : "right") : "", pos[0], pos[1],
            i >= 0 ? nearby.strength(i) : 0, latest, nearby.firstInReach() >= 0);
-  const size_t used = strlen(buf);  // then: friends saved, "Be friends?" on screen, the friends list open
-  snprintf(buf + used, sizeof buf - used, ":f%d:%s%s%s%s%s%s%s", friendsList().count, asking ? "ask" : "",
-           listing ? "list" : "", menuOpen ? "menu" : "", picking ? "pick" : "", waitingVerdict ? "wait" : "",
-           receiving ? "recv" : "", previewing ? "preview" : "");
+  const size_t used = strlen(buf);  // then: friends saved, the last act played, the other's FEATURES, asleep, and
+  // last (tools look for ":ask" at the end) "Be friends?" on screen, the friends list open...
+  snprintf(buf + used, sizeof buf - used, ":f%d:a%d:t%lu:%s:%s%s%s%s%s%s%s", friendsList().count, lastAct,
+           (unsigned long)theirFeatures(), roomAsleep ? "asleep" : "", asking ? "ask" : "", listing ? "list" : "",
+           menuOpen ? "menu" : "", picking ? "pick" : "", waitingVerdict ? "wait" : "", receiving ? "recv" : "",
+           previewing ? "preview" : "");
   return buf;
 }
