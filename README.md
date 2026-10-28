@@ -7,9 +7,9 @@
 
 **A pocket e-ink OS for the Waveshare ESP32-S3 1.54" e-paper board.** It shows your next class with a live countdown,
 records voice notes and tidies them into Markdown for Obsidian, and reminds you of anything you tell it out loud.
-There's a little Pet you can dress up, which meets your friends' Pets on their unidex (they visit, chat and swap
-badges). It also flips through name badges, plays four one-button games, runs apps from the app store, and goes to
-sleep whenever you aren't pressing a button, looking after its battery and your files as it goes.
+There's a little Pet you can dress up, which meets your friends' Pets on their unidex (they visit, chat, play catch
+and swap badges). It also flips through name badges, plays four one-button games, runs apps from the app store, and
+goes to sleep whenever you aren't pressing a button, looking after its battery and your files as it goes.
 
 **And it's yours to hack.** Anyone can write apps and plugins for it in a few lines of Lua, in a plain text editor,
 with no tools to install: a game, a tracker, a clock, a dashboard that fetches from the web, a badge that changes
@@ -41,7 +41,7 @@ If you'd like to support the project, there's a [Ko-fi](https://ko-fi.com/forres
 | **Timetable** | Your next class or calendar event with a live countdown, and today's list. |
 | **Notes** | Hold a button and talk: the note is transcribed, tidied up and saved, and can go to GitHub for Obsidian. |
 | **Reminders** | A to-do list you talk to: hold B and say "call Sam tomorrow at 5". When it's due, it chimes and shows on screen. |
-| **Pet** | A cute creature you dress up and name. Bring two unidex together and the Pets visit, chat, become friends and swap badges. |
+| **Pet** | A cute creature you dress up and name, which talks about your day. Bring two unidex together and the Pets visit, chat, become friends, play catch and tug of war, and swap badges. |
 | **Badge** | Full-screen name tags, logos and photos. |
 | **Games** | Four one-button games, Flappy, Dino, Stack and Jetpack, with best scores, and the games you add from the store. |
 | **Settings** | Date and time, sync, sleep, volume, alert sound, invert, battery and info, reset data, factory reset. |
@@ -220,21 +220,39 @@ bubble: "Maths in 15 min, B12" (excited when it's close), "In Maths till 8:35", 
 Hand in the art project", "Morning Sam!" or "Free till tomorrow 9:00". From 22:00 to 07:00 it's asleep. The first
 four show on its line on the home screen too, so you see them without opening it.
 
+Press **A** again soon after it says hi and it giggles; a third time and it gets dizzy. It dresses for the season:
+sunglasses in summer, and a scarf in winter, a witch's hat on 31 October and a Santa hat on Christmas Day when it
+isn't already wearing an extra or a hat. It reacts to your day (a backpack just before a class, a wave during one,
+confetti when the day's done) and to what you did in other apps ("Nice one!" when you tick off a reminder, a new
+best in Games, "Got it!" for a saved note). Now and then it says it misses a friend you haven't met for a week.
+
 **Meet** (**hold B** on the Pet) is for two unidex side by side:
 
 1. **Bring them close.** The dots at the top fill up. When it says "press B", press **B** on either one.
 2. **The two screens become one room.** The title shows which way round to hold them. The Pets greet each other,
    then **B** sends your Pet to visit the other screen (the other one steps aside and they chat in speech
-   bubbles), **A** says something, and **hold B** swaps screens or sends a badge. Every few seconds they also play
-   something by themselves.
+   bubbles), **A** says something, and **hold B** opens a menu: swap screens, send a badge, or one of the games
+   below. Every few seconds they also play something by themselves.
 3. **Become friends.** The first time two Pets meet, both screens ask "Be friends?". If you both say yes, you get a
-   heart, their own greeting next time, and a friends list (**A** on the searching screen).
-4. **Send a badge** to a friend (**hold B** in the room). Pick one, and your friend sees it first and chooses
+   heart and a friends list (**A** on the searching screen). Friends greet each other their own way: a wave, a hug
+   from the 5th meeting, a secret handshake from the 10th, and between 22:00 and 07:00 a sleepover (they fall
+   asleep side by side).
+4. **Play** (**hold B** in the room):
+   - **High five:** a countdown, then both press **B** on "Now!" to slap hands.
+   - **Catch:** the ball flies across both screens. Press **B** just as it reaches your Pet to catch it and throw
+     it back, a little faster each time. Miss, or press too soon, and your Pet runs after it. Three misses in a row
+     end the game. Your best rally with each friend shows in the friends list.
+   - **Tug of war:** "3, 2, 1, Pull!", then press **B** as fast as you can. Pull the knot over to your side to win,
+     or be ahead after 15 seconds.
+
+   **Hold A** stops a game for both. A device that hasn't been updated yet doesn't offer the games.
+5. **Send a badge** to a friend (**hold B** in the room). Pick one, and your friend sees it first and chooses
    whether to keep it.
-5. **Pull them apart** and each Pet walks home.
+6. **Pull them apart** and each Pet walks home.
 
 The radio is only on while Meet is open. It talks directly to the other device (no internet), and it stops after 2
-minutes without a press. Your Pet and its friends are kept through restarts and updates.
+minutes without a press (5 while two are together). Your Pet and its friends are kept through restarts and
+updates.
 
 ### Badge
 
