@@ -37,7 +37,7 @@ to your device over USB, and it shows up in the Apps list. No toolchain, no refl
 | `name` | Up to 20 characters, shown in the list. |
 | `version` | `major.minor.patch`. The website offers an update when the store has a higher one. |
 | `author`, `description` | Up to 40 and 140 characters. |
-| `api` | The API level it was written for. The device refuses an app that needs a newer one. Level 2 adds `unidex.wifi.scan`, 3 `unidex.frame`, 4 games (v1.10), 5 `unidex.chime` (the firmware after v1.10), and 6 `unidex.climate`. |
+| `api` | The API level it was written for. The device refuses an app that needs a newer one. Level 2 adds `unidex.wifi.scan`, 3 `unidex.frame`, 4 games (v1.10), 5 `unidex.chime` (the firmware after v1.10), and 6 `unidex.climate` (v1.13). |
 | `type` | `"app"`, `"game"` (see Games), or `"plugin"` with `extends` (see Plugins). Both are at the end. |
 | `frame_ms` | Games only, optional: how often `step()` runs, 48 to 1000 milliseconds (100 by default). |
 | `permissions` | What it asks for. The website shows these before you install. See below. |
@@ -122,7 +122,7 @@ Only the app's own `data/` folder. Names use a-z, 0-9, `.`, `_` and `-`.
 | `unidex.frame(ms)` | API 3: shows `draw()` now, mid-function, as an animation frame, then waits `ms` (up to 1000). At most 60 a call; the screen and the wait don't count against the app's time. |
 | `unidex.chime()` | API 5: plays the device's chime (about half a second) and returns true, or false if it was skipped: Settings > Alert sound is off, it already chimed less than a second ago, or the speaker is busy (a recording). At Volume 0 it plays silently. The chime doesn't count against the app's time. |
 | `unidex.climate()` | API 6: a table with `temperature_c` (°C) and `humidity_rh` (% relative humidity) from the board's sensor, or `nil` and the reason if it can't be read. Takes about 20 ms. The sensor is inside the device, so it reads a few degrees over the room, more while charging or on WiFi, and is slow to follow a change of room. |
-| `unidex.api` | The API level of this firmware: 6 with `unidex.climate` (5 before it, after v1.10; 4 before `unidex.chime`, 3 before games, 2 before `unidex.frame`, 1 before `unidex.wifi`). |
+| `unidex.api` | The API level of this firmware: 6 from v1.13, with `unidex.climate` (5 before it, after v1.10; 4 before `unidex.chime`, 3 before games, 2 before `unidex.frame`, 1 before `unidex.wifi`). |
 
 ### The network (permission `"wifi"`)
 

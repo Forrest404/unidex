@@ -6,6 +6,8 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 
 ## Next release
 
+## v1.13 (28 October 2026)
+
 - **Clock** (new, built in, after Reminders): a timer (presets from 1 minute to 2 hours), up to three alarms (once,
   every day, weekdays or weekends, with snooze), a stopwatch with laps, and the time in up to four of 24 cities.
   Alarms and timers wake the device and ring over whatever's on screen, even with Alert sound off.
@@ -19,9 +21,19 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   class within the hour ("Maths in 15 min, B12", excited when it's close), the one on now ("In Maths till 8:35"),
   a reminder that's late or due within 2 hours, good morning, and when you're free ("Free till tomorrow 9:00").
   It sleeps from 22:00 to 07:00. The first four also show on its home screen line.
+- **The Pet** stays full size while it talks, with the bubble beside it. Press A again soon after it says hi and it
+  giggles, then gets dizzy. It dresses for the season (a scarf in winter, sunglasses in summer, a witch's hat at
+  Halloween, a Santa hat at Christmas), and reacts to your day: a backpack before class, a wave during one,
+  confetti when the day's done. It notices what you did in other apps ("Nice one!" for a ticked-off reminder, a new
+  best in Games, "Got it!" for a saved note), and now and then says it misses a friend you haven't met in a week.
+- **Pet > Meet:** friends stay friends on both devices, and "Be friends?" shows on both. Friends who meet again
+  wave, hug from the 5th meeting and do a secret handshake from the 10th; at night they have a sleepover. Hold B
+  for a high five: press B together to slap hands. The new acts need both devices on v1.13.
 - **Apps:** `unidex.climate()` (API 6) reads the board's temperature and humidity sensor. Thanks to @candour.
 - **Timetable:** once every event its home line knew about has ended, it reads the card again (at most every 15
   minutes), so the line no longer stays on "Nothing coming up" until you open it.
+- **Website:** a [Terms of Use](TERMS.md), and the [Privacy Policy](PRIVACY.md) rewritten, linked from every page.
+  The Pet designer on the Tools page can send your name too.
 
 ## v1.12 (27 October 2026)
 
