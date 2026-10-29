@@ -24,6 +24,12 @@ cp "$work/stubs/"*_emu.cpp emu/hw/ 2>/dev/null || true
 printf '#pragma once\n#define UNIDEX_VERSION "%s (emulator)"\n' "$name" > emu/shim/unidex_version.h
 command -v pio >/dev/null || PATH="$HOME/.platformio/penv/bin:$PATH"
 pio pkg install -e epaper154 >/dev/null  # the release's own library versions
-bash emu/build.sh >/dev/null
+# A release whose own stand-ins were missing something (v1.14 lacked Battery saver's powerSaver/powerSetSaver)
+# is tried once more with this checkout's, which may have been fixed since.
+if ! bash emu/build.sh >/dev/null; then
+  echo "$name didn't build with its own stand-ins; trying this checkout's"
+  cp "$here/emu/hw/"*_emu.cpp emu/hw/
+  bash emu/build.sh >/dev/null
+fi
 cp emu/out/unidex.js emu/out/unidex.wasm "$out/"
 echo "built $name"
