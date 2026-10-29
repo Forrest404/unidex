@@ -6,6 +6,11 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 
 ## Next release
 
+- **The agent** (new): with your keys in, hold B on the home screen and say what you want: timers, alarms, the
+  stopwatch, reminders (added, ticked off, deleted), calendar events, opening an app, settings (volume, alert
+  sound, ringtone, dark screen, sleep), or a question ("what's my next class?"). Settings and deleting ask first.
+  Uses Claude with an Anthropic key, else OpenAI. What it sends: see [PRIVACY.md](PRIVACY.md).
+
 - **Website: Legacy.** Install and Update's Version menu has a third choice, Legacy, for going back to one of the
   15 releases before the newest (v1.6 to v1.12 now: the ones before have no files to install), if something broke. Update keeps your settings and files, and
   Update with Release brings you back.

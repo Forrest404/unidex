@@ -13,9 +13,9 @@ How you may use unidex is in the [Terms of Use](TERMS.md).
 ## In short
 
 unidex has no account, no analytics and no tracking. **Nothing is ever sent to me** from your device or from the
-website. Only Notes, Reminders, Clock's voice commands and the clock's time sync send anything over the internet
-(and apps from the store that you allow WiFi), and Notes, Reminders and Clock only talk to services you set up
-with your own keys.
+website. Only Notes, Reminders, Clock's voice commands, the agent and the clock's time sync send anything over the
+internet (and apps from the store that you allow WiFi), and Notes, Reminders, Clock and the agent only talk to
+services you set up with your own keys.
 
 ## What I receive
 
@@ -62,6 +62,18 @@ themselves are kept on the card in `reminders.csv`.
 
 When you hold B in Clock and say a command, the recording goes to the same transcriber, only to get the words. It's
 kept in the device's memory until then and never saved. Working out the timer or alarm happens on the device.
+
+### The agent
+
+When you hold B on the home screen and ask the agent something:
+
+| What | Sent to | When |
+|---|---|---|
+| The recording (audio) | OpenAI (Whisper) or ElevenLabs (Scribe), the same transcriber as your notes, to get the words | each request |
+| The words, with what's on the device so it can answer and act: the date and time, your name (if set), your classes and events for the next 7 days, your open reminders (up to 10), your alarms, timer and stopwatch, and your settings | Anthropic (Claude) if you've set an Anthropic key, otherwise OpenAI | each request |
+
+The recording is kept in the device's memory until then and never saved. The model only answers; what it asks for
+is checked and done on the device. The same keys, terms and links as Notes apply.
 
 ### The time
 

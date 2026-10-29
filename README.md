@@ -105,6 +105,23 @@ small lightning bolt means it's on USB power.
   sending.
 - **Restart:** hold **A and B together for 1 second**, then let go. Your files, settings and the clock are kept.
 
+## The agent
+
+Once your keys are in (a transcription key, as Notes uses, and an OpenAI or Anthropic key), the home screen says
+**hold B: agent**. Hold B, say what you want, and let go. It takes a few seconds over WiFi, then shows its answer
+and what it did:
+
+- "Set a timer for 10 minutes", "wake me up at 6:45 on weekdays", "stop the timer", "start the stopwatch"
+- "Remind me to call Sam at 5", "I've done the art project" (ticks it off)
+- "Add football to my calendar on Saturday at 2"
+- "Open Games"
+- "Turn the volume down to 3", "make the screen dark", "change the ringtone to Bell"
+- Questions: "What's my next class?", "What have I got tomorrow?", "What's the capital of Peru?"
+
+Changing a setting, deleting a reminder and turning all alarms off ask first (**B** yes, **A** no); everything else
+just happens. **Hold B** on the answer asks again, and **A** goes home. It uses Claude if an Anthropic key is set,
+otherwise OpenAI. Events it adds go in their own file on the card, so a calendar sync doesn't remove them.
+
 ## The apps
 
 ### Timetable
@@ -407,6 +424,8 @@ off so the battery isn't drained further. Plug in USB to charge it, then press P
   Apps need it.
 - **"App error".** The app hit a bug or one of its limits; the message says where. Tell its author (open an issue
   on [unidex-apps](https://github.com/Forrest404/unidex-apps)), or offload or delete it with **hold B** in Apps.
+- **No "hold B: agent" on the home screen.** The agent needs a transcription key and an OpenAI or Anthropic key
+  (the Setup page), and WiFi.
 - **"Time not set".** Use **Settings > Sync** (over WiFi), set it by hand in Settings, or use Set the clock or
   Sync everything on the Tools page.
 - **It froze.** It restarts by itself after 30 seconds, or you can hold **A + B** for a second to restart it now.
