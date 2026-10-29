@@ -30,7 +30,7 @@ static const int SLEEP_CHOICES[] = {10, 20, 30, 60};
 static const int ROW_H = 22, PAGE_ROWS = 6;  // six rows fit above the hints
 
 enum Screen : uint8_t { LIST, DATETIME, INFO, RESET, CONFIRM, CONFIRM_AGAIN, VOLUME, PHONE, CHECK, SYNC };
-enum Row : uint8_t { DATE, SYNC_ROW, SLEEP, VOLUME_ROW, ALERTS, RINGTONE, LANGUAGE, INVERT, INFO_ROW, RESET_ROW, ROWS };
+enum Row : uint8_t { DATE, SYNC_ROW, SLEEP, SAVER, VOLUME_ROW, ALERTS, RINGTONE, LANGUAGE, INVERT, INFO_ROW, RESET_ROW, ROWS };
 enum Reset : uint8_t { CALENDAR, PET_FRIENDS, EVERYTHING, FACTORY, RESETS };
 static const char *RESET_NAMES[] = {"Calendar", "Pet friends", "Everything", "Factory reset"};
 static const int RESET_ROW_H = 22;  // six rows fit above the hints
@@ -97,6 +97,7 @@ static void drawList() {
       case DATE: drawRow(i, sel, "Date & time", time); break;
       case SYNC_ROW: drawRow(i, sel, "Sync", synced); break;
       case SLEEP: drawRow(i, sel, "Sleep after", sleep); break;
+      case SAVER: drawRow(i, sel, "Battery saver", powerSaver() ? "on" : "off"); break;
       case VOLUME_ROW: {
         drawRow(i, sel, "Volume", "");
         // a small bar, filled as far as the volume
@@ -118,7 +119,7 @@ static void drawList() {
       case RESET_ROW: drawRow(i, sel, "Reset data", ">"); break;
     }
   }
-  drawHints("next", cursor == SLEEP || cursor == INVERT || cursor == ALERTS || cursor == RINGTONE || cursor == LANGUAGE ? "change" : "open", "phone");
+  drawHints("next", cursor == SLEEP || cursor == SAVER || cursor == INVERT || cursor == ALERTS || cursor == RINGTONE || cursor == LANGUAGE ? "change" : "open", "phone");
 }
 
 // Sync: the clock from the internet, then this week's events from the calendar link (src/apps/timetable/callink.h).
@@ -451,6 +452,9 @@ static Redraw onButton(Event e) {
           for (int i = 0; i < 3; i++)
             if (SLEEP_CHOICES[i] == now) next = SLEEP_CHOICES[i + 1];
           powerSetSleepSeconds(next);
+        } else if (cursor == SAVER) {
+          powerSetSaver(!powerSaver());
+          if (powerSaver()) launcherToast("Sleeps in 5 s, calmer");
         } else if (cursor == SYNC_ROW) {
           screen = SYNC;
           hasSynced = false;

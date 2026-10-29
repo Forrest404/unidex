@@ -390,23 +390,30 @@ static void pause(uint32_t ms) {
 static Redraw sayHi() {
   taps = millis() - reactedAt < TAP_GAP_MS && taps < 3 ? taps + 1 : 1;
   powerHold();
+  // Battery saver: the reaction is one ordinary refresh, not a few quick frames and a clean-up after them.
+  const bool saver = powerSaver();
+  void (*const show)(void (*)()) = saver ? displayTick : displayFrame;
   if (taps == 1) {  // hi: happy eyes and a heart that pops, small then big
     reaction = HI;
     happy = true;
     heart = 1;
-    displayFrame(drawMain);
+    if (!saver) show(drawMain);
     heart = 2;
-    displayFrame(drawMain);
+    show(drawMain);
     pause(700);
   } else if (taps == 2) {  // a giggle, eyes squeezed shut
     reaction = GIGGLE;
-    displayFrame(drawMain);
+    show(drawMain);
     pause(900);
   } else {  // dazed: it sways side to side
     reaction = DIZZY;
-    for (const int8_t w : {-4, 4, -4, 4, 0}) {
-      wobble = w;
-      displayFrame(drawMain);
+    if (saver) {
+      show(drawMain);
+    } else {
+      for (const int8_t w : {-4, 4, -4, 4, 0}) {
+        wobble = w;
+        show(drawMain);
+      }
     }
     pause(500);
   }
@@ -414,7 +421,8 @@ static Redraw sayHi() {
   happy = false;
   heart = 0;
   wobble = 0;
-  displayClean(drawMain);  // drives every pixel, so nothing of the frames is left behind
+  if (saver) displayTick(drawMain);  // back to normal: nothing moved, so no clean-up
+  else displayClean(drawMain);       // drives every pixel, so nothing of the frames is left behind
   powerRelease();
   reactedAt = millis();
   return Redraw::None;
@@ -639,7 +647,7 @@ static Redraw tick() {
     nextBlinkAt = now + 2500 + esp_random() % 3500;
     return Redraw::Tick;
   }
-  if (now - lastPressAt > AWAKE_MS || todaysTalk().mood == talk::ASLEEP) return Redraw::None;
+  if (now - lastPressAt > AWAKE_MS || todaysTalk().mood == talk::ASLEEP || powerSaver()) return Redraw::None;  // (saver: no blinks)
   if (nextBlinkAt == 0) nextBlinkAt = now + 2500 + esp_random() % 3500;
   if ((int32_t)(now - nextBlinkAt) < 0) {
     powerWakeWithin(nextBlinkAt - now);

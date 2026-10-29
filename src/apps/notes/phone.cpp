@@ -33,8 +33,9 @@
 #if UNIDEX_DEV
 static const uint32_t IDLE_MS = 60000;  // test build: a minute, so the auto-stop can be tested
 #else
-static const uint32_t IDLE_MS = 5 * 60000;
+static const uint32_t IDLE_MS = 3 * 60000;  // since the last real request (the phone's internet checks don't count)
 #endif
+static const uint32_t MAX_MS = 20 * 60000;  // however busy the phone keeps it, unless an app is installing
 
 static WiFiServer http(80, 8);
 static DNSServer dns;  // every name the phone looks up points here, so its internet check finds this page
@@ -538,7 +539,6 @@ static void handle(Connection &conn, const Request &r) {
   const uint32_t t0 = millis();
   const String self = WiFi.softAPIP().toString();
   if (r.path == "/favicon.ico" || r.path.startsWith("/apple-touch-icon")) return reply(c, 204, "text/plain", "", 0);
-  lastUse = t0;
   if (!firstAt) firstAt = t0;
   served++;
   if (r.host != self) {
@@ -546,8 +546,9 @@ static void handle(Connection &conn, const Request &r) {
     // Windows /connecttest.txt) or a site typed by hand: sending it here, instead of the answer it expects,
     // makes the phone open the page by itself.
     reply(c, 302, "text/plain", "", 0, "Location: http://" + self + "/\r\n");
-    return logRequest("probe", t0);
+    return logRequest("probe", t0);  // (not "use": a phone left joined keeps asking, and would keep the hotspot up)
   }
+  lastUse = t0;
   if (r.method == "POST") {
     // Saves come only from the page itself: another page (one open from before joining) can't send them here.
     if (r.origin.length() && r.origin != "http://" + self) reply(c, 400, "application/json", answer("Not from this page."));
@@ -735,6 +736,7 @@ const char *phoneStart(PhoneTab startTab) {
     WiFi.setAutoReconnect(true);
     return "WiFi didn't start: try again";
   }
+  setCpuFrequencyMhz(160);                          // enough to serve a page; the scan and join above ran at 240
   WiFi.setSleep(false);                             // answer at once, no power-save naps
   esp_wifi_set_bandwidth(WIFI_IF_AP, WIFI_BW_HT20);  // a 20 MHz channel: phones join it more reliably
   http.begin();
@@ -789,7 +791,7 @@ Redraw phoneTick() {
     lastUse = millis();
     if (!appfetchBusy() && appfetchStatus().ok) launcherToast("App installed"), redrawSoon = true;
   }
-  if (millis() - lastUse > IDLE_MS || (stopAt && (int32_t)(millis() - stopAt) >= 0)) {
+  if (millis() - lastUse > IDLE_MS || (millis() - startedAt > MAX_MS && !appfetchBusy()) || (stopAt && (int32_t)(millis() - stopAt) >= 0)) {
     phoneStop();
     return Redraw::Partial;
   }

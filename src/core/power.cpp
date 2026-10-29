@@ -9,7 +9,11 @@
 #include <esp_sleep.h>
 #include <esp_task_wdt.h>
 
-static uint32_t idleMs = 10000;  // Settings: 10, 20, 30 or 60 s (NVS sleep_s)
+static uint32_t idleMs = 10000;  // how long awake with no press: Settings 10, 20, 30 or 60 s (NVS sleep_s), 5 s at most in battery saver
+static uint32_t sleepS = 10;
+static bool saver;  // Settings > Battery saver (NVS saver)
+
+static void setIdle() { idleMs = (saver ? min<uint32_t>(sleepS, 5) : sleepS) * 1000; }
 
 static const gpio_num_t PIN_LATCH = GPIO_NUM_17;      // HIGH keeps battery power on; has a pull-down
 // Active LOW: the codec's supply, which also powers the I2C pull-ups. clock.cpp turns it on at start-up (the clock chip
@@ -53,7 +57,9 @@ void powerInit() {
     gpio_hold_dis(h.pin);
   }
   gpio_deep_sleep_hold_dis();
-  idleMs = storageGetInt("sleep_s", 10) * 1000;
+  sleepS = storageGetInt("sleep_s", 10);
+  saver = storageGetInt("saver", 0);
+  setIdle();
 
   pinMode(PIN_AUDIO_PWR, OUTPUT);
   digitalWrite(PIN_AUDIO_PWR, HIGH);
@@ -161,7 +167,9 @@ void powerNap() {
   powerAlive();
 }
 
-int powerSleepSeconds() { return idleMs / 1000; }
+int powerSleepSeconds() { return sleepS; }
+
+bool powerSaver() { return saver; }
 
 extern TaskHandle_t loopTaskHandle;  // Arduino's main loop task (cores/esp32/main.cpp)
 static const uint32_t WATCHDOG_S = 30;
@@ -204,6 +212,13 @@ void powerOffIfFlat() {
 }
 
 void powerSetSleepSeconds(int s) {
-  idleMs = s * 1000;
+  sleepS = s;
+  setIdle();
   storagePutInt("sleep_s", s);
+}
+
+void powerSetSaver(bool on) {
+  saver = on;
+  setIdle();
+  storagePutInt("saver", on);
 }

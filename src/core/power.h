@@ -8,6 +8,10 @@ void powerActivity();      // call on every input event to restart the idle time
 void powerSleepIfIdle();   // call from loop(); never returns if it sleeps
 void powerSetSleepSeconds(int s);  // saved in NVS
 int powerSleepSeconds();
+// Battery saver (Settings, saved in NVS): the device sleeps after 5 s at most, and what only moves the screen (blinks,
+// a Pet's reaction frames, a stopwatch's seconds) and the radio sessions are cut down. Each place asks powerSaver().
+bool powerSaver();
+void powerSetSaver(bool on);
 void powerHold();     // stay awake (no light or deep sleep) until the matching powerRelease(): background work
 void powerRelease();
 #if UNIDEX_DEV

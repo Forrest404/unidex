@@ -1018,6 +1018,7 @@ Redraw meetTick() {
 #if UNIDEX_DEV
   if (devManualFrames()) return changed ? Redraw::Partial : Redraw::None;
 #endif
+  if (powerSaver()) return changed ? Redraw::Partial : Redraw::None;  // battery saver: no blinks
   if (blinking && (int32_t)(now - openAt) >= 0) {
     blinking = false;
     nextBlinkAt = now + 2500 + esp_random() % 3500;

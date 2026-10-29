@@ -59,7 +59,8 @@ const char *netBegin() {
   beganAt = millis();
   tryAt = 0;
   sawMissing = false;
-  setCpuFrequencyMhz(240);  // full speed only while the radio is on
+  setCpuFrequencyMhz(160);  // the radio on: joining and waiting for a reply don't need more (240 is for the TLS handshake)
+  WiFi.persistent(false);   // don't write the name and password to flash at each join: they are kept in our own storage
   WiFi.mode(WIFI_STA);
   joinSlot(tryOrder[0]);
   return nullptr;
@@ -159,7 +160,10 @@ static int request(const char *host, const char *method, const char *path, const
   WiFiClientSecure &c = *client;
   c.setCACertBundle(caBundle);
   c.setTimeout(IO_TIMEOUT_MS / 1000);
-  if (!c.connect(host, 443)) return -1;
+  setCpuFrequencyMhz(240);  // the handshake is the heavy part
+  const bool connected = c.connect(host, 443);
+  setCpuFrequencyMhz(160);
+  if (!connected) return -1;
 
   size_t length = 0;
   for (int i = 0; i < nParts; i++) length += parts[i].len;

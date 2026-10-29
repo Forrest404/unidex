@@ -690,8 +690,10 @@ static Redraw tick() {
   static long shown = -1;
   long now;
   if ((screen == TIMER && timerEndsAt) || (screen == STOPWATCH && swRunning) || (screen == MENU && (timerEndsAt || swRunning))) {
-    now = (long)(nowMs() / 1000);
-    powerWakeWithin(1000 - nowMs() % 1000 + 5);
+    // Battery saver: every 10 s, but each second for a timer's last 10 s, so its end isn't a surprise.
+    const uint32_t step = powerSaver() && !(timerEndsAt && timerLeft() <= 10) ? 10000 : 1000;
+    now = (long)(nowMs() / step);
+    powerWakeWithin(step - nowMs() % step + 5);
   } else if (screen == MENU || screen == WORLD) {
     now = (long)(time(nullptr) / 60);
   } else {
