@@ -1,0 +1,84 @@
+# The agent without the network: X AGENTREPLY plays the model's answer, and each action is done as it would be. A
+# timer, an alarm and all alarms off (asked first, yes), the stopwatch, a reminder added, ticked off and deleted
+# (asked first: no, then yes), an event, settings (asked first), opening an app, and what it refuses: an app or an
+# action it doesn't have, a bad answer, too many actions. Your alarms and settings are put back (keep); the reminder
+# is deleted and the event's line removed from /myevents.csv. Needs a card.
+keep clk_al1
+keep clk_al2
+keep clk_al3
+keep volume
+keep mute_alerts
+keep ringtone
+keep sleep_s
+clock today 10:00:00
+home
+x AGENTREPLY {"say":"Timer set for 10 minutes","actions":[{"do":"timer","seconds":600}]}
+expect screen=Agent
+expect detail=agent:answer:0:Timer set for 10 minutes|+ Timer 10:00
+shot ag-timer
+x AGENTREPLY {"say":"Stopped it","actions":[{"do":"timer_stop"}]}
+expect detail=agent:answer:0:Stopped it|+ Timer stopped
+x AGENTREPLY {"say":"Alarm at 6:45 on weekdays","actions":[{"do":"alarm","time":"06:45","repeat":"weekdays"}]}
+expect detail=agent:answer:0:Alarm at 6:45 on weekdays|+ Alarm 6:45 Weekdays
+x AGENTREPLY {"say":"","actions":[{"do":"alarms_off"}]}
+expect detail=agent:asking:1:
+shot ag-ask-alarms
+press b
+expect detail=agent:answer:0:|+ Alarms off
+x AGENTREPLY {"say":"Stopwatch going","actions":[{"do":"stopwatch","action":"start"}]}
+expect detail=agent:answer:0:Stopwatch going|+ Stopwatch going
+x AGENTREPLY {"say":"Reset","actions":[{"do":"stopwatch","action":"reset"}]}
+expect detail=agent:answer:0:Reset|+ Stopwatch reset
+x AGENTREPLY {"say":"I'll remind you","actions":[{"do":"reminder","title":"Agent test reminder","due":"2030-01-01 09:00"}]}
+expect detail=agent:answer:0:I'll remind you|+ Reminder: Agent test reminder
+shot ag-reminder
+x AGENTREPLY {"say":"Ticked off","actions":[{"do":"reminder_done","title":"agent test"}]}
+expect detail=agent:answer:0:Ticked off|+ Done: Agent test reminder
+x AGENTREPLY {"say":"","actions":[{"do":"reminder_delete","title":"the agent test reminder"}]}
+expect detail=agent:asking:1:
+shot ag-ask-delete
+press a
+expect detail=agent:answer:0:|x Left as it was
+x AGENTREPLY {"say":"","actions":[{"do":"reminder_delete","title":"agent test reminder"}]}
+press b
+expect detail=agent:answer:0:|+ Deleted: Agent test reminder
+x AGENTREPLY {"say":"","actions":[{"do":"reminder_delete","title":"agent test reminder"}]}
+expect detail=agent:answer:0:|x No reminder "agent test reminder"
+x AGENTREPLY {"say":"Added to your calendar","actions":[{"do":"event","title":"Agent test event","date":"2030-01-01","start":"14:00","location":"Room 1"}]}
+expect detail=agent:answer:0:Added to your calendar|+ Event: Agent test event 01-01 14:00
+x RMLINES /myevents.csv Agent test event
+x AGENTREPLY {"say":"","actions":[{"do":"event","title":"Agent test all day","date":"2030-01-02","start":null,"end":null,"location":null},{"do":"reminder","title":"Agent test undated","due":null}]}
+expect detail=agent:answer:0:|+ Event: Agent test all day 01-02|+ Reminder: Agent test undated
+x RMLINES /myevents.csv Agent test all day
+x AGENTREPLY {"say":"","actions":[{"do":"reminder_delete","title":"agent test undated"}]}
+press b
+expect detail=agent:answer:0:|+ Deleted: Agent test undated
+x AGENTREPLY {"say":"","actions":[{"do":"setting","name":"volume","value":"3"},{"do":"setting","name":"ringtone","value":"bell"},{"do":"setting","name":"sleep_after","value":"30"}]}
+expect detail=agent:asking:3:
+shot ag-ask-volume
+press b
+press a
+press b
+expect detail=agent:answer:0:|+ Volume 3|x Left as it was|+ Sleep after 30 s
+x AGENTREPLY {"say":"Turning the screen dark","actions":[{"do":"setting","name":"dark_screen","value":"on"}]}
+press b
+shot ag-dark
+x AGENTREPLY {"say":"","actions":[{"do":"setting","name":"dark_screen","value":"off"}]}
+press b
+expect detail=agent:answer:0:|+ Dark screen off
+x AGENTREPLY {"say":"Your next class is Maths at 11:00","actions":[]}
+expect detail=agent:answer:0:Your next class is Maths at 11:00
+shot ag-answer
+x AGENTREPLY {"say":"Sorry","actions":[{"do":"open","app":"mail"},{"do":"send_email","to":"sam"},{"do":"timer","seconds":0}]}
+expect detail=agent:answer:0:Sorry|x No app "mail"|x Can't do "send_email"|x A timer is 1 s to 24 h
+shot ag-refused
+x AGENTREPLY {"say":"Lots","actions":[{"do":"timer_stop"},{"do":"timer_stop"},{"do":"timer_stop"},{"do":"timer_stop"},{"do":"timer_stop"},{"do":"timer_stop"}]}
+expect detail=agent:answer:0:Lots|x No timer running|x No timer running|x No timer running|x No timer running|x No timer running|x Only 5 at a time
+x AGENTREPLY this isn't json
+expect detail=agent:answer:0:Sorry, that didn't work: try again
+press a
+expect screen=Home
+x AGENTREPLY {"say":"Opening Games","actions":[{"do":"open","app":"games"}]}
+expect screen=Games
+shot ag-open
+home

@@ -194,6 +194,47 @@ static void toggleDone() {
   if (cursor >= rowCount()) cursor = 0;
 }
 
+// --- for the agent ---
+
+std::vector<reminders::Reminder> remindersList(bool all) {
+  ensureList();
+  std::vector<reminders::Reminder> out;
+  for (const Reminder &r : list)
+    if (all || !r.done) out.push_back(r);
+  return out;
+}
+
+const char *remindersAdd(const std::string &title, const std::string &due) {
+  ensureList();
+  if ((int)list.size() + waitingCount >= reminders::MAX_REMINDERS) return "Reminders full";  // (as record())
+  list.insert(list.begin(), {due, false, title.substr(0, MAX_TITLE)});  // the front, as one said in Reminders
+  if (!save()) {
+    listed = false;  // read back what the card really holds
+    return "Couldn't save";
+  }
+  return nullptr;
+}
+
+const char *remindersFinish(const std::string &title, bool remove) {
+  ensureList();
+  for (size_t i = 0; i < list.size(); i++) {
+    if ((list[i].done && !remove) || list[i].title != title) continue;
+    if (remove) {
+      list.erase(list.begin() + i);
+    } else {
+      list[i].done = true;
+      petNotice(PetNotice::ReminderDone);
+    }
+    if (!save()) {
+      listed = false;
+      return "Couldn't save";
+    }
+    if (cursor >= rowCount()) cursor = 0;
+    return nullptr;
+  }
+  return "No such reminder";
+}
+
 // --- adding one by voice ---
 
 // A brown-out while the radio is on could damage the card.

@@ -9,6 +9,7 @@
 #include "theme.h"
 #include "logo.h"
 #include "../apps/apps.h"
+#include "../apps/agent/agent.h"
 #include "../apps/notes/phone.h"
 #include <qrcode.h>
 
@@ -22,7 +23,9 @@ RTC_DATA_ATTR static int interruptedFrom = NOWHERE;  // launcherInterrupt: where
 static bool quietWake;  // woken by the reminder timer: back to sleep unless something falls due
 static bool interrupted;  // launcherInterrupt showed something since the last poll
 
-static const App *open() { return APPS[current]; }
+// current is an index in APPS, or AGENT: the agent's screens, a hidden app (not on the carousel).
+static const int AGENT = APP_COUNT;
+static const App *open() { return current == AGENT ? &agentApp : APPS[current]; }
 
 // --- toast: one short message over the screen, cleared after a few seconds ---
 
@@ -96,7 +99,7 @@ static void drawHome() {
     drawCenteredLine(fitText(shownLine, display.width() - 2 * MARGIN).c_str(), LINE_BASE);
   }
   drawPageDots(APP_COUNT, selected, DOTS_Y);
-  drawHints("next", "open", "");
+  drawHints("next", "open", agentReady() ? "agent" : "");  // (hold B: ask the agent, once the keys are in)
   drawToastIfAny();
 }
 
@@ -263,11 +266,31 @@ static void openApp(int i) {
 void launcherInterrupt(const App *app) {
   int i = 0;
   while (i < APP_COUNT && APPS[i] != app) i++;
-  if (i == APP_COUNT || current == WELCOME) return;  // a new device's first screens come first
+  if (app == &agentApp) i = AGENT;
+  else if (i == APP_COUNT) return;
+  if (current == WELCOME) return;  // a new device's first screens come first
   if (current != i && interruptedFrom == NOWHERE) interruptedFrom = current;  // the app there isn't left: no onExit
   current = i;
   interrupted = true;
   displayShow(drawApp, true);
+}
+
+bool launcherShowing(const App *app) { return current >= 0 && open() == app; }
+
+void launcherOpen(const App *app) {
+  for (int i = 0; i < APP_COUNT; i++) {
+    if (APPS[i] != app) continue;
+    if (current >= 0) open()->onExit();
+    if (interruptedFrom >= 0 && interruptedFrom != current) {  // the app it covered is left too
+      const int was = current;
+      current = interruptedFrom;
+      open()->onExit();
+      current = was;
+    }
+    interruptedFrom = NOWHERE;  // its Exit goes home, as if chosen there
+    openApp(i);
+    return;
+  }
 }
 
 // After an interruption's Exit: where it came from, as it was.
@@ -317,6 +340,8 @@ void launcherHandle(Event e) {
       displayShow(drawHome, false);
     } else if (e == Event::BShort) {
       openApp(selected);
+    } else if (e == Event::BLong && agentReady()) {
+      agentListen();  // records while B is still held, then shows the answer (or opens what was asked for)
     }
     return;
   }

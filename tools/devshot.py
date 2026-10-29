@@ -288,6 +288,10 @@ class Run:
             self.dev.cmd(f"X PLAY {w[1]}", timeout=120)
         elif w[0] == "sleep":
             time.sleep(int(w[1]) / 1000)
+        elif w[0] == "x":  # x <command>: a test-build command (X AGENTREPLY ...); a problem if it isn't OK
+            r = self.dev.cmd("X " + " ".join(w[1:]), timeout=120)[-1]
+            if not r.startswith("OK X"):
+                self.problems.append(f"X {w[1]}: {r} (before shot {len(self.tiles)})")
         elif w[0] == "welcome":  # the first-start screens (X WELCOME)
             self.dev.cmd("X WELCOME")
         elif w[0] in ("dry", "fake", "netfail", "nocard", "nopush", "nosave", "demo"):

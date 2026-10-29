@@ -9,7 +9,7 @@
 
 namespace clockvoice {
 
-enum class Kind { NONE, TIMER, TIMER_STOP, ALARM, ALARMS_OFF, STOPWATCH_START, STOPWATCH_STOP };
+enum class Kind { NONE, TIMER, TIMER_STOP, ALARM, ALARMS_OFF, STOPWATCH_START, STOPWATCH_STOP, STOPWATCH_RESET };
 
 struct Command {
   Kind kind = Kind::NONE;

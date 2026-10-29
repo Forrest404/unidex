@@ -353,7 +353,8 @@ static void factoryReset() {
     launcherToast("Dry run: not wiped");
     return;
   }
-  for (const char *path : {"/pet/friends.bin", "/pet/friends.bin.old", "/events.csv"}) storageRemove(path);
+  for (const char *path : {"/pet/friends.bin", "/pet/friends.bin.old", "/events.csv", "/myevents.csv"})
+    storageRemove(path);
   LittleFS.begin(false);  // format() needs the partition begin() names (without it, it stops the device)
   LittleFS.format();
   LittleFS.end();
@@ -369,8 +370,12 @@ static void clear(uint8_t what) {
   }
   if (what == CALENDAR) {
     if (!storageCardMount()) launcherToast("No SD card");
-    else if (!storageExists("/events.csv")) launcherToast("Nothing to clear");
-    else launcherToast(storageRemove("/events.csv") ? "Calendar cleared" : "Couldn't clear it");
+    else if (!storageExists("/events.csv") && !storageExists("/myevents.csv")) launcherToast("Nothing to clear");
+    else {  // the synced events, and the ones made on the device (the agent's)
+      bool ok = !storageExists("/events.csv") || storageRemove("/events.csv");
+      ok &= !storageExists("/myevents.csv") || storageRemove("/myevents.csv");
+      launcherToast(ok ? "Calendar cleared" : "Couldn't clear it");
+    }
     storageRemoveKey("events_crc");  // so the next Mac sync writes the events again
     return;
   }
@@ -387,6 +392,7 @@ static void clear(uint8_t what) {
   static uint8_t friendsBlock[1024];
   const size_t friendsLen = storageGetBytes("pet_friends", friendsBlock, sizeof friendsBlock);
   storageRemove("/events.csv");
+  storageRemove("/myevents.csv");
   storageClearKeys();  // settings and the badge choice (not the WiFi and keys: they're separate)
   if (petId) storagePutInt("pet_id", petId);
   if (look != INT32_MIN) storagePutInt("pet_look", look);

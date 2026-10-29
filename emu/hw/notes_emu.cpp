@@ -19,6 +19,7 @@ const char *cloudTranscribe(const NetPart *, int, String &) { return NO; }
 const char *cloudTranscribeKey() { return "openai_key"; }
 const char *cloudTranscribeMissing() { return nullptr; }
 const char *cloudCleanup(NoteText &, const String &) { return NO; }
+const char *cloudAgent(const char *, const String &, String &) { return NO; }
 const char *cloudPush(const String &, const String &, String &) { return NO; }
 const char *cloudTest(const char *, String &) { return NO; }
 String noteMarkdown(const NoteText &, const String &, const String &) { return String(); }

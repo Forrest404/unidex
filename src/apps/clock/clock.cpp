@@ -4,6 +4,7 @@
 // for 8 minutes", "alarm at 7 every weekday"): the words come back from Notes' transcription over WiFi, and
 // voice_logic.h reads them.
 #include <sys/time.h>
+#include "clock.h"
 #include "clock_logic.h"
 #include "voice_logic.h"
 #include "../apps.h"
@@ -445,11 +446,9 @@ static const char *hear(String &heard) {
   return err;
 }
 
-// Does what the words ask, and opens what it changed. `said` is the toast: what was done, or why not.
-static void act(const String &words, String &said) {
+// Does what the command asks, and opens what it changed. `said` is the toast: what was done, or why not.
+static void doCommand(const clockvoice::Command &c, String &said) {
   const time_t now = time(nullptr);
-  const clocks::Local here = clocks::localIn(clocks::CITIES[clocks::HOME], now);
-  const clockvoice::Command c = clockvoice::parse(asciiText(words).c_str(), clockValid() ? here.hour * 60 + here.minute : -1);
   switch (c.kind) {
     case clockvoice::Kind::TIMER:
       timerEndsAt = now + c.seconds, pausedLeft = 0, screen = TIMER;
@@ -495,10 +494,48 @@ static void act(const String &words, String &said) {
       screen = STOPWATCH;
       said = "Stopwatch stopped";
       return;
+    case clockvoice::Kind::STOPWATCH_RESET:
+      swRunning = false, swBase = 0, lapCount = 0;
+      screen = STOPWATCH;
+      said = "Stopwatch reset";
+      return;
     default:
-      said = words.length() ? "Try \"timer 5 min\"" : "Heard nothing";  // (a toast holds ~17 characters)
       return;
   }
+}
+
+// Does what the words ask (doCommand).
+static void act(const String &words, String &said) {
+  const time_t now = time(nullptr);
+  const clocks::Local here = clocks::localIn(clocks::CITIES[clocks::HOME], now);
+  const clockvoice::Command c = clockvoice::parse(asciiText(words).c_str(), clockValid() ? here.hour * 60 + here.minute : -1);
+  if (c.kind == clockvoice::Kind::NONE) said = words.length() ? "Try \"timer 5 min\"" : "Heard nothing";  // (~17 chars)
+  else doCommand(c, said);
+}
+
+String clockCommand(const clockvoice::Command &c) {
+  load();
+  String said;
+  const uint8_t was = screen;
+  doCommand(c, said);
+  if (ringing) screen = was;  // something's ringing: its screen stays, so it can be stopped
+  return said;
+}
+
+String clockState() {
+  load();
+  const time_t now = time(nullptr);
+  String s;
+  if (timerEndsAt) s = ("timer running, " + clocks::duration(max<time_t>(timerEndsAt - now, 0)) + " left").c_str();
+  else if (pausedLeft) s = ("timer paused, " + clocks::duration(pausedLeft) + " left").c_str();
+  else s = "no timer";
+  for (int i = 0; i < clocks::ALARMS; i++) {
+    const Alarm &a = alarms[i];
+    s += String("; alarm ") + String(i + 1) + " " + clocks::hhmm(a.hour, a.minute).c_str() + " " +
+         clocks::REPEAT_NAMES[a.repeat] + (a.on ? " on" : " off");
+  }
+  s += swRunning ? "; stopwatch running" : swBase ? "; stopwatch stopped" : "; stopwatch at zero";
+  return s;
 }
 
 static Redraw voice() {

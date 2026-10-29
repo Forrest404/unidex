@@ -10,6 +10,8 @@ void launcherToast(const char *text);
 // show). When it returns Exit, the screen it covered comes back.
 struct App;
 void launcherInterrupt(const App *app);
+void launcherOpen(const App *app);  // opens an app as if chosen on the home screen (the agent's "open Games")
+bool launcherShowing(const App *app);  // it's the app on screen now
 const char *launcherToastText();       // the message showing now, or "" (for the test tools)  // a short message on the next redraw, gone after a few seconds
 void systemRestart(const char *why);   // "Restarting" screen (with why, if any), then a fresh boot
 const char *launcherScreenName();      // "Home", "No card", "Welcome" or the open app's name (for the test tools)

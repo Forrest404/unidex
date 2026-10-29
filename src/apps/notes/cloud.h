@@ -24,6 +24,9 @@ const char *cloudTranscribeMissing();
 // Title, summary, cleaned body, topics and event, with the provider chosen on the website. With cleanup
 // off (or no transcript) it only fills a short title from the first words.
 const char *cloudCleanup(NoteText &note, const String &nowLocal);
+// The agent: what the device can do and its state (`system`), and what was said. The model's answer in `reply` (JSON,
+// agent_logic.h). Claude if an Anthropic key is saved, else OpenAI.
+const char *cloudAgent(const char *system, const String &words, String &reply);
 // Pushes the note to <gh_dir>/<name>.md in the GitHub repo, adding " 2", " 3"... if the name is taken.
 // `path` gets the path it was saved at.
 const char *cloudPush(const String &name, const String &markdown, String &path);

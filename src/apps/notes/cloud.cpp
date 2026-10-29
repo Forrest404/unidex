@@ -212,36 +212,21 @@ static bool readCleanup(const String &reply, NoteText &note) {
   return true;
 }
 
-const char *cloudCleanup(NoteText &note, const String &nowLocal) {
-  const String provider = credGet("cleanup");
-  note.title = firstWords(note.transcript, 4);  // the fallback, kept if cleanup is off or fails
-  if (devFakeCloud()) {  // test build: a canned result
-    delay(1000);
-    note.title = "Test";
-    note.summary = "A test note.";
-    return nullptr;
-  }
-  if (provider == "off" || !note.transcript.length()) return nullptr;
-  const bool claude = provider == "anthropic";
+// One request to the chat model: Claude or OpenAI, with the cleanup model setting when that provider is the one the
+// cleanup uses (else its default). The model's text in `reply`; nullptr, or a reason for the screen.
+static const char *askModel(bool claude, const char *system, const String &user, int maxTokens, String &reply) {
   const String key = credGet(claude ? "anthropic_key" : "openai_key");
   if (!key.length()) return claude ? "no Anthropic key" : "no OpenAI key";
-  String model = credGet("cleanup_model");
+  String model = credGet("cleanup") == (claude ? "anthropic" : "openai") ? credGet("cleanup_model") : String();
   if (model.startsWith("sk-")) model = "";  // a key saved in the model box would be sent as the model: 404 every time
   if (!model.length()) model = claude ? DEFAULT_ANTHROPIC_MODEL : DEFAULT_OPENAI_MODEL;
-
-  const int lang = languages::find(credGet("note_lang").c_str());
-  const String said = lang > 0 ? String("The note is in ") + languages::LIST[lang].name + ": write the title, summary "
-                                   "and note in " + languages::LIST[lang].name + ".\n"
-                                 : String();
-  const String user = said + "Current local date/time: " + nowLocal + "\n\nTranscript:\n" +
-                      note.transcript.substring(0, MAX_TRANSCRIPT);
   JsonDocument req;
   req["model"] = model;
   req["temperature"] = 0;
   String headers;
   if (claude) {
-    req["max_tokens"] = 4096;
-    req["system"] = CLEANUP_PROMPT;
+    req["max_tokens"] = maxTokens;
+    req["system"] = system;
     JsonObject m = req["messages"].add<JsonObject>();
     m["role"] = "user";
     m["content"] = user;
@@ -250,7 +235,7 @@ const char *cloudCleanup(NoteText &note, const String &nowLocal) {
     req["response_format"]["type"] = "json_object";
     JsonObject s = req["messages"].add<JsonObject>();
     s["role"] = "system";
-    s["content"] = CLEANUP_PROMPT;
+    s["content"] = system;
     JsonObject m = req["messages"].add<JsonObject>();
     m["role"] = "user";
     m["content"] = user;
@@ -264,10 +249,32 @@ const char *cloudCleanup(NoteText &note, const String &nowLocal) {
                               headers, &part, 1, body);
   if (status == 404) return claude ? "Claude: unknown model" : "OpenAI: unknown model";  // the model setting
   if (status != 200) return failure(status, service, body);
-
   JsonDocument doc;
   if (deserializeJson(doc, body)) return claude ? "Claude: bad reply" : "OpenAI: bad reply";
-  const String reply = claude ? (doc["content"][0]["text"] | "") : (doc["choices"][0]["message"]["content"] | "");
+  reply = claude ? (doc["content"][0]["text"] | "") : (doc["choices"][0]["message"]["content"] | "");
+  return nullptr;
+}
+
+const char *cloudCleanup(NoteText &note, const String &nowLocal) {
+  const String provider = credGet("cleanup");
+  note.title = firstWords(note.transcript, 4);  // the fallback, kept if cleanup is off or fails
+  if (devFakeCloud()) {  // test build: a canned result
+    delay(1000);
+    note.title = "Test";
+    note.summary = "A test note.";
+    return nullptr;
+  }
+  if (provider == "off" || !note.transcript.length()) return nullptr;
+  const bool claude = provider == "anthropic";
+
+  const int lang = languages::find(credGet("note_lang").c_str());
+  const String said = lang > 0 ? String("The note is in ") + languages::LIST[lang].name + ": write the title, summary "
+                                   "and note in " + languages::LIST[lang].name + ".\n"
+                                 : String();
+  const String user = said + "Current local date/time: " + nowLocal + "\n\nTranscript:\n" +
+                      note.transcript.substring(0, MAX_TRANSCRIPT);
+  String reply;
+  if (const char *err = askModel(claude, CLEANUP_PROMPT, user, 4096, reply)) return err;
   const String fallback = note.title;
   if (!readCleanup(reply, note)) {
     note.title = fallback;
@@ -275,6 +282,11 @@ const char *cloudCleanup(NoteText &note, const String &nowLocal) {
   }
   if (!note.title.length()) note.title = fallback;
   return nullptr;
+}
+
+const char *cloudAgent(const char *system, const String &words, String &reply) {
+  const bool claude = credHas("anthropic_key");  // Claude if its key is saved, else OpenAI
+  return askModel(claude, system, "They said: " + words.substring(0, 1000), 600, reply);
 }
 
 static String yamlText(const String &s) {  // inside double quotes

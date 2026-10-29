@@ -72,6 +72,21 @@ inline int32_t daysFromCivil(int y, int m, int d) {
   return era * 146097 + yoe * 365 + yoe / 4 - yoe / 100 + doy - 719468;
 }
 
+inline int weekdayOf(int32_t days) { return (int)((days % 7 + 11) % 7); }  // 0 = Sunday (1970-01-01 was a Thursday)
+
+// The other way round: the year, month and day of a day count.
+inline void civilFromDays(int32_t z, int &y, int &m, int &d) {
+  z += 719468;
+  const int32_t era = (z >= 0 ? z : z - 146096) / 146097;
+  const int32_t doe = z - era * 146097;
+  const int32_t yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
+  const int32_t doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+  const int32_t mp = (5 * doy + 2) / 153;
+  d = doy - (153 * mp + 2) / 5 + 1;
+  m = mp + (mp < 10 ? 3 : -9);
+  y = yoe + era * 400 + (m <= 2);
+}
+
 inline int32_t parseDate(const std::string &s) {  // YYYY-MM-DD
   if (s.size() != 10 || s[4] != '-' || s[7] != '-') return -1;
   for (int i : {0, 1, 2, 3, 5, 6, 8, 9})
@@ -96,7 +111,7 @@ inline bool parseRow(const std::string &line, bool dated, Row &r) {
   r.date = dated ? parseDate(f[0]) : -1;
   if (dated && r.date < 0) return false;
   r.allDay = dated && f[1].empty() && f[2].empty();
-  r.wday = dated ? (int)((r.date % 7 + 11) % 7) : parseDay(f[0]);  // 1970-01-01 was a Thursday
+  r.wday = dated ? weekdayOf(r.date) : parseDay(f[0]);
   r.start = r.allDay ? 0 : parseTime(f[1]);
   r.end = r.allDay ? 1440 : parseTime(f[2]);
   if (r.wday < 0 || r.start < 0 || r.end < 0 || r.start >= 1440) return false;

@@ -1,6 +1,8 @@
 // Timetable: the next class or event as a card (when, title, time, place).
-// Weekly classes from /timetable.csv, dated events from /events.csv (Mac sync or the website).
+// Weekly classes from /timetable.csv, dated events from /events.csv (Mac sync or the website) and /myevents.csv
+// (made on the device, by the agent: a sync never replaces it).
 // A = next event, B = details (full title, place, notes), B long = rest of today.
+#include <vector>
 #include "../../core/app.h"
 #include "../../core/clock.h"
 #include "../../core/devtools.h"
@@ -26,7 +28,9 @@ struct Upcoming {
   int32_t delta;  // minutes from now to the start; negative = in progress
 };
 
-static const int MAX_WEEKLY = 128, MAX_DATED = 64, MAX_CLASSES = MAX_WEEKLY + MAX_DATED;  // timetable / events.csv
+static const int MAX_WEEKLY = 128, MAX_DATED = 64, MAX_MINE = 32;  // timetable / events.csv / myevents.csv
+static const int MAX_CLASSES = MAX_WEEKLY + MAX_DATED + MAX_MINE;
+static const char *const MINE = "/myevents.csv", *const MINE_TMP = "/myevents.tmp";
 static const int MAX_UPCOMING = 5, DAY_ROWS = 6, ROW_H = 20;
 static const int DETAIL_LINES = 40, PAGE_LINES = 7, LINE_H = 18;  // details screen, small font
 static const int32_t WEEK = 7 * 1440;
@@ -52,10 +56,10 @@ RTC_DATA_ATTR static int32_t dayEndsFor;     // the day that is (days since 1970
 
 // Rows as timetable_logic.h reads them; ones that don't parse (a header, a bad day, date or time) are skipped. Each
 // file has its own room, so a long timetable can't push this week's events out (or the other way round).
-static void loadFile(const char *path, bool dated) {
+static void loadFile(const char *path, bool dated, int room) {
   if (!storageExists(path)) return;  // none yet (opening it anyway logs an error)
   fs::File f = storageOpen(path);
-  const int limit = count + (dated ? MAX_DATED : MAX_WEEKLY);
+  const int limit = count + room;
   timetable::Row r;
   for (String line; count < limit && storageReadLine(f, line);) {
     if (!timetable::parseRow(line.c_str(), dated, r)) continue;
@@ -112,8 +116,9 @@ static void load() {
   else
 #endif
   {
-    loadFile("/timetable.csv", false);
-    loadFile("/events.csv", true);
+    loadFile("/timetable.csv", false, MAX_WEEKLY);
+    loadFile("/events.csv", true, MAX_DATED);
+    loadFile(MINE, true, MAX_MINE);
   }
   loadedGeneration = usbSyncGeneration();
 }
@@ -541,6 +546,89 @@ static void ensureSoon() {
     Upcoming up[MAX_UPCOMING];
     rememberSoon(up, findUpcoming(up, clockLocal()));
   }
+}
+
+// An event made on the device (a line as events.csv has it), kept in /myevents.csv: written whole to a temp file and
+// swapped in. Ones that have ended make room when it's full. The next events are worked out again at once.
+const char *timetableAddEvent(const char *line) {
+  timetable::Row row;
+  if (!timetable::parseRow(line, true, row)) return "That event doesn't read";
+  if (!storageCardMount()) return "No SD card";
+  const int32_t day = clockValid() ? today(clockLocal()) : 0;
+  std::vector<String> keep;
+  std::vector<bool> ended;
+  if (storageExists(MINE)) {
+    fs::File f = storageOpen(MINE);
+    for (String l; f && storageReadLine(f, l);) {
+      timetable::Row r;
+      if (!timetable::parseRow(l.c_str(), true, r)) continue;
+      keep.push_back(l);
+      ended.push_back(r.date < day);
+    }
+    if (f) f.close();
+  }
+  int over = (int)keep.size() + 1 - MAX_MINE;  // full: ones that have ended make room, the oldest first
+  String text;
+  for (size_t i = 0; i < keep.size(); i++) {
+    if (over > 0 && ended[i]) {
+      over--;
+      continue;
+    }
+    text += keep[i] + "\n";
+  }
+  if (over > 0) return "Calendar full";
+  text += String(line) + "\n";
+  fs::File f = storageOpen(MINE_TMP, "w");
+  if (!f) return "Couldn't save";
+  const size_t wrote = f.print(text);
+  f.close();
+  if (wrote != text.length() || !storageReplace(MINE_TMP, MINE, text.length())) return "Couldn't save";
+  count = -1;
+  ensureReady();
+  if (clockValid()) {
+    Upcoming up[MAX_UPCOMING];
+    rememberSoon(up, findUpcoming(up, clockLocal()));
+  }
+  return nullptr;
+}
+
+// What's on from today for `days` days, one line each, for the agent: "Thu 29 Oct: Maths 09:00-10:00 (B12),
+// Football all day". Empty if the clock isn't set or there's nothing.
+String timetableAgenda(int days) {
+  static const char *const DAY[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+  static const char *const MONTH[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+  String out;
+  if (!clockValid() || !storageCardMount()) return out;
+  ensureReady();
+  const int32_t first = today(clockLocal());
+  for (int32_t d = first; d < first + days && out.length() < 2500; d++) {  // (a full week's timetable: enough)
+    const int wday = timetable::weekdayOf(d);
+    int16_t order[MAX_CLASSES];
+    int n = 0;
+    for (int i = 0; i < count; i++) {
+      const Class &c = classes[i];
+      if (c.date >= 0 ? c.date != d : c.wday != wday) continue;
+      int pos = n++;
+      while (pos > 0 && classes[order[pos - 1]].start > c.start) order[pos] = order[pos - 1], pos--;
+      order[pos] = i;
+    }
+    if (!n) continue;
+    int y, m, dd;
+    timetable::civilFromDays(d, y, m, dd);
+    char line[40];
+    snprintf(line, sizeof line, "%s %d %s:", DAY[wday], dd, MONTH[m - 1]);
+    out += line;
+    for (int k = 0; k < n; k++) {
+      const Class &c = classes[order[k]];
+      char span[16];
+      if (c.allDay) strlcpy(span, "all day", sizeof span);
+      else formatSpan(span, sizeof span, c);
+      out += String(k ? ", " : " ") + c.module + " " + span;
+      if (c.room[0]) out += String(" (") + c.room + ")";
+    }
+    out += "\n";
+  }
+  return out;
 }
 
 time_t timetableDayEnds() {

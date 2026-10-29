@@ -19,6 +19,7 @@
 #include "../apps/timetable/callink.h"
 #include "../apps/scripts/appfetch.h"
 #include "../apps/apps.h"
+#include "../apps/agent/agent.h"
 #include "net.h"
 
 static bool dryRun, fakeCloud, netFail, noCard, noPush, noSave, demo, manualFrames, emptyHeard;
@@ -270,6 +271,22 @@ bool devUsb(const char *l) {
     const bool ok = f && f.print(String(space + 1) + "\n") == strlen(space + 1) + 1;
     if (f) f.close();
     Serial.println(ok ? "OK X ADDLINE" : "ERR");
+  } else if (!strncmp(c, "RMLINES /", 9)) {  // X RMLINES <path> <text>: removes a card file's lines holding text
+    const char *path = c + 8, *space = strchr(path, ' ');
+    const String p = space ? String(path).substring(0, space - path) : String(path), tmp = p + ".rm";
+    String kept, line;
+    int removed = 0;
+    fs::File f = space && storageExists(p.c_str()) ? storageOpen(p.c_str()) : fs::File();
+    while (f && storageReadLine(f, line)) {
+      if (line.indexOf(space + 1) >= 0) removed++;
+      else kept += line + "\n";
+    }
+    if (f) f.close();
+    fs::File o = removed ? storageOpen(tmp.c_str(), "w") : fs::File();
+    bool ok = o && o.print(kept) == kept.length();
+    if (o) o.close();
+    ok = ok && storageReplace(tmp.c_str(), p.c_str(), kept.length());
+    Serial.printf("OK X RMLINES %d\n", ok ? removed : 0);
   } else if (!strncmp(c, "RMFILE /", 8)) {  // X RMFILE <path>: removes one file from the card (test leftovers)
     Serial.println(storageRemove(c + 7) ? "OK X RMFILE" : "ERR");
   } else if (!strncmp(c, "NOTE ", 5)) {  // X NOTE <id> <markdown as hex>: one note with this text (test data)
@@ -292,6 +309,12 @@ bool devUsb(const char *l) {
       powerAlive();  // hundreds of files take longer than the watchdog's 30 s
     }
     Serial.printf("OK X NOTES %d\n", n);
+  } else if (!strncmp(c, "AGENTREPLY ", 11)) {  // X AGENTREPLY <json>: as if the agent's model answered this
+    agentReply(c + 11);
+    Serial.println("OK X AGENTREPLY");
+  } else if (!strncmp(c, "AGENT ", 6)) {  // X AGENT <words>: as if said to the agent (WiFi and the model for real)
+    agentAsk(c + 6);
+    Serial.println("OK X AGENT");
   } else if (!strncmp(c, "CLOCKSAY ", 9)) {  // X CLOCKSAY <words>: Clock does what they ask, as if said to it
     Serial.printf("OK X CLOCKSAY %s\n", clockSay(c + 9));
   } else if (!strcmp(c, "CALSYNC")) {  // X CALSYNC: what Settings > Sync does (clock, then the calendar link)
