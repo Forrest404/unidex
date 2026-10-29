@@ -4,7 +4,7 @@ What changed in each release, in short. The full notes are on the
 [releases page](https://github.com/Forrest404/unidex/releases). To update, use
 https://tools.unidex.shop/ (Update keeps your settings and files).
 
-## Next release
+## v1.14 (29 October 2026)
 
 - **The agent** (new): with your keys in, hold B on the home screen and say what you want: timers, alarms, the
   stopwatch, reminders (added, ticked off, deleted), calendar events, opening an app, settings (volume, alert
@@ -25,6 +25,7 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   throw it back, faster each time; three misses in a row end it, and your best rally with each friend shows in the
   friends list. Tug of war: press B as fast as you can to pull the knot your way, first over or ahead after 15
   seconds wins. Hold A stops either game. Both devices need this version.
+- **Pet > Meet:** strangers' first greeting is quicker (5 beats, about 3 seconds, instead of 11).
 
 ## v1.13 (28 October 2026)
 
