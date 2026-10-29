@@ -20,7 +20,7 @@
 // two, and from then on the two screens are one room, 400 px wide: the device whose Pet id is lower is the left
 // half. The left device runs the show: it sends each act (meet_logic.h) and both play it on the same beat.
 
-static const uint32_t HELLO_MS = 1000, STOP_MS = 120000, STOP_CONNECTED_MS = 300000;
+static const uint32_t HELLO_MS = 1000, LONELY_HELLO_MS = 2000, STOP_MS = 60000, STOP_CONNECTED_MS = 120000;
 static const uint32_t BEAT_MS = 550, LEAD_MS = 1300;  // a frame a beat (a refresh takes ~0.4 s); then the start delay
 static const uint32_t PARTED_MS = 3000;               // weak this long: they've been parted
 static const int SCALE = 3, SIZE = 32 * SCALE;        // Pets at 96 px
@@ -663,7 +663,7 @@ static void receivePacket(const LinkPacket &p, uint32_t now, bool &changed) {
 static void becomeFriends() {
   asking = false;
   meetFriend(partner);
-  if (amLeft) startAct(meet::FRIENDS, 0);
+  if (amLeft) startAct(meet::FRIENDS, theirFeatures() & meet::F_QUICK_GREET ? 1 : 0);  // (quick if it knows how)
 }
 
 // They were parted: each Pet goes home on its own screen (no need to stay in step: the other can't see this one).
@@ -878,8 +878,8 @@ Redraw meetTick() {
   if ((int32_t)(now - nextHelloAt) >= 0) {
     sayHello();
     // Faster while another device is around, so its distance is known within a second or two. A little jitter
-    // keeps two devices from colliding.
-    const uint32_t every = nearby.count() ? HELLO_MS / 4 : HELLO_MS;
+    // keeps two devices from colliding. Slower while nobody is: the first one heard is still found within 2 s.
+    const uint32_t every = nearby.count() ? HELLO_MS / 4 : LONELY_HELLO_MS;
     nextHelloAt = now + every - every / 10 + esp_random() % (every / 5);
   }
   bool changed = false, badgeNews = false;  // badgeNews: a badge arrived, or their answer to ours
@@ -969,7 +969,8 @@ Redraw meetTick() {
     }
     if (greetDue && (featuresFrom == partner.id || (int32_t)(now - greetBy) >= 0)) {
       greetDue = false;
-      startAct(greeting(), 0);
+      const uint8_t g = greeting();  // (strangers: the quick greeting when the other knows it)
+      startAct(g, g == meet::GREET && (theirFeatures() & meet::F_QUICK_GREET) ? 1 : 0);
       return Redraw::None;
     }
     const int i = nearby.find(partner.id);

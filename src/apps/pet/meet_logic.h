@@ -8,7 +8,8 @@
 //           this device hears best: the low 24 bits of its id, then how strongly (dBm, the top 8 bits))
 //   CONNECT (someone pressed B with another device in reach): from u32, to u32
 //   ACT     (the left device starts an act; both play it from when it arrived): from u32, to u32, act u8, actor u8,
-//           seed u32
+//           seed u32. GREET's and FRIENDS' actor is 1 for the quick version (to a Pet that announced F_QUICK_GREET),
+//           0 for the first one, which older firmware plays whatever the actor.
 //   ASK     (the right device asks the left one for an act): from u32, to u32, act u8, actor u8
 //   ANSWER  (be friends? this device's answer): from u32, to u32, act u8 (1 yes, 2 not now, 3 yes and already
 //           settled: the reply to a 1 heard after this side became friends), actor u8 (0). A yes is repeated
@@ -34,8 +35,10 @@ enum Type : uint8_t {
   HELLO = 1, CONNECT = 3, ACT = 4, ASK = 5, ANSWER = 6, FEATURES = 11, PRESS = 12, QUESTION = 13, GAME = 14
 };
 // FEATURES bits: the newer acts, and (not a feature) "you're my friend".
-enum : uint32_t { F_GREETINGS = 1, F_SLEEPOVER = 2, F_HIGH_FIVE = 4, F_GAMES = 8, F_FRIEND = 0x80000000u };
-static const uint32_t MY_FEATURES = F_GREETINGS | F_SLEEPOVER | F_HIGH_FIVE | F_GAMES;
+enum : uint32_t {
+  F_GREETINGS = 1, F_SLEEPOVER = 2, F_HIGH_FIVE = 4, F_GAMES = 8, F_QUICK_GREET = 16, F_FRIEND = 0x80000000u
+};
+static const uint32_t MY_FEATURES = F_GREETINGS | F_SLEEPOVER | F_HIGH_FIVE | F_GAMES | F_QUICK_GREET;
 
 struct Hello {
   uint32_t id, look, heard;
@@ -309,7 +312,8 @@ class Script {
   int16_t x[2];  // where the Pets stand: at the start, then (after build) at the end
   int nowBeat = -1;  // HIGH_FIVE: the "Now!" frame (-1 for other acts)
 
-  // Builds the act from the Pets standing at x0, x1. actor: which Pet does it (VISIT, SAY).
+  // Builds the act from the Pets standing at x0, x1. actor: which Pet does it (VISIT, SAY), or for GREET and
+  // FRIENDS, 1 for the quick one.
   void build(uint8_t act, uint8_t actor, uint32_t seed, int16_t x0, int16_t x1) {
     count = 0;
     nowBeat = -1;
@@ -320,6 +324,12 @@ class Script {
     const int other = 1 - actor;
     switch (act) {
       case GREET:
+        if (actor) {  // quick: both say hi at once, then on to "Be friends?" (5 beats, not 11)
+          hold(1, [&](Frame &f) { f.pet[0].bang = f.pet[1].bang = true; });
+          hold(2, [&](Frame &f) { f.pet[0].bubble = f.pet[1].bubble = SAY_HI_NAME; });
+          happyTogether(1);
+          break;
+        }
         hold(2, [&](Frame &f) { f.pet[0].bang = f.pet[1].bang = true; });
         hold(3, [&](Frame &f) { f.pet[0].bubble = SAY_HI_NAME; });
         hold(3, [&](Frame &f) { f.pet[1].bubble = SAY_HI_NAME; });
@@ -332,6 +342,16 @@ class Script {
         happyTogether(2);
         break;
       case FRIENDS:  // they just became friends: both walk up to the gap, "Friends!", hearts, home again
+        if (actor) {  // quick: 9 beats, not 15
+          walk2(SCREEN_W - PET_W, SCREEN_W, 3);
+          hold(2, [&](Frame &f) {
+            f.pet[0].bubble = f.pet[1].bubble = SAY_FRIENDS;
+            f.pet[0].mood = f.pet[1].mood = HAPPY;
+            f.pet[0].heart = f.pet[1].heart = 2;
+          });
+          walk2(HOME[0], HOME[1], 3);
+          break;
+        }
         walk2(SCREEN_W - PET_W, SCREEN_W, 4);
         hold(3, [&](Frame &f) {
           f.pet[0].bubble = f.pet[1].bubble = SAY_FRIENDS;

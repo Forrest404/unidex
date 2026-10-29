@@ -152,11 +152,24 @@ int main() {
   for (int f = 0; f < s.count; f++)
     for (int i = 0; i < 2; i++) hiBoth[i] |= s.frames[f].pet[i].bubble == SAY_HI_NAME;
   check(hiBoth[0] && hiBoth[1], "a greeting: each one says hi by name");
+  const int longGreet = s.count;
+  s.build(GREET, 1, 3, HOME[0], HOME[1]);
+  hiBoth[0] = hiBoth[1] = false;
+  for (int f = 0; f < s.count; f++)
+    for (int i = 0; i < 2; i++) hiBoth[i] |= s.frames[f].pet[i].bubble == SAY_HI_NAME;
+  check(hiBoth[0] && hiBoth[1] && s.count == 5 && longGreet == 11 && s.x[0] == HOME[0] && s.x[1] == HOME[1],
+        "the quick greeting: both say hi at once, in 5 beats instead of 11");
   s.build(GREET_FRIEND, 0, 3, HOME[0], HOME[1]);
   bool again[2] = {};
   for (int f = 0; f < s.count; f++)
     for (int i = 0; i < 2; i++) again[i] |= s.frames[f].pet[i].bubble == SAY_HI_AGAIN;
   check(again[0] && again[1] && s.x[0] == HOME[0], "friends meeting again: each says hi again");
+  s.build(FRIENDS, 1, 3, HOME[0], HOME[1]);
+  bool cheer[2] = {};
+  for (int f = 0; f < s.count; f++)
+    for (int i = 0; i < 2; i++) cheer[i] |= s.frames[f].pet[i].bubble == SAY_FRIENDS;
+  check(cheer[0] && cheer[1] && s.count == 9 && s.x[0] == HOME[0] && s.x[1] == HOME[1],
+        "the quick celebration: Friends! on both, home again, in 9 beats instead of 15");
   s.build(FRIENDS, 0, 3, HOME[0], HOME[1]);
   bool atGap = false, saidIt = false;
   for (int f = 0; f < s.count; f++) {
