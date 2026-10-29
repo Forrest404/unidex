@@ -3,12 +3,16 @@
 #include "../../src/core/storage.h"
 #include <Arduino.h>
 static int sleepSecs = 10;
-void powerInit() { sleepSecs = storageGetInt("sleep_s", 10); }
+static bool saver;
+void powerInit() { sleepSecs = storageGetInt("sleep_s", 10); saver = storageGetInt("saver", 0); }
 bool powerWokeFromSleep() { return false; }
 void powerActivity() {}
 void powerSleepIfIdle() {}
 void powerSetSleepSeconds(int s) { sleepSecs = s; storagePutInt("sleep_s", s); }
 int powerSleepSeconds() { return sleepSecs; }
+// Battery saver: kept (Settings shows it and the apps ask), though the browser never sleeps anyway.
+bool powerSaver() { return saver; }
+void powerSetSaver(bool on) { saver = on; storagePutInt("saver", on); }
 void powerHold() {}
 void powerRelease() {}
 #if UNIDEX_DEV
