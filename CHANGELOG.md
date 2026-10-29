@@ -7,7 +7,7 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 ## Next release
 
 - **Website: Legacy.** Install and Update's Version menu has a third choice, Legacy, for going back to one of the
-  5 releases before the newest (v1.8 to v1.12 now), if something broke. Update keeps your settings and files, and
+  15 releases before the newest (v1.6 to v1.12 now: the ones before have no files to install), if something broke. Update keeps your settings and files, and
   Update with Release brings you back.
 
 - **Pet > Meet: catch and tug of war** (new, hold B in the room). Catch: press B as the ball reaches your Pet to

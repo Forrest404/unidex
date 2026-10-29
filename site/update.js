@@ -3,7 +3,7 @@
 // Install page's Update button and the Tools page's one-click sync.
 // Channels: 'release', the newest release (firmware/); 'beta', the beta branch as it is now (firmware/beta/: the
 // newest changes, before they're tested enough to release); or an older release by its tag, such as 'v1.12'
-// (firmware/legacy/v1.12/, the 5 before the newest, listed in firmware/legacy/versions.json).
+// (firmware/legacy/v1.12/, up to 15 before the newest, listed in firmware/legacy/versions.json).
 import { ESPLoader, Transport } from 'https://cdn.jsdelivr.net/npm/esptool-js@0.6.0/+esm';
 
 export function firmwareDir(channel = 'release') {
