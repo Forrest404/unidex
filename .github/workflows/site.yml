@@ -110,14 +110,11 @@ jobs:
       - name: Collect firmware and write the installer manifests
         run: |
           set -e
-          # Release in site/firmware, Beta in site/firmware/beta: the same files, and their own manifests.
-          collect() {
-          out="$1"
-          mkdir -p "$out"
-          b="$2/.pio/build/epaper154"
-          cp "$b/bootloader.bin" "$b/partitions.bin" "$b/firmware.bin" "$out/"
-          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin "$out/"
-          python3 - "$out" "$3" <<'PY'
+          # Release in site/firmware, Beta in site/firmware/beta: the same files, and their own manifests. manifests()
+          # is kept in ../manifests.sh for the Legacy step too.
+          cat > ../manifests.sh <<'SH'
+          manifests() {
+          python3 - "$1" "$2" <<'PY'
           import json, sys
           out, version = sys.argv[1], sys.argv[2]
           parts = [("bootloader.bin", 0x0), ("partitions.bin", 0x8000), ("boot_app0.bin", 0xE000),
@@ -131,10 +128,54 @@ jobs:
           json.dump(manifest(parts, True), open(f"{out}/install.json", "w"), indent=2)
           json.dump(manifest([p for p in parts if p[0] == "firmware.bin"], False), open(f"{out}/update.json", "w"), indent=2)
           PY
+          }
+          SH
+          . ../manifests.sh
+          collect() {
+          out="$1"
+          mkdir -p "$out"
+          b="$2/.pio/build/epaper154"
+          cp "$b/bootloader.bin" "$b/partitions.bin" "$b/firmware.bin" "$out/"
+          cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin "$out/"
+          manifests "$out" "$3"
           ls -la "$out"
           }
           collect site/firmware ../release "$RELEASE_TAG"
           collect site/firmware/beta ../beta "$BETA_VERSION"
+
+      - name: The 5 releases before it, for Legacy (site/firmware/legacy/)
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -e
+          . ../manifests.sh
+          # The files each release has attached (checked against its SHA256SUMS), so nothing is built again. A
+          # release whose files can't be had is left out of the list.
+          mkdir -p site/firmware/legacy
+          older=$(git tag --list 'v*' --sort=-v:refname | sed -n "/^$RELEASE_TAG\$/,\$p" | tail -n +2 | head -5)
+          kept=""
+          for tag in $older; do
+            d=$(mktemp -d)
+            if gh release download "$tag" -D "$d" -p "unidex-$tag-*" && (cd "$d" && sha256sum -c "unidex-$tag-SHA256SUMS.txt"); then
+              out="site/firmware/legacy/$tag"
+              mkdir -p "$out"
+              for f in bootloader.bin partitions.bin boot_app0.bin firmware.bin; do cp "$d/unidex-$tag-$f" "$out/$f"; done
+              manifests "$out" "$tag"
+              kept="$kept $tag"
+            else
+              echo "::warning::$tag's files couldn't be downloaded or checked; it's left out of Legacy"
+            fi
+          done
+          python3 - $kept > site/firmware/legacy/versions.json <<'PY'
+          import json, subprocess, sys
+          out = []
+          for tag in sys.argv[1:]:
+              date = subprocess.run(["gh", "release", "view", tag, "--json", "publishedAt", "-q", ".publishedAt"],
+                                    capture_output=True, text=True).stdout.strip()[:10]
+              out.append({"version": tag, "date": date})
+          print(json.dumps({"versions": out}, indent=1))
+          PY
+          cat site/firmware/legacy/versions.json
 
       - name: Attach the firmware files to the release
         if: github.event_name == 'release'
