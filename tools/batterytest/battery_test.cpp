@@ -132,12 +132,21 @@ int main() {
     State s;
     const int now = update(s, restingMv(50) + DEFAULT_OFFSET, true, 0);
     check(now >= 48 && now <= 52, "started up on USB while charging: the default lift is taken off");
-    // ...and a full one, charger finished, counts as topping up from now instead of sticking short of 100.
+    // ...and a full one (a restart or an update while plugged in) starts near the top and reaches 100 soon, not
+    // from the default lift's ~81% over 40 minutes.
     State f;
-    const int first = update(f, 4170, true, 0);
-    const int done = update(f, 4170, true, TOPUP_MIN * MIN);
-    printf("      started up on USB, full: %d%% then %d%%\n", first, done);
-    check(first < 100 && done == 100, "started up on USB with a full battery reaches 100% after topping up");
+    const int first = update(f, 4217, true, 0);
+    int done = -1;
+    for (int m = 1; m <= 20 && done < 0; m++)
+      if (update(f, 4217, true, m * MIN) == 100) done = m;
+    printf("      started up on USB, full: %d%%, 100%% after %d minutes\n", first, done);
+    check(first >= RESTART_FROM && first < 100 && done > 0 && done <= 15,
+          "started up on USB at the top: shows 95% or more, 100% within 15 minutes");
+    // Started up on USB lower down, where the reading then levels off: not taken for nearly full.
+    State g;
+    int p = 0;
+    for (int m = 0; m <= 12; m++) p = update(g, 4110, true, m * MIN);
+    check(p < 90, "started up on USB below the top: levelling off doesn't jump to 95%");
   }
   {
     // Plugged in full (charger finishes at once): no lift, so it stays at 100.

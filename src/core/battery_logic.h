@@ -20,7 +20,9 @@ const int NO_BATTERY_MV = 2500;  // below this the pin is floating: no battery c
 const int TOPUP_MV = 4190;       // the charger holds 4.20 V while topping up; the voltage says no more
 const int MAX_OFFSET = 300;      // how far the charger can lift the reading above resting (mV)
 const int DEFAULT_OFFSET = 120;  // the lift when there's no reading from before plugging in (mV)
-const int TOPUP_MIN = 40;        // minutes at 4.20 V from the start of topping up to full
+const int TOPUP_MIN = 40;        // minutes at 4.20 V from the start of topping up (at TOPUP_FROM %) to full
+const int TOPUP_FROM = 85;       // where topping up usually starts; from higher it takes proportionally less
+const int RESTART_FROM = 95;     // started up on USB at the top: at least this full (charger finishing or done)
 // Boards' ADCs differ: one reads the charger's 4.20 V as 4.16 V and never reaches TOPUP_MV. So topping up also
 // starts when the reading has stopped rising (by RISE_MV) for LEVEL_MIN minutes up near the top.
 const int LEVEL_FROM_MV = 4100, RISE_MV = 8, LEVEL_MIN = 10;
@@ -38,6 +40,7 @@ struct State {
   int16_t offset = 0;     // how much the charger lifts the reading, measured at plug-in
   int8_t shown = -1;      // the % last shown (-1: none yet)
   int8_t topupFrom = 0;   // the % when topping up started
+  uint8_t topupMin = 0;   // and how many minutes it takes from there to 100
   bool charging = false;
   bool toppingUp = false;
   uint32_t topupAt = 0;   // ms when topping up started
@@ -73,13 +76,18 @@ inline int update(State &s, int mv, bool charging, uint32_t nowMs) {
   if (!s.toppingUp && (mv >= TOPUP_MV || levelled || (!s.restMv && mv >= CURVE[POINTS - 1].mv))) {
     s.toppingUp = true;
     s.topupAt = nowMs;
-    const int from = s.shown >= 0 ? s.shown : fromCurve(mv - s.offset);
+    int from = s.shown >= 0 ? s.shown : fromCurve(mv - s.offset);
+    // Started up on USB with nothing to compare with (a restart, an update): the charger at the top means it's
+    // nearly full at least, so not the guess with the default lift (~81%) and 40 minutes more to 100.
+    if (!s.restMv && mv >= CURVE[POINTS - 1].mv && from < RESTART_FROM) from = RESTART_FROM;
     s.topupFrom = from > 99 ? 99 : from;
+    const int need = TOPUP_MIN * (100 - s.topupFrom) / (100 - TOPUP_FROM);  // ~2.7 min a point
+    s.topupMin = need < 1 ? 1 : need > TOPUP_MIN * 2 ? TOPUP_MIN * 2 : need;
   }
   if (s.toppingUp) {
     const uint32_t minutes = (nowMs - s.topupAt) / 60000;
-    pct = minutes >= (uint32_t)TOPUP_MIN ? 100 : s.topupFrom + (100 - s.topupFrom) * (int)minutes / TOPUP_MIN;
-    if (minutes < (uint32_t)TOPUP_MIN && pct > 99) pct = 99;
+    pct = minutes >= s.topupMin ? 100 : s.topupFrom + (100 - s.topupFrom) * (int)minutes / s.topupMin;
+    if (minutes < s.topupMin && pct > 99) pct = 99;
   } else {
     pct = fromCurve(mv - s.offset);
   }
