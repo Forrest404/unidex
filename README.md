@@ -295,6 +295,9 @@ a store game to offload or delete it.
 - **Sync:** **B** sets the clock from the internet and, if you've saved a calendar link, fetches this week's events
   for the Timetable. The row shows when it last synced.
 - **Sleep:** stay awake for 10, 20, 30 or 60 seconds after the last press.
+- **Battery saver:** **B** turns it on or off. On, it sleeps after 5 seconds at most, the Pet doesn't blink, the Clock
+  counts every 10 seconds (each second for a timer's last 10), and the phone portal stops sooner. Use it when you want
+  the battery to last.
 - **Volume:** the speaker, for playing notes and the reminder chime. **B** is louder, **hold B** quieter, with a
   chime at each step; 0 turns it off.
 - **Alert sound:** off, and a reminder falling due still shows on screen but doesn't chime (nor do apps). The

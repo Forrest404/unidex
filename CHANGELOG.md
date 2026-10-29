@@ -11,6 +11,12 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
   sound, ringtone, dark screen, sleep), or a question ("what's my next class?"). Settings and deleting ask first.
   Uses Claude with an Anthropic key, else OpenAI. What it sends: see [PRIVACY.md](PRIVACY.md).
 
+- **Battery saver** (new): Settings > Battery saver. The device sleeps after 5 seconds at most, the Pet doesn't
+  blink and reacts with one refresh instead of a few frames, the Clock counts every 10 seconds (each second for a
+  timer's last 10), and the phone portal stops after 3 minutes without a request, or 20 minutes at most. The WiFi
+  runs slower too, except for the secure handshake.
+- **Power:** a device kept awake past its sleep time by a plain charger now naps in short steps instead of spinning.
+
 - **Website: Legacy.** Install and Update's Version menu has a third choice, Legacy, for going back to one of the
   15 releases before the newest (v1.6 to v1.12 now: the ones before have no files to install), if something broke. Update keeps your settings and files, and
   Update with Release brings you back.
