@@ -6,6 +6,10 @@ https://tools.unidex.shop/ (Update keeps your settings and files).
 
 ## Next release
 
+- **Website: Legacy.** Install and Update's Version menu has a third choice, Legacy, for going back to one of the
+  5 releases before the newest (v1.8 to v1.12 now), if something broke. Update keeps your settings and files, and
+  Update with Release brings you back.
+
 - **Pet > Meet: catch and tug of war** (new, hold B in the room). Catch: press B as the ball reaches your Pet to
   throw it back, faster each time; three misses in a row end it, and your best rally with each friend shows in the
   friends list. Tug of war: press B as fast as you can to pull the knot your way, first over or ahead after 15

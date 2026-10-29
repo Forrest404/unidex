@@ -54,9 +54,16 @@
         <select id="installChannel" data-channel>
           <option value="release">Release</option>
           <option value="beta">Beta</option>
+          <option value="legacy">Legacy (an older version)</option>
         </select>
         <p class="muted" data-beta-note hidden>Beta has the newest changes before they're released, so it may have
           bugs. You can go back to Release with Update.</p>
+        <div data-legacy-row hidden>
+          <label for="installLegacy">Older version</label>
+          <select id="installLegacy" data-legacy></select>
+        </div>
+        <p class="muted" data-legacy-note hidden>An older release, to go back to if something broke. What came after
+          it isn't there (Clock is new in v1.13, for example), and apps that need a newer version won't open. You can go back to Release with Update.</p>
         <esp-web-install-button id="install" manifest="firmware/install.json">
           <button slot="activate">Install</button>
           <span slot="unsupported" class="unsupported">Your browser can't do this. Use <b>Chrome</b> or <b>Edge</b> on a computer.</span>
@@ -71,9 +78,16 @@
         <select id="updateChannel" data-channel>
           <option value="release">Release</option>
           <option value="beta">Beta</option>
+          <option value="legacy">Legacy (an older version)</option>
         </select>
         <p class="muted" data-beta-note hidden>Beta has the newest changes before they're released, so it may have
           bugs. You can go back to Release the same way.</p>
+        <div data-legacy-row hidden>
+          <label for="updateLegacy">Older version</label>
+          <select id="updateLegacy" data-legacy></select>
+        </div>
+        <p class="muted" data-legacy-note hidden>An older release, to go back to if something broke. What came after
+          it isn't there (Clock is new in v1.13, for example), and apps that need a newer version won't open. Your settings and files are kept, and you can go back to Release the same way.</p>
         <button id="update" class="secondary">Update</button>
         <p id="updateStatus" class="status"></p>
       </div>
@@ -110,31 +124,44 @@
 <script type="module" src="chrome.js"></script>
 <script type="module">
   // Update writes only the app and never erases (site/update.js), so settings and the SD card stay.
-  // Release or Beta (the beta branch, built by the website workflow): one choice for both boxes.
-  import { firmwareDir, latestVersion, updateFirmware } from './update.js';
+  // Release, Beta (the beta branch, built by the website workflow) or Legacy (one of the 5 releases before the
+  // newest): one choice for both boxes.
+  import { firmwareDir, latestVersion, legacyVersions, updateFirmware } from './update.js';
   const $ = id => document.getElementById(id);
   const versions = { release: 'unknown', beta: null };
-  let channel = 'release';
+  let channel = 'release';  // 'release', 'beta' or an older release's tag
   const pickers = document.querySelectorAll('[data-channel]');
+  const olders = document.querySelectorAll('[data-legacy]');
 
-  function choose(c) {
-    channel = c;
-    for (const p of pickers) p.value = c;
-    for (const n of document.querySelectorAll('[data-beta-note]')) n.hidden = c !== 'beta';
-    $('install').setAttribute('manifest', `${firmwareDir(c)}/install.json`);
+  function choose(c, older = olders[0].value) {
+    const legacy = c === 'legacy' && older;
+    channel = legacy ? older : c === 'legacy' ? 'release' : c;
+    for (const p of pickers) p.value = legacy ? 'legacy' : channel;
+    for (const o of olders) o.value = older;
+    for (const n of document.querySelectorAll('[data-beta-note]')) n.hidden = channel !== 'beta';
+    for (const n of document.querySelectorAll('[data-legacy-row], [data-legacy-note]')) n.hidden = !legacy;
+    $('install').setAttribute('manifest', `${firmwareDir(channel)}/install.json`);
   }
   for (const p of pickers) p.onchange = () => choose(p.value);
+  for (const o of olders) o.onchange = () => choose('legacy', o.value);
 
-  Promise.all([latestVersion('release'), latestVersion('beta')]).then(([release, beta]) => {
+  Promise.all([latestVersion('release'), latestVersion('beta'), legacyVersions()]).then(([release, beta, older]) => {
     versions.release = release || versions.release;
     versions.beta = beta;
+    for (const v of older) versions[v.version] = v.version;
     $('version').textContent = versions.release;
     for (const p of pickers) {
       p.options[0].textContent = `Release (${versions.release}, recommended)`;
       p.options[1].textContent = beta ? `Beta (${beta}, newest)` : 'Beta (not available yet)';
       p.options[1].disabled = !beta;
+      p.options[2].textContent = older.length ? `Legacy (${older.length} older versions)` : 'Legacy (not available yet)';
+      p.options[2].disabled = !older.length;
     }
-    if (!beta && channel === 'beta') choose('release');
+    const when = d => d ? new Date(d + 'T12:00:00Z').toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+    for (const o of olders) {
+      o.replaceChildren(...older.map(v => new Option(when(v.date) ? `${v.version} (${when(v.date)})` : v.version, v.version)));
+    }
+    if ((!beta && channel === 'beta') || (!older.length && pickers[0].value === 'legacy')) choose('release');
   });
 
   const status = text => { $('updateStatus').textContent = text; };

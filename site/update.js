@@ -1,12 +1,25 @@
 // Writes the firmware (firmware.bin, the app only, at 0x10000) and never erases, so the settings (NVS) and the SD
 // card stay. ESP Web Tools can't do this: it erases the whole device for firmware without Improv Serial. Used by the
 // Install page's Update button and the Tools page's one-click sync.
-// Two channels: 'release', the newest release (firmware/), and 'beta', the beta branch as it is now (firmware/beta/:
-// the newest changes, before they're tested enough to release).
+// Channels: 'release', the newest release (firmware/); 'beta', the beta branch as it is now (firmware/beta/: the
+// newest changes, before they're tested enough to release); or an older release by its tag, such as 'v1.12'
+// (firmware/legacy/v1.12/, the 5 before the newest, listed in firmware/legacy/versions.json).
 import { ESPLoader, Transport } from 'https://cdn.jsdelivr.net/npm/esptool-js@0.6.0/+esm';
 
 export function firmwareDir(channel = 'release') {
-  return channel === 'beta' ? 'firmware/beta' : 'firmware';
+  if (channel === 'beta') return 'firmware/beta';
+  if (/^v\d+(\.\d+)*$/.test(channel)) return `firmware/legacy/${channel}`;
+  return 'firmware';
+}
+
+// The older releases Legacy offers, newest first: [{version: 'v1.12', date: '2026-10-27'}, ...]; [] if none.
+export async function legacyVersions() {
+  try {
+    const r = await fetch('firmware/legacy/versions.json', { cache: 'no-store' });
+    return r.ok ? (await r.json()).versions || [] : [];
+  } catch (e) {
+    return [];
+  }
 }
 
 // The version a channel offers ("v1.4", or "v1.4-3-gabc1234" for beta), from the build; null if it can't be read
