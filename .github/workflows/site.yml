@@ -143,7 +143,7 @@ jobs:
           collect site/firmware ../release "$RELEASE_TAG"
           collect site/firmware/beta ../beta "$BETA_VERSION"
 
-      - name: The 5 releases before it, for Legacy (site/firmware/legacy/)
+      - name: Up to 15 releases before it, for Legacy (site/firmware/legacy/)
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -152,7 +152,7 @@ jobs:
           # The files each release has attached (checked against its SHA256SUMS), so nothing is built again. A
           # release whose files can't be had is left out of the list.
           mkdir -p site/firmware/legacy
-          older=$(git tag --list 'v*' --sort=-v:refname | sed -n "/^$RELEASE_TAG\$/,\$p" | tail -n +2 | head -5)
+          older=$(git tag --list 'v*' --sort=-v:refname | sed -n "/^$RELEASE_TAG\$/,\$p" | tail -n +2 | head -15)
           kept=""
           for tag in $older; do
             d=$(mktemp -d)
