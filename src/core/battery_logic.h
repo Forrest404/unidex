@@ -21,6 +21,9 @@ const int TOPUP_MV = 4190;       // the charger holds 4.20 V while topping up; t
 const int MAX_OFFSET = 300;      // how far the charger can lift the reading above resting (mV)
 const int DEFAULT_OFFSET = 120;  // the lift when there's no reading from before plugging in (mV)
 const int TOPUP_MIN = 40;        // minutes at 4.20 V from the start of topping up to full
+// Boards' ADCs differ: one reads the charger's 4.20 V as 4.16 V and never reaches TOPUP_MV. So topping up also
+// starts when the reading has stopped rising (by RISE_MV) for LEVEL_MIN minutes up near the top.
+const int LEVEL_FROM_MV = 4100, RISE_MV = 8, LEVEL_MIN = 10;
 
 inline int fromCurve(int mv) {
   if (mv <= CURVE[0].mv) return 0;
@@ -38,6 +41,8 @@ struct State {
   bool charging = false;
   bool toppingUp = false;
   uint32_t topupAt = 0;   // ms when topping up started
+  int16_t peakMv = 0;     // charging: the highest reading so far, and (ms) when it last rose
+  uint32_t peakAt = 0;
 };
 
 // The % to show for a reading of `mv`, or -1 with no battery. On battery the % only goes down, so ADC noise
@@ -58,10 +63,14 @@ inline int update(State &s, int mv, bool charging, uint32_t nowMs) {
     s.charging = true;
     const int lift = s.restMv ? mv - s.restMv : DEFAULT_OFFSET;
     s.offset = lift < 0 ? 0 : lift > MAX_OFFSET ? MAX_OFFSET : lift;
+    s.peakMv = mv, s.peakAt = nowMs;
   }
-  // Topping up: the charger holds 4.20 V. Started up on USB with nothing to compare with, a reading of a
-  // full battery could equally be one that's topping up or done, so count from now either way.
-  if (!s.toppingUp && (mv >= TOPUP_MV || (!s.restMv && mv >= CURVE[POINTS - 1].mv))) {
+  if (mv > s.peakMv + RISE_MV) s.peakMv = mv, s.peakAt = nowMs;
+  const bool levelled = mv >= LEVEL_FROM_MV && nowMs - s.peakAt >= (uint32_t)LEVEL_MIN * 60000u;
+  // Topping up: the charger holds 4.20 V (or the reading has levelled off near it). Started up on USB with nothing
+  // to compare with, a reading of a full battery could equally be one that's topping up or done, so count from now
+  // either way.
+  if (!s.toppingUp && (mv >= TOPUP_MV || levelled || (!s.restMv && mv >= CURVE[POINTS - 1].mv))) {
     s.toppingUp = true;
     s.topupAt = nowMs;
     const int from = s.shown >= 0 ? s.shown : fromCurve(mv - s.offset);

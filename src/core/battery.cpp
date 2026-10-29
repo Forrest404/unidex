@@ -50,6 +50,7 @@ static void restore() {
   kept = !power && stateCheck == checksum() && state.shown <= 100;
   if (!kept) state = battery::State();
   state.topupAt = millis() - topupFor;
+  state.peakAt = millis();  // (millis() starts again: levelling off is timed afresh)
 }
 
 #if UNIDEX_DEV

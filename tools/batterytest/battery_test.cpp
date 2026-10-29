@@ -82,6 +82,39 @@ int main() {
     check(later == 80, "on battery again it follows the resting curve down");
   }
   {
+    // A board whose ADC reads 40 mV low: the charger's 4.20 V reads 4.16 V, so the reading never reaches TOPUP_MV.
+    // It still reaches 100 once the reading has levelled off, and not early.
+    State s;
+    uint32_t rng = 11, t = 0;
+    for (int i = 0; i < 10; i++, t += MIN) update(s, restingMv(40) - 40 + noise(rng) / 4, false, t);
+    double soc = 40;
+    int shown = 0, at100 = -1, lastShown = 0;
+    bool dropped = false, early100 = false;
+    for (int m = 0; m < 240; m++, t += MIN) {
+      int mv = restingMv((int)soc) + 150;
+      if (mv >= 4200) {
+        mv = 4200;
+        soc += (100 - soc) / 12;
+      } else {
+        soc += 1;
+      }
+      if (soc > 100) soc = 100;
+      shown = update(s, mv - 40 + noise(rng) / 4, true, t);
+      if (m && shown < lastShown) dropped = true;
+      if (shown == 100 && soc < 95) early100 = true;
+      if (shown == 100 && at100 < 0) at100 = m;
+      lastShown = shown;
+    }
+    printf("      reads 40 mV low: 100%% after %d minutes, ends at %d%%\n", at100, shown);
+    check(shown == 100 && !dropped && !early100, "an ADC that reads low still reaches 100%, never early");
+    // Stuck as it was: plugged in long ago at a steady 4.158 V reading, short of 4.19 V.
+    State k;
+    update(k, 4000, false, 0);
+    int p = 0;
+    for (uint32_t m = 1; m <= 120; m++) p = update(k, 4158, true, m * MIN);
+    check(p == 100, "a reading that sits at 4.158 V on USB goes on to 100% (it used to stay at about 84%)");
+  }
+  {
     // Topping up starts at 85%: 99 at most until TOPUP_MIN minutes, then 100.
     State s;
     update(s, restingMv(85), false, 0);
