@@ -4,6 +4,13 @@ What changed in each release, in short. The full notes are on the
 [releases page](https://github.com/Forrest404/unidex/releases). To update, use
 https://tools.unidex.shop/ (Update keeps your settings and files).
 
+## v1.14.1 (31 October 2026)
+
+- **Battery:** while charging, the % no longer sticks short of 100 (it could stay at about 84% for good on boards
+  whose reading runs a little low): once the voltage stops rising near the top, it climbs to 100. And after a restart
+  or an update while plugged in, it starts at 95% instead of about 81%, reaching 100 in about 13 minutes.
+- **Website:** the Try page's emulator builds again (it had stopped at v1.13).
+
 ## v1.14 (29 October 2026)
 
 - **The agent** (new): with your keys in, hold B on the home screen and say what you want: timers, alarms, the
