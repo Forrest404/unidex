@@ -344,20 +344,27 @@ static void drawNext(const struct tm &now) {
   display.setCursor(MARGIN, CONTENT_TOP + 16);
   display.print(fitText(when, width));
 
-  // The title: large on up to 2 lines, else small on up to 3, centred between the countdown and the rule.
+  // The title, centred between the countdown and the time: large if it fits on one line, else medium on two, else
+  // small on up to three. (Two lines of the large font left no room above or below.)
   String lines[3];
-  int used, lineH, ascent;
-  display.setFont(FONT_LARGE);
+  int used, lineH, ascent, descent;
   const String title = titleOf(c);
-  if ((used = wrapText(title.c_str(), width, lines, 2)) <= 2) {
-    lineH = 28, ascent = 20;
+  display.setFont(FONT_LARGE);
+  if ((used = wrapText(title.c_str(), width, lines, 1)) == 1) {
+    lineH = 28, ascent = 24, descent = 7;
   } else {
-    display.setFont(FONT_SMALL);
-    used = min(wrapText(title.c_str(), width, lines, 3), 3);
-    lineH = 18, ascent = 13;
+    display.setFont(FONT_MEDIUM);
+    if ((used = wrapText(title.c_str(), width, lines, 2)) <= 2) {
+      lineH = 22, ascent = 16, descent = 5;
+    } else {
+      display.setFont(FONT_SMALL);
+      used = min(wrapText(title.c_str(), width, lines, 3), 3);
+      lineH = 18, ascent = 12, descent = 4;
+    }
   }
-  const int16_t top = CONTENT_TOP + 22, bottom = CONTENT_TOP + 78;
-  const int16_t first = top + (bottom - top - used * lineH) / 2 + ascent;
+  const int16_t top = CONTENT_TOP + 22, bottom = CONTENT_TOP + 82;  // under the countdown, over the time
+  const int16_t block = ascent + (used - 1) * lineH + descent;
+  const int16_t first = top + (bottom - top - block) / 2 + ascent;
   for (int i = 0; i < used; i++) display.setCursor(MARGIN, first + i * lineH), display.print(lines[i]);
 
   char span[16], dur[16], line[48];
