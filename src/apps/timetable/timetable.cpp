@@ -413,6 +413,10 @@ static int detailLines(const Class &c, int32_t day, String *out) {
     formatSpan(span, sizeof span, c);
     formatDuration(dur, sizeof dur, shownEnd(c) - c.start);
     snprintf(line, sizeof line, "%s  (%s)", span, dur);
+    if (textWidth(line) > width) {  // "09:00-10:30  (1 h 30 min)" wraps: "(1h 30m)" as on the card
+      formatDuration(dur, sizeof dur, shownEnd(c) - c.start, true);
+      snprintf(line, sizeof line, "%s  (%s)", span, dur);
+    }
     add(line);
   }
   if (*c.room) add(c.room);
