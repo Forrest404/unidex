@@ -505,13 +505,21 @@ static void drawDay(const struct tm &now) {
   int16_t today[MAX_CLASSES];
   const int n = findToday(today, now);
   drawnWhat = n ? n * 1000 + today[0] : -1;
-  drawTitle("Today", now);
   if (n == 0) {
+    drawTitle("Today", now);
     drawEmpty("Nothing left today", "Enjoy the free time", "");
     drawHints("", "", "");
     return;
   }
   row %= n;
+  if (n > DAY_ROWS) {  // more than a screen: where you are ("7/10"), as Settings shows its pages, for the time
+    char at[8];
+    snprintf(at, sizeof at, "%d/%d", row + 1, n);
+    drawHeader("Today", at);
+    drawnMinute = clockValid() ? now.tm_min : -1;
+  } else {
+    drawTitle("Today", now);
+  }
   if (row < scroll) scroll = row;  // keep the selected row on screen
   if (row >= scroll + DAY_ROWS) scroll = row - DAY_ROWS + 1;
   display.setFont(FONT_SMALL);
@@ -527,8 +535,8 @@ static void drawDay(const struct tm &now) {
     else formatHm(hm, sizeof hm, c.start);
     display.setCursor(MARGIN, baseline);
     display.print(hm);
-    // The title gets the rest of the row (the room is on the details screen).
-    const int16_t left = MARGIN + 54;
+    // The title gets the rest of the row (the room is on the details screen), after "all day" (52 px) and a gap.
+    const int16_t left = MARGIN + 58;
     display.setCursor(left, baseline);
     display.print(fitText(c.module, display.width() - MARGIN - left));
     display.setTextColor(BLACK);
