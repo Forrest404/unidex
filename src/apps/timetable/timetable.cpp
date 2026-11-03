@@ -45,7 +45,7 @@ static int32_t drawnWhat = -1;     // which event (card) or which rows (Today) a
 enum View : uint8_t { NEXT, DAY, DETAIL };
 RTC_DATA_ATTR static uint8_t view, peek, scroll, page, row, detailFrom;
 RTC_DATA_ATTR static int16_t detailClass;   // the event the details screen shows
-RTC_DATA_ATTR static int32_t detailDelta;   // minutes from now to its start, when it was opened
+RTC_DATA_ATTR static int32_t detailDay;     // the day it's on (days since 1970), fixed when it was opened
 
 // The next few events, kept through sleep for the home screen's line and the Pet (they can't read the card).
 using Soon = TimetableSoon;
@@ -390,7 +390,7 @@ static void drawNext(const struct tm &now) {
 }
 
 // Everything about the event, as lines of small text: title, date, time and length, place, notes.
-static int detailLines(const Class &c, int32_t d, String *out) {
+static int detailLines(const Class &c, int32_t day, String *out) {
   static const char *DAYS[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
   static const char *MONTHS[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
   const int16_t width = display.width() - 2 * MARGIN;
@@ -402,12 +402,10 @@ static int detailLines(const Class &c, int32_t d, String *out) {
   };
   add(titleOf(c).c_str());
   if (n < DETAIL_LINES) out[n++] = "";
-  // The date it happens on: today plus however many days ahead the start is.
-  time_t t = time(nullptr) + (time_t)d * 60;
-  struct tm on;
-  localtime_r(&t, &on);
+  int y, m, dd;
+  timetable::civilFromDays(day, y, m, dd);
   char date[24], span[16], dur[16], line[64];
-  snprintf(date, sizeof date, "%s %d %s", DAYS[on.tm_wday], on.tm_mday, MONTHS[on.tm_mon]);
+  snprintf(date, sizeof date, "%s %d %s", DAYS[timetable::weekdayOf(day)], dd, MONTHS[m - 1]);
   add(date);
   formatSpan(span, sizeof span, c);
   formatDuration(dur, sizeof dur, shownEnd(c) - c.start);
@@ -456,7 +454,7 @@ static void drawDetail(const struct tm &now) {
   }
   String lines[DETAIL_LINES];
   display.setFont(FONT_SMALL);
-  const int total = detailLines(classes[detailClass], detailDelta, lines);
+  const int total = detailLines(classes[detailClass], detailDay, lines);
   const int pages = (total + PAGE_LINES - 1) / PAGE_LINES;
   if (page >= pages) page = 0;
   drawHeader("Details");
@@ -511,9 +509,12 @@ static void drawSyncing() {
   drawHints("", "", "");
 }
 
+// `delta`: minutes from now to its start (negative: it's on now), which gives the day it's on.
 static void openDetail(int16_t cls, int32_t delta, uint8_t from) {
+  const struct tm now = clockLocal();
+  const int32_t at = nowMinutes(now) + delta;  // minutes from the start of today
   detailClass = cls;
-  detailDelta = delta;
+  detailDay = today(now) + (at >= 0 ? at / 1440 : -((1439 - at) / 1440));
   detailFrom = from;
   view = DETAIL;
   page = 0;
