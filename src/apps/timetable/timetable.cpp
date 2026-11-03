@@ -423,7 +423,7 @@ static int detailLines(const Class &c, int32_t day, String *out) {
   if (*c.notes) {
     if (n < DETAIL_LINES) out[n++] = "";
     // Calendar notes come as one run of "Label: value" parts ("Event: <title> Lecturers: Dr X Event type:
-    // Lecture"): one part per line, leaving out a part that only repeats the title.
+    // Lecture"), with their line breaks as " / ": one part per line, leaving out a part that only repeats the title.
     String part;
     auto flush = [&] {
       part.trim();
@@ -441,6 +441,10 @@ static int detailLines(const Class &c, int32_t day, String *out) {
       p = e;
     }
     for (int i = 0; i < nWords; i++) {
+      if (words[i] == "/") {  // a line break in the calendar's notes (every sync writes one as " / ")
+        flush();
+        continue;
+      }
       // A label is a word ending in ':' ("Lecturers:"), or a capitalised word and a lowercase one ending in ':'
       // ("Event type:"). Each label starts a new line.
       const bool twoWord = i + 1 < nWords && isupper(words[i][0]) && islower(words[i + 1][0]) &&
