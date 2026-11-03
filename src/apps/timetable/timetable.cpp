@@ -40,6 +40,7 @@ static Class *classes;  // MAX_CLASSES of them, in PSRAM (about 56 KB)
 static int count = -1;  // -1 = not loaded yet
 static uint32_t loadedGeneration;  // reload when the USB sync brings new events
 static int drawnMinute = -1;       // the minute on screen, for the live countdown
+static int32_t drawnWhat = -1;     // which event (card) or which rows (Today) are on screen
 
 enum View : uint8_t { NEXT, DAY, DETAIL };
 RTC_DATA_ATTR static uint8_t view, peek, scroll, page, row, detailFrom;
@@ -104,17 +105,20 @@ static void loadDemo() {
   }
 }
 
-// X DEMO 2-4: the hard cases, as calendar events. 2: a busy today, with one in progress, overlaps, a long title,
-// room and notes, more than a screen of rows, all day today and tomorrow, and past midnight (as a sync writes it,
-// ending 23:59). 3: nothing today, only tomorrow, later this week and weeks away. 4: no events at all.
+// X DEMO 2-4: the hard cases, as calendar events. 2: a busy today, with one in progress (and one ending a minute
+// after it's loaded), overlaps, a long title, room and notes, more than a screen of rows, all day today and
+// tomorrow, and past midnight (as a sync writes it, ending 23:59). 3: nothing today, only tomorrow, later this week
+// and weeks away. 4: no events at all.
 struct DemoRow { int day, start, len; bool allDay; const char *module, *room, *notes; };
 static void loadHardDemo(uint8_t set) {
   if (!clockValid() || set == 4) return;
   const struct tm now = clockLocal();
   const int at = (now.tm_hour * 60 + now.tm_min) / 5 * 5;
   const int32_t day0 = timetable::daysFromCivil(now.tm_year + 1900, now.tm_mon + 1, now.tm_mday);
+  const int nowMin = now.tm_hour * 60 + now.tm_min;
   const DemoRow rows[] = {
     {0, at - 30, 60, false, "Biology", "Science block, room 4", "Teacher: Ms Patel / Bring: lab coat / Homework: worksheet 3"},
+    {0, nowMin - 9, 10, false, "Quick chat", "", ""},  // ends a minute after loading: an event ending while open
     {0, at + 20, 60, false, "Lunch with Sam", "Canteen", ""},
     {0, at + 30, 60, false, "Revision club", "Library", ""},
     {0, at + 100, 60, false, "Digital Cultures and Society - Researching the Media I Level 4",
@@ -299,6 +303,7 @@ static void rememberSoon(const Upcoming *up, int n) {
 
 // The empty and "can't show it" states. Returns the number of upcoming events (0 = the screen is drawn).
 static int upcomingOrEmpty(Upcoming *up, const struct tm &now) {
+  drawnWhat = -1;
   if (!clockValid()) {  // first: without the time nothing can be shown, even once events are added
     soonCount = 0;
     drawTitle("Timetable", now);
@@ -330,6 +335,7 @@ static void drawNext(const struct tm &now) {
   if (n == 0) return;
   peek %= n;
   const Class &c = classes[up[peek].index];
+  drawnWhat = up[peek].index;
   const int16_t width = display.width() - 2 * MARGIN;
   char when[32];
   drawTitle("Timetable", now);
@@ -455,6 +461,7 @@ static void drawDetail(const struct tm &now) {
 static void drawDay(const struct tm &now) {
   int16_t today[MAX_CLASSES];
   const int n = findToday(today, now);
+  drawnWhat = n ? n * 1000 + today[0] : -1;
   drawTitle("Today", now);
   if (n == 0) {
     drawEmpty("Nothing left today", "Enjoy the free time", "");
@@ -571,10 +578,26 @@ static void draw() {
   else drawNext(now);
 }
 
-// The countdown and "now" markers move on each minute.
+// What the card or Today would show now, as drawnWhat has it.
+static int32_t showingNow(const struct tm &now) {
+  if (view == DAY) {
+    int16_t today[MAX_CLASSES];
+    const int n = findToday(today, now);
+    return n ? n * 1000 + today[0] : -1;
+  }
+  Upcoming up[MAX_UPCOMING];
+  const int n = count > 0 ? findUpcoming(up, now) : 0;
+  return n ? up[peek % n].index : -1;
+}
+
+// The countdown and "now" markers move on each minute. When an event ends and another takes its place, that's a
+// change of picture rather than a moving countdown, so it counts towards the next cleaning full refresh.
 static Redraw tick() {
-  if (view == DETAIL || drawnMinute < 0 || !clockValid() || clockLocal().tm_min == drawnMinute) return Redraw::None;
-  return Redraw::Tick;
+  if (view == DETAIL || drawnMinute < 0 || !clockValid()) return Redraw::None;
+  const struct tm now = clockLocal();
+  if (now.tm_min == drawnMinute) return Redraw::None;
+  ensureReady();
+  return showingNow(now) != drawnWhat ? Redraw::Partial : Redraw::Tick;
 }
 
 static void onExit() {}
