@@ -469,14 +469,23 @@ static void drawDetail(const struct tm &now) {
   const int total = detailLines(classes[detailClass], detailDay, lines);
   const int pages = (total + PAGE_LINES - 1) / PAGE_LINES;
   if (page >= pages) page = 0;
-  drawHeader("Details");
+  char of[8] = "";  // "1/2" when it's more than a page
+  if (pages > 1) snprintf(of, sizeof of, "%d/%d", page + 1, pages);
+  drawHeader("Details", of);
   drawnMinute = -1;
   display.setFont(FONT_SMALL);
   for (int i = 0; i < PAGE_LINES && page * PAGE_LINES + i < total; i++) {
     display.setCursor(MARGIN, CONTENT_TOP + 18 + i * LINE_H);
     display.print(lines[page * PAGE_LINES + i]);
   }
-  drawHints(pages > 1 ? "more" : "", "", "");
+  drawHints(pages < 2 ? "" : page + 1 < pages ? "more" : "page 1", "", "");
+}
+
+static int detailPages() {
+  if (detailClass < 0 || detailClass >= count) return 1;
+  String lines[DETAIL_LINES];
+  display.setFont(FONT_SMALL);  // the lines are wrapped to the font they're drawn in
+  return max(1, (detailLines(classes[detailClass], detailDay, lines) + PAGE_LINES - 1) / PAGE_LINES);
 }
 
 static void drawDay(const struct tm &now) {
@@ -557,7 +566,7 @@ static Redraw onButton(Event e) {
     return Redraw::Partial;
   }
   if (view == DETAIL) {
-    if (e != Event::AShort) return Redraw::None;
+    if (e != Event::AShort || detailPages() < 2) return Redraw::None;
     page++;  // drawDetail wraps back to the first page after the last
     return Redraw::Partial;
   }
