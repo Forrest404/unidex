@@ -48,8 +48,10 @@
 //   X KEY <name> [<int>|none] -> reads (or sets, or removes) one saved number in NVS:
 //                        "OK X KEY <name> <value|none>"; walkthroughs use it to leave a setting as they found it
 // Pet > Meet also prints "XW <step>" as each step of a walk between two devices shows (tools/meetshot.py).
-//   X DEMO <0|1>      -> Timetable and Notes show built-in sample classes and notes instead of the card's (for
-//                        screenshots without personal data); nothing on the card changes
+//   X DEMO <0-4>      -> Timetable and Notes show built-in sample classes and notes instead of the card's (for
+//                        screenshots without personal data); nothing on the card changes. 2-4: the Timetable's hard
+//                        cases instead: 2 a busy today (long text, overlaps, all day, past midnight), 3 only later
+//                        days (tomorrow, this week, weeks away), 4 no events at all
 #if UNIDEX_DEV
 bool devUsb(const char *line);  // true if the line was an X command
 bool devDryRun();
@@ -63,6 +65,7 @@ bool devFailNote();                       // consumes one of X FAILNOTE's failur
 bool devSweepOn();                        // X SWEEPONLY is set
 bool devSweepAllows(const String &id);    // a sync may handle this note
 bool devDemo();
+uint8_t devDemoSet();  // 0, or X DEMO's number
 uint32_t devAutoSync();  // X AUTOSYNC's seconds, 0 when not set
 uint32_t devSeed();
 bool devManualFrames();
@@ -85,6 +88,7 @@ inline bool devNoCard() { return false; }
 inline bool devNoPush() { return false; }
 inline bool devNoSave() { return false; }
 inline bool devDemo() { return false; }
+inline uint8_t devDemoSet() { return 0; }
 inline uint32_t devAutoSync() { return 0; }
 inline uint32_t devSeed() { return 0; }
 inline bool devManualFrames() { return false; }

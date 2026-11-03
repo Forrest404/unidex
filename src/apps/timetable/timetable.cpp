@@ -103,16 +103,69 @@ static void loadDemo() {
     classes[count++] = c;
   }
 }
+
+// X DEMO 2-4: the hard cases, as calendar events. 2: a busy today, with one in progress, overlaps, a long title,
+// room and notes, more than a screen of rows, all day today and tomorrow, and past midnight (as a sync writes it,
+// ending 23:59). 3: nothing today, only tomorrow, later this week and weeks away. 4: no events at all.
+struct DemoRow { int day, start, len; bool allDay; const char *module, *room, *notes; };
+static void loadHardDemo(uint8_t set) {
+  if (!clockValid() || set == 4) return;
+  const struct tm now = clockLocal();
+  const int at = (now.tm_hour * 60 + now.tm_min) / 5 * 5;
+  const int32_t day0 = timetable::daysFromCivil(now.tm_year + 1900, now.tm_mon + 1, now.tm_mday);
+  const DemoRow rows[] = {
+    {0, at - 30, 60, false, "Biology", "Science block, room 4", "Teacher: Ms Patel / Bring: lab coat / Homework: worksheet 3"},
+    {0, at + 20, 60, false, "Lunch with Sam", "Canteen", ""},
+    {0, at + 30, 60, false, "Revision club", "Library", ""},
+    {0, at + 100, 60, false, "Digital Cultures and Society - Researching the Media I Level 4",
+     "Room 118 Marshgate, second floor, east wing, by the lifts", "Event: Digital Cultures / Lecturer: Dr Ahmed Khan / "
+     "Reading: chapters 3 and 4 before the seminar / Bring: laptop, charger, the printed handout from last week"},
+    {0, at + 170, 25, false, "Call Mum", "", ""},
+    {0, at + 200, 30, false, "Football", "Field 2", ""},
+    {0, at + 240, 45, false, "Piano lesson", "Music room", ""},
+    {0, 23 * 60, 59, false, "Night bus home", "Stop K", ""},
+    {0, 0, 1440, true, "Sam's birthday", "", ""},
+    {1, 0, 1440, true, "School trip", "Science Museum", ""},
+    {1, 9 * 60, 60, false, "Chemistry", "Lab 1", ""},
+    {40, 9 * 60, 90, false, "Exam: Maths paper 1", "Sports hall", "Bring: pens, calculator, ruler"},
+  };
+  const DemoRow later[] = {
+    {1, 0, 1440, true, "School trip", "Science Museum", ""},
+    {1, 9 * 60, 60, false, "Chemistry", "Lab 1", ""},
+    {3, 14 * 60, 120, false, "Dentist", "High Street", ""},
+    {6, 10 * 60, 60, false, "Driving lesson", "", ""},
+    {12, 18 * 60, 90, false, "Concert", "Town hall", ""},
+    {40, 9 * 60, 90, false, "Exam: Maths paper 1", "Sports hall", "Bring: pens, calculator, ruler"},
+    {400, 12 * 60, 60, false, "Reunion", "", ""},
+  };
+  const DemoRow *list = set == 3 ? later : rows;
+  const int n = set == 3 ? sizeof later / sizeof later[0] : sizeof rows / sizeof rows[0];
+  for (int i = 0; i < n; i++) {
+    const auto &r = list[i];
+    if (r.start < 0 || r.start + r.len > 1440 || count >= MAX_CLASSES) continue;
+    Class c = {};
+    c.date = day0 + r.day;
+    c.wday = (now.tm_wday + r.day) % 7;
+    c.allDay = r.allDay;
+    c.start = r.start;
+    c.end = r.start + r.len;
+    strlcpy(c.module, r.module, sizeof c.module);
+    strlcpy(c.room, r.room, sizeof c.room);
+    strlcpy(c.notes, r.notes, sizeof c.notes);
+    classes[count++] = c;
+  }
+}
 #endif
-static bool loadedDemo;
+static uint8_t loadedDemo;  // X DEMO's number when the samples were loaded (0: the card's)
 
 static void load() {
   if (!classes) classes = (Class *)ps_malloc(MAX_CLASSES * sizeof(Class));
   count = 0;
   if (!classes) return;
-  loadedDemo = devDemo();
+  loadedDemo = devDemoSet();
 #if UNIDEX_DEV
-  if (loadedDemo) loadDemo();
+  if (loadedDemo >= 2) loadHardDemo(loadedDemo);
+  else if (loadedDemo) loadDemo();
   else
 #endif
   {
@@ -124,7 +177,7 @@ static void load() {
 }
 
 static void ensureReady() {
-  if (count < 0 || loadedGeneration != usbSyncGeneration() || loadedDemo != devDemo()) load();
+  if (count < 0 || loadedGeneration != usbSyncGeneration() || loadedDemo != devDemoSet()) load();
 }
 
 static int nowMinutes(const struct tm &now) { return now.tm_hour * 60 + now.tm_min; }

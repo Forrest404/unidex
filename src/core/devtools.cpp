@@ -23,6 +23,7 @@
 #include "net.h"
 
 static bool dryRun, fakeCloud, netFail, noCard, noPush, noSave, demo, manualFrames, emptyHeard;
+static uint8_t demoSet;  // X DEMO's number: 1 = the usual samples, 2-4 = the Timetable's hard cases
 static int failNotes;
 static String sweepPrefix;
 static uint32_t seed, autoSync;
@@ -40,6 +41,7 @@ bool devFailNote() { return failNotes > 0 && failNotes--; }
 bool devSweepOn() { return fakeCloud && sweepPrefix.length(); }
 bool devSweepAllows(const String &id) { return !fakeCloud || (sweepPrefix.length() && id.startsWith(sweepPrefix)); }
 bool devDemo() { return demo; }
+uint8_t devDemoSet() { return demoSet; }
 uint32_t devSeed() { return seed; }
 uint32_t devAutoSync() { return autoSync; }
 bool devManualFrames() { return manualFrames; }
@@ -351,7 +353,8 @@ bool devUsb(const char *l) {
     if (v == INT32_MIN) Serial.printf("OK X KEY %s none\n", name);
     else Serial.printf("OK X KEY %s %ld\n", name, (long)v);
   } else if (!strncmp(c, "DEMO ", 5)) {
-    demo = c[5] == '1';
+    demoSet = c[5] >= '1' && c[5] <= '4' ? c[5] - '0' : 0;
+    demo = demoSet != 0;
     Serial.printf("OK X %s\n", c);
   } else {
     Serial.println("ERR");
