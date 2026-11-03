@@ -331,7 +331,7 @@ static int upcomingOrEmpty(Upcoming *up, const struct tm &now) {
   if (count == 0) {
     soonCount = 0;
     drawTitle("Timetable", now);
-    drawEmpty("Nothing coming up", "Add events on the", "website or your Mac");
+    drawEmpty("Nothing coming up", "Add your calendar at", "tools.unidex.shop");
     drawHints("", "", "");
     return 0;
   }
@@ -339,7 +339,7 @@ static int upcomingOrEmpty(Upcoming *up, const struct tm &now) {
   rememberSoon(up, n);
   if (n == 0) {  // e.g. only all-day or finished events left
     drawTitle("Timetable", now);
-    drawEmpty("Nothing coming up", "Only all-day or past", "events are left");
+    drawEmpty("Nothing coming up", "No more timed events", "in your calendar");
     drawHints("", "", "today");
   }
   return n;
