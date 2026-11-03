@@ -258,16 +258,17 @@ static void drawTitle(const char *title, const struct tm &now) {
   drawnMinute = clockValid() ? now.tm_min : -1;
 }
 
-// A later day and a time: "Tomorrow 09:00", "Wed 09:00" this week, "Sun 13 Dec 09:00" further on, and "2 Nov 2027
-// 09:00" when it's about a year off. `ahead`: days from today, `day`: that day (days since 1970).
-static void formatDayAt(char *buf, size_t len, int32_t ahead, int32_t day, int startMin) {
+// A later day and a time: "Tomorrow 09:00" (or the weekday, where room is short), "Wed 09:00" this week,
+// "Sun 13 Dec 09:00" further on, and "2 Nov 2027 09:00" when it's about a year off. `ahead`: days from today, `day`:
+// that day (days since 1970).
+static void formatDayAt(char *buf, size_t len, int32_t ahead, int32_t day, int startMin, bool tomorrow = true) {
   static const char *DAYS[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
   static const char *MONTHS[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
   char hm[6];
   formatHm(hm, sizeof hm, startMin);
   int y, m, dd;
   timetable::civilFromDays(day, y, m, dd);
-  if (ahead == 1) snprintf(buf, len, "Tomorrow %s", hm);
+  if (ahead == 1 && tomorrow) snprintf(buf, len, "Tomorrow %s", hm);
   else if (ahead < 7) snprintf(buf, len, "%s %s", DAYS[timetable::weekdayOf(day)], hm);
   else if (ahead < 300) snprintf(buf, len, "%s %d %s %s", DAYS[timetable::weekdayOf(day)], dd, MONTHS[m - 1], hm);
   else snprintf(buf, len, "%d %s %d %s", dd, MONTHS[m - 1], y, hm);
@@ -778,9 +779,9 @@ int timetableSoon(TimetableSoon out[3]) {
   return n;
 }
 
-// "Now: Maths", "In 12 min: Maths", "In 2 h 5 min: Maths", "Tomorrow 09:00: Maths", "Tue 09:00: Maths", from the
-// events remembered on the last visit, worded as the card has them. The time goes first so a long title is what
-// gets cut.
+// "Now: Maths", "In 12 min: Maths", "In 2 h 5 min: Maths", "Wed 09:00: Maths", "Sun 13 Dec 09:00: Exam", from the
+// events remembered on the last visit, worded as the card has them (but tomorrow is its weekday: "Tomorrow" left
+// little room for the title). The time goes first so a long title is what gets cut.
 static void status(char *out, size_t len) {
   if (!clockValid()) {
     snprintf(out, len, "Time not set");
@@ -805,7 +806,7 @@ static void status(char *out, size_t len) {
       formatDuration(dur, sizeof dur, mins);
       snprintf(when, sizeof when, "In %s", dur);
     } else {
-      formatDayAt(when, sizeof when, ahead, day, at.tm_hour * 60 + at.tm_min);
+      formatDayAt(when, sizeof when, ahead, day, at.tm_hour * 60 + at.tm_min, false);  // the title needs the room
     }
     snprintf(out, len, "%s: %s", when, s.title);
     return;
