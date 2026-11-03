@@ -407,10 +407,14 @@ static int detailLines(const Class &c, int32_t day, String *out) {
   char date[24], span[16], dur[16], line[64];
   snprintf(date, sizeof date, "%s %d %s", DAYS[timetable::weekdayOf(day)], dd, MONTHS[m - 1]);
   add(date);
-  formatSpan(span, sizeof span, c);
-  formatDuration(dur, sizeof dur, shownEnd(c) - c.start);
-  snprintf(line, sizeof line, "%s  (%s)", span, dur);
-  add(line);
+  if (c.allDay) {
+    add("All day");
+  } else {
+    formatSpan(span, sizeof span, c);
+    formatDuration(dur, sizeof dur, shownEnd(c) - c.start);
+    snprintf(line, sizeof line, "%s  (%s)", span, dur);
+    add(line);
+  }
   if (*c.room) add(c.room);
   if (*c.notes) {
     if (n < DETAIL_LINES) out[n++] = "";
