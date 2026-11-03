@@ -582,12 +582,13 @@ static void onExit() {}
 // Reads the card for the next events: once after a restart, so they're there before the first visit, and when every
 // remembered one has ended (at most every 15 minutes), so the line doesn't stay on "Nothing coming up" until a visit.
 static void ensureSoon() {
-  static bool looked;
+  static bool looked;  // since this power-up (a card that wasn't there is looked for again, every 15 minutes)
+  const time_t now = time(nullptr);
   if (soonCount < 0) {
-    if (looked) return;
+    if (looked && now - staleLookAt < 15 * 60) return;
     looked = true;
+    staleLookAt = now;
   } else {
-    const time_t now = time(nullptr);
     for (int i = 0; i < soonCount; i++)
       if (now < soon[i].end) return;
     if (now - staleLookAt < 15 * 60) return;
@@ -728,7 +729,8 @@ static void status(char *out, size_t len) {
     snprintf(out, len, "%s: %s", when, s.title);
     return;
   }
-  if (soonCount == 0) snprintf(out, len, "Nothing coming up");
+  // Every remembered event has ended (the card is read again within 15 minutes), or there were none
+  snprintf(out, len, soonCount < 0 ? "No SD card" : "Nothing coming up");
 }
 
 extern const App timetableApp = {"Timetable", ICON_TIMETABLE, onEnter, onButton, draw, onExit, onBack, status, tick, true};
