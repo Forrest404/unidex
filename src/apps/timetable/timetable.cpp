@@ -657,16 +657,19 @@ static Redraw tick() {
 
 static void onExit() {}
 
-// Reads the card for the next events: once after a restart, so they're there before the first visit, and when every
-// remembered one has ended (at most every 15 minutes), so the line doesn't stay on "Nothing coming up" until a visit.
+// Reads the card for the next events: once after a restart, so they're there before the first visit, when a sync
+// brings new events, and when every remembered one has ended (at most every 15 minutes), so the line doesn't stay
+// on "Nothing coming up" until a visit.
 static void ensureSoon() {
   static bool looked;  // since this power-up (a card that wasn't there is looked for again, every 15 minutes)
   const time_t now = time(nullptr);
-  if (soonCount < 0) {
+  // New events from a sync (USB, or Settings > Sync's calendar link), or the test build's samples switched: at once
+  const bool changed = count >= 0 && (loadedGeneration != usbSyncGeneration() || loadedDemo != devDemoSet());
+  if (!changed && soonCount < 0) {
     if (looked && now - staleLookAt < 15 * 60) return;
     looked = true;
     staleLookAt = now;
-  } else {
+  } else if (!changed) {
     for (int i = 0; i < soonCount; i++)
       if (now < soon[i].end) return;
     if (now - staleLookAt < 15 * 60) return;
