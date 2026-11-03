@@ -770,8 +770,9 @@ int timetableSoon(TimetableSoon out[3]) {
   return n;
 }
 
-// "In 12 min: Maths", "Now: Maths", "Tue 09:00: Maths", from the events remembered on the last visit. The time
-// goes first so a long title is what gets cut.
+// "Now: Maths", "In 12 min: Maths", "In 2 h 5 min: Maths", "Tomorrow 09:00: Maths", "Tue 09:00: Maths", from the
+// events remembered on the last visit, worded as the card has them. The time goes first so a long title is what
+// gets cut.
 static void status(char *out, size_t len) {
   if (!clockValid()) {
     snprintf(out, len, "Time not set");
@@ -787,13 +788,16 @@ static void status(char *out, size_t len) {
       return;
     }
     const long mins = (s.start - now + 59) / 60;
-    char when[24];
-    if (mins < 60) snprintf(when, sizeof when, "In %ld min", mins);
-    else if (mins < 12 * 60) snprintf(when, sizeof when, "In %ld h %02ld", mins / 60, mins % 60);
-    else {
-      struct tm at;
-      localtime_r(&s.start, &at);
-      strftime(when, sizeof when, "%a %H:%M", &at);
+    struct tm at;
+    localtime_r(&s.start, &at);
+    const int32_t day = timetable::daysFromCivil(at.tm_year + 1900, at.tm_mon + 1, at.tm_mday);
+    const int32_t ahead = day - today(clockLocal());
+    char when[24], dur[16];
+    if (ahead <= 0) {  // as the card has it: "In 12 min", "In 2 h 5 min"
+      formatDuration(dur, sizeof dur, mins);
+      snprintf(when, sizeof when, "In %s", dur);
+    } else {
+      formatDayAt(when, sizeof when, ahead, day, at.tm_hour * 60 + at.tm_min);
     }
     snprintf(out, len, "%s: %s", when, s.title);
     return;
