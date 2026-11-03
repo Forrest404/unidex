@@ -237,7 +237,11 @@ static void formatDuration(char *buf, size_t len, int32_t min, bool short_ = fal
   else snprintf(buf, len, short_ ? "%ldh %ldm" : "%ld h %ld min", (long)(min / 60), (long)(min % 60));
 }
 
-static void formatHm(char *buf, size_t len, int min) { snprintf(buf, len, "%02d:%02d", min / 60, min % 60); }
+static void formatHm(char *buf, size_t len, int min) { snprintf(buf, len, "%02d:%02d", min / 60 % 24, min % 60); }
+
+// When it ends, for showing. The calendar syncs (the website, the Mac, the device's own) end an event that runs past
+// midnight at 23:59: that's shown as midnight, so it reads "22:00-00:00 (2 h)", not "22:00-23:59 (1 h 59 min)".
+static int shownEnd(const Class &c) { return c.end == 23 * 60 + 59 ? 24 * 60 : c.end; }
 
 // The title, with "..." when it reached the length kept from the calendar (so it was cut there).
 static String titleOf(const Class &c) {
@@ -259,7 +263,7 @@ static void formatWhen(char *buf, size_t len, const Class &c, int32_t d, const s
   static const char *DAYS[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
   char dur[16], hm[6];
   if (d <= 0) {
-    formatHm(hm, sizeof hm, c.end);
+    formatHm(hm, sizeof hm, shownEnd(c));
     snprintf(buf, len, "NOW, UNTIL %s", hm);
   } else if (d < 1440 - nowMinutes(now)) {
     formatDuration(dur, sizeof dur, d);
@@ -275,7 +279,7 @@ static void formatWhen(char *buf, size_t len, const Class &c, int32_t d, const s
 static void formatSpan(char *buf, size_t len, const Class &c) {
   char a[6], b[6];
   formatHm(a, sizeof a, c.start);
-  formatHm(b, sizeof b, c.end);
+  formatHm(b, sizeof b, shownEnd(c));
   snprintf(buf, len, "%s-%s", a, b);
 }
 
@@ -369,11 +373,11 @@ static void drawNext(const struct tm &now) {
 
   char span[16], dur[16], line[48];
   formatSpan(span, sizeof span, c);
-  formatDuration(dur, sizeof dur, c.end - c.start);
+  formatDuration(dur, sizeof dur, shownEnd(c) - c.start);
   snprintf(line, sizeof line, "%s   %s", span, dur);
   display.setFont(FONT_SMALL);
   if (textWidth(line) > width) {  // "12:15-15:00   2 h 45 min" is a little too wide
-    formatDuration(dur, sizeof dur, c.end - c.start, true);
+    formatDuration(dur, sizeof dur, shownEnd(c) - c.start, true);
     snprintf(line, sizeof line, "%s   %s", span, dur);
   }
   const int16_t y = CONTENT_TOP + 96;
@@ -406,7 +410,7 @@ static int detailLines(const Class &c, int32_t d, String *out) {
   snprintf(date, sizeof date, "%s %d %s", DAYS[on.tm_wday], on.tm_mday, MONTHS[on.tm_mon]);
   add(date);
   formatSpan(span, sizeof span, c);
-  formatDuration(dur, sizeof dur, c.end - c.start);
+  formatDuration(dur, sizeof dur, shownEnd(c) - c.start);
   snprintf(line, sizeof line, "%s  (%s)", span, dur);
   add(line);
   if (*c.room) add(c.room);
