@@ -258,9 +258,23 @@ static void drawTitle(const char *title, const struct tm &now) {
   drawnMinute = clockValid() ? now.tm_min : -1;
 }
 
-// "IN 42 MIN" / "NOW, UNTIL 16:00" / "TOMORROW 09:30" / "TUE 09:00".
+// A later day and a time: "Tomorrow 09:00", "Wed 09:00" this week, "Sun 13 Dec 09:00" further on, and "2 Nov 2027
+// 09:00" when it's about a year off. `ahead`: days from today, `day`: that day (days since 1970).
+static void formatDayAt(char *buf, size_t len, int32_t ahead, int32_t day, int startMin) {
+  static const char *DAYS[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+  static const char *MONTHS[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+  char hm[6];
+  formatHm(hm, sizeof hm, startMin);
+  int y, m, dd;
+  timetable::civilFromDays(day, y, m, dd);
+  if (ahead == 1) snprintf(buf, len, "Tomorrow %s", hm);
+  else if (ahead < 7) snprintf(buf, len, "%s %s", DAYS[timetable::weekdayOf(day)], hm);
+  else if (ahead < 300) snprintf(buf, len, "%s %d %s %s", DAYS[timetable::weekdayOf(day)], dd, MONTHS[m - 1], hm);
+  else snprintf(buf, len, "%d %s %d %s", dd, MONTHS[m - 1], y, hm);
+}
+
+// "IN 42 MIN" / "NOW, UNTIL 16:00" / "TOMORROW 09:30" / "TUE 09:00" / "SUN 13 DEC 09:00".
 static void formatWhen(char *buf, size_t len, const Class &c, int32_t d, const struct tm &now) {
-  static const char *DAYS[] = {"SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"};
   char dur[16], hm[6];
   if (d <= 0) {
     formatHm(hm, sizeof hm, shownEnd(c));
@@ -269,9 +283,8 @@ static void formatWhen(char *buf, size_t len, const Class &c, int32_t d, const s
     formatDuration(dur, sizeof dur, d);
     snprintf(buf, len, "IN %s", dur);
   } else {
-    formatHm(hm, sizeof hm, c.start);
-    bool tomorrow = c.wday == (now.tm_wday + 1) % 7 && d < 2 * 1440;
-    snprintf(buf, len, "%s %s", tomorrow ? "TOMORROW" : DAYS[c.wday], hm);
+    const int32_t ahead = (nowMinutes(now) + d) / 1440;  // a weekly class over for today is a week ahead, not today
+    formatDayAt(buf, len, ahead, today(now) + ahead, c.start);
   }
   for (char *p = buf; *p; p++) *p = toupper(*p);
 }
