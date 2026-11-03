@@ -680,6 +680,10 @@ static void ensureSoon() {
     ensureReady();
     Upcoming up[MAX_UPCOMING];
     rememberSoon(up, findUpcoming(up, clockLocal()));
+  } else if (changed) {  // the card went since: take the change as seen, or this would try the card on every call
+    loadedGeneration = usbSyncGeneration();
+    loadedDemo = devDemoSet();
+    staleLookAt = now;
   }
 }
 
