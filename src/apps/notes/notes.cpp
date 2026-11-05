@@ -454,7 +454,7 @@ static Redraw onButton(Event e) {
           return Redraw::Partial;
         }
         screen = PHONE;
-        return Redraw::Partial;
+        return Redraw::Full;  // a clean picture for the camera: the note's ghost could stop the code scanning
       }
       return Redraw::None;  // deleting is in the list (hold B there)
     case CONFIRM:
