@@ -304,12 +304,14 @@ static void drawView() {
 }
 
 static void drawConfirm() {
+  ensureList();
   bool pushed = false;
   String title = openId;
   for (const NoteInfo &n : notes)
     if (n.id == openId) title = titleOf(n), pushed = n.pushed;
-  drawListRows();
-  drawSheet("Delete this note?", title.c_str(), pushed ? "GitHub copy stays." : "Can't be undone.");
+  drawHeader("Notes");
+  // "On GitHub" only when it's switched on: a "Heard nothing" note, or one made with GitHub off, is marked sent too
+  drawSheet("Delete this note?", title.c_str(), pushed && githubOn() ? "GitHub copy stays." : "Can't be undone.");
   drawHints("keep", "delete", "");
 }
 
