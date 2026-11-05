@@ -251,7 +251,9 @@ static void drawMain() {
 
 static void drawListRows() {
   ensureList();
-  drawHeader("Notes");
+  char at[12] = "";  // more than a screen: where you are ("3/12"), as the Timetable's Today shows it
+  if ((int)notes.size() > ROWS) snprintf(at, sizeof at, "%d/%d", cursor + 1, (int)notes.size());
+  drawHeader("Notes", at);
   display.setFont(FONT_SMALL);
   const int first = cursor / ROWS * ROWS;
   for (int r = 0; r < ROWS && first + r < (int)notes.size(); r++) {
@@ -400,7 +402,10 @@ static Redraw onButton(Event e) {
       return Redraw::None;
     case LIST:
       if (notes.empty()) return Redraw::None;
-      if (e == Event::AShort) cursor = (cursor + 1) % notes.size();
+      if (e == Event::AShort) {
+        if (notes.size() < 2) return Redraw::None;  // one note: nothing to move to
+        cursor = (cursor + 1) % notes.size();
+      }
       else if (e == Event::BShort) {
         strlcpy(openId, notes[cursor].id.c_str(), sizeof openId);
         page = 0;
