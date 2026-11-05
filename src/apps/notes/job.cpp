@@ -119,8 +119,8 @@ static bool settlePushed(int &wrote) {
 }
 
 static const char *const NO_SPEECH = "Heard nothing";  // finish(): a recording with nothing to keep
-static const char *const NOTHING_KEPT = "Heard nothing: kept";  // finish(): nothing heard, but the recording stays
-static const char *const FULL_PUSHED = "Card full: on GitHub", *const FULL_SHOWN = "Card full: shown once";
+static const char *const NOTHING_KEPT = "Heard nothing: recording kept";  // finish(): nothing heard, but the recording stays
+static const char *const FULL_PUSHED = "Card full: on GitHub", *const FULL_SHOWN = "Card full: shown, not saved";
 
 // Transcribe (from the audio parts), tidy up, save and push one note. WiFi must be up.
 // Returns nullptr or the reason it stopped; `title` gets the note's title.
