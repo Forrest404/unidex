@@ -116,6 +116,9 @@ void drawEmpty(const char *headline, const char *line1, const char *line2) {
 
 void drawSheet(const char *title, const char *line1, const char *line2, const char *line3) {
   const int16_t x = MARGIN, y = CONTENT_TOP + 14, w = display.width() - 2 * x, h = HINTS_TOP - 10 - y;
+  // The screen behind is cleared first: around the sheet, the top row of a list and the ends of a selected row's bar
+  // were left showing, cut off.
+  display.fillRect(0, CONTENT_TOP, display.width(), HINTS_TOP - CONTENT_TOP, WHITE);
   display.fillRoundRect(x, y, w, h, 6, WHITE);
   display.drawRoundRect(x, y, w, h, 6, BLACK);
   display.drawRoundRect(x + 1, y + 1, w - 2, h - 2, 5, BLACK);

@@ -31,7 +31,7 @@ int wrapText(const char *text, int16_t maxW, String *out, int maxLines);
 
 void drawEmpty(const char *headline, const char *line1, const char *line2 = "");  // centred in the content
 void drawSheet(const char *title, const char *line1, const char *line2 = "",
-               const char *line3 = "");  // a "sure?" box over the screen; each line fits about 164 px
+               const char *line3 = "");  // a "sure?" box on a cleared screen; each line fits about 164 px
 void drawProgress(int16_t cy, int pct);    // a bar; pct < 0 = a block that moves while waiting
 void drawPageDots(int count, int current, int16_t cy);
 void drawToast(const char *text);          // a short message in a black pill just above the hints
