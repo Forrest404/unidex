@@ -111,7 +111,14 @@ static void wrap(const String &text, std::vector<String> &out) {
     while (from < (int)para.length()) {
       int space = para.indexOf(' ', from);
       if (space < 0) space = para.length();
-      const String word = para.substring(from, space);
+      String word = para.substring(from, space);
+      while (textWidth(word.c_str()) > width) {  // longer than a line (a link): broken where it has to be
+        int fits = word.length() - 1;
+        while (fits > 1 && textWidth(word.substring(0, fits).c_str()) > width) fits--;
+        if (line.length()) out.push_back(line), line = "";
+        out.push_back(word.substring(0, fits));
+        word = word.substring(fits);
+      }
       const String trial = line.length() ? line + " " + word : word;
       int16_t x, y;
       uint16_t w, h;
