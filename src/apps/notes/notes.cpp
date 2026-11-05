@@ -305,7 +305,9 @@ static void drawViewText() {
 static void drawView() {
   drawViewText();
   const int pages = viewPages();
-  drawHints(pages < 2 ? "" : page + 1 < pages ? "more" : "page 1", hasWav ? "play" : "", hasCard() ? "phone" : "");
+  const bool shownOnly = strcmp(openId, "shown") == 0;  // not on the card: the phone page wouldn't have it
+  drawHints(pages < 2 ? "" : page + 1 < pages ? "more" : "page 1", hasWav ? "play" : "",
+            hasCard() && !shownOnly ? "phone" : "");
 }
 
 static void drawConfirm() {
@@ -427,7 +429,7 @@ static Redraw onButton(Event e) {
         if (const char *err = playNote(openId)) launcherToast(err);
         return Redraw::Partial;
       }
-      if (e == Event::BLong && hasCard()) {  // read it (and the other notes) on a phone
+      if (e == Event::BLong && hasCard() && strcmp(openId, "shown") != 0) {  // read it (and the others) on a phone
         if (const char *low = batteryTooLow()) {  // the hotspot draws as much as normal WiFi
           launcherToast(low);
           return Redraw::Partial;
@@ -507,7 +509,8 @@ static Redraw tick() {
     String md, title;
     if (jobTakeShown(md, title)) {  // no card, no GitHub: show the note now, it isn't kept
       lines.clear();
-      wrap(readable(md), lines);
+      wrap("Not saved: shown once.\n\n" + readable(md), lines);  // (or it looks like any other note)
+      hasWav = false;  // nothing of it is on the card to play or open on a phone
       strlcpy(openId, "shown", sizeof openId);
       linesFor = openId;
       viewTitle = ascii(title);
