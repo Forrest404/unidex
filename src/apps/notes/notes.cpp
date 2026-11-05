@@ -285,12 +285,14 @@ static int viewPages() { return max(1, ((int)lines.size() + LINES - 1) / LINES);
 
 static void drawViewText() {
   ensureLines();
-  const int pages = max(1, ((int)lines.size() + LINES - 1) / LINES);
+  const int pages = viewPages();
   if (page >= pages) page = 0;
   String title = viewTitle.length() && linesFor == openId ? viewTitle : String(openId);
   for (const NoteInfo &n : notes)
     if (n.id == openId) title = titleOf(n);
-  drawHeader(title.c_str());
+  char of[12] = "";  // "1/3" when it's more than a page, as the Timetable's details show it
+  if (pages > 1) snprintf(of, sizeof of, "%d/%d", page + 1, pages);
+  drawHeader(title.c_str(), of);
   display.setFont(FONT_SMALL);
   for (int i = 0; i < LINES && page * LINES + i < (int)lines.size(); i++) {
     display.setCursor(MARGIN, CONTENT_TOP + 18 + i * LINE_H);
@@ -300,7 +302,8 @@ static void drawViewText() {
 
 static void drawView() {
   drawViewText();
-  drawHints(viewPages() > 1 ? "more" : "", hasWav ? "play" : "", hasCard() ? "phone" : "");
+  const int pages = viewPages();
+  drawHints(pages < 2 ? "" : page + 1 < pages ? "more" : "page 1", hasWav ? "play" : "", hasCard() ? "phone" : "");
 }
 
 static void drawConfirm() {
@@ -410,6 +413,8 @@ static Redraw onButton(Event e) {
       return Redraw::Partial;
     case VIEW:
       if (e == Event::AShort) {
+        ensureLines();
+        if (viewPages() < 2) return Redraw::None;  // one page: nothing to turn to
         page++;  // wraps in drawView
         return Redraw::Partial;
       }
