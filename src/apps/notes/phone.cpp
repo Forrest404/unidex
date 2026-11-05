@@ -700,7 +700,7 @@ static void drawLooking() {
 const char *phoneStart(PhoneTab startTab) {
   tab = startTab;
   if (on) return nullptr;
-  if (netClaimed()) return "Sending a note: try soon";  // over the normal WiFi
+  if (netClaimed()) return "Sending: try soon";  // over the normal WiFi
   const String name = storageGetString("dev_name");  // what the person called it (Settings on the page)
   if (name.length() && !checkName(name.c_str())) strlcpy(ssid, name.c_str(), sizeof ssid);
   else strlcpy(ssid, defaultName().c_str(), sizeof ssid);
@@ -734,7 +734,7 @@ const char *phoneStart(PhoneTab startTab) {
   if (!WiFi.softAP(ssid, password, online ? WiFi.channel() : 1)) {
     netOff();
     WiFi.setAutoReconnect(true);
-    return "WiFi didn't start: try again";
+    return "WiFi didn't start";
   }
   setCpuFrequencyMhz(160);                          // enough to serve a page; the scan and join above ran at 240
   WiFi.setSleep(false);                             // answer at once, no power-save naps

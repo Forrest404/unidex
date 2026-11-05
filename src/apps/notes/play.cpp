@@ -31,14 +31,14 @@ static void drawPlaying() {
 
 const char *playNote(const String &id) {
   if (const char *low = batteryTooLow()) return low;
-  if (!audioVolume()) return "Volume is off: Settings";
+  if (!audioVolume()) return "Volume is off";
   if (!storeValidId(id)) return "No recording";
   const String path = storeWavPath(id);
   if (!storageExists(path.c_str())) return "No recording";
   fs::File f = storageOpen(path.c_str());
-  if (!f || f.size() <= 44 || !f.seek(44)) return "Couldn't read the card";
+  if (!f || f.size() <= 44 || !f.seek(44)) return "Can't read the card";
   const size_t total = (f.size() - 44) / 2;
-  if (!audioPlayBegin()) return "Speaker not answering";
+  if (!audioPlayBegin()) return "Speaker not found";
   static int16_t buf[1024];
   size_t done = 0;
   uint32_t shown = 0;
