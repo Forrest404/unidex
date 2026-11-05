@@ -143,7 +143,15 @@ static String readable(const String &md) {
   if (topics >= 0) body = body.substring(0, topics);
   body.replace("> [!summary] ", "");
   body.replace("**", "");
-  body.replace("- ", "* ");
+  // List bullets ("- " starting a line, indented or not) show as "* "; a dash inside a line ("Mon - Fri") stays.
+  for (int at = 0; at < (int)body.length();) {
+    int i = at;
+    while (i < (int)body.length() && body[i] == ' ') i++;
+    if (i + 1 < (int)body.length() && body[i] == '-' && body[i + 1] == ' ') body.setCharAt(i, '*');
+    const int nl = body.indexOf('\n', at);
+    if (nl < 0) break;
+    at = nl + 1;
+  }
   body.trim();
   // Mostly in a script the fonts don't have (Greek, Arabic, Chinese...): rows of "?" would say nothing.
   int missing = 0, letters = 0;
