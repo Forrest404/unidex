@@ -177,9 +177,18 @@ static void ensureLines() {
 #else
   const String md = storeReadNote(openId);
 #endif
-  if (md.length()) wrap(readable(md), lines);
-  else wrap("Not sent yet. It goes by itself when WiFi is in reach. B to listen.", lines);
   hasWav = hasCard() && storeValidId(openId) && storageExists(storeWavPath(openId).c_str());
+  if (md.length()) {
+    wrap(readable(md), lines);
+  } else {  // not transcribed yet: say what happens next, as things are now
+    String why;
+    if (jobBusy() && strcmp(openId, jobStatus().noteId) == 0) why = "Sending now. The text shows here when it's done.";
+    else if (cloudTranscribeMissing()) why = "Not sent yet: it needs a transcription key. Add one on the Setup page.";
+    else if (!credWifiAny()) why = "Not sent yet: add your WiFi on the Setup page, and it sends by itself.";
+    else why = "Not sent yet. It sends by itself when there's WiFi.";
+    if (hasWav) why += " B plays the recording.";
+    wrap(why, lines);
+  }
   linesFor = openId;
 }
 
