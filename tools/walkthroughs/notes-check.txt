@@ -1,0 +1,46 @@
+# Notes' fixes on the real list (X DEMO 0): a test note (dashes, nested bullets, a long link), a short fake
+# recording opened and played (volume 0: the toast), and a recording kept for WiFi. Run it with tools/safeshot.py,
+# which keeps X FAKE 1 on and deletes every note made here. Needs GitHub off (X NOTE's note would otherwise wait).
+fake 1
+dry 1
+demo 0
+x NOTE test-launch 2d2d2d0a7469746c653a20546573743a2064617368657320616e642061206c696e6b0a2d2d2d0a3e205b2173756d6d6172795d204f70656e204d6f6e202d204672692c2039202d20352e2054686973206e6f746520636865636b7320686f77207468652073637265656e2073686f7773206461736865732c2062756c6c65747320616e642061206c6f6e67206c696e6b2e0a0a2d20466972737420706f696e740a20202d2041206e657374656420706f696e7420756e6465722069740a2d205365652068747470733a2f2f6769746875622e636f6d2f466f72726573743430342f756e696465782d617070732f626c6f622f6d61696e2f415050532e6d6423736c6565702d616e642d736176696e6720666f72206d6f72652e0a2d20546865206c61737420706f696e742c20736f20746865206e6f74652072756e73206f6e746f2061207365636f6e642070616765206f66207468652073637265656e2e0a
+select Notes
+press b
+press a
+shot c-list
+press b
+shot c-view
+press a
+shot c-view-p2
+press a
+shot c-view-p1-again
+press A
+press B
+shot c-confirm
+press a
+press A
+hold B 3000
+waitjob 20
+shot c-saved
+press a
+press a
+press b
+shot c-recorded
+press b
+shot c-play-toast
+press A
+press A
+netfail 1
+hold B 3000
+waitjob 20
+shot c-sends-on-wifi
+netfail 0
+press a
+press a
+press b
+shot c-unsent-view
+press A
+press A
+press A
+select Timetable

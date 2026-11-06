@@ -1,0 +1,41 @@
+# Notes' recording screens, for the launch pass: short recordings through the microphone (it makes no sound), sent
+# nowhere (fake). Run it with tools/safeshot.py: it keeps X FAKE 1 on and deletes every note made here.
+fake 1
+dry 1
+demo 1
+select Notes
+press b
+shotduring 2000 r-recording X HOLD B 3500
+shot r-after-letgo
+sleep 1200
+shot r-step-1
+sleep 1500
+shot r-step-2
+waitjob 20
+shot r-saved
+x EMPTY 1
+hold B 3000
+waitjob 20
+shot r-heard-nothing
+x EMPTY 0
+x FAILNOTE 1
+hold B 3000
+waitjob 20
+shot r-error-kept
+nosave 1
+hold B 3000
+waitjob 20
+shot r-card-full
+sleep 1500
+shot r-card-full-later
+press A
+press A
+nosave 0
+netfail 1
+hold B 3000
+waitjob 20
+shot r-sends-on-wifi
+netfail 0
+press A
+shot r-home-line
+select Timetable
