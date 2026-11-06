@@ -598,7 +598,7 @@ static void draw() {
     const int n = doneCount();
     char title[24];
     snprintf(title, sizeof title, n == 1 ? "Clear 1 done?" : "Clear %d done?", n);
-    drawSheet(title, "Ticked ones go.", "Can't be undone.");
+    drawSheet(title, n == 1 ? "The ticked one goes." : "Ticked ones go.", "Can't be undone.");
     drawHints("keep", "clear", "");
   } else if (rowCount() == 0) {
     drawHints("", "", "add");
