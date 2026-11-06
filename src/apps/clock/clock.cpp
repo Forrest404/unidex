@@ -423,9 +423,9 @@ static void drawWorking() {
 // Records while B is held, then has it transcribed over WiFi (blocking: a few seconds). nullptr with the words in
 // `heard`, or why not, for a toast.
 static const char *hear(String &heard) {
-  if (!credWifiAny()) return "Voice needs WiFi: Setup";
-  if (const char *missing = cloudTranscribeMissing()) return missing;
-  if (jobBusy() || netClaimed()) return "WiFi busy: try again soon";
+  if (!credWifiAny()) return "Setup: add WiFi";  // (toasts: 160 px)
+  if (cloudTranscribeMissing()) return "Setup: add a key";
+  if (jobBusy() || netClaimed()) return "Busy: try again";
   if (const char *low = batteryTooLow()) return low;
   if (!jobCanTake()) return "Still saving a note";
   int16_t *samples;
@@ -450,8 +450,9 @@ static const char *hear(String &heard) {
   return err;
 }
 
-// Does what the command asks, and opens what it changed. `said` is the toast: what was done, or why not.
-static void doCommand(const clockvoice::Command &c, String &said) {
+// Does what the command asks, and opens what it changed. `said`: what was done, or why not; for a toast (160 px)
+// shorter than for the agent's list ("Alarm 7:00 set" there says "Alarm 7:00 Weekdays").
+static void doCommand(const clockvoice::Command &c, String &said, bool toast) {
   const time_t now = time(nullptr);
   switch (c.kind) {
     case clockvoice::Kind::TIMER:
@@ -469,7 +470,7 @@ static void doCommand(const clockvoice::Command &c, String &said) {
       for (int i = 0; i < clocks::ALARMS && slot < 0; i++)
         if (!alarms[i].on) slot = i;
       if (slot < 0) {
-        said = "3 alarms on: turn one off";
+        said = toast ? "3 alarms on already" : "3 alarms on: turn one off";  // (the agent looks for "3 alarms")
         return;
       }
       alarms[slot] = {true, (uint8_t)c.hour, (uint8_t)c.minute, c.repeat};
@@ -477,9 +478,15 @@ static void doCommand(const clockvoice::Command &c, String &said) {
       if (snoozed == slot) snoozeAt = 0;
       screen = ALARMS, alarmRow = slot;
       said = ("Alarm " + clocks::hhmm(c.hour, c.minute)).c_str();
-      if (!clockValid()) said += ": clock not set";
-      else if (c.repeat != clocks::ONCE) said += String(" ") + clocks::REPEAT_NAMES[c.repeat];
-      else said += (" " + clocks::whenWords((time_t)clocks::nextRing(alarms[slot], now), now)).c_str();
+      if (!clockValid()) {
+        said = toast ? String("Alarm: clock not set") : said + ": clock not set";
+      } else if (c.repeat != clocks::ONCE) {
+        said += toast ? String(" set") : String(" ") + clocks::REPEAT_NAMES[c.repeat];  // (its row says which days)
+      } else {
+        std::string when = clocks::whenWords((time_t)clocks::nextRing(alarms[slot], now), now);
+        if (toast && when == "tomorrow") when = "tmrw";
+        said += (" " + when).c_str();
+      }
       return;
     }
     case clockvoice::Kind::ALARMS_OFF:
@@ -514,14 +521,14 @@ static void act(const String &words, String &said) {
   const clocks::Local here = clocks::localIn(clocks::CITIES[clocks::HOME], now);
   const clockvoice::Command c = clockvoice::parse(asciiText(words).c_str(), clockValid() ? here.hour * 60 + here.minute : -1);
   if (c.kind == clockvoice::Kind::NONE) said = words.length() ? "Try \"timer 5 min\"" : "Heard nothing";  // (~17 chars)
-  else doCommand(c, said);
+  else doCommand(c, said, true);
 }
 
 String clockCommand(const clockvoice::Command &c) {
   load();
   String said;
   const uint8_t was = screen;
-  doCommand(c, said);
+  doCommand(c, said, false);
   if (ringing) screen = was;  // something's ringing: its screen stays, so it can be stopped
   return said;
 }
@@ -544,8 +551,18 @@ String clockState() {
 
 static Redraw voice() {
   String heard, said;
-  if (const char *err = hear(heard)) said = err;
-  else act(heard, said);
+  if (const char *err = hear(heard)) {
+    said = err;
+    // The transcriber's reasons name it ("Whisper: no connection"): the toast keeps what's after, if it's too wide
+    display.setFont(FONT_SMALL);
+    const int colon = said.indexOf(": ");
+    if (colon > 0 && textWidth(said.c_str()) > display.width() - 2 * MARGIN - 24) {
+      said = said.substring(colon + 2);
+      said.setCharAt(0, toupper(said[0]));
+    }
+  } else {
+    act(heard, said);
+  }
   launcherToast(said.c_str());
   return Redraw::Full;
 }
