@@ -249,7 +249,7 @@ static void record() {
     return;
   }
   if ((int)list.size() + waitingCount >= reminders::MAX_REMINDERS) {
-    launcherToast("Full: clear done ones");
+    launcherToast("List full: clear some");
     return;
   }
   if (!jobCanTake()) {  // the last recording isn't on the card yet
@@ -274,7 +274,7 @@ static void record() {
 
 // The ones waiting for WiFi, sent now (B on their row) or every RETRY_S by themselves. Quiet: no toast if it can't.
 static bool sendWaiting(bool quiet) {
-  const char *why = !credWifiAny() ? "Setup: add your WiFi"
+  const char *why = !credWifiAny() ? "Setup: add WiFi"
                     : cloudTranscribeMissing() && !devFakeCloud() ? "Setup: add a key"  // OpenAI's or ElevenLabs'
                     : jobBusy() || netClaimed() ? "Busy: try again"
                     : batteryTooLow();
@@ -333,7 +333,7 @@ static void addWords() {
   for (const String &id : taken) waitingRemoveWords(id);
   if (!added) {
     failed = "Heard nothing";
-    if (!isOpen) launcherToast("Reminder not added");  // the reason waits on the list
+    if (!isOpen) launcherToast("No reminder heard");  // the reason waits on the list
     return;
   }
   for (size_t i = 0; i < list.size(); i++)
@@ -344,10 +344,14 @@ static void addWords() {
   screen = LIST;
   const long now = nowMinutes();
   const std::string tag = reminders::dueTag(last, now);
-  // The row is selected, with its title: the toast says when.
+  // The row is selected, with its title: the toast says when, in its 160 px ("Due tmrw 12:30pm").
   char many[24];
   snprintf(many, sizeof many, "%d added", added);
-  const std::string msg = added > 1 ? many : now < 0 ? "Added, no time: clock not set" : tag.empty() ? "Added" : "Added for " + tag;
+  const std::string msg = added > 1        ? many
+                          : now < 0        ? "Added: clock unset"
+                          : tag.empty()    ? "Added"
+                          : tag == "late"  ? "Added: already late"
+                                           : "Due " + tag;
   launcherToast(msg.c_str());
 }
 
@@ -358,7 +362,7 @@ static void sent(const String &problem, bool offline) {
   addWords();
   if (problem.length()) {  // the service said no, or the card: the recordings wait, and say why
     failed = problem;
-    if (!isOpen) launcherToast("Reminder not added yet");
+    if (!isOpen) launcherToast("Reminder not sent");
   } else if (offline && waitingCount > 0) {
     launcherToast(credWifiAny() ? "Saved for WiFi" : "Saved: set up WiFi");
   }
