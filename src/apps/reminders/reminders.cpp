@@ -107,9 +107,9 @@ static void remember() {
 }
 
 #if UNIDEX_DEV
-// Test build, X DEMO 1: sample reminders around today, for screenshots without anyone's list. X DEMO 2 adds one
-// falling due two minutes later, so the alert can be seen without moving the clock (which could set off the Clock
-// app's alarms).
+// Test build, X DEMO 1: sample reminders around today, for screenshots without anyone's list. X DEMO 2 adds two
+// falling due two and three minutes later (the longest a title can be, and a shorter one), so the alert can be seen
+// without moving the clock (which could set off the Clock app's alarms).
 static void demoList() {
   const long now = nowMinutes() < 0 ? (long)reminders::daysFromCivil(2026, 10, 19) * 1440 + 630 : nowMinutes();
   const int today = now / 1440;
@@ -117,9 +117,12 @@ static void demoList() {
   list = {{at(today, 8 * 60), false, "Hand in the art project"}, {at(today, 17 * 60), false, "Call Sam"},
           {at(today + 1, 7 * 60 + 30), false, "Swim kit"},       {at(today + 3, -1), false, "Library books back"},
           {"", false, "Buy a birthday card for Jo"},             {"", true, "Charge the bike lights"}};
-  if (devDemoSet() == 2 && nowMinutes() >= 0)
+  if (devDemoSet() == 2 && nowMinutes() >= 0) {
     list.push_back({at((now + 2) / 1440, (now + 2) % 1440), false,
-                    "Take the cake out before it burns, then turn the oven off"});
+                    "Take the cake out of the oven before it burns, turn the oven off, and leave the tray on the side "
+                    "to cool down before bed"});
+    list.push_back({at((now + 3) / 1440, (now + 3) % 1440), false, "Take the cake out before it burns"});
+  }
   reminders::sortList(list);
 }
 #endif
@@ -550,16 +553,23 @@ static void drawAlert() {
   Reminder r = {alertDue, false, alertTitle};
   const long due = reminders::dueMinutes(r.due);
   drawHeader("Reminder", r.hasTime() ? reminders::clockText(due % 1440).c_str() : "today");
-  String lines[3];
-  display.setFont(FONT_LARGE);
-  int16_t lineH = 30;
-  int n = wrapText(alertTitle, display.width() - 2 * MARGIN, lines, 3);
-  if (n > 2) {  // a long one: smaller, so more of it fits
-    display.setFont(FONT_MEDIUM);
-    lineH = 22;
-    n = wrapText(alertTitle, display.width() - 2 * MARGIN, lines, 3);
+  // As big as it fits: large on up to 2 lines, medium on up to 4, then small (6 lines: the longest, 120 letters,
+  // fits). It stopped at 3 medium lines, so a long one was cut off.
+  const struct {
+    const GFXfont *font;
+    int16_t lineH;
+    int most;
+  } sizes[] = {{FONT_LARGE, 30, 2}, {FONT_MEDIUM, 22, 4}, {FONT_SMALL, 18, 6}};
+  String lines[6];
+  int n = 0;
+  int16_t lineH = 0;
+  for (const auto &s : sizes) {
+    display.setFont(s.font);
+    lineH = s.lineH;
+    n = wrapText(alertTitle, display.width() - 2 * MARGIN, lines, s.most);
+    if (n <= s.most) break;
   }
-  n = min(n, 3);
+  n = min(n, 6);
   const int16_t mid = (CONTENT_TOP + HINTS_TOP) / 2;
   for (int i = 0; i < n; i++) drawCentered(lines[i].c_str(), mid - (n - 1) * lineH / 2 + i * lineH);
   drawHints("later", "done", "");
