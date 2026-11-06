@@ -1,0 +1,17 @@
+# Falling due without moving the clock (the Clock app's alarms could go off): X DEMO 2 adds the longest reminder,
+# due two minutes after the list is loaded, and a shorter one a minute after it. Both come up over Home; B = done.
+# Run it with tools/safeshot.py.
+demo 2
+select Reminders
+press b
+shot list-before
+press A
+sleep 125000
+expect screen=Reminders
+shot alert-long
+press b
+sleep 62000
+expect screen=Reminders
+shot alert-medium
+press b
+expect screen=Home

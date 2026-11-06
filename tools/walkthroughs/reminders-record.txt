@@ -1,0 +1,40 @@
+# Saying one (FAKE on: no upload, the words are canned). The sample list, so nothing is written to the list on the
+# card; the recording waits in /reminders until it's turned into words, then goes. Run it with tools/safeshot.py,
+# which keeps X FAKE 1 on (devshot run turns it off at the end, and a waiting recording would then really be sent).
+demo 1
+select Reminders
+press b
+hold B 2500
+shot after-release
+waitjob 30
+shot added
+press A
+expect screen=Home
+# No WiFi: it waits on a row of its own, then B on that row sends it
+netfail 1
+select Reminders
+press b
+hold B 2500
+waitjob 30
+shot saved-offline
+press A
+shot home-waiting
+press b
+netfail 0
+press b
+shot sending
+waitjob 30
+shot added-2
+press A
+# Heard nothing
+x EMPTY 1
+select Reminders
+press b
+hold B 2500
+waitjob 30
+shot heard-nothing
+press a
+shot heard-nothing-gone
+x EMPTY 0
+press A
+expect screen=Home

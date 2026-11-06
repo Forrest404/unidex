@@ -1,0 +1,41 @@
+# Reminders for the launch checks, on the sample list (X DEMO 1) and with clearing as a dry run, so the card's list
+# isn't shown or written. The clock isn't moved (the Clock app's alarms could go off). Run it with tools/safeshot.py.
+dry 1
+demo 1
+select Reminders
+shot home-line
+press b
+shot list
+press a
+shot row2
+press b
+shot ticked
+press a a a a
+shot page2
+press b
+shot undo
+press b
+press a
+shot page2-next
+press a
+shot clear-row
+press b
+shot clear-box
+press a
+shot clear-kept
+press b
+press b
+shot clear-dry
+press a
+shot wrapped
+press A
+expect screen=Home
+shot home-after
+# The card's own list (empty on this board)
+demo 0
+select Reminders
+shot home-empty
+press b
+shot empty
+press A
+expect screen=Home
