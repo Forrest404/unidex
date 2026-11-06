@@ -50,7 +50,7 @@ const char *recordWhileHeld(uint32_t seconds, int16_t *&samples, size_t &count) 
   maxSeconds = limit / AUDIO_RATE;  // less than asked if memory was already split up
   if (!samples || !audioBegin()) {
     jobGiveBuffer(samples);
-    return samples ? "Microphone not answering" : "Not enough memory";
+    return samples ? "Mic not found" : "Out of memory";  // (a toast: 160 px)
   }
   const uint32_t t0 = millis();
   uint32_t shown = 0;
@@ -84,7 +84,7 @@ const char *recordWhileHeld(uint32_t seconds, int16_t *&samples, size_t &count) 
   powerActivity();
   if (recordMs < MIN_MS) {
     jobGiveBuffer(samples);
-    return "Too short: hold B longer";
+    return "Hold B longer";  // too short to be anything
   }
   return nullptr;
 }
