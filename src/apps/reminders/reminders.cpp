@@ -193,12 +193,20 @@ static void clearDone() {
 static void toggleDone() {
   Reminder &r = list[cursor - firstItem()];
   r.done = !r.done;
+  const Reminder changed = r;
   if (r.done) petNotice(PetNotice::ReminderDone);
   if (!save()) {
     listed = false;
     launcherToast("Couldn't save");
   }
-  // The cursor stays on the same row, so ticking one after another goes down the list.
+  // Ticked, the cursor stays on the same row, so ticking one after another goes down the list. Undone, it goes with
+  // the reminder back up among the open ones (it was left on another done one).
+  if (!changed.done && listed)
+    for (size_t i = 0; i < list.size(); i++)
+      if (!list[i].done && list[i].title == changed.title && list[i].due == changed.due) {
+        cursor = firstItem() + i;
+        break;
+      }
   if (cursor >= rowCount()) cursor = 0;
 }
 
