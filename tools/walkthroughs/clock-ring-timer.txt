@@ -1,0 +1,23 @@
+# The timer ringing (it makes sound: Settings > Volume), without moving the clock: a 1-minute timer started, left on
+# Home, ringing there; A for a minute more, ringing again, B to stop. Needs the timer's preset at 1 min (clk_timer 0).
+select Clock
+press b
+press b
+expect detail=timer:set:60
+press a
+press A
+press A
+expect screen=Home
+shot home-timer
+sleep 62000
+expect detail=ring:timer
+shot ring-timer
+press a
+shot ring-more
+expect screen=Home
+sleep 62000
+expect detail=ring:timer
+shot ring-again
+press b
+shot ring-stopped
+expect screen=Home
