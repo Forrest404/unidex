@@ -302,6 +302,7 @@ static void runReminders(Item &it) {
       if (devFakeCloud()) {  // test build: no upload, no cost
         delay(1500);
         words = devEmptyHeard() ? "" : "Remind me to call Sam tomorrow at 5pm.";
+        if (devFailNote()) err = "Whisper: error 400";  // X FAILNOTE: the service says no (as cloudTranscribe's)
       } else {
         fs::File f = storageOpen(waitingWavPath(id).c_str());
         if (!f) continue;

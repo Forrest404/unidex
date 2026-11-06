@@ -51,6 +51,7 @@ RTC_DATA_ATTR static char nextTitle[32];
 RTC_DATA_ATTR static char lateTitle[32];  // the late one that came due last
 RTC_DATA_ATTR static int16_t waitingCount;  // recordings on the card still to be sent
 RTC_DATA_ATTR static time_t lastTry;        // when they were last tried (0: not yet)
+RTC_DATA_ATTR static bool refused;          // and the service said no (a key, credit), not just no WiFi
 
 // RAM cache: lost in deep sleep, read again on first use after a wake.
 static std::vector<Reminder> list;
@@ -83,6 +84,16 @@ static int firstItem() { return waitingCount > 0 ? 1 : 0; }
 static int rowCount() { return firstItem() + list.size() + (doneCount() ? 1 : 0); }
 static bool onWaitingRow() { return waitingCount > 0 && cursor == 0; }
 static bool onClearRow() { return cursor == firstItem() + list.size(); }
+
+// Recordings waiting to be sent, and what for: "2 waiting: add WiFi", "... add a key", "2 not sent yet" (the service
+// said no) or "2 waiting for WiFi". (It always said WiFi, even when that wasn't what they were waiting for.)
+static bool keyMissing() { return cloudTranscribeMissing() && !devFakeCloud(); }
+static void waitingText(char *out, size_t len) {
+  if (!credWifiAny()) snprintf(out, len, "%d waiting: add WiFi", waitingCount);
+  else if (keyMissing()) snprintf(out, len, "%d waiting: add a key", waitingCount);
+  else if (refused) snprintf(out, len, "%d not sent yet", waitingCount);
+  else snprintf(out, len, "%d waiting for WiFi", waitingCount);
+}
 
 static void remember() {
   const long now = nowMinutes();
@@ -286,7 +297,7 @@ static void record() {
 // The ones waiting for WiFi, sent now (B on their row) or every RETRY_S by themselves. Quiet: no toast if it can't.
 static bool sendWaiting(bool quiet) {
   const char *why = !credWifiAny() ? "Setup: add WiFi"
-                    : cloudTranscribeMissing() && !devFakeCloud() ? "Setup: add a key"  // OpenAI's or ElevenLabs'
+                    : keyMissing() ? "Setup: add a key"  // OpenAI's or ElevenLabs'
                     : jobBusy() || netClaimed() ? "Busy: try again"
                     : batteryTooLow();
   if (!why && !jobStartReminders("", nullptr, 0)) why = "Busy: try again";
@@ -369,6 +380,7 @@ static void addWords() {
 // A run of the job has finished: what it turned into words goes in the list; what it couldn't send waits.
 static void sent(const String &problem, bool offline) {
   waitingCount = waitingRecordings().size();
+  refused = problem.length() && waitingCount > 0;
   if (cursor >= rowCount()) cursor = 0;
   addWords();
   if (problem.length()) {  // the service said no, or the card: the recordings wait, and say why
@@ -488,7 +500,7 @@ static void drawList() {
     display.setFont(FONT_SMALL);
     if ((waitingCount > 0 && row == 0) || row == firstItem() + (int)list.size()) {
       char text[28];
-      if (row == 0 && waitingCount > 0) snprintf(text, sizeof text, "%d waiting for WiFi", waitingCount);
+      if (row == 0 && waitingCount > 0) waitingText(text, sizeof text);
       else snprintf(text, sizeof text, "Clear %d done", doneCount());
       display.setCursor(MARGIN, baseline);
       display.print(text);
@@ -591,8 +603,10 @@ static void draw() {
   drawList();
   if (failed.length() && screen == LIST) {
     const bool kept = waitingCount > 0 && failed != "Heard nothing";  // the recordings wait on the card
-    drawSheet(kept ? "Not added yet" : "Not added", fitText(failed.c_str(), display.width() - 2 * MARGIN - 16).c_str(),
-              kept ? "Kept: tried again later" : "Hold B to try again");
+    String why = failed;  // the job's reason ("no OpenAI key"), as a line
+    why.setCharAt(0, toupper(why[0]));
+    drawSheet(kept ? "Not added yet" : "Not added", fitText(why.c_str(), display.width() - 2 * MARGIN - 16).c_str(),
+              !kept ? "Hold B to try again" : keyMissing() ? "Add a key in Setup." : "It tries again later.");
     drawHints("ok", "ok", kept ? "" : "again");
   } else if (screen == CLEAR) {
     const int n = doneCount();
@@ -671,7 +685,7 @@ static void status(char *out, size_t len) {
     snprintf(out, len, "%d late", lateCount + (nextMin >= 0 && now >= nextMin));
   else if (nextMin >= 0 && now >= 0 && nextMin / 1440 == now / 1440 && nextMin > now && nextHasTime)
     snprintf(out, len, "%s: %s", reminders::clockText(nextMin % 1440).c_str(), nextTitle);
-  else if (waitingCount > 0) snprintf(out, len, "%d waiting for WiFi", waitingCount);
+  else if (waitingCount > 0) waitingText(out, len);
   else if (openCount > 0) snprintf(out, len, "%d to do", openCount);
   else snprintf(out, len, "Hold B to add one");
 }
