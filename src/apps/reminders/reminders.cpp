@@ -62,7 +62,7 @@ RTC_DATA_ATTR static bool isOpen;  // the open app stays open through deep sleep
 static uint32_t seenGen;  // the job status last drawn
 
 #if UNIDEX_DEV
-static bool listedDemo;
+static uint8_t listedDemo;  // the sample set the list holds (0: the card's)
 #endif
 
 // Now as local minutes from 1970, the unit reminders_logic.h counts in. -1 if the clock isn't set.
@@ -107,7 +107,9 @@ static void remember() {
 }
 
 #if UNIDEX_DEV
-// Test build, X DEMO 1: sample reminders around today, for screenshots without anyone's list.
+// Test build, X DEMO 1: sample reminders around today, for screenshots without anyone's list. X DEMO 2 adds one
+// falling due two minutes later, so the alert can be seen without moving the clock (which could set off the Clock
+// app's alarms).
 static void demoList() {
   const long now = nowMinutes() < 0 ? (long)reminders::daysFromCivil(2026, 10, 19) * 1440 + 630 : nowMinutes();
   const int today = now / 1440;
@@ -115,17 +117,20 @@ static void demoList() {
   list = {{at(today, 8 * 60), false, "Hand in the art project"}, {at(today, 17 * 60), false, "Call Sam"},
           {at(today + 1, 7 * 60 + 30), false, "Swim kit"},       {at(today + 3, -1), false, "Library books back"},
           {"", false, "Buy a birthday card for Jo"},             {"", true, "Charge the bike lights"}};
+  if (devDemoSet() == 2 && nowMinutes() >= 0)
+    list.push_back({at((now + 2) / 1440, (now + 2) % 1440), false,
+                    "Take the cake out before it burns, then turn the oven off"});
   reminders::sortList(list);
 }
 #endif
 
 static void ensureList() {
 #if UNIDEX_DEV
-  if (listed && listedDemo != devDemo()) {
+  if (listed && listedDemo != devDemoSet()) {
     listed = false;
     alertedUpTo = nowMinutes();  // a fresh start for the other list: the samples already past don't come up
   }
-  listedDemo = devDemo();
+  listedDemo = devDemoSet();
   if (!listed && devDemo()) {
     demoList();
     listed = true;
