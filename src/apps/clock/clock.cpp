@@ -235,7 +235,11 @@ static void drawMenu() {
   for (int i = 0; i < WORLD_ROWS && world.empty(); i++)
     if (cities[i] >= 0 && clockValid()) {
       const clocks::Local l = clocks::localIn(clocks::CITIES[cities[i]], time(nullptr));
-      world = std::string(clocks::CITIES[cities[i]].name) + " " + clocks::hhmm(l.hour, l.minute);
+      const std::string at = " " + clocks::hhmm(l.hour, l.minute);
+      // The city cut short if it would run into "World" ("Johannesburg 19:46", "Los Angeles 11:46" did)
+      display.setFont(FONT_SMALL);
+      const int16_t room = display.width() - 2 * MARGIN - textWidth("World") - 10 - textWidth(at.c_str());
+      world = fitText(clocks::CITIES[cities[i]].name, room).c_str() + at;
     }
   drawRow(M_TIMER, menuRow == M_TIMER, "Timer", timer.c_str());
   drawRow(M_ALARM, menuRow == M_ALARM, "Alarm", alarm.c_str());
