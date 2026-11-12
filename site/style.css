@@ -177,6 +177,12 @@ details > :last-child:not(summary) { margin-bottom: var(--s5); }
 .skip { position: absolute; left: 12px; top: -60px; z-index: 100; background: var(--fg); color: var(--bg); padding: 8px 14px;
         font: 500 13px var(--font-mono); text-decoration: none; }
 .skip:focus { top: 10px; }
+.promo { display: flex; flex-wrap: wrap; justify-content: center; gap: var(--s1) var(--s3); padding: var(--s2) var(--s4);
+         background: var(--ink); color: var(--paper); font: 12px/1.5 var(--font-mono); text-align: center; }
+.promo a { color: inherit; text-decoration-color: currentColor; white-space: nowrap; }
+.promo .short { display: none; }
+@media (max-width: 480px) { .promo .long { display: none; } .promo .short { display: inline; } }
+@media (prefers-color-scheme: dark) { .promo { background: var(--paper); color: var(--ink); } }
 .site-head { position: sticky; top: 0; z-index: 40; background: var(--bg); border-bottom: var(--rule); }
 .site-head .bar { max-width: var(--wide); margin: 0 auto; height: var(--head); padding: 0 var(--s5); display: flex;
                   align-items: center; gap: var(--s4); }

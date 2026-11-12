@@ -332,6 +332,11 @@ function mount() {
   if (!h) document.body.prepend(h = el('header'));
   h.className = 'site-head';
   h.replaceChildren(header());
+  // A thin bar above the header, as on unidex.shop: ready-made units are on pre-order there.
+  h.before(el('aside', { class: 'promo', 'aria-label': 'Pre-orders' },
+    el('span', { class: 'long', text: 'Want one ready-made? 80 in this batch, UK only.' }),
+    el('span', { class: 'short', text: '80 ready-made, UK only.' }),
+    el('a', { href: `${SHOP}/buy`, text: 'Pre-order ↗' })));
   const main = document.querySelector('main');
   if (main && !main.id) main.id = 'main';
   document.body.prepend(el('a', { class: 'skip', href: '#main', text: 'Skip to content' }));
