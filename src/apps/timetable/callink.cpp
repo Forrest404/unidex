@@ -62,7 +62,7 @@ static const char *fetch(std::vector<std::string> &lines) {
     return got <= MAX_BYTES;
   };
   for (int hop = 0; hop <= MAX_REDIRECTS; hop++) {
-    reader.reset(new ics::Reader(time(nullptr)));  // a redirect's own body is thrown away with it
+    reader.reset(new ics::Reader(time(nullptr), clockHomeZone()));  // a redirect's own body is thrown away with it
     line.clear();
     got = 0;
     String location;

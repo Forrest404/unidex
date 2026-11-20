@@ -15,6 +15,9 @@
 //   ?                      -> "unidex 1"
 //   V                      -> "OK V <firmware version>" (from git, tools/version.py)
 //   T <unix seconds>       -> sets the clock, "OK T"
+//   Z                      -> "OK Z <TZ rule> <name>": the time zone (the name may have spaces)
+//   Z <TZ rule> [name]     -> sets it, "OK Z" or "ERR"; e.g. "Z CET-1CEST,M3.5.0,M10.5.0/3 Madrid". Firmware
+//                             before this says nothing back (it's London-only): senders then write London times.
 //   C                      -> "OK C <clock chip registers and system time>" (diagnostics)
 //   N ...                  -> Notes settings, tests and note download (src/apps/notes/usb.h)
 //   P ...                  -> the Pet's look and name (src/apps/pet/pet.h)
@@ -194,6 +197,14 @@ static void handle(const char *l) {
     const long long t = strtoll(l + 2, &end, 10);
     // A number and a time from 2024 to 2099 only: "T abc" or "T 0" used to set 1970 and a nonsense year on the chip.
     Serial.println(end != l + 2 && !*end && clockSet((time_t)t) ? "OK T" : "ERR");
+  } else if (strcmp(l, "Z") == 0) {
+    Serial.printf("OK Z %s %s\n", clockZoneRule(), clockZoneName());
+  } else if (l[0] == 'Z' && l[1] == ' ') {
+    char rule[64] = "";
+    const char *name = strchr(l + 2, ' ');
+    const size_t n = name ? (size_t)(name - (l + 2)) : strlen(l + 2);
+    if (n < sizeof rule) memcpy(rule, l + 2, n), rule[n] = 0;
+    Serial.println(n < sizeof rule && clockSetZone(rule, name ? name + 1 : "") ? "OK Z" : "ERR");
   } else if (l[0] == 'E' && l[1] == ' ') {
     // "E <count> <crc>", both numbers: "E abc" or "E -1 0" used to read as an empty calendar and replace the saved
     // one. ("E 0 0" is a real empty week: the crc of nothing is 0.)

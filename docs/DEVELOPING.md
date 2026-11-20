@@ -170,8 +170,17 @@ and 160 characters and converted to plain ASCII, because the display font has no
 96 entries in total.
 
 The Mac agent (`tools/calsync/`, installed with `tools/calsync/install.sh`) sends the time and the next 7 days of
-events whenever the board is plugged in and awake. The time zone is London: `TZ_LONDON` in `src/core/clock.cpp` and
-`Europe/London` in `tools/calsync/calsync.swift`.
+events whenever the board is plugged in and awake.
+
+**Time zones.** The clock chip and the system clock keep UTC; the device's time zone decides how it reads. It's a
+POSIX TZ rule (`CET-1CEST,M3.5.0,M10.5.0/3`) and a name, saved in NVS as `tz` and `tz_name` (London until set), read
+by `src/core/zone_logic.h` and used by `src/core/clock.cpp` (the C library's `TZ`, given a plain rewrite of the rule
+so it never meets a form it might not know), Clock's alarms and the calendar link's reader. Settings > Time zone
+steps through `tz::PRESETS`. Over USB, `Z` reports it and `Z <rule> [name]` sets it: the Tools page
+(`posixZone` in `site/calendar.js`) and the Mac agent work the rule out from the computer's zone and send it with
+the time, then write the events in that zone. Firmware from before this doesn't answer `Z`, so they write London
+times for it. `tools/clocktest/zone_test.cpp` checks every preset against the computer's time zone database, and
+`tools/caltest/zone_test.mjs` checks the website's rules for every zone.
 
 ## The website
 
@@ -186,7 +195,8 @@ site always offers a released version, and writes two manifests for
 ESP Web Tools flashes at 115200 baud with a modern esptool stub, which works on this board. The PlatformIO upload
 problems came from its older bundled esptool together with a baud switch. The Tools page talks to the device with the
 same USB protocol as the Mac agent (`site/serial.js`). Calendar files are parsed with ical.js (it handles repeating
-events, moved or cancelled occurrences and time zones) and sent as London time, like `calsync.swift`.
+events, moved or cancelled occurrences and time zones) and sent in the device's time zone (the computer's, which it
+sets first), like `calsync.swift`.
 
 **Sync everything** (at the top of Tools) does it all in one click:
 

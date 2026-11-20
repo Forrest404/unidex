@@ -44,7 +44,7 @@ If you'd like to support the project, there's a [Ko-fi](https://ko-fi.com/forres
 | **Pet** | A cute creature you dress up and name, which talks about your day. Bring two unidex together and the Pets visit, chat, become friends, play catch and tug of war, and swap badges. |
 | **Badge** | Full-screen name tags, logos and photos. |
 | **Games** | Four one-button games, Flappy, Dino, Stack and Jetpack, with best scores, and the games you add from the store. |
-| **Settings** | Date and time, sync, sleep, volume, alert sound, invert, battery and info, reset data, factory reset. |
+| **Settings** | Date and time, time zone, sync, sleep, volume, alert sound, invert, battery and info, reset data, factory reset. |
 | **Apps** | Everything else: apps and plugins from the store (Chooser, the random picker, is one), or ones you write yourself. |
 
 **New in v1.9: set it up from your phone, and Reminders.** In Settings, hold B and scan the QR code: your phone
@@ -148,7 +148,8 @@ Calendar events (Apple, Google, Outlook...) can come three ways:
 - **On a Mac,** the automatic calendar sync on the Tools page sends your calendar whenever the board is plugged in
   and awake.
 
-The time zone is London.
+The device shows the time where you are: the Tools page and the Mac sync set its time zone to your computer's each
+time they set the clock, or choose a city in **Settings > Time zone**. A new device is on London time.
 
 ### Notes
 
@@ -292,6 +293,9 @@ a store game to offload or delete it.
 ### Settings
 
 - **Date & time:** set the clock by hand (the website, the Mac sync and WiFi can also set it).
+- **Time zone:** **B** goes to the next city (45 of them, from Honolulu to Auckland, each with its own summer time
+  rules). The Tools page and the Mac sync set it to your computer's zone whenever they set the clock, and name it
+  after your city. The clock, alarms, the Timetable and calendar events all follow it.
 - **Sync:** **B** sets the clock from the internet and, if you've saved a calendar link, fetches this week's events
   for the Timetable. The row shows when it last synced.
 - **Sleep:** stay awake for 10, 20, 30 or 60 seconds after the last press.

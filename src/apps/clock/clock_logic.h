@@ -1,10 +1,12 @@
 #pragma once
 // Clock's sums: the timer presets, when each alarm rings next, and the time in other cities. No Arduino code, so
 // it can be checked on a computer (tools/clocktest). Cities are worked out here from their own rules rather than
-// by swapping the process's TZ, which the Notes task reads at the same time.
+// by swapping the process's TZ, which the Notes task reads at the same time. "Here" (alarms, differences) is the
+// device's own time zone, a tz::Zone (clockHomeZone(), from Settings > Time zone or a computer).
 #include <stdint.h>
 #include <stdio.h>
 #include <string>
+#include "../../core/zone_logic.h"
 
 namespace clocks {
 
@@ -92,7 +94,6 @@ static const City CITIES[] = {
   {"Beijing", 480, NO_DST},   {"Tokyo", 540, NO_DST},     {"Sydney", 600, AU},       {"Auckland", 720, NZ},
 };
 static const int CITY_COUNT = sizeof(CITIES) / sizeof(CITIES[0]);
-static const int HOME = 7;  // London: the device's own time (clock.cpp's TZ)
 
 // UTC seconds of a local wall-clock time at a given offset.
 inline long long utcOf(int y, int m, int d, int hour, int offsetMin) {
@@ -128,8 +129,7 @@ struct Local {
   long days;  // since 1970-01-01, there
 };
 
-inline Local localIn(const City &c, long long utc) {
-  const long long t = utc + offsetAt(c, utc) * 60LL;
+inline Local localAt(long long t) {  // t: the wall clock, in seconds since 1970 there
   Local l;
   l.days = floorDiv(t, 86400);
   const long s = (long)(t - (long long)l.days * 86400);
@@ -141,14 +141,8 @@ inline Local localIn(const City &c, long long utc) {
   return l;
 }
 
-// The UTC time of a wall-clock time in that city. A time skipped when the clocks go forward counts as an hour later;
-// one that happens twice when they go back is the first.
-inline long long utcFromLocal(const City &c, long days, int minuteOfDay) {
-  const long long wall = (long long)days * 86400 + minuteOfDay * 60LL;
-  const long long summer = wall - (c.offset + 60) * 60LL, standard = wall - c.offset * 60LL;
-  if (c.dst != NO_DST && offsetAt(c, summer) == c.offset + 60) return summer;
-  return standard;
-}
+inline Local localIn(const City &c, long long utc) { return localAt(utc + offsetAt(c, utc) * 60LL); }
+inline Local localIn(const tz::Zone &here, long long utc) { return localAt(here.local(utc)); }
 
 inline std::string hhmm(int hour, int minute) {  // "7:05", "18:30"
   char out[8];
@@ -156,9 +150,9 @@ inline std::string hhmm(int hour, int minute) {  // "7:05", "18:30"
   return out;
 }
 
-// "+9 h", "-5 h", "+4:30", "same": from here (home) to there, now.
-inline std::string difference(const City &there, long long utc) {
-  const int diff = offsetAt(there, utc) - offsetAt(CITIES[HOME], utc);
+// "+9 h", "-5 h", "+4:30", "same": from here to there, now.
+inline std::string difference(const City &there, long long utc, const tz::Zone &here) {
+  const int diff = offsetAt(there, utc) - (int)(here.offsetAt(utc) / 60);
   if (!diff) return "same";
   const int a = diff < 0 ? -diff : diff;
   char out[12];
@@ -196,22 +190,22 @@ inline bool ringsOn(Repeat r, int wday) {
   return true;  // once (the next time it comes round), every day
 }
 
-// When an alarm (on or not) rings next after `utc`, in UTC, at its time here (home). -1 if it never would.
-inline long long nextRing(const Alarm &a, long long utc) {
-  const City &home = CITIES[HOME];
-  const long today = localIn(home, utc).days;
+// When an alarm (on or not) rings next after `utc`, in UTC, at its time here. -1 if it never would. A time skipped
+// when the clocks go forward rings an hour later; one that happens twice rings the first time.
+inline long long nextRing(const Alarm &a, long long utc, const tz::Zone &here) {
+  const long today = localIn(here, utc).days;
   for (long d = today; d <= today + 8; d++) {
     if (!ringsOn(a.repeat, weekday(d))) continue;
-    const long long at = utcFromLocal(home, d, a.hour * 60 + a.minute);
+    const long long at = here.toUtc((long long)d * 86400 + (a.hour * 60 + a.minute) * 60LL);
     if (at > utc) return at;
   }
   return -1;
 }
 
 // "Weekdays 7:00" style words for when it next rings: "today", "tomorrow", or the day.
-inline std::string whenWords(long long ring, long long utc) {
+inline std::string whenWords(long long ring, long long utc, const tz::Zone &here) {
   static const char *const DAYS[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
-  const Local r = localIn(CITIES[HOME], ring), now = localIn(CITIES[HOME], utc);
+  const Local r = localIn(here, ring), now = localIn(here, utc);
   if (r.days == now.days) return "today";
   if (r.days == now.days + 1) return "tomorrow";
   return DAYS[r.wday];

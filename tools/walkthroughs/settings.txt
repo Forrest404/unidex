@@ -1,5 +1,6 @@
 # Settings. Every setting changed here is changed back (and checked: same); the date editor is always cancelled;
-# clearing is a dry run; Sync is only looked at (it needs WiFi). Volume has its own walkthrough (volume.txt).
+# clearing is a dry run; Sync is only looked at (it needs WiFi); Time zone goes all the way round its 45 cities, back
+# to London. Volume has its own walkthrough (volume.txt).
 same sleep_s
 same volume
 same invert
@@ -9,6 +10,55 @@ select Settings
 shot s-home-status
 press b
 shot s-list
+press a
+shot s-list-zone-row
+press b
+shot s-zone-dublin
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+press b
+shot s-zone-back-to-london
 press a
 shot s-list-sync-row
 press b

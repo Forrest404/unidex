@@ -1,4 +1,4 @@
-// Pushes the time and the next 7 days of Apple Calendar events to the unidex device over USB.
+// Pushes the time, this Mac's time zone and the next 7 days of Apple Calendar events to the unidex device over USB.
 // Runs as a LaunchAgent (see install.sh). `--print` shows the payload instead of sending it.
 import EventKit
 import Foundation
@@ -32,9 +32,69 @@ func clean(_ s: String?, _ max: Int) -> String {
   return String(safe.trimmingCharacters(in: .whitespaces).prefix(max))
 }
 
-func eventLines() -> [String] {
+// This Mac's time zone as the TZ rule the device takes ("Europe/Paris" -> "STD-1DST-2,M3.5.0/2,M10.5.0/3"), from when
+// its clocks change this year: the same sums as the Tools page (posixZone in site/calendar.js). A zone whose changes
+// don't follow a "last Sunday of March" kind of rule (or that changes more than twice a year) gets the offset it
+// has now, all year: the next sync puts it right.
+func posixRule(_ zone: TimeZone, now: Date = Date()) -> String {
+  func hms(_ s: Int) -> String {  // "1", "-5:30", "2:00:30"
+    let a = abs(s), h = a / 3600, m = a / 60 % 60, sec = a % 60
+    return (s < 0 ? "-" : "") + "\(h)" + (m != 0 || sec != 0 ? String(format: ":%02d", m) : "")
+      + (sec != 0 ? String(format: ":%02d", sec) : "")
+  }
+  var utc = Calendar(identifier: .gregorian)
+  utc.timeZone = TimeZone(identifier: "UTC")!
+  let year = utc.component(.year, from: now)
+  let from = utc.date(from: DateComponents(year: year, month: 1, day: 1))!
+  let to = utc.date(from: DateComponents(year: year + 1, month: 1, day: 1))!
+  let offset = { (t: Date) in zone.secondsFromGMT(for: t) }
+  var changes: [(at: Date, before: Int, after: Int)] = []
+  var t = from
+  while t < to && changes.count < 3 {
+    let next = t.addingTimeInterval(86400)
+    if offset(t) != offset(next) {  // the second it changes: lo still has the old offset, hi the new one
+      var lo = t.timeIntervalSince1970, hi = next.timeIntervalSince1970
+      while hi - lo > 1 {
+        let mid = (lo + (hi - lo) / 2).rounded(.down)
+        if offset(Date(timeIntervalSince1970: mid)) == offset(t) { lo = mid } else { hi = mid }
+      }
+      let at = Date(timeIntervalSince1970: hi)
+      changes.append((at, offset(t), offset(at)))
+    }
+    t = next
+  }
+  let fixed = "STD\(hms(-offset(now)))"
+  guard changes.count == 2 else { return fixed }
+  let toDst = changes[0].after > changes[0].before ? changes[0] : changes[1]
+  let toStd = toDst.at == changes[0].at ? changes[1] : changes[0]
+  guard toDst.after > toDst.before, toStd.after < toStd.before, toDst.after == toStd.before,
+        toDst.before == toStd.after else { return fixed }
+  func rule(_ c: (at: Date, before: Int, after: Int)) -> String {  // ",Mm.w.d/time": the wth (5 = last) weekday
+    let wall = c.at.addingTimeInterval(TimeInterval(c.before))  // read in UTC: the wall clock there
+    let p = utc.dateComponents([.month, .day, .weekday, .hour, .minute, .second], from: wall)
+    let days = utc.range(of: .day, in: .month, for: wall)!.count
+    let week = p.day! + 7 > days ? 5 : (p.day! + 6) / 7
+    return ",M\(p.month!).\(week).\(p.weekday! - 1)/\(hms(p.hour! * 3600 + p.minute! * 60 + p.second!))"
+  }
+  return "STD\(hms(-toStd.after))DST\(hms(-toDst.after))\(rule(toDst))\(rule(toStd))"
+}
+
+// What the device calls a zone: its city, in plain text ("America/Argentina/Buenos_Aires" -> "Buenos Aires").
+func zoneName(_ zone: TimeZone) -> String {
+  clean(zone.identifier.split(separator: "/").last.map(String.init)?.replacingOccurrences(of: "_", with: " "), 23)
+}
+
+// "Z <rule> <name>": sets the device's time zone to this Mac's.
+func zoneCommand(_ zone: TimeZone) -> String {
+  "Z \(posixRule(zone)) \(zoneName(zone))".trimmingCharacters(in: .whitespaces) + "\n"
+}
+
+// The device's time zone until it's set, and the only one firmware from before time zones has.
+let LONDON = TimeZone(identifier: "Europe/London")!
+
+func eventLines(in zone: TimeZone) -> [String] {
   var cal = Calendar(identifier: .gregorian)
-  cal.timeZone = TimeZone(identifier: "Europe/London")!  // the device shows London time
+  cal.timeZone = zone  // the device's time zone: the lines are its wall clock
   let start = cal.startOfDay(for: Date())
   let end = cal.date(byAdding: .day, value: DAYS_AHEAD + 1, to: start)!
   let day = DateFormatter(), hm = DateFormatter()
@@ -141,14 +201,21 @@ func sync(_ path: String, calendar: Bool) -> Bool {
   }
   _ = port.send("T \(Int(Date().timeIntervalSince1970.rounded()))\n")
   let t = port.expect("OK T", timeout: 2) != nil
+  // This Mac's time zone. Firmware from before time zones doesn't answer: it's on London time, so its events are
+  // written in London's.
+  let zone = TimeZone.current
+  _ = port.send(zoneCommand(zone))
+  let zoned = port.expect("OK Z", timeout: 1.5) != nil
+  let eventZone = zoned ? zone : LONDON
+  let said = "time \(t ? "set" : "no reply"), zone \(zoned ? zone.identifier : "London (old firmware)")"
   guard calendar else {
-    log("\(path): time \(t ? "set" : "no reply"); no Calendar access, events not sent")
+    log("\(path): \(said); no Calendar access, events not sent")
     return true
   }
-  let lines = eventLines()
+  let lines = eventLines(in: eventZone)
   _ = port.send(payload(lines))
   let reply = port.expect("OK E", timeout: 5) ?? port.expect("ERR", timeout: 0) ?? "no reply"
-  log("\(path): time \(t ? "set" : "no reply"), \(lines.count) events: \(reply)")
+  log("\(path): \(said), \(lines.count) events: \(reply)")
   return true
 }
 
@@ -160,7 +227,7 @@ func usbPorts() -> Set<String> {
 let calendar = requestAccess()
 if CommandLine.arguments.contains("--print") {
   if !calendar { print("no Calendar access"); exit(1) }
-  print(payload(eventLines()), terminator: "")
+  print(zoneCommand(TimeZone.current) + payload(eventLines(in: TimeZone.current)), terminator: "")
   exit(0)
 }
 log("started; Calendar access \(calendar ? "granted" : "denied")")

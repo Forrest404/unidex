@@ -6,8 +6,8 @@
 #include <sys/time.h>
 #include "net.h"
 #include "power.h"
+#include "storage.h"
 
-static const char *TZ_LONDON = "GMT0BST,M3.5.0/1,M10.5.0";
 static const uint8_t PCF_ADDR = 0x51, PCF_CONTROL1 = 0x00, PCF_SECONDS = 0x04;  // 0x04-0x0A: s m h day wday month year
 static const uint8_t CONTROL1_STOP = 0x20, CONTROL1_12H = 0x02;  // 0x00 = running, 24-hour mode
 static const int PIN_SDA = 47, PIN_SCL = 48;
@@ -25,11 +25,69 @@ static void setTz(const char *tz) {
   tzset();
 }
 
+// --- the time zone ---
+
+static String zoneRule, zoneName;
+static tz::Zone zone;
+static char zoneLibc[80];  // the rule as the C library gets it (tz::format: plain names, nothing left out)
+
+static void useZone(const String &rule, const String &name) {
+  zoneRule = rule;
+  if (!tz::parse(zoneRule.c_str(), zone)) {  // a damaged setting: London, as before there was one
+    zoneRule = tz::DEFAULT_RULE;
+    tz::parse(zoneRule.c_str(), zone);
+  }
+  zoneName = name;
+  if (!zoneName.length()) {
+    const int i = tz::presetOf(zoneRule.c_str(), nullptr);
+    char offset[16];
+    tz::offsetName(zone, offset, sizeof offset);
+    zoneName = i >= 0 ? tz::PRESETS[i].name : offset;
+  }
+  tz::format(zone, zoneLibc, sizeof zoneLibc);
+}
+
+static void loadZone() {
+  static bool loaded;
+  if (loaded) return;
+  loaded = true;
+  useZone(storageGetString("tz", tz::DEFAULT_RULE), storageGetString("tz_name", ""));
+}
+
+const char *clockZoneRule() {
+  loadZone();
+  return zoneRule.c_str();
+}
+
+const char *clockZoneName() {
+  loadZone();
+  return zoneName.c_str();
+}
+
+const tz::Zone &clockHomeZone() {
+  loadZone();
+  return zone;
+}
+
+bool clockSetZone(const char *rule, const char *name) {
+  tz::Zone check;
+  if (!rule || !tz::parse(rule, check) || !name || strlen(name) > 23) return false;
+  for (const char *c = name; *c; c++)
+    if (*c < 0x20 || *c > 0x7e) return false;
+  loadZone();
+  storagePutString("tz", rule);
+  storagePutString("tz_name", name);
+  useZone(rule, name);
+  setTz(zoneLibc);
+  return true;
+}
+
 static void start() {
   static bool started;
   if (started) return;
   started = true;
-  setTz(TZ_LONDON);
+  loadZone();
+  setTz(zoneLibc);
   pinMode(PIN_BUS_PWR, OUTPUT);
   digitalWrite(PIN_BUS_PWR, LOW);
   delay(5);  // the pull-ups come up
@@ -74,10 +132,10 @@ void clockBegin() {
   t.tm_mday = fromBcd(r[3] & 0x3F);
   t.tm_mon = fromBcd(r[5] & 0x1F) - 1;
   t.tm_year = fromBcd(r[6]) + 100;
-  // The chip holds UTC. There's no timegm() here, so convert with TZ briefly set to UTC.
-  setTz("UTC0");
-  struct timeval tv = {mktime(&t), 0};
-  setTz(TZ_LONDON);
+  // The chip holds UTC. There's no timegm() here, so the sum by hand (not mktime with TZ swapped to UTC for a moment:
+  // other tasks read TZ).
+  const tz::Secs days = tz::daysFromCivil(t.tm_year + 1900, t.tm_mon + 1, t.tm_mday);
+  struct timeval tv = {(time_t)(days * 86400 + t.tm_hour * 3600 + t.tm_min * 60 + t.tm_sec), 0};
   settimeofday(&tv, nullptr);
 }
 
@@ -130,7 +188,8 @@ static time_t webTime() {
 const char *clockSyncOnline() {
   // Wait for a real NTP answer: getLocalTime() alone returns at once if the clock was already set.
   sntp_set_sync_status(SNTP_SYNC_STATUS_RESET);
-  configTzTime(TZ_LONDON, "pool.ntp.org", "time.google.com");
+  loadZone();
+  configTzTime(zoneLibc, "pool.ntp.org", "time.google.com");
   const uint32_t t0 = millis();
   while (sntp_get_sync_status() != SNTP_SYNC_STATUS_COMPLETED && millis() - t0 < NTP_TIMEOUT_MS) {
     powerAlive();

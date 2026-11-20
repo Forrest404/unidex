@@ -45,6 +45,9 @@ jobs:
           ~/emsdk/emsdk activate 3.1.74
           EMSDK_ENV="$HOME/emsdk/emsdk_env.sh" bash emu/build.sh
 
+      - name: The time zone over USB and in Settings, against the emulator
+        run: node emu/test/zone_test.mjs
+
       - name: App store catalogue and the store page's USB steps against the emulator
         run: |
           git clone --depth 1 https://github.com/Forrest404/unidex-apps.git ../unidex-apps  # every app lives there

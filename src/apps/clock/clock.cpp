@@ -113,7 +113,7 @@ static std::string swText(int64_t ms, bool tenths) {  // "2:31", "2:31.4", "1:02
 }
 
 static std::string localHhmm(time_t t) {  // "14:25" here
-  const clocks::Local l = clocks::localIn(clocks::CITIES[clocks::HOME], t);
+  const clocks::Local l = clocks::localIn(clockHomeZone(), t);
   return clocks::hhmm(l.hour, l.minute);
 }
 
@@ -125,7 +125,7 @@ static int nextAlarm(time_t &at) {
   const time_t now = time(nullptr);
   for (int i = 0; i < clocks::ALARMS; i++) {
     if (!alarms[i].on) continue;
-    const long long r = clocks::nextRing(alarms[i], now);
+    const long long r = clocks::nextRing(alarms[i], now, clockHomeZone());
     if (r > 0 && (which < 0 || r < at)) which = i, at = (time_t)r;
   }
   if (snoozeAt && (which < 0 || snoozeAt < at)) which = snoozed, at = snoozeAt;
@@ -182,7 +182,7 @@ static bool background() {
     }
     for (int i = 0; i < clocks::ALARMS; i++) {
       if (!alarms[i].on) continue;
-      const long long r = clocks::nextRing(alarms[i], checkedUpTo);
+      const long long r = clocks::nextRing(alarms[i], checkedUpTo, clockHomeZone());
       if (r > 0 && r <= now) {
         checkedUpTo = (time_t)r;
         if (alarms[i].repeat == clocks::ONCE) alarms[i].on = false, saveAlarm(i), checkedUpTo = (time_t)r;
@@ -229,7 +229,7 @@ static void drawMenu() {
                                    : clocks::presetName(preset);
   time_t at;
   const int next = nextAlarm(at);
-  std::string alarm = next < 0 ? "Off" : localHhmm(at) + " " + clocks::whenWords(at, time(nullptr));
+  std::string alarm = next < 0 ? "Off" : localHhmm(at) + " " + clocks::whenWords(at, time(nullptr), clockHomeZone());
   std::string sw = swElapsed() ? swText(swElapsed(), false) : "";
   std::string world;
   for (int i = 0; i < WORLD_ROWS && world.empty(); i++)
@@ -342,9 +342,12 @@ static void drawStopwatch() {
 }
 
 static void drawWorld() {
-  drawHeader("World", clockValid() ? ("London " + localHhmm(time(nullptr))).c_str() : "time not set");
+  // "Paris 14:25": the time here, named after the device's time zone when the name fits beside the title.
+  std::string here = localHhmm(time(nullptr));
+  if (strlen(clockZoneName()) <= 12) here = std::string(clockZoneName()) + " " + here;
+  drawHeader("World", clockValid() ? here.c_str() : "time not set");
   const time_t now = time(nullptr);
-  const clocks::Local home = clocks::localIn(clocks::CITIES[clocks::HOME], now);
+  const clocks::Local home = clocks::localIn(clockHomeZone(), now);
   for (int i = 0; i < WORLD_ROWS; i++) {
     const int16_t top = CONTENT_TOP + 3 + i * WORLD_ROW_H;
     const bool sel = worldRow == i;
@@ -359,7 +362,7 @@ static void drawWorld() {
       display.print(c.name);
       if (clockValid()) {
         const clocks::Local l = clocks::localIn(c, now);
-        std::string note = clocks::difference(c, now);
+        std::string note = clocks::difference(c, now, clockHomeZone());
         if (l.days > home.days) note += ", tomorrow";
         else if (l.days < home.days) note += ", yesterday";
         display.setFont(FONT_MEDIUM);
@@ -475,7 +478,8 @@ static void doCommand(const clockvoice::Command &c, String &said) {
       said = ("Alarm " + clocks::hhmm(c.hour, c.minute)).c_str();
       if (!clockValid()) said += ": clock not set";
       else if (c.repeat != clocks::ONCE) said += String(" ") + clocks::REPEAT_NAMES[c.repeat];
-      else said += (" " + clocks::whenWords((time_t)clocks::nextRing(alarms[slot], now), now)).c_str();
+      else said += (" " + clocks::whenWords((time_t)clocks::nextRing(alarms[slot], now, clockHomeZone()), now,
+                                            clockHomeZone())).c_str();
       return;
     }
     case clockvoice::Kind::ALARMS_OFF:
@@ -507,7 +511,7 @@ static void doCommand(const clockvoice::Command &c, String &said) {
 // Does what the words ask (doCommand).
 static void act(const String &words, String &said) {
   const time_t now = time(nullptr);
-  const clocks::Local here = clocks::localIn(clocks::CITIES[clocks::HOME], now);
+  const clocks::Local here = clocks::localIn(clockHomeZone(), now);
   const clockvoice::Command c = clockvoice::parse(asciiText(words).c_str(), clockValid() ? here.hour * 60 + here.minute : -1);
   if (c.kind == clockvoice::Kind::NONE) said = words.length() ? "Try \"timer 5 min\"" : "Heard nothing";  // (~17 chars)
   else doCommand(c, said);
@@ -716,7 +720,9 @@ static void status(char *out, size_t len) {
   else if (swRunning) snprintf(out, len, "Stopwatch running");
   else {
     time_t at;
-    if (nextAlarm(at) >= 0) snprintf(out, len, "Alarm %s %s", localHhmm(at).c_str(), clocks::whenWords(at, time(nullptr)).c_str());
+    if (nextAlarm(at) >= 0)
+      snprintf(out, len, "Alarm %s %s", localHhmm(at).c_str(),
+               clocks::whenWords(at, time(nullptr), clockHomeZone()).c_str());
     else snprintf(out, len, "Set an alarm");
   }
 }

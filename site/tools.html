@@ -81,7 +81,7 @@
       <p style="margin-top:0">One click brings the device up to date. It:</p>
       <ul>
         <li>gets the newest version of unidex, keeping your settings and files</li>
-        <li>sets the clock</li>
+        <li>sets the clock and the time zone (this computer's)</li>
         <li>sends your calendar</li>
         <li>sends any notes that are waiting</li>
       </ul>
@@ -184,7 +184,8 @@
         <li>Export your calendar as a <code>.ics</code> file. In Apple Calendar it's File → Export. In Google Calendar
           it's Settings → Import &amp; export. Outlook can do it too.</li>
         <li>Drop the file in the box below.</li>
-        <li>Press <b>Send to device</b>. Repeating events are included, and it sets the clock too.</li>
+        <li>Press <b>Send to device</b>. Repeating events are included, and it sets the clock and the device's time
+          zone to this computer's.</li>
       </ol>
       <div id="icsDrop" tabindex="0">Drop a .ics file here, or click to choose</div>
       <input id="icsFile" type="file" accept=".ics,text/calendar" hidden>
@@ -216,9 +217,14 @@ unidex/tools/calsync/install.sh</pre>
 <script type="module">
 import { supported, crc32, connect, asleepHint, knownPort, pickPort, deviceVersion, compareVersions, notesSync } from './serial.js';
 import { latestVersion, updateFirmware } from './update.js';
-import { DAYS_AHEAD, eventsFrom, hmOf, setTime, sendEvents } from './calendar.js';
+import { DAYS_AHEAD, eventsFrom, hmOf, setTime, sendEvents, computerZone, zoneName, LONDON } from './calendar.js';
 
 if (!supported) document.getElementById('unsupported').hidden = false;
+
+// "14:05 (Paris time)": what the device's clock was set to. Firmware without a time zone setting is London's.
+const clockWords = zone => zone === LONDON && computerZone() !== LONDON
+  ? `${hmOf(new Date(), LONDON)}, London time (update the firmware to use your own time zone)`
+  : `${hmOf(new Date(), zone)} (${zoneName(zone)} time)`;
 
 // ---- badge conversion (no DOM) ----
 const SIZE = 200;
@@ -517,8 +523,8 @@ function encodeBmp(bits) {
       }
 
       const t = step('Setting the clock');
-      await setTime(dev);
-      t.set(`Clock set to ${hmOf(new Date())}`, 'done');
+      const zone = await setTime(dev);
+      t.set(`Clock set to ${clockWords(zone)}`, 'done');
 
       const k = step('Calendar');
       if (!file) {
@@ -526,7 +532,7 @@ function encodeBmp(bits) {
       } else if (!canRead) {
         k.set('Calendar: click Sync everything to let this page read the file', 'skip');
       } else {
-        const lines = eventsFrom(await (await file.getFile()).text());
+        const lines = eventsFrom(await (await file.getFile()).text(), zone);
         await sendEvents(dev, lines);
         k.set(`Calendar: ${lines.length} event${lines.length === 1 ? '' : 's'} sent from ${file.name}`, 'done');
       }
@@ -570,14 +576,15 @@ function encodeBmp(bits) {
 // ---- clock & calendar ----
 {
   const $ = id => document.getElementById(id);
-  let lines = null;
+  let lines = null, text = null;
 
   function loadIcs(file) {
     if (!file) return;
     const reader = new FileReader();
     reader.onload = () => {
       try {
-        lines = eventsFrom(reader.result);
+        text = reader.result;
+        lines = eventsFrom(text, computerZone());  // the zone the device will be set to; checked again on sending
         $('icsDrop').textContent = `${file.name}  (click to change)`;
         $('icsStatus').textContent = `${lines.length} event${lines.length === 1 ? '' : 's'} in the next ${DAYS_AHEAD} days.`;
         $('eventList').innerHTML = '';
@@ -589,7 +596,7 @@ function encodeBmp(bits) {
         }
         $('sendIcs').disabled = !supported;
       } catch (e) {
-        lines = null;
+        lines = text = null;
         $('sendIcs').disabled = true;
         $('icsStatus').textContent = "Couldn't read that calendar file.";
       }
@@ -610,12 +617,12 @@ function encodeBmp(bits) {
 
   $('setClock').disabled = !supported;
   $('setClock').onclick = () => withDevice('clockStatus', async dev => {
-    await setTime(dev);
-    return `Clock set to ${hmOf(new Date())} (London time).`;
+    return `Clock set to ${clockWords(await setTime(dev))}.`;
   });
 
   $('sendIcs').onclick = () => withDevice('icsStatus', async dev => {
-    await setTime(dev);
+    const zone = await setTime(dev);
+    lines = eventsFrom(text, zone);
     await sendEvents(dev, lines);
     return `Sent ${lines.length} event${lines.length === 1 ? '' : 's'} and set the clock. Open Timetable on the device.`;
   });

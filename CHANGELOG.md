@@ -4,6 +4,14 @@ What changed in each release, in short. The full notes are on the
 [releases page](https://github.com/Forrest404/unidex/releases). To update, use
 https://tools.unidex.shop/ (Update keeps your settings and files).
 
+## Next release
+
+- **Time zones** ([#29](https://github.com/Forrest404/unidex/issues/29)): the device was London-only, so anywhere
+  else the clock and calendar events were off by an hour or more. Now it shows the time where you are. Settings >
+  Time zone picks one of 45 cities (summer time included); the Tools page and the Mac sync set it to your
+  computer's zone whenever they set the clock. The Clock's alarms and world times, the Timetable, and calendars
+  from the Tools page, the Mac and Settings > Sync all follow it. A new device, or one reset, is on London time.
+
 ## v1.14.1 (31 October 2026)
 
 - **Battery:** while charging, the % no longer sticks short of 100 (it could stay at about 84% for good on boards

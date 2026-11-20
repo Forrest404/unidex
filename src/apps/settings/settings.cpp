@@ -1,5 +1,5 @@
-// Settings: date and time, sync (the clock and the calendar link over WiFi), sleep, volume, alert sound, invert,
-// battery and info, reset data (one thing, or the whole device). Six rows a page.
+// Settings: date and time, time zone, sync (the clock and the calendar link over WiFi), sleep, volume, alert sound,
+// invert, battery and info, reset data (one thing, or the whole device). Six rows a page.
 // A = next row or field, B = change, open or clear, hold A = back (in the date editor: leave without saving).
 // Volume: B = louder, hold B = quieter, each with a chime at the new level.
 // Hold B in the list: set up from a phone (the phone portal, src/apps/notes/phone.cpp), then check what changed.
@@ -30,7 +30,9 @@ static const int SLEEP_CHOICES[] = {10, 20, 30, 60};
 static const int ROW_H = 22, PAGE_ROWS = 6;  // six rows fit above the hints
 
 enum Screen : uint8_t { LIST, DATETIME, INFO, RESET, CONFIRM, CONFIRM_AGAIN, VOLUME, PHONE, CHECK, SYNC };
-enum Row : uint8_t { DATE, SYNC_ROW, SLEEP, SAVER, VOLUME_ROW, ALERTS, RINGTONE, LANGUAGE, INVERT, INFO_ROW, RESET_ROW, ROWS };
+enum Row : uint8_t {
+  DATE, ZONE_ROW, SYNC_ROW, SLEEP, SAVER, VOLUME_ROW, ALERTS, RINGTONE, LANGUAGE, INVERT, INFO_ROW, RESET_ROW, ROWS
+};
 enum Reset : uint8_t { CALENDAR, PET_FRIENDS, EVERYTHING, FACTORY, RESETS };
 static const char *RESET_NAMES[] = {"Calendar", "Pet friends", "Everything", "Factory reset"};
 static const int RESET_ROW_H = 22;  // six rows fit above the hints
@@ -95,6 +97,7 @@ static void drawList() {
     const bool sel = cursor == row;
     switch (row) {
       case DATE: drawRow(i, sel, "Date & time", time); break;
+      case ZONE_ROW: drawRow(i, sel, "Time zone", clockZoneName()); break;
       case SYNC_ROW: drawRow(i, sel, "Sync", synced); break;
       case SLEEP: drawRow(i, sel, "Sleep after", sleep); break;
       case SAVER: drawRow(i, sel, "Battery saver", powerSaver() ? "on" : "off"); break;
@@ -119,7 +122,9 @@ static void drawList() {
       case RESET_ROW: drawRow(i, sel, "Reset data", ">"); break;
     }
   }
-  drawHints("next", cursor == SLEEP || cursor == SAVER || cursor == INVERT || cursor == ALERTS || cursor == RINGTONE || cursor == LANGUAGE ? "change" : "open", "phone");
+  const bool changes = cursor == ZONE_ROW || cursor == SLEEP || cursor == SAVER || cursor == INVERT || cursor == ALERTS ||
+                       cursor == RINGTONE || cursor == LANGUAGE;  // B changes the value in place; else opens a screen
+  drawHints("next", changes ? "change" : "open", "phone");
 }
 
 // Sync: the clock from the internet, then this week's events from the calendar link (src/apps/timetable/callink.h).
@@ -429,7 +434,7 @@ static void save() {
   t.tm_mday = value[DAY];
   t.tm_hour = value[HOUR];
   t.tm_min = value[MINUTE];
-  t.tm_isdst = -1;     // let the London rules decide GMT or BST
+  t.tm_isdst = -1;     // let the time zone's rules decide whether it's summer time
   clockSet(mktime(&t));  // local -> UTC; sets system time and the clock chip
 }
 
@@ -447,6 +452,10 @@ static Redraw onButton(Event e) {
         if (cursor == DATE) {
           startEditing();
           screen = DATETIME;
+        } else if (cursor == ZONE_ROW) {  // the next city in the list (tz::PRESETS, west to east), round to the first
+          const int i = tz::presetOf(clockZoneRule(), clockZoneName());
+          const tz::Preset &next = tz::PRESETS[i < 0 ? tz::LONDON : (i + 1) % tz::PRESET_COUNT];
+          clockSetZone(next.rule, next.name);
         } else if (cursor == SLEEP) {
           int now = powerSleepSeconds(), next = SLEEP_CHOICES[0];
           for (int i = 0; i < 3; i++)

@@ -6,9 +6,11 @@
 #include <map>
 #include <string>
 #include <vector>
+#include "../../core/zone_logic.h"
 
 // A calendar file (.ics) to the Timetable's event lines, for Settings > Sync's calendar link. It gives the same
-// lines as the Tools page (site/calendar.js, which uses ical.js): London time, today and the next 7 days, repeating
+// lines as the Tools page (site/calendar.js, which uses ical.js): the device's own time (its time zone, London unless
+// Settings or a computer says otherwise), today and the next 7 days, repeating
 // events, moved and cancelled ones. Fed one line at a time, so a big calendar never has to fit in memory; only the
 // events that can reach the window are kept. No Arduino in here, so tools/caltest checks it on a computer.
 namespace ics {
@@ -16,71 +18,15 @@ namespace ics {
 const int DAYS_AHEAD = 7, MAX_EVENTS = 64;
 const size_t MAX_LINE = 4096, MAX_TEXT = 2000;  // longer lines (attachments) and text are cut
 
-typedef long long Secs;  // seconds since 1970-01-01
-
-inline Secs floorDiv(Secs a, Secs b) { return a >= 0 ? a / b : -((-a + b - 1) / b); }
-
-// A day as a count from 1970-01-01 (Howard Hinnant's days_from_civil and civil_from_days).
-inline Secs daysFromCivil(Secs y, int m, int d) {
-  y -= m <= 2;
-  const Secs era = (y >= 0 ? y : y - 399) / 400;
-  const Secs yoe = y - era * 400;
-  const Secs doy = (153 * (m + (m > 2 ? -3 : 9)) + 2) / 5 + d - 1;
-  const Secs doe = yoe * 365 + yoe / 4 - yoe / 100 + doy;
-  return era * 146097 + doe - 719468;
-}
-
-inline void civilFromDays(Secs z, int &y, int &m, int &d) {
-  z += 719468;
-  const Secs era = (z >= 0 ? z : z - 146096) / 146097;
-  const Secs doe = z - era * 146097;
-  const Secs yoe = (doe - doe / 1460 + doe / 36524 - doe / 146096) / 365;
-  const Secs doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-  const Secs mp = (5 * doy + 2) / 153;
-  d = (int)(doy - (153 * mp + 2) / 5 + 1);
-  m = (int)(mp < 10 ? mp + 3 : mp - 9);
-  y = (int)(yoe + era * 400 + (m <= 2));
-}
-
-inline int weekday(Secs day) { return (int)(((day % 7) + 11) % 7); }  // 0 = Sunday (1970-01-01 was a Thursday)
-
-inline int daysInMonth(int y, int m) {
-  static const int DAYS[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
-  return DAYS[m - 1] + (m == 2 && ((y % 4 == 0 && y % 100 != 0) || y % 400 == 0));
-}
-
-// The nth `wday` of a month (nth < 0 counts from the end), or a day outside the month if there isn't one.
-inline Secs nthWeekday(int y, int m, int nth, int wday) {
-  if (nth > 0) {
-    const Secs first = daysFromCivil(y, m, 1);
-    return first + (wday - weekday(first) + 7) % 7 + (nth - 1) * 7;
-  }
-  const Secs last = daysFromCivil(y, m, daysInMonth(y, m));
-  return last - (weekday(last) - wday + 7) % 7 + (nth + 1) * 7;
-}
-
-// A time zone's yearly rule, from a VTIMEZONE (or built in: London, UTC). Offsets in seconds east of UTC.
-struct Change {
-  int month, nth, wday;
-  Secs at;  // local time of day the change happens, before it
-};
-struct Zone {
-  Secs std = 0, dst = 0;
-  bool hasDst = false;
-  Change toDst = Change(), toStd = Change();
-  bool inDst(Secs utc) const {
-    int y, m, d;
-    civilFromDays(floorDiv(utc, 86400), y, m, d);
-    const Secs start = nthWeekday(y, toDst.month, toDst.nth, toDst.wday) * 86400 + toDst.at - std;
-    const Secs end = nthWeekday(y, toStd.month, toStd.nth, toStd.wday) * 86400 + toStd.at - dst;
-    return start < end ? utc >= start && utc < end : utc >= start || utc < end;  // the south: summer over new year
-  }
-  Secs offsetAt(Secs utc) const { return hasDst && inDst(utc) ? dst : std; }
-  Secs toUtc(Secs local) const {
-    if (hasDst && inDst(local - dst)) return local - dst;
-    return local - std;
-  }
-};
+using tz::Secs;
+using tz::floorDiv;
+using tz::daysFromCivil;
+using tz::civilFromDays;
+using tz::weekday;
+using tz::daysInMonth;
+using tz::nthWeekday;
+using tz::Change;
+using tz::Zone;
 
 inline Zone london() {
   Zone z;
@@ -343,7 +289,8 @@ struct Line {
 
 class Reader {
  public:
-  explicit Reader(Secs nowUtc) : now(nowUtc) {
+  // `here`: the device's time zone (clockHomeZone()), which the lines are written in.
+  explicit Reader(Secs nowUtc, const Zone &here = london()) : now(nowUtc), home(here) {
     zones["Europe/London"] = london();
     zones["UTC"] = zones["Etc/UTC"] = zones["GMT"] = zones["Etc/GMT"] = Zone();
     nowDay = floorDiv(now, 86400);
@@ -361,14 +308,13 @@ class Reader {
     havePending = true;
   }
 
-  // The event lines for today and the next DAYS_AHEAD days (London), soonest first, at most MAX_EVENTS.
+  // The event lines for today and the next DAYS_AHEAD days (here), soonest first, at most MAX_EVENTS.
   std::vector<std::string> finish() {
     if (havePending) property(pending);
     havePending = false;
-    const Zone uk = london();
-    const Secs first = floorDiv(now + uk.offsetAt(now), 86400);
+    const Secs first = floorDiv(home.local(now), 86400);
     const Secs later = now + (Secs)DAYS_AHEAD * 86400;
-    const Secs last = floorDiv(later + uk.offsetAt(later), 86400);
+    const Secs last = floorDiv(home.local(later), 86400);
     std::vector<Line> out;
     for (const Event &ev : masters) {
       if (!ev.start.set || ev.cancelled) continue;
@@ -386,6 +332,7 @@ class Reader {
 
  private:
   Secs now, nowDay;
+  Zone home;
   std::string pending;
   bool havePending = false, sawCalendar = false;
   std::map<std::string, Zone> zones;
@@ -416,8 +363,7 @@ class Reader {
   const Zone &zoneFor(const std::string &tzid) const {
     auto it = zones.find(tzid);
     if (it != zones.end()) return it->second;
-    static const Zone uk = london();  // floating, or a zone the file doesn't describe: London
-    return uk;
+    return home;  // floating, or a zone the file doesn't describe: the device's own
   }
 
   Secs utcOf(const When &w) const {
@@ -702,9 +648,8 @@ class Reader {
         if (d >= first && d <= last) out.push_back({d * 86400, dayText(d) + ",," + fields});
       return;
     }
-    const Zone uk = london();
     const Secs s = utcOf(start), e2 = utcOf(end);
-    const Secs sl = s + uk.offsetAt(s), el = e2 + uk.offsetAt(e2);
+    const Secs sl = home.local(s), el = home.local(e2);
     const Secs day = floorDiv(sl, 86400);
     if (day < first || day > last) return;
     char times[16];

@@ -1,5 +1,5 @@
 // Checks Clock's sums on a computer (no board needed): the cities against this computer's time zone database,
-// alarms, presets and packing.
+// alarms (here in London, the default, and in Paris), presets and packing.
 //   c++ -std=c++17 -O2 -I src/apps/clock tools/clocktest/clock_test.cpp -o /tmp/clock_test && /tmp/clock_test
 #include <cstdio>
 #include <cstdlib>
@@ -84,33 +84,56 @@ int main() {
   check(!unpack(pack({true, 23, 59, ONCE})).repeat && unpack(pack({true, 23, 59, ONCE})).hour == 23, "23:59 once");
 
   // Next ring (London)
+  const tz::Zone uk = tz::zoneOf(tz::DEFAULT_RULE);
   const long long tue0900 = utcOf(2026, 10, 27, 9, 0);  // Tuesday 27 October 2026, 09:00 GMT
-  check(nextRing({true, 7, 0, DAILY}, tue0900) == utcOf(2026, 10, 28, 7, 0), "every day at 7:00: tomorrow");
-  check(nextRing({true, 9, 30, DAILY}, tue0900) == at(2026, 10, 27, 9, 30), "every day at 9:30: today");
-  check(nextRing({true, 9, 0, DAILY}, tue0900) == utcOf(2026, 10, 28, 9, 0), "this very minute: tomorrow's");
-  check(nextRing({true, 8, 0, WEEKENDS}, tue0900) == utcOf(2026, 10, 31, 8, 0), "weekends: Saturday");
+  check(nextRing({true, 7, 0, DAILY}, tue0900, uk) == utcOf(2026, 10, 28, 7, 0), "every day at 7:00: tomorrow");
+  check(nextRing({true, 9, 30, DAILY}, tue0900, uk) == at(2026, 10, 27, 9, 30), "every day at 9:30: today");
+  check(nextRing({true, 9, 0, DAILY}, tue0900, uk) == utcOf(2026, 10, 28, 9, 0), "this very minute: tomorrow's");
+  check(nextRing({true, 8, 0, WEEKENDS}, tue0900, uk) == utcOf(2026, 10, 31, 8, 0), "weekends: Saturday");
   const long long fri2300 = utcOf(2026, 10, 30, 23, 0);
-  check(nextRing({true, 7, 0, WEEKDAYS}, fri2300) == utcOf(2026, 11, 2, 7, 0), "weekdays from Friday night: Monday");
-  check(nextRing({true, 7, 0, ONCE}, fri2300) == utcOf(2026, 10, 31, 7, 0), "once: the next 7:00, any day");
+  check(nextRing({true, 7, 0, WEEKDAYS}, fri2300, uk) == utcOf(2026, 11, 2, 7, 0),
+        "weekdays from Friday night: Monday");
+  check(nextRing({true, 7, 0, ONCE}, fri2300, uk) == utcOf(2026, 10, 31, 7, 0), "once: the next 7:00, any day");
   // Summer time in London: 7:00 is still 7:00 on the clock (06:00 UTC)
-  check(nextRing({true, 7, 0, DAILY}, utcOf(2026, 6, 1, 12, 0)) == utcOf(2026, 6, 2, 6, 0), "7:00 BST is 06:00 UTC");
+  check(nextRing({true, 7, 0, DAILY}, utcOf(2026, 6, 1, 12, 0), uk) == utcOf(2026, 6, 2, 6, 0),
+        "7:00 BST is 06:00 UTC");
   // Across the change: Saturday 28 March 2026 GMT, then Sunday 29 March BST
-  check(nextRing({true, 7, 0, DAILY}, utcOf(2026, 3, 28, 12, 0)) == utcOf(2026, 3, 29, 6, 0),
+  check(nextRing({true, 7, 0, DAILY}, utcOf(2026, 3, 28, 12, 0), uk) == utcOf(2026, 3, 29, 6, 0),
         "the morning the clocks go forward: 7:00 BST");
-  check(nextRing({true, 1, 30, DAILY}, utcOf(2026, 3, 28, 12, 0)) == at(2026, 3, 29, 1, 30),
+  check(nextRing({true, 1, 30, DAILY}, utcOf(2026, 3, 28, 12, 0), uk) == at(2026, 3, 29, 1, 30),
         "1:30 doesn't happen that night: it rings at 2:30 BST");
-  check(nextRing({true, 1, 30, DAILY}, utcOf(2026, 10, 24, 12, 0)) == at(2026, 10, 25, 0, 30),
+  check(nextRing({true, 1, 30, DAILY}, utcOf(2026, 10, 24, 12, 0), uk) == at(2026, 10, 25, 0, 30),
         "1:30 happens twice when they go back: the first");
 
   // Words
-  check(whenWords(utcOf(2026, 10, 27, 18, 0), tue0900) == "today" &&
-            whenWords(utcOf(2026, 10, 28, 7, 0), tue0900) == "tomorrow" &&
-            whenWords(utcOf(2026, 10, 30, 7, 0), tue0900) == "Fri",
+  check(whenWords(utcOf(2026, 10, 27, 18, 0), tue0900, uk) == "today" &&
+            whenWords(utcOf(2026, 10, 28, 7, 0), tue0900, uk) == "tomorrow" &&
+            whenWords(utcOf(2026, 10, 30, 7, 0), tue0900, uk) == "Fri",
         "today, tomorrow, Fri");
-  check(difference(CITIES[21], tue0900) == "+9 h" && difference(CITIES[5], tue0900) == "-4 h" &&
-            difference(CITIES[16], tue0900) == "+5:30" && difference(CITIES[7], tue0900) == "same",
+  check(difference(CITIES[21], tue0900, uk) == "+9 h" && difference(CITIES[5], tue0900, uk) == "-4 h" &&
+            difference(CITIES[16], tue0900, uk) == "+5:30" && difference(CITIES[7], tue0900, uk) == "same",
         "differences from London: Tokyo, New York (still on summer time), Delhi, London");
-  check(difference(CITIES[5], utcOf(2026, 11, 10, 12, 0)) == "-5 h", "New York is 5 h behind once its clocks go back too");
+  check(difference(CITIES[5], utcOf(2026, 11, 10, 12, 0), uk) == "-5 h",
+        "New York is 5 h behind once its clocks go back too");
+  // Here in Paris (issue #29): an hour ahead of London all year
+  const tz::Zone paris = tz::zoneOf("CET-1CEST,M3.5.0,M10.5.0/3");
+  check(nextRing({true, 7, 0, DAILY}, utcOf(2026, 11, 13, 12, 0), paris) == utcOf(2026, 11, 14, 6, 0),
+        "Paris: 7:00 in November is 06:00 UTC");
+  check(nextRing({true, 7, 0, DAILY}, utcOf(2026, 6, 1, 12, 0), paris) == utcOf(2026, 6, 2, 5, 0),
+        "Paris: 7:00 in June is 05:00 UTC");
+  check(nextRing({true, 2, 30, DAILY}, utcOf(2026, 3, 28, 12, 0), paris) == at(2026, 3, 29, 1, 30),
+        "Paris: 2:30 doesn't happen on 29 March: it rings at 3:30");
+  check(nextRing({true, 18, 0, ONCE}, at(2026, 11, 13, 16, 30), paris) == utcOf(2026, 11, 13, 17, 0),
+        "Paris: 18:00 today, asked at 17:30 there: in half an hour");
+  check(whenWords(at(2026, 11, 13, 23, 30), utcOf(2026, 11, 13, 12, 0), paris) == "tomorrow" &&
+            whenWords(at(2026, 11, 13, 23, 30), utcOf(2026, 11, 13, 12, 0), uk) == "today",
+        "23:30 UTC is tomorrow in Paris, today in London");
+  check(difference(CITIES[7], utcOf(2026, 11, 13, 12, 0), paris) == "-1 h" &&
+            difference(CITIES[9], utcOf(2026, 11, 13, 12, 0), paris) == "same" &&
+            difference(CITIES[21], utcOf(2026, 11, 13, 12, 0), paris) == "+8 h",
+        "differences from Paris: London -1 h, Berlin same, Tokyo +8 h");
+  const Local issue = localIn(paris, at(2026, 11, 13, 17, 57));
+  check(issue.hour == 18 && issue.minute == 57, "17:57 UTC is 18:57 on a Paris clock");
   check(hhmm(7, 5) == "7:05" && hhmm(18, 30) == "18:30", "times");
 
   printf(failures ? "\n%d check(s) failed\n" : "\nall checks passed\n", failures);
